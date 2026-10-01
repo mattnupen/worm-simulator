@@ -1,6 +1,6 @@
 import type { Vec2 } from '../core/vec';
 
-/** Everything gameplay is allowed to know about input. move.y = forward, move.x = turn right. */
+/** Everything gameplay is allowed to know about input. move.y = forward, move.x = turn right. action/wormView/pause are held levels, not presses; consumers do their own edge detection. */
 export interface Commands { move: Vec2; action: boolean; wormView: boolean; pause: boolean }
 
 export const NO_COMMANDS: Commands = Object.freeze({
@@ -30,10 +30,10 @@ export function dragToMove(dx: number, dy: number, radius: number): Vec2 {
   let y = -dy / radius;
   const m = Math.hypot(x, y);
   if (m < DEAD_ZONE) return { x: 0, y: 0 };
-  if (m > 1) {
-    x /= m;
-    y /= m;
-  }
+  const k = Math.min(m, 1);
+  const scaled = (k - DEAD_ZONE) / (1 - DEAD_ZONE);
+  x = (x / m) * scaled;
+  y = (y / m) * scaled;
   return { x: x + 0, y: y + 0 }; // + 0 turns -0 into 0
 }
 

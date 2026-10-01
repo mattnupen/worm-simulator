@@ -8,16 +8,19 @@ export class TouchJoystick {
   private readonly knob: HTMLDivElement;
   private pointerId: number | null = null;
 
-  constructor(parent: HTMLElement, private readonly radius = 60) {
+  constructor(parent: HTMLElement, private readonly radius = 42) {
     this.el = document.createElement('div');
     this.el.className = 'joystick';
     this.el.setAttribute('aria-hidden', 'true');
+    this.el.style.touchAction = 'none';
+    this.el.style.userSelect = 'none';
     this.knob = document.createElement('div');
     this.knob.className = 'joystick-knob';
     this.el.appendChild(this.knob);
     parent.appendChild(this.el);
 
     this.el.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || this.pointerId !== null) return;
       this.pointerId = e.pointerId;
       this.el.setPointerCapture(e.pointerId);
       this.track(e);
@@ -33,6 +36,8 @@ export class TouchJoystick {
     };
     this.el.addEventListener('pointerup', release);
     this.el.addEventListener('pointercancel', release);
+    this.el.addEventListener('lostpointercapture', release);
+    this.el.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
   private track(e: PointerEvent): void {

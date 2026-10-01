@@ -35,6 +35,11 @@ describe('dragToMove', () => {
   it('ignores tiny drags (dead zone)', () => {
     expect(dragToMove(3, 3, 60)).toEqual({ x: 0, y: 0 });
   });
+  it('ramps smoothly from the dead zone edge', () => {
+    const m = dragToMove(0, -0.13 * 60, 60);
+    expect(m.y).toBeGreaterThan(0);
+    expect(m.y).toBeLessThan(0.05);
+  });
 });
 
 describe('mergeCommands', () => {
