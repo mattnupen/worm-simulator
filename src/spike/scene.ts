@@ -5,6 +5,7 @@ import { buildTerrain } from '../surface/terrainMesh';
 import { buildForestTrees } from '../surface/forestTrees';
 import { buildDistantTrees } from '../surface/distantTrees';
 import { buildLeafLitter, type LeafLitter } from '../surface/leafLitterMesh';
+import { buildGroundProps, writeHeroLog, type GroundProps } from '../surface/groundProps';
 import { HeroWorm } from '../worm/wormMesh';
 
 export { WORLD_HALF } from '../surface/terrain';
@@ -15,6 +16,8 @@ export interface SpikeScene {
   leaves: LeafLitter;
   /** Continuous tube body plus its contact shadow. */
   worm: HeroWorm;
+  /** Rocks and ground clutter; `setDensity` trims the clutter. */
+  props: GroundProps;
   /** Light shafts and dust motes; hidden on low quality tiers. */
   atmosphere: THREE.Group;
   totalLeaves: number;
@@ -24,18 +27,19 @@ export interface SpikeScene {
 export function buildScene(leafCount: number, wormSegments: number): SpikeScene {
   const scene = new THREE.Scene();
   const leaves = buildLeafLitter(leafCount);
+  const props = buildGroundProps();
   const atmosphere = buildAtmosphere();
 
   // The hero worm: no eyes (spec 8.3); it is posed from the simulated spine every frame.
   const worm = new HeroWorm(wormSegments);
 
   // The ground fills most of the screen: draw it after everything that sits on it, so the
-  // depth test skips ground pixels already covered by leaves and trunks.
+  // depth test skips ground pixels already covered by leaves, props and trunks.
   const terrain = buildTerrain();
   terrain.renderOrder = 5;
   scene.add(
-    terrain, buildForestTrees(), buildDistantTrees(), leaves.mesh, worm.group,
+    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), leaves.mesh, props.mesh, worm.group,
     buildSky(), atmosphere,
   );
-  return { scene, leaves, worm, atmosphere, totalLeaves: leafCount };
+  return { scene, leaves, props, worm, atmosphere, totalLeaves: leafCount };
 }
