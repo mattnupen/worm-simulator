@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createPaintedMaterial } from '../render/paintedMaterial';
 import { buildSky } from '../render/sky';
+import { buildAtmosphere } from '../render/atmosphere';
 import { buildTerrain } from '../surface/terrainMesh';
 import { buildForestTrees } from '../surface/forestTrees';
 import { buildDistantTrees } from '../surface/distantTrees';
@@ -12,6 +13,8 @@ export interface SpikeScene {
   scene: THREE.Scene;
   leaves: THREE.InstancedMesh;
   worm: THREE.InstancedMesh;
+  /** Light shafts and dust motes; hidden on low quality tiers. */
+  atmosphere: THREE.Group;
   totalLeaves: number;
 }
 
@@ -19,6 +22,7 @@ export interface SpikeScene {
 export function buildScene(leafCount: number, wormSegments: number): SpikeScene {
   const scene = new THREE.Scene();
   const leaves = buildLeafLitter(leafCount);
+  const atmosphere = buildAtmosphere();
 
   // Worm: one instanced sphere per segment. No eyes (spec 8.3).
   const worm = new THREE.InstancedMesh(
@@ -28,6 +32,6 @@ export function buildScene(leafCount: number, wormSegments: number): SpikeScene 
   );
   worm.frustumCulled = false;
 
-  scene.add(buildTerrain(), buildForestTrees(), buildDistantTrees(), leaves, worm, buildSky());
-  return { scene, leaves, worm, totalLeaves: leafCount };
+  scene.add(buildTerrain(), buildForestTrees(), buildDistantTrees(), leaves, worm, buildSky(), atmosphere);
+  return { scene, leaves, worm, atmosphere, totalLeaves: leafCount };
 }

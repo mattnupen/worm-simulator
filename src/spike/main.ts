@@ -86,6 +86,7 @@ function applyTier(i: number): void {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1) * t.resolutionScale);
   setRimLight(t.rimLight);
   world.leaves.count = Math.floor(world.totalLeaves * t.leafDensity);
+  world.atmosphere.visible = t.rimLight;
   updateResolution();
 }
 
