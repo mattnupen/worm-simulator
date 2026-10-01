@@ -76,4 +76,18 @@ describe('advance', () => {
     const r = advance(s, STEP * 1.5, STEP, 0);
     expect(r.alpha).toBeCloseTo(0.5, 6);
   });
+
+  it('never renders on back-to-back 60 Hz frames after a hitch', () => {
+    const s = createStepper();
+    advance(s, STEP, STEP, CAP30);
+    advance(s, STEP, STEP, CAP30);
+    const hitchRender = advance(s, 100, STEP, CAP30).render;
+    const renders = [hitchRender];
+    for (let i = 0; i < 6; i++) {
+      renders.push(advance(s, STEP, STEP, CAP30).render);
+    }
+    for (let i = 0; i < renders.length - 1; i++) {
+      expect(!(renders[i] && renders[i + 1])).toBe(true);
+    }
+  });
 });

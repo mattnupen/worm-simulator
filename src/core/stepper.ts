@@ -2,6 +2,7 @@ export interface StepperState { accumulator: number; sinceRender: number }
 
 const MAX_ELAPSED_MS = 250;
 const RENDER_TOLERANCE_MS = 1;
+const MAX_CARRY_FRACTION = 0.25;
 
 export function createStepper(): StepperState {
   return { accumulator: 0, sinceRender: 0 };
@@ -29,7 +30,8 @@ export function advance(
   }
   if (steps === maxSteps) s.accumulator = 0;
   const render = s.sinceRender >= minFrameMs - RENDER_TOLERANCE_MS;
-  if (render) s.sinceRender = minFrameMs > 0 ? Math.min(s.sinceRender - minFrameMs, minFrameMs) : 0;
+  // Carry jitter overshoot to maintain target average frame rate, but cap it to prevent render bursts after hitches.
+  if (render) s.sinceRender = minFrameMs > 0 ? Math.min(s.sinceRender - minFrameMs, minFrameMs * MAX_CARRY_FRACTION) : 0;
   const alpha = s.accumulator / stepMs;
   return { steps, render, alpha };
 }
