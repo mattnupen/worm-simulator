@@ -97,6 +97,8 @@ function run(renderer: THREE.WebGLRenderer): void {
   let cam = createFollowCam(motion.head, motion.heading, CAM_OPTS);
   let mode: 'idle' | 'testing' | 'free' = 'idle';
   let test: SpeedTest | null = null;
+  /** The real verdict and report once a test finishes, so a later graphics reset cannot lose them. */
+  let finished: { text: string; pass: boolean } | null = null;
   const wave: WaveState = { phase: 0, activity: 0 };
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
   const drawSize = new THREE.Vector2();
@@ -204,10 +206,11 @@ function run(renderer: THREE.WebGLRenderer): void {
     mode = 'free';
     loop.setMaxFps(30);
     const { full, auto } = test!.results;
-    ui.showResult(
-      formatResults(full, auto, quality.tier, params.leaves, deviceInfo(), test!.restarts),
-      verdict(auto) === 'PASS',
-    );
+    finished = {
+      text: formatResults(full, auto, quality.tier, params.leaves, deviceInfo(), test!.restarts),
+      pass: verdict(auto) === 'PASS',
+    };
+    ui.showResult(finished.text, finished.pass);
   }
 
   function render(now: number, alpha: number): void {
@@ -266,8 +269,10 @@ function run(renderer: THREE.WebGLRenderer): void {
     if (mode === 'testing') {
       mode = 'free';
       ui.showResult(formatContextLostResults(basicDeviceInfo()), false, false, RESET_NOTE);
-    } else if (mode !== 'free' || ui.isDriving()) {
-      // Not testing. Finished results on screen are worth more than this message, so keep them.
+    } else if (finished) {
+      // The test already finished: the real verdict and report matter more than the reset.
+      ui.showResult(finished.text, finished.pass, false, RESET_NOTE);
+    } else {
       ui.showResult(
         'The graphics system reset (WebGL context lost).\nPlease reload this page to try again.',
         false, false, RESET_NOTE,

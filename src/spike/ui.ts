@@ -4,8 +4,10 @@ export interface SpikeUi {
   showStart(onStart: () => void): void;
   /** step/steps (1-based) drive the small progress pips; omit them to hide the pips. */
   showRunning(label: string, step?: number, steps?: number): void;
-  /** `canDrive` false hides "Try driving the worm" (e.g. when there is no 3D to drive). */
-  /** `summary` replaces the default sentence under PASS or FAIL. */
+  /**
+   * `canDrive` false hides "Try driving the worm" (e.g. when there is no 3D to drive).
+   * `summary` replaces the default sentence under PASS or FAIL.
+   */
   showResult(text: string, pass: boolean, canDrive?: boolean, summary?: string): void;
   /** True while the free-drive card is showing, so the worm should obey keys and joystick. */
   isDriving(): boolean;
