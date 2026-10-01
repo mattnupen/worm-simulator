@@ -39,7 +39,7 @@ export function radiusProfile(t: number): number {
  */
 export function bodyRadius(t: number): number {
   const tc = clamp01(t);
-  const grow = 0.8 + 0.2 * smoothstep(0, THICKEST, tc);
+  const grow = 0.84 + 0.16 * smoothstep(0, THICKEST, tc);
   const taper = 1 - 0.34 * smoothstep(THICKEST, 1, tc);
   return grow * taper;
 }
@@ -90,7 +90,8 @@ export function peristalsis(
   const tau = 2 * Math.PI;
   for (let i = 0; i < n; i++) {
     const mi = m[i];
-    const env = smoothstep(0, 0.16, mi) * (1 - smoothstep(0.8, 1, mi));
+    // Long ramp at the head, so the swell never starts abruptly behind the narrow prostomium.
+    const env = smoothstep(0.05, 0.3, mi) * (1 - smoothstep(0.8, 1, mi));
     outS[i] = mi + (amplitude * env * Math.sin(tau * (waves * mi - phase))) / (tau * waves);
   }
   for (let i = 0; i < n; i++) {

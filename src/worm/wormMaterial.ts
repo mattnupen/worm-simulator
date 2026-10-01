@@ -79,6 +79,8 @@ const fragmentShader = /* glsl */ `
     float a = m * uAnnuli;
     float detail = 1.0 - smoothstep(0.14, 0.36, fwidth(a));
     float furrow = smoothstep(0.55, 1.0, cos(TAU * a)) * detail;
+    // The glints use a gentler ring tilt, so they run as streaks instead of one dot per annulus.
+    vec3 nSmooth = normalize(n - tg * (sin(TAU * a) * 0.03 * detail));
     n = normalize(n - tg * (sin(TAU * a) * 0.16 * detail));
 
     // Skin strokes ride on the body (so they never swim); dapple comes from the world.
@@ -108,18 +110,20 @@ const fragmentShader = /* glsl */ `
     float back = max(dot(-v, uLightDir), 0.0);
     lit += uSss * uLightColor * (wrap * 0.3 + back * back * edge * edge * 0.7) * dapple;
 
-    // Wet sheen: a crisp painted glint plus a broad soft one, patchy with moisture.
+    // Wet sheen: a crisp painted glint plus a broad soft one. Moisture comes in patches that
+    // ride on the body, so the glints cluster into soft wet streaks.
     vec3 h = normalize(uLightDir + v);
-    float ndh = max(dot(n, h), 0.0);
+    float ndh = max(dot(nSmooth, h), 0.0);
     float lightOn = smoothstep(-0.05, 0.25, ndl) * dapple;
-    float tight = smoothstep(0.45, 0.85, pow(ndh, 64.0)) * (0.45 + 0.55 * detail);
-    float broad = pow(ndh, 16.0);
-    float wet = 0.7 + 0.6 * sk.b;
+    float moist = smoothstep(0.3, 0.7, sk.g * 0.75 + sk.r * 0.25);
+    float tight = smoothstep(0.35, 0.9, pow(ndh, 64.0)) * mix(0.15, 1.0, moist);
+    float broad = pow(max(dot(n, h), 0.0), 16.0);
+    float wet = 0.65 + 0.5 * moist + 0.2 * sk.b;
     lit += uLightColor * (tight * 0.7 + broad * 0.2) * lightOn * wet;
     // Moist skin mirrors the bright canopy sky: a soft sheen that slides over the annuli,
     // stronger at grazing angles.
     float fres = 1.0 - max(dot(n, v), 0.0);
-    vec3 rv = reflect(-v, n);
+    vec3 rv = reflect(-v, nSmooth);
     float skyGlint = smoothstep(0.35, 0.85, rv.y) * (0.06 + 0.3 * fres * fres);
     lit += (uSkyColor + uLightColor * 0.3) * skyGlint * wet;
 

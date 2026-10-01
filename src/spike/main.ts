@@ -29,7 +29,7 @@ const CAM_DISTANCE = 2.6;
 const CAM_HEIGHT = 1.1;
 /** The camera aims a little ahead of the head, so the worm sits low in frame and the forest looms. */
 const LOOK_AHEAD = 1.0;
-const LOOK_UP = 0.4;
+const LOOK_UP = 0.6;
 const AUTO_DRIVE: Commands = { ...NO_COMMANDS, move: { x: 0.35, y: 1 } };
 const MAX_NECK_BEND = 1.3;
 /** Slow resting "breath" of the contraction wave, in waves per second. */
