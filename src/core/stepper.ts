@@ -17,8 +17,9 @@ export function advance(
   stepMs: number,
   minFrameMs: number,
   maxSteps = 5,
-): { steps: number; render: boolean } {
-  const dt = Math.min(Math.max(elapsedMs, 0), MAX_ELAPSED_MS);
+): { steps: number; render: boolean; alpha: number } {
+  const raw = Number.isFinite(elapsedMs) ? elapsedMs : 0;
+  const dt = Math.min(Math.max(raw, 0), MAX_ELAPSED_MS);
   s.accumulator += dt;
   s.sinceRender += dt;
   let steps = 0;
@@ -28,6 +29,7 @@ export function advance(
   }
   if (steps === maxSteps) s.accumulator = 0;
   const render = s.sinceRender >= minFrameMs - RENDER_TOLERANCE_MS;
-  if (render) s.sinceRender = 0;
-  return { steps, render };
+  if (render) s.sinceRender = minFrameMs > 0 ? Math.min(s.sinceRender - minFrameMs, minFrameMs) : 0;
+  const alpha = s.accumulator / stepMs;
+  return { steps, render, alpha };
 }

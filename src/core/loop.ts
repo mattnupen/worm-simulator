@@ -8,7 +8,7 @@ export interface LoopHandle {
 
 export function startLoop(
   update: (dtSec: number) => void,
-  render: (nowMs: number) => void,
+  render: (nowMs: number, alpha: number) => void,
   opts: { stepHz?: number; maxFps?: number } = {},
 ): LoopHandle {
   const stepMs = 1000 / (opts.stepHz ?? 60);
@@ -23,8 +23,8 @@ export function startLoop(
     const r = advance(state, now - last, stepMs, minFrameMs);
     last = now;
     for (let i = 0; i < r.steps; i++) update(stepMs / 1000);
-    if (r.render) render(now);
-    id = requestAnimationFrame(frame);
+    if (r.render) render(now, r.alpha);
+    if (running) id = requestAnimationFrame(frame);
   };
   id = requestAnimationFrame(frame);
 
