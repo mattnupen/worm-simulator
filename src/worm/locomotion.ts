@@ -1,7 +1,7 @@
 import type { Vec2, Vec3 } from '../core/vec';
 
 export interface WormMotion { head: Vec3; heading: number }
-export interface LocomotionOptions { speed: number; turnRate: number; halfSize: number; minTurnRadius?: number }
+export interface LocomotionOptions { speed: number; turnRate: number; halfSize: number; minTurnRadius?: number; pivotZone?: number }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -9,10 +9,17 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
  * Limits heading change to prevent the worm from coiling into its own body.
  * When moving forward, the turn radius is constrained: |delta heading| <= forward distance / minTurnRadius.
  * When turning in place (dist === 0), the turn is unlimited.
+ * Near-sideways stick input pivots instead of creeping with a near-zero turn rate.
  * move.y = forward/back, move.x = turn right/left. Returns a new motion.
  */
 export function stepWorm(m: WormMotion, move: Vec2, dt: number, o: LocomotionOptions): WormMotion {
-  const forward = move.y >= 0 ? move.y : move.y * 0.5;
+  let forward = move.y >= 0 ? move.y : move.y * 0.5;
+
+  // Pivot zone: if |move.y| < pivotZone, treat forward as 0 for this step
+  if (Math.abs(move.y) < (o.pivotZone ?? 0)) {
+    forward = 0;
+  }
+
   const dist = forward * o.speed * dt;
   let deltaHeading = -move.x * o.turnRate * dt;
 
@@ -49,9 +56,9 @@ export function clampToNeck(heading: number, head: Vec3, neck: Vec3, maxBend: nu
   // Neck direction: atan2(head.x - neck.x, head.z - neck.z)
   const neckDir = Math.atan2(dx, dz);
 
-  // Compute wrapped difference in (-π, π]
+  // Compute wrapped difference in (-π, π] using wrap-safe multi-turn formula
   let diff = heading - neckDir;
-  diff = diff > Math.PI ? diff - 2 * Math.PI : diff <= -Math.PI ? diff + 2 * Math.PI : diff;
+  diff = diff - 2 * Math.PI * Math.round(diff / (2 * Math.PI));
 
   // Clamp the difference
   const clampedDiff = clamp(diff, -maxBend, maxBend);

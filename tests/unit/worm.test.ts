@@ -55,7 +55,7 @@ describe('stepWorm', () => {
   });
   it('min turn radius limits steering while moving', () => {
     const m = stepWorm(start, { x: 1, y: 1 }, 0.1, { ...OPTS, turnRate: 5, minTurnRadius: 1 });
-    expect(Math.abs(m.heading - start.heading)).toBeLessThanOrEqual(0.2 + 1e-9);
+    expect(m.heading - start.heading).toBeCloseTo(-0.2, 9);
   });
   it('min turn radius keeps a body from coiling', () => {
     const body = createBody(16, 0.22, { x: 0, y: 0, z: 0 }, 0);
@@ -73,6 +73,11 @@ describe('stepWorm', () => {
     }
     expect(minDist).toBeGreaterThan(0.3);
   });
+  it('pivot zone: turns in place with no forward movement', () => {
+    const m = stepWorm(start, { x: 1, y: 0.05 }, 0.5, { ...OPTS, minTurnRadius: 1, pivotZone: 0.15 });
+    expect(m.head).toEqual(start.head);
+    expect(m.heading).toBeCloseTo(-1, 9);
+  });
 });
 
 describe('clampToNeck', () => {
@@ -81,8 +86,8 @@ describe('clampToNeck', () => {
     expect(result).toBeCloseTo(0.5);
   });
   it('clamps heading past the limit', () => {
-    const result = clampToNeck(Math.PI, { x: 0, y: 0, z: 0.22 }, { x: 0, y: 0, z: 0 }, 1.3);
-    expect(Math.abs(result)).toBeCloseTo(1.3, 1);
+    const result = clampToNeck(Math.PI / 2, { x: 0, y: 0, z: 0.22 }, { x: 0, y: 0, z: 0 }, 1.3);
+    expect(result).toBeCloseTo(1.3, 9);
   });
   it('handles angle wrap correctly', () => {
     const result = clampToNeck(2 * Math.PI + 0.1, { x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: 0 }, 1.3);
@@ -91,5 +96,21 @@ describe('clampToNeck', () => {
   it('returns heading unchanged when head and neck coincide', () => {
     const result = clampToNeck(0.5, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, 1.3);
     expect(result).toBeCloseTo(0.5);
+  });
+  it('wrap-safe: multi-turn heading unchanged (6π + 0.1)', () => {
+    const result = clampToNeck(6 * Math.PI + 0.1, { x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: 0 }, 1.3);
+    expect(result).toBeCloseTo(6 * Math.PI + 0.1, 9);
+  });
+  it('wrap-safe: large negative heading clamped correctly', () => {
+    const heading = -16;
+    const head = { x: 0, y: 0, z: 1 };
+    const neck = { x: 0, y: 0, z: 0 };
+    const maxBend = 1.3;
+    const result = clampToNeck(heading, head, neck, maxBend);
+    // Wrapped diff: -16 + 6π ≈ 2.8496; clamped to 1.3; result = -16 - (2.8496 - 1.3)
+    const expectedDiff = -16 - 2 * Math.PI * Math.round(-16 / (2 * Math.PI));
+    const clampedDiff = Math.max(-maxBend, Math.min(maxBend, expectedDiff));
+    const expected = heading - (expectedDiff - clampedDiff);
+    expect(result).toBeCloseTo(expected, 9);
   });
 });
