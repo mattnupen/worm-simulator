@@ -120,7 +120,10 @@ const fragmentShader = /* glsl */ `
     // a line of even width that tapers toward the margin. Fades out before it can alias.
     float lc = (vLeaf.y - abs(vLeaf.x) * 0.85) * 11.0;
     vec2 fws = fwidth(vec2(vLeaf.w, lc));
-    float fw = fws.x;
+    // Guard against equal smoothstep edges (undefined in GLSL) where a triangle has a
+    // constant vein weight (fwidth 0, e.g. the petiole). w > 0 always, and lw >= 0 keeps the
+    // lateral-vein edges below apart.
+    float fw = max(fws.x, 1e-3);
     float lw = fws.y;
     float w = 0.11 * (1.25 - vLeaf.z) * (0.3 + 0.7 * smoothstep(0.0, 0.3, vLeaf.z));
     float vein = smoothstep(1.0 - w - fw, 1.0 - w + fw, vLeaf.w) * clamp(w / (fw * 2.5 + 1e-4) - 0.4, 0.0, 1.0);

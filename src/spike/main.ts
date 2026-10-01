@@ -56,7 +56,10 @@ const app = document.getElementById('app')!;
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 app.appendChild(renderer.domElement);
-const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 120);
+// Near plane 0.2 (not 0.1) doubles depth precision for the thin, layered leaf litter. The
+// camera stays >= CAM_GROUND_MARGIN (0.5) above the ground and 2.6 behind the worm, so
+// nothing it normally looks at comes within 0.2 of the lens.
+const camera = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
 const world = buildScene(params.leaves, WORM_SEGMENTS);
 
 const keyboard = new KeyboardInput();
