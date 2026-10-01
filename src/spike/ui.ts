@@ -5,7 +5,8 @@ export interface SpikeUi {
   /** step/steps (1-based) drive the small progress pips; omit them to hide the pips. */
   showRunning(label: string, step?: number, steps?: number): void;
   /** `canDrive` false hides "Try driving the worm" (e.g. when there is no 3D to drive). */
-  showResult(text: string, pass: boolean, canDrive?: boolean): void;
+  /** `summary` replaces the default sentence under PASS or FAIL. */
+  showResult(text: string, pass: boolean, canDrive?: boolean, summary?: string): void;
   /** True while the free-drive card is showing, so the worm should obey keys and joystick. */
   isDriving(): boolean;
   setFps(fps: number, tier: number): void;
@@ -120,16 +121,16 @@ export function createUi(root: HTMLElement): SpikeUi {
       children.push(el('p', 'Please wait. Hands off!', 'wait'));
       panel.replaceChildren(...children);
     },
-    showResult(text, pass, canDrive = true) {
+    showResult(text, pass, canDrive = true, summary) {
       setState('result');
       lastResult = { text, pass };
       const verdict = el('div', '', `verdict ${pass ? 'pass' : 'fail'}`);
       const words = el('div', '', 'verdict-words');
       words.append(
         el('h1', pass ? 'PASS' : 'FAIL', 'verdict-title'),
-        el('p', pass
+        el('p', summary ?? (pass
           ? 'This computer runs the forest smoothly.'
-          : 'This computer had trouble keeping up. Please share these results with your teacher.',
+          : 'This computer had trouble keeping up. Please share these results with your teacher.'),
         'verdict-note'),
       );
       verdict.append(icon(pass ? 'pass' : 'fail', 'verdict-icon'), words);

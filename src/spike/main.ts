@@ -62,13 +62,16 @@ function basicDeviceInfo(): Omit<DeviceInfo, 'gpu'> {
   };
 }
 
+const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
+
 let renderer: THREE.WebGLRenderer | null = null;
 try {
   renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 } catch (e) {
   // Three r186 needs WebGL 2 and throws without it. That is a FAIL worth reporting, not a blank page.
   const reason = e instanceof Error ? e.message : String(e);
-  ui.showResult(formatNoWebGLResults(basicDeviceInfo(), reason), false, false);
+  ui.showResult(formatNoWebGLResults(basicDeviceInfo(), reason), false, false,
+    'This computer could not start the 3D graphics.');
 }
 if (renderer) run(renderer);
 
@@ -262,12 +265,12 @@ function run(renderer: THREE.WebGLRenderer): void {
     loop.stop();
     if (mode === 'testing') {
       mode = 'free';
-      ui.showResult(formatContextLostResults(basicDeviceInfo()), false, false);
+      ui.showResult(formatContextLostResults(basicDeviceInfo()), false, false, RESET_NOTE);
     } else if (mode !== 'free' || ui.isDriving()) {
       // Not testing. Finished results on screen are worth more than this message, so keep them.
       ui.showResult(
         'The graphics system reset (WebGL context lost).\nPlease reload this page to try again.',
-        false, false,
+        false, false, RESET_NOTE,
       );
     }
   });
