@@ -7,7 +7,7 @@ Status: Approved in brainstorming, awaiting written-spec review
 
 Students play an invasive earthworm in a northern Minnesota forest. They find food, dodge predators and survive the seasons. The better they do, the more the forest changes. Minnesota's forests grew for about 11,000 years with no earthworms, so every earthworm here is an invader. The player's success and the forest's original community pull in opposite directions, and that tension is the lesson.
 
-**Audience:** 6th graders in Matt's Outdoor Education classes at Ordean, Duluth.
+**Audience:** 6th graders in Matt's Outdoor Education classes in northern Minnesota.
 **Class use:** one 15 to 25 minute play block, then a class discussion. One chapter fits about one period.
 **Learning goals (ranked equally):**
 - **Worms change the whole forest:** less leaf litter, fewer trillium, ferns and seedlings, fewer fungus partners and ground-nesting birds, and more of species like sedge.
@@ -19,7 +19,7 @@ Students play an invasive earthworm in a northern Minnesota forest. They find fo
 
 **In:** Chapter 1 (leaf-litter worm, 3D forest floor), Chapter 2 (angle worm, side-view underground), the forest change screen with talking neighbors, Worm View, free play after Chapter 2, the full accessibility set in section 7, local save plus save code, single-file build.
 
-**Out (planned later):** Chapter 3 (nightcrawler), Chapter 4 (jumping worm), teacher tools (teacher key, projector mode, discussion prompts), field-lab tie-in (mustard pour), playable native creatures, invasion map / Duluth regional view, remappable keys, separate volume sliders, picture glossary.
+**Out (planned later):** Chapter 3 (nightcrawler), Chapter 4 (jumping worm), teacher tools (teacher key, projector mode, discussion prompts), field-lab tie-in (mustard pour), playable native creatures, invasion map / northern Minnesota regional view, remappable keys, separate volume sliders, picture glossary.
 
 ## 3. Game design
 
