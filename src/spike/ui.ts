@@ -58,13 +58,25 @@ export function createUi(root: HTMLElement): SpikeUi {
     panel.hidden = false;
   }
 
+  function backToResults(): void {
+    if (lastResult) ui.showResult(lastResult.text, lastResult.pass);
+  }
+
+  // Escape returns to the results, but only while free driving.
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.repeat || panel.dataset.state !== 'free' || !lastResult) return;
+    e.preventDefault();
+    backToResults();
+  });
+
   function showFree(): void {
     setState('free');
-    const back = button('Back to results', 'back', 'secondary', () => {
-      if (lastResult) ui.showResult(lastResult.text, lastResult.pass);
-    });
+    const back = button('Back to results', 'back', 'secondary', backToResults);
     const hint = el('p', '', 'hint');
-    hint.append(icon('drive', 'hint-icon'), el('span', 'Crawl with the arrow keys, W A S D, or the joystick.'));
+    hint.append(
+      icon('drive', 'hint-icon'),
+      el('span', 'Crawl with the arrow keys, W A S D, or the joystick. Press Esc or the button to go back.'),
+    );
     panel.replaceChildren(hint, back.el);
     // The "Try driving" button just vanished: keep focus in the panel rather than lost on <body>.
     // Not on a button, so Space and Enter (worm keys) cannot press anything by accident.
@@ -125,6 +137,8 @@ export function createUi(root: HTMLElement): SpikeUi {
       pre.tabIndex = 0;
       pre.setAttribute('role', 'region');
       pre.setAttribute('aria-label', 'Full results');
+      // Keep arrow keys and Space here: the browser scrolls the report and the worm stays put.
+      pre.addEventListener('keydown', (e) => e.stopPropagation());
 
       const copy = button('Copy results', 'copy', 'primary', async () => {
         try {
