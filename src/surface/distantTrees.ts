@@ -17,14 +17,40 @@ function colored(g: THREE.BufferGeometry, hex: string): THREE.BufferGeometry {
   return geo;
 }
 
-/** One low-detail tree: a tapered trunk and three faceted crown blobs (~70 triangles). */
+const CROWN_CENTRE = new THREE.Vector3(0, 12.3, 0);
+
+/**
+ * A soft crown blob: smooth normals blended toward the whole crown's centre (so the three
+ * blobs shade as one soft mass, not facets), lighter on top and darker underneath.
+ */
+function crownBlob(x: number, y: number, z: number, r: number, detail: number): THREE.BufferGeometry {
+  const geo = colored(new THREE.IcosahedronGeometry(r, detail).translate(x, y, z), '#c9772f');
+  const pos = geo.getAttribute('position');
+  const nor = geo.getAttribute('normal');
+  const col = geo.getAttribute('color');
+  const p = new THREE.Vector3();
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    p.fromBufferAttribute(pos, i);
+    a.set(p.x - x, p.y - y, p.z - z).normalize();
+    b.copy(p).sub(CROWN_CENTRE).normalize();
+    a.multiplyScalar(0.5).addScaledVector(b, 0.5).normalize();
+    nor.setXYZ(i, a.x, a.y, a.z);
+    const shade = 0.78 + 0.3 * (a.y * 0.5 + 0.5);
+    col.setXYZ(i, col.getX(i) * shade, col.getY(i) * shade, col.getZ(i) * shade);
+  }
+  return geo;
+}
+
+/** One low-detail tree: a tapered trunk and three soft crown blobs (~130 triangles). */
 function treeGeometry(): THREE.BufferGeometry {
   const trunk = colored(new THREE.CylinderGeometry(0.28, 0.45, 13, 5, 1, true).translate(0, 6.5, 0), '#6d6458');
   const crowns = [
-    [0, 12.5, 0, 2.8],
-    [1.3, 10.5, 0.6, 2.1],
-    [-1.1, 14.2, -0.5, 2.0],
-  ].map(([x, y, z, r]) => colored(new THREE.IcosahedronGeometry(r, 0).translate(x, y, z), '#c9772f'));
+    crownBlob(0, 12.5, 0, 2.8, 1),
+    crownBlob(1.3, 10.5, 0.6, 2.1, 0),
+    crownBlob(-1.1, 14.2, -0.5, 2.0, 0),
+  ];
   const merged = mergeGeometries([trunk, ...crowns]);
   if (!merged) throw new Error('distant tree geometry merge failed');
   return merged;

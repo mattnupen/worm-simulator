@@ -7,6 +7,8 @@ import { leafShape } from './leafShapes';
 import { leafLift, leafNormal, type LeafForm } from './leafForm';
 import { leafTint, LEAF_SIZE, LATERAL_VEINS } from './leafPalette';
 import { terrainHeight, terrainNormal, WORLD_HALF } from './terrain';
+import { makeShadeAt } from './treeShadows';
+import { sharedLighting } from '../render/paintedMaterial';
 
 /** Petiole: two extra vertices per leaf (one thin triangle off the blade's base). */
 const PETIOLE_VERTS = 2;
@@ -57,6 +59,7 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   const inner = new THREE.Color();
   const edge = new THREE.Color();
   const petiole = new THREE.Color();
+  const shadeAt = makeShadeAt(sharedLighting.uLightDir.value);
 
   let v0 = 0;
   let ii = 0;
@@ -71,6 +74,11 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
     form.cup = rng() * (l.kind === 'oak' ? 0.6 : 0.3) * flat;
     form.curl = rng() * (l.kind === 'oak' ? 0.45 : 0.25) * flat;
     const wet = leafTint(l.kind, l.y, rng, inner, edge, petiole);
+    // Long trunk shadows, baked.
+    const shade = shadeAt(l.x, l.z);
+    inner.multiplyScalar(shade);
+    edge.multiplyScalar(shade);
+    petiole.multiplyScalar(shade);
     const lateral = LATERAL_VEINS[l.kind];
     const leafSeed = rng();
 

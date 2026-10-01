@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { fbm2, valueNoise2 } from '../core/noise';
-import { createPaintedMaterial } from '../render/paintedMaterial';
+import { createPaintedMaterial, sharedLighting } from '../render/paintedMaterial';
+import { makeShadeAt } from './treeShadows';
 import { terrainHeight, terrainNormal, WORLD_HALF } from './terrain';
 
 /** Uniform grid spacing covers +-INNER; a few wide rings reach out to +-OUTER under the fog. */
@@ -66,6 +67,7 @@ export function buildTerrainGeometry(): THREE.BufferGeometry {
   const nor = new Float32Array(n * n * 3);
   const col = new Float32Array(n * n * 3);
   const c = new THREE.Color();
+  const shadeAt = makeShadeAt(sharedLighting.uLightDir.value);
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {
       const k = (j * n + i) * 3;
@@ -79,7 +81,7 @@ export function buildTerrainGeometry(): THREE.BufferGeometry {
       nor[k] = nn.x;
       nor[k + 1] = nn.y;
       nor[k + 2] = nn.z;
-      groundColor(x, z, h, c);
+      groundColor(x, z, h, c).multiplyScalar(shadeAt(x, z));
       col[k] = c.r;
       col[k + 1] = c.g;
       col[k + 2] = c.b;
