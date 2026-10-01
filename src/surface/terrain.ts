@@ -47,3 +47,21 @@ export function terrainNormal(x: number, z: number): Vec3 {
   const len = Math.hypot(dx, 1, dz);
   return { x: -dx / len, y: 1 / len, z: -dz / len };
 }
+
+/**
+ * GLSL twin of terrainHeight (keep the two in step), for shaders that place things on the
+ * ground themselves (falling leaves). A handful of sines: cheap per vertex, not per pixel.
+ */
+export const TERRAIN_GLSL = /* glsl */ `
+  float terrainHeight(vec2 p) {
+    float r = length(p);
+    float spawnMask = smoothstep(1.5, 7.0, r);
+    float sq = sqrt(sqrt(p.x * p.x * p.x * p.x + p.y * p.y * p.y * p.y));
+    float berm = smoothstep(${WORLD_HALF + 1}.0, ${WORLD_HALF + 14}.0, sq) * 2.2;
+    float u = 0.2 * sin(0.21 * p.x + 1.3) * cos(0.17 * p.y - 0.7)
+      + 0.13 * sin(0.37 * (p.x + p.y) + 2.1)
+      + 0.07 * sin(0.71 * p.x - 0.53 * p.y + 0.4)
+      + 0.04 * cos(1.1 * p.y + 0.6 * p.x + 1.7);
+    return u * spawnMask + berm;
+  }
+`;
