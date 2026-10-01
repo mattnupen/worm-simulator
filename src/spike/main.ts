@@ -8,6 +8,8 @@ import { setRimLight, setResolution, setTime } from '../render/paintedMaterial';
 import { buildScene, WORLD_HALF } from './scene';
 import { terrainHeight } from '../surface/terrain';
 import { createBody, followHead } from '../worm/body';
+import { advanceWave, type WaveState } from '../worm/wormShape';
+import { BELLY_LIFT, WAVES, wormLength, type WormPose } from '../worm/wormMesh';
 import { stepWorm, clampToNeck, type WormMotion, type LocomotionOptions } from '../worm/locomotion';
 import {
   createFollowCam, stepFollowCam, type FollowCamOptions,
@@ -23,11 +25,15 @@ import { createUi } from './ui';
 
 const WORM_SEGMENTS = 16;
 const SPACING = 0.22;
-const CAM_DISTANCE = 3.2;
-const CAM_HEIGHT = 1.6;
+const CAM_DISTANCE = 2.6;
+const CAM_HEIGHT = 1.1;
+/** The camera aims a little ahead of the head, so the worm sits low in frame and the forest looms. */
+const LOOK_AHEAD = 1.0;
+const LOOK_UP = 0.4;
 const AUTO_DRIVE: Commands = { ...NO_COMMANDS, move: { x: 0.35, y: 1 } };
 const MAX_NECK_BEND = 1.3;
-const HEAD_RADIUS = 0.14;
+/** Slow resting "breath" of the contraction wave, in waves per second. */
+const BREATH_HZ = 0.22;
 /** The camera never dips closer than this to the ground beneath it. */
 const CAM_GROUND_MARGIN = 0.5;
 const LOCOMOTION: LocomotionOptions = {
@@ -59,21 +65,24 @@ const ui = createUi(app);
 const meter = new FpsMeter();
 const quality = new QualityController();
 
-/** Segment radius tapers from the head toward the tail. */
-const segmentRadius = (i: number): number => HEAD_RADIUS * (1 - i / (WORM_SEGMENTS * 1.6));
+const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
 
-let motion: WormMotion = { head: { x: 0, y: terrainHeight(0, 0) + HEAD_RADIUS, z: 0 }, heading: 0 };
+// The simulated spine is the worm's belly line; the tube is built up from it.
+let motion: WormMotion = { head: { x: 0, y: terrainHeight(0, 0) + BELLY_LIFT, z: 0 }, heading: 0 };
 const body = createBody(WORM_SEGMENTS, SPACING, motion.head, motion.heading);
 let cam = createFollowCam(motion.head, motion.heading, CAM_OPTS);
 let mode: 'idle' | 'testing' | 'free' = 'idle';
 let test: SpeedTest | null = null;
-const tmp = new THREE.Object3D();
+const wave: WaveState = { phase: 0, activity: 0 };
+const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
 const drawSize = new THREE.Vector2();
 
 // Previous-step snapshots, preallocated so taking them allocates nothing. Render lerps prev -> current.
 const prevBody: Vec3[] = body.map((s) => ({ x: s.x, y: s.y, z: s.z }));
 const prevCamPos: Vec3 = { ...cam.pos };
 const prevHead: Vec3 = { ...motion.head };
+const prevWave: WaveState = { ...wave };
+let prevYaw = cam.yaw;
 
 function copyVec(dst: Vec3, src: Vec3): void {
   dst.x = src.x;
@@ -113,20 +122,27 @@ function commands(): Commands {
 function update(dt: number): void {
   for (let i = 0; i < body.length; i++) copyVec(prevBody[i], body[i]);
   copyVec(prevCamPos, cam.pos);
+  prevYaw = cam.yaw;
   copyVec(prevHead, motion.head);
+  prevWave.phase = wave.phase;
+  prevWave.activity = wave.activity;
 
   const cmd = commands();
   const move = { x: cmd.move.x, y: Math.max(0, cmd.move.y) };
   motion = { ...motion, heading: clampToNeck(motion.heading, body[0], body[1], MAX_NECK_BEND) };
   motion = stepWorm(motion, move, dt, LOCOMOTION);
   // stepWorm stays flat and pure; the terrain decides the height here.
-  motion.head.y = terrainHeight(motion.head.x, motion.head.z) + HEAD_RADIUS;
+  motion.head.y = terrainHeight(motion.head.x, motion.head.z) + BELLY_LIFT;
+  advanceWave(
+    wave, Math.hypot(motion.head.x - prevHead.x, motion.head.z - prevHead.z), dt,
+    LOCOMOTION.speed, WAVES_PER_UNIT, BREATH_HZ,
+  );
   followHead(body, motion.head, SPACING);
   // Settle each trailing segment onto the ground. On these gentle slopes (< ~20 degrees)
   // this changes the 3D spacing by a few percent at most.
   for (let i = 1; i < body.length; i++) {
     const s = body[i];
-    s.y = terrainHeight(s.x, s.z) + segmentRadius(i);
+    s.y = terrainHeight(s.x, s.z) + BELLY_LIFT;
   }
   cam = stepFollowCam(cam, motion.head, motion.heading, dt, CAM_OPTS);
   const floor = terrainHeight(cam.pos.x, cam.pos.z) + CAM_GROUND_MARGIN;
@@ -180,27 +196,30 @@ function render(now: number, alpha: number): void {
     if (next !== phase) onPhaseChange(next);
   }
 
+  const sp = pose.spine;
   for (let i = 0; i < body.length; i++) {
     const a = prevBody[i];
     const b = body[i];
-    const r = segmentRadius(i);
-    tmp.position.set(a.x + (b.x - a.x) * alpha, a.y + (b.y - a.y) * alpha, a.z + (b.z - a.z) * alpha);
-    tmp.scale.setScalar(r);
-    tmp.updateMatrix();
-    world.worm.setMatrixAt(i, tmp.matrix);
+    sp[i * 3] = a.x + (b.x - a.x) * alpha;
+    sp[i * 3 + 1] = a.y + (b.y - a.y) * alpha;
+    sp[i * 3 + 2] = a.z + (b.z - a.z) * alpha;
   }
-  world.worm.instanceMatrix.needsUpdate = true;
+  pose.phase = prevWave.phase + (wave.phase - prevWave.phase) * alpha;
+  pose.activity = prevWave.activity + (wave.activity - prevWave.activity) * alpha;
+  pose.timeSec = now / 1000;
+  world.worm.update(pose);
 
   const h = motion.head;
+  const yaw = prevYaw + (cam.yaw - prevYaw) * alpha;
   camera.position.set(
     prevCamPos.x + (cam.pos.x - prevCamPos.x) * alpha,
     prevCamPos.y + (cam.pos.y - prevCamPos.y) * alpha,
     prevCamPos.z + (cam.pos.z - prevCamPos.z) * alpha,
   );
   camera.lookAt(
-    prevHead.x + (h.x - prevHead.x) * alpha,
-    prevHead.y + (h.y - prevHead.y) * alpha + 0.35,
-    prevHead.z + (h.z - prevHead.z) * alpha,
+    prevHead.x + (h.x - prevHead.x) * alpha + Math.sin(yaw) * LOOK_AHEAD,
+    prevHead.y + (h.y - prevHead.y) * alpha + LOOK_UP,
+    prevHead.z + (h.z - prevHead.z) * alpha + Math.cos(yaw) * LOOK_AHEAD,
   );
   renderer.render(world.scene, camera);
   ui.setFps(meter.fps, quality.tier);

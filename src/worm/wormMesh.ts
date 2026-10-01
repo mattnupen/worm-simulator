@@ -6,6 +6,7 @@ import {
   type HeadProbe,
 } from './wormShape';
 import { createWormMaterial } from './wormMaterial';
+import { WormShadow } from './wormShadow';
 
 const RINGS = 48;
 const RADIAL = 14;
@@ -20,6 +21,8 @@ const TAIL_EXT = 0.06;
 export const WAVES = 2.6;
 /** Head probing bends this fraction of the body (from the tip). */
 const PROBE_SPAN = 0.2;
+/** Contact shadow: one ribbon station per this many rings. */
+const SHADOW_STEP = 2;
 
 /** Nominal tip-to-tip body length for a spine of `points` evenly spaced by `spacing`. */
 export function wormLength(points: number, spacing: number): number {
@@ -37,7 +40,7 @@ export interface WormPose {
 }
 
 /**
- * The hero worm: one continuous tube (1 draw),
+ * The hero worm: one continuous tube (1 draw) and a soft contact-shadow ribbon (1 draw),
  * rebuilt in place from the simulated spine each rendered frame. Allocates nothing per frame.
  */
 export class HeroWorm {
@@ -59,6 +62,7 @@ export class HeroWorm {
   private readonly pos: THREE.BufferAttribute;
   private readonly nor: THREE.BufferAttribute;
   private readonly tan: THREE.BufferAttribute;
+  private readonly shadow: WormShadow;
 
   constructor(spinePoints: number) {
     this.spine = createSpine(spinePoints, 4);
@@ -85,7 +89,9 @@ export class HeroWorm {
     mesh.frustumCulled = false;
     mesh.name = 'worm';
 
-    this.group.add(mesh);
+    this.shadow = new WormShadow(this.m, SHADOW_STEP);
+
+    this.group.add(this.shadow.mesh, mesh);
     this.group.name = 'heroWorm';
   }
 
@@ -143,6 +149,7 @@ export class HeroWorm {
     this.pos.needsUpdate = true;
     this.nor.needsUpdate = true;
     this.tan.needsUpdate = true;
+    this.shadow.update(c, T, rB);
   }
 }
 

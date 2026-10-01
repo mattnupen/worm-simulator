@@ -129,3 +129,25 @@ export function probeHead(timeSec: number, idle: number, out: HeadProbe): void {
   out.lift = liftAmp * (0.55 + 0.45 * wander(timeSec * 1.1, 0.4));
   out.sway = swayAmp * wander(timeSec * 1.4, 3.7);
 }
+
+export interface WaveState {
+  /** Peristalsis phase, in wavelengths. */
+  phase: number;
+  /** Smoothed 0 (resting) .. 1 (crawling at full speed). */
+  activity: number;
+}
+
+/**
+ * Advances the contraction wave by one simulation step. While crawling the phase follows the
+ * distance travelled (`wavesPerUnit`), so the thick, shortened segments stay planted on the
+ * ground as the body slides past them, like a real earthworm. At rest a slow `restHz`
+ * breathing wave keeps the body alive. Mutates `state`.
+ */
+export function advanceWave(
+  state: WaveState, moved: number, dt: number, fullSpeed: number, wavesPerUnit: number, restHz: number,
+): void {
+  if (!(dt > 0)) return;
+  const target = Math.min(1, Math.max(0, moved / dt / fullSpeed));
+  state.activity += (target - state.activity) * (1 - Math.exp(-3 * dt));
+  state.phase += Math.max(0, moved) * wavesPerUnit + dt * restHz * (1 - state.activity);
+}

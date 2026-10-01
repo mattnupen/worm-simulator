@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  radiusProfile, bodyRadius, verticalScale, lateralScale, ringParams, peristalsis, probeHead,
+  radiusProfile, bodyRadius, verticalScale, lateralScale, ringParams, peristalsis, probeHead, advanceWave,
 } from '../../src/worm/wormShape';
 import { createSpine, fitSpine, sampleSpine, catmullRom, transportFrames } from '../../src/worm/spine';
 import { ringTrig, writeTube, tubeVertexCount, tubeIndices } from '../../src/worm/tube';
@@ -299,5 +299,24 @@ describe('writeTube', () => {
     const seam = (3 * (radial + 1) + radial) * 3;
     expect(pos[seam]).toBeCloseTo(pos[v0], 5);
     expect(pos[seam + 1]).toBeCloseTo(pos[v0 + 1], 5);
+  });
+});
+
+describe('advanceWave', () => {
+  it('breathes slowly at rest and follows distance while crawling', () => {
+    const w = { phase: 0, activity: 0 };
+    for (let i = 0; i < 60; i++) advanceWave(w, 0, 1 / 60, 1.6, 0.75, 0.2);
+    expect(w.activity).toBe(0);
+    expect(w.phase).toBeCloseTo(0.2, 5);
+    const before = w.phase;
+    for (let i = 0; i < 120; i++) advanceWave(w, 1.6 / 60, 1 / 60, 1.6, 0.75, 0.2);
+    expect(w.activity).toBeGreaterThan(0.9);
+    expect(w.phase - before).toBeGreaterThan(2 * 1.6 * 0.75);
+    expect(w.activity).toBeLessThanOrEqual(1);
+  });
+  it('ignores a zero time step', () => {
+    const w = { phase: 1, activity: 0.5 };
+    advanceWave(w, 1, 0, 1.6, 0.75, 0.2);
+    expect(w).toEqual({ phase: 1, activity: 0.5 });
   });
 });

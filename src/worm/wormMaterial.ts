@@ -145,3 +145,39 @@ export function createWormMaterial(): THREE.ShaderMaterial {
     fragmentShader,
   });
 }
+
+const shadowVertex = /* glsl */ `
+  attribute vec2 aShade;
+  varying vec2 vShade;
+  void main() {
+    vShade = aShade;
+    gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+  }
+`;
+
+const shadowFragment = /* glsl */ `
+  uniform vec3 uTint;
+  varying vec2 vShade;
+  void main() {
+    // x: 0 at the ribbon edges, 1 on the centre line; y: strength along the body.
+    float a = smoothstep(0.0, 1.0, vShade.x) * vShade.y;
+    gl_FragColor = vec4(mix(vec3(1.0), uTint, a), 1.0);
+  }
+`;
+
+/** Soft contact shadow: multiplies (darkens) what is already drawn beneath the worm. */
+export function createWormShadowMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    // Display-space multiplier (no colour-space conversion on a multiply).
+    uniforms: { uTint: { value: new THREE.Vector3(0.38, 0.32, 0.33) } },
+    vertexShader: shadowVertex,
+    fragmentShader: shadowFragment,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.CustomBlending,
+    blendEquation: THREE.AddEquation,
+    blendSrc: THREE.ZeroFactor,
+    blendDst: THREE.SrcColorFactor,
+  });
+}
