@@ -157,6 +157,10 @@ function phaseLabel(p: PhaseSpec): string {
   return p.id === 'full' ? 'Test 1 of 2: full quality' : 'Test 2 of 2: auto quality';
 }
 
+function showPhase(p: PhaseSpec): void {
+  ui.showRunning(phaseLabel(p), p.id === 'full' ? 1 : 2, 2);
+}
+
 function deviceInfo(): DeviceInfo {
   const gl = renderer.getContext();
   const ext = gl.getExtension('WEBGL_debug_renderer_info');
@@ -174,7 +178,7 @@ function deviceInfo(): DeviceInfo {
 function onPhaseChange(next: PhaseSpec | null): void {
   if (next) {
     loop.setMaxFps(next.capped ? 30 : Infinity);
-    ui.showRunning(phaseLabel(next));
+    showPhase(next);
     return;
   }
   mode = 'free';
@@ -250,5 +254,5 @@ ui.showStart(() => {
   mode = 'testing';
   const first = test.current!;
   loop.setMaxFps(first.capped ? 30 : Infinity);
-  ui.showRunning(phaseLabel(first));
+  showPhase(first);
 });
