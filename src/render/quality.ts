@@ -1,4 +1,12 @@
-export interface QualityTier { resolutionScale: number; rimLight: boolean; leafDensity: number }
+export interface QualityTier {
+  resolutionScale: number;
+  /**
+   * Also hides atmosphere extras (light shafts, motes, falling leaves) in the speed test;
+   * that is where the real saving is.
+   */
+  rimLight: boolean;
+  leafDensity: number;
+}
 
 export const TIERS: readonly QualityTier[] = [
   { resolutionScale: 1, rimLight: true, leafDensity: 1 },

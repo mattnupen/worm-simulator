@@ -9,8 +9,6 @@ import { buildFallingLeaves } from '../surface/fallingLeaves';
 import { buildGroundProps, writeHeroLog, type GroundProps } from '../surface/groundProps';
 import { HeroWorm } from '../worm/wormMesh';
 
-export { WORLD_HALF } from '../surface/terrain';
-
 export interface SpikeScene {
   scene: THREE.Scene;
   /** One merged mesh; `setDensity` trims it for the quality tiers. */
@@ -21,7 +19,6 @@ export interface SpikeScene {
   props: GroundProps;
   /** Light shafts, dust motes and falling leaves; hidden on low quality tiers. */
   atmosphere: THREE.Group;
-  totalLeaves: number;
 }
 
 /** Thin composer: every part is built in its own module. */
@@ -43,5 +40,5 @@ export function buildScene(leafCount: number, wormSegments: number): SpikeScene 
     terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), leaves.mesh, props.mesh, worm.group,
     buildSky(), atmosphere,
   );
-  return { scene, leaves, props, worm, atmosphere, totalLeaves: leafCount };
+  return { scene, leaves, props, worm, atmosphere };
 }

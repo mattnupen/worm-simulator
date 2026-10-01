@@ -82,7 +82,7 @@ export function createUi(root: HTMLElement): SpikeUi {
     );
     panel.replaceChildren(hint, back.el);
     // The "Try driving" button just vanished: keep focus in the panel rather than lost on <body>.
-    // Not on a button, so Space and Enter (worm keys) cannot press anything by accident.
+    // Not on a button, so Space (a worm key) cannot press anything by accident.
     panel.focus({ preventScroll: true });
   }
 

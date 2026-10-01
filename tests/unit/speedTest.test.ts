@@ -174,6 +174,17 @@ describe('formatResults', () => {
   const full = { avgFps: 55, lowFps: 40, frames: 400, maxGapMs: 30 };
   const auto = { avgFps: 29.6, lowFps: 26, frames: 300, maxGapMs: 123.4 };
 
+  it('reports the render size right after the screen line when known', () => {
+    const lines = formatResults(full, auto, 1, 2000, { ...device, renderSize: '1024x576' }).split('\n');
+    const i = lines.indexOf('Screen: 1366x768 at 1x');
+    expect(i).toBeGreaterThan(0);
+    expect(lines[i + 1]).toBe('Render size: 1024x576');
+  });
+
+  it('omits the render size line when not given', () => {
+    expect(formatResults(full, auto, 1, 2000, device)).not.toContain('Render size');
+  });
+
   it('adds no restarts line when there were none', () => {
     expect(formatResults(full, auto, 1, 2000, device)).not.toContain('Measurement restarts');
     expect(formatResults(full, auto, 1, 2000, device, 0)).not.toContain('Measurement restarts');

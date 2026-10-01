@@ -5,12 +5,13 @@ import type { Vec3 } from '../core/vec';
 import { FpsMeter } from '../render/fps';
 import { QualityController, TIERS } from '../render/quality';
 import { setRimLight, setResolution, setTime } from '../render/paintedMaterial';
-import { buildScene, WORLD_HALF } from './scene';
+import { buildScene } from './scene';
+import { AUTO_DRIVE_MOVE, LOCOMOTION } from './drive';
 import { terrainHeight } from '../surface/terrain';
 import { createBody, followHead } from '../worm/body';
 import { advanceWave, type WaveState } from '../worm/wormShape';
 import { BELLY_LIFT, WAVES, wormLength, type WormPose } from '../worm/wormMesh';
-import { stepWorm, clampToNeck, type WormMotion, type LocomotionOptions } from '../worm/locomotion';
+import { stepWorm, clampToNeck, type WormMotion } from '../worm/locomotion';
 import {
   createFollowCam, stepFollowCam, type FollowCamOptions,
 } from '../surface/followCamera';
@@ -31,19 +32,11 @@ const CAM_HEIGHT = 1.1;
 /** The camera aims a little ahead of the head, so the worm sits low in frame and the forest looms. */
 const LOOK_AHEAD = 1.0;
 const LOOK_UP = 0.6;
-const AUTO_DRIVE: Commands = { ...NO_COMMANDS, move: { x: 0.35, y: 1 } };
 const MAX_NECK_BEND = 1.3;
 /** Slow resting "breath" of the contraction wave, in waves per second. */
 const BREATH_HZ = 0.22;
 /** The camera never dips closer than this to the ground beneath it. */
 const CAM_GROUND_MARGIN = 0.5;
-const LOCOMOTION: LocomotionOptions = {
-  speed: 1.6,
-  turnRate: 2.2,
-  halfSize: WORLD_HALF - 1,
-  minTurnRadius: 1.0,
-  pivotZone: 0.15,
-};
 const CAM_OPTS: FollowCamOptions = {
   distance: CAM_DISTANCE,
   height: CAM_HEIGHT,
@@ -141,8 +134,10 @@ function run(renderer: THREE.WebGLRenderer): void {
   }
 
   function commands(): Commands {
-    if (mode === 'testing') return AUTO_DRIVE;
-    if (mode === 'free') {
+    if (mode === 'testing') return AUTO_DRIVE_MOVE;
+    // Free mode only obeys keys and joystick once the player chose "Try driving the worm",
+    // not while the result card is up.
+    if (mode === 'free' && ui.isDriving()) {
       return mergeCommands(keysToCommands(keyboard.down), { ...NO_COMMANDS, move: joystick.value });
     }
     return NO_COMMANDS;
@@ -189,7 +184,9 @@ function run(renderer: THREE.WebGLRenderer): void {
   function deviceInfo(): DeviceInfo {
     const gl = renderer.getContext();
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    renderer.getDrawingBufferSize(drawSize);
     return {
+      renderSize: `${drawSize.x}x${drawSize.y}`,
       gpu: ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : 'unknown',
       ...basicDeviceInfo(),
     };

@@ -16,7 +16,6 @@ const PETIOLE: Record<LeafKind, number> = { maple: 0.32, oak: 0.08, aspen: 0.3, 
 
 export interface LeafLitter {
   mesh: THREE.Mesh;
-  total: number;
   /** Shows the first `fraction` of the leaves (the order is random, so any prefix is uniform). */
   setDensity(fraction: number): void;
 }
@@ -143,7 +142,6 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   mesh.name = 'leafLitter';
   return {
     mesh,
-    total: count,
     setDensity(fraction: number) {
       const k = Math.max(0, Math.min(count, Math.floor(count * fraction)));
       g.setDrawRange(0, k > 0 ? ends[k - 1] : 0);

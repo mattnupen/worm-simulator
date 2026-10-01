@@ -4,6 +4,9 @@ import { GRADE_GLSL, HAZE_GLSL, sharedLighting } from './paintedMaterial';
 /** Must stay inside the camera far plane (120) from anywhere in the world (corners ~27 out). */
 export const SKY_RADIUS = 80;
 
+/** The soft blue-teal overhead; the canopy shades toward it too, so they must agree. */
+export const SKY_TOP_COLOR = '#92b3ba';
+
 // Everything here is smooth, so it is evaluated per vertex on a fairly dense dome; each sky
 // pixel pays only the grade and the output transfer. Measured under software GL, occluded
 // sky pixels are still shaded, so the dome is a cap that stops just below the horizon
@@ -47,7 +50,7 @@ export function buildSky(): THREE.Mesh {
       uLightColor: sharedLighting.uLightColor,
       uFogColor: sharedLighting.uFogColor,
       uResolution: sharedLighting.uResolution,
-      uSkyTop: { value: new THREE.Color('#92b3ba') },
+      uSkyTop: { value: new THREE.Color(SKY_TOP_COLOR) },
     },
     vertexShader,
     fragmentShader,

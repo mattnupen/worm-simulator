@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SKY_TOP_COLOR } from './sky';
 import {
   sharedLighting, PAINTED_VERTEX_GLSL, PAINTED_LIGHT_GLSL, GRADE_GLSL,
 } from './paintedMaterial';
@@ -84,7 +85,7 @@ const fragmentShader = /* glsl */ `
 
 export function createCanopyMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: { ...sharedLighting, uSkyTop: { value: new THREE.Color('#92b3ba') } },
+    uniforms: { ...sharedLighting, uSkyTop: { value: new THREE.Color(SKY_TOP_COLOR) } },
     vertexShader,
     fragmentShader,
   });

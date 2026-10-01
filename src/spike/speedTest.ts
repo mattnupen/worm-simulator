@@ -100,6 +100,8 @@ export interface DeviceInfo {
   cores: number | string;
   memoryGb: number | string;
   screen: string;
+  /** Drawing-buffer size in pixels (`WxH`) at the end of the test, after any quality drop. */
+  renderSize?: string;
   pixelRatio: number;
   userAgent: string;
 }
@@ -130,6 +132,7 @@ function deviceLines(d: BaseDeviceInfo): string[] {
     `CPU cores: ${d.cores}`,
     `Memory: ${d.memoryGb} GB`,
     `Screen: ${d.screen} at ${d.pixelRatio}x`,
+    ...(d.renderSize ? [`Render size: ${d.renderSize}`] : []),
     `Browser: ${d.userAgent}`,
   ];
 }

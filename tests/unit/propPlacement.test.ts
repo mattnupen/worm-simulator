@@ -5,14 +5,15 @@ import {
 import { treeSites } from '../../src/surface/treeSites';
 import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
 import { PLAY_HALF } from '../../src/surface/terrain';
+import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/spike/drive';
 
-/** The speed test's auto-drive (mirrors AUTO_DRIVE and LOCOMOTION in src/spike/main.ts). */
+/** The speed test's auto-drive: the exact move and locomotion options src/spike/main.ts uses. */
 function autoDrivePath(seconds: number): { x: number; z: number }[] {
   let m: WormMotion = { head: { x: 0, y: 0, z: 0 }, heading: 0 };
   const out = [];
   const dt = 1 / 60;
   for (let t = 0; t < seconds; t += dt) {
-    m = stepWorm(m, { x: 0.35, y: 1 }, dt, { speed: 1.6, turnRate: 2.2, halfSize: PLAY_HALF, minTurnRadius: 1, pivotZone: 0.15 });
+    m = stepWorm(m, AUTO_DRIVE_MOVE.move, dt, LOCOMOTION);
     out.push({ x: m.head.x, z: m.head.z });
   }
   return out;
