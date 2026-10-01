@@ -42,30 +42,44 @@ describe('SpeedTest', () => {
     expect(t.current).toBeNull();
   });
 
-  it('restartMeasurement discards samples and extends the phase', () => {
-    const t = new SpeedTest([
-      { id: 'full', durationMs: 1000, capped: false, autoQuality: false, measureFromMs: 200 },
-      { id: 'auto', durationMs: 1000, capped: true, autoQuality: true, measureFromMs: 200 },
-    ]);
+  const restartPhases = () => new SpeedTest([
+    { id: 'full', durationMs: 1000, capped: false, autoQuality: false, measureFromMs: 200 },
+    { id: 'auto', durationMs: 1000, capped: true, autoQuality: true, measureFromMs: 200 },
+  ]);
+
+  it('restartMeasurement discards samples, waits out the settle delay and extends the phase', () => {
+    const t = restartPhases();
     const step = 1000 / 30;
-    let now = 0;
-    for (; now <= 600; now += step) t.frame(now);
-    t.restartMeasurement(600);
+    for (let now = 0; now <= 600; now += step) t.frame(now);
+    t.restartMeasurement(600); // default settle 1000 ms: sampling resumes at 1600
     expect(t.restarts).toBe(1);
 
-    // Without the restart the phase would have ended at t=1000; it is still running at 1300.
+    // Frames every 100 ms. Those before 1600 (settle period) must not be sampled.
+    for (let now = 700; now <= 2300; now += 100) t.frame(now);
+    expect(t.current?.id).toBe('full'); // would have ended at 1000 without the restart
+    t.frame(2399);
+    expect(t.current?.id).toBe('full');
+    t.frame(2400); // 600 + 1000 + 800
+    expect(t.current?.id).toBe('auto');
+
+    // Only frames at now >= 1600 (1600..2300 = 8, plus 2399 and 2400), none from before the
+    // restart or the settle period.
+    expect(t.results.full.frames).toBe(10);
+    expect(t.results.full.maxGapMs).toBeCloseTo(100, 5);
+    expect(t.restarts).toBe(1);
+  });
+
+  it('restartMeasurement with settleMs 0 resumes sampling at once and ends at restart + 800', () => {
+    const t = restartPhases();
+    for (let now = 0; now <= 600; now += 100) t.frame(now);
+    t.restartMeasurement(600, 0);
     t.frame(1300);
     expect(t.current?.id).toBe('full');
-
-    // It ends once now >= 600 + 800 (restart time plus durationMs - measureFromMs).
     t.frame(1399);
     expect(t.current?.id).toBe('full');
     t.frame(1400);
     expect(t.current?.id).toBe('auto');
-    // Only frames after the restart are counted, not the ~19 from before it.
-    expect(t.results.full.frames).toBeGreaterThan(0);
-    expect(t.results.full.frames).toBeLessThan(30);
-    expect(t.restarts).toBe(1);
+    expect(t.results.full.frames).toBe(3); // 1300, 1399, 1400
   });
 
   it('restartMeasurement after done is a no-op', () => {

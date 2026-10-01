@@ -63,13 +63,14 @@ export class SpeedTest {
   }
 
   /**
-   * Discard samples and restart the current phase's measurement now, so the result reflects
-   * only stable conditions. The phase then runs a full measurement window from this moment.
+   * Discard samples and restart the current phase's measurement, so the result reflects only
+   * stable conditions. Sampling resumes settleMs after nowMs (a tier change resizes the
+   * framebuffer and hitches), then the phase runs a full measurement window.
    */
-  restartMeasurement(nowMs: number): void {
+  restartMeasurement(nowMs: number, settleMs = 1000): void {
     const phase = this.current;
     if (!phase) return;
-    this.phaseStart = nowMs - phase.measureFromMs;
+    this.phaseStart = nowMs - phase.measureFromMs + settleMs;
     this.times = [];
     this.restarts++;
   }
