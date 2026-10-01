@@ -62,6 +62,8 @@ function basicDeviceInfo(): Omit<DeviceInfo, 'gpu'> {
   };
 }
 
+const RESET_AFTER_TEST_NOTE =
+  'The graphics reset after the test. These results are still valid; reload the page to drive again.';
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
 
 let renderer: THREE.WebGLRenderer | null = null;
@@ -271,7 +273,7 @@ function run(renderer: THREE.WebGLRenderer): void {
       ui.showResult(formatContextLostResults(basicDeviceInfo()), false, false, RESET_NOTE);
     } else if (finished) {
       // The test already finished: the real verdict and report matter more than the reset.
-      ui.showResult(finished.text, finished.pass, false, RESET_NOTE);
+      ui.showResult(finished.text, finished.pass, false, RESET_AFTER_TEST_NOTE);
     } else {
       ui.showResult(
         'The graphics system reset (WebGL context lost).\nPlease reload this page to try again.',
