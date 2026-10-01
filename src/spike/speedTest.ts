@@ -28,6 +28,9 @@ export function quickPhases(): PhaseSpec[] {
   return PHASES.map((p) => ({ ...p, durationMs: 1_500, measureFromMs: 200 }));
 }
 
+/** Most measurement restarts allowed per test, so a flapping tier or tab cannot stall it forever. */
+export const MAX_RESTARTS = 5;
+
 const EMPTY: FpsSummary = { avgFps: 0, lowFps: 0, frames: 0, maxGapMs: 0 };
 
 export class SpeedTest {
@@ -37,6 +40,8 @@ export class SpeedTest {
   private index = 0;
   private phaseStart: number | null = null;
   private times: number[] = [];
+  /** Previous frame's time, so a stall straddling the window start is counted. */
+  private lastNow: number | null = null;
 
   constructor(private readonly phases: readonly PhaseSpec[]) {}
 
@@ -53,12 +58,18 @@ export class SpeedTest {
     if (!phase) return;
     if (this.phaseStart === null) this.phaseStart = nowMs;
     const t = nowMs - this.phaseStart;
-    if (t >= phase.measureFromMs) this.times.push(nowMs);
+    if (t >= phase.measureFromMs) {
+      if (this.times.length === 0 && this.lastNow !== null) this.times.push(this.lastNow);
+      this.times.push(nowMs);
+    }
     if (t >= phase.durationMs) {
       this.results[phase.id] = summarize(this.times);
       this.index++;
       this.phaseStart = null;
       this.times = [];
+      this.lastNow = null;
+    } else {
+      this.lastNow = nowMs;
     }
   }
 
@@ -66,19 +77,22 @@ export class SpeedTest {
    * Discard samples and restart the current phase's measurement, so the result reflects only
    * stable conditions. Sampling resumes settleMs after nowMs (a tier change resizes the
    * framebuffer and hitches), then the phase runs a full measurement window.
+   * Returns false, and does nothing, when the test is done or MAX_RESTARTS was already used.
    */
-  restartMeasurement(nowMs: number, settleMs = 1000): void {
+  restartMeasurement(nowMs: number, settleMs = 1000): boolean {
     const phase = this.current;
-    if (!phase) return;
+    if (!phase || this.restarts >= MAX_RESTARTS) return false;
     this.phaseStart = nowMs - phase.measureFromMs + settleMs;
     this.times = [];
+    this.lastNow = null;
     this.restarts++;
+    return true;
   }
 }
 
-/** The game caps at 30 fps, so 28+ average means it holds 30 with small hiccups. */
+/** The game caps at 30 fps, so 28+ average means it holds 30 with small hiccups. Judged as displayed (1 decimal). */
 export function verdict(auto: FpsSummary): 'PASS' | 'FAIL' {
-  return auto.avgFps >= 28 ? 'PASS' : 'FAIL';
+  return Math.round(auto.avgFps * 10) / 10 >= 28 ? 'PASS' : 'FAIL';
 }
 
 export interface DeviceInfo {
@@ -91,12 +105,16 @@ export interface DeviceInfo {
 }
 
 export function formatResults(
-  full: FpsSummary, auto: FpsSummary, finalTier: number, leaves: number, d: DeviceInfo,
+  full: FpsSummary, auto: FpsSummary, finalTier: number, leaves: number, d: DeviceInfo, restarts = 0,
 ): string {
   return [
     `Result: ${verdict(auto)}`,
     `Auto quality (30 fps cap): ${auto.avgFps.toFixed(1)} fps average, ${auto.lowFps.toFixed(1)} fps low`,
     `Longest pause (auto test): ${Math.round(auto.maxGapMs)} ms`,
+    ...(restarts > 0
+      ? [`Measurement restarts: ${restarts}${restarts >= MAX_RESTARTS
+        ? ' (limit reached: keep this tab open and visible, then run again)' : ''}`]
+      : []),
     `Quality level used: ${finalTier} of ${TIERS.length - 1} (0 = best)`,
     `Full quality, no cap: ${full.avgFps.toFixed(1)} fps average, ${full.lowFps.toFixed(1)} fps low`,
     `Leaves: ${leaves}`,

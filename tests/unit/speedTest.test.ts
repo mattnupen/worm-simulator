@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  parseParams, SpeedTest, PHASES, quickPhases, verdict, formatResults, type DeviceInfo,
+  parseParams, SpeedTest, PHASES, MAX_RESTARTS, quickPhases, verdict, formatResults, type DeviceInfo,
 } from '../../src/spike/speedTest';
 
 describe('parseParams', () => {
@@ -62,9 +62,9 @@ describe('SpeedTest', () => {
     t.frame(2400); // 600 + 1000 + 800
     expect(t.current?.id).toBe('auto');
 
-    // Only frames at now >= 1600 (1600..2300 = 8, plus 2399 and 2400), none from before the
-    // restart or the settle period.
-    expect(t.results.full.frames).toBe(10);
+    // Frames at now >= 1600 (1600..2300 = 8, plus 2399 and 2400), plus the frame at 1500 that
+    // precedes the first sample so the boundary gap is counted. Nothing from before that.
+    expect(t.results.full.frames).toBe(11);
     expect(t.results.full.maxGapMs).toBeCloseTo(100, 5);
     expect(t.restarts).toBe(1);
   });
@@ -80,6 +80,46 @@ describe('SpeedTest', () => {
     t.frame(1400);
     expect(t.current?.id).toBe('auto');
     expect(t.results.full.frames).toBe(3); // 1300, 1399, 1400
+  });
+
+  it('caps restarts at MAX_RESTARTS and reports whether each one was taken', () => {
+    const t = restartPhases();
+    t.frame(0);
+    const taken: boolean[] = [];
+    for (let i = 0; i < MAX_RESTARTS + 1; i++) taken.push(t.restartMeasurement(100 + i, 0));
+    expect(taken).toEqual([true, true, true, true, true, false]);
+    expect(t.restarts).toBe(MAX_RESTARTS);
+    expect(MAX_RESTARTS).toBe(5);
+  });
+
+  it('restartMeasurement returns false after done', () => {
+    const t = restartPhases();
+    let now = 0;
+    while (!t.done) {
+      t.frame(now);
+      now += 1000 / 30;
+    }
+    expect(t.restartMeasurement(now)).toBe(false);
+  });
+
+  it('counts a stall that straddles the start of the measurement window', () => {
+    const t = restartPhases();
+    for (const now of [0, 33, 66, 100]) t.frame(now);
+    // Stall: nothing from 100 to 900, then 30 fps frames until the phase ends.
+    for (let now = 900; !t.done && t.current?.id === 'full'; now += 1000 / 30) t.frame(now);
+    expect(t.results.full.maxGapMs).toBeGreaterThanOrEqual(800);
+  });
+
+  it('does not count a hidden-tab gap before a restart, nor a gap from the previous phase', () => {
+    const t = restartPhases();
+    for (const now of [0, 33, 66, 100]) t.frame(now);
+    expect(t.restartMeasurement(900, 0)).toBe(true); // tab was hidden 100 -> 900
+    for (let now = 900; t.current?.id === 'full'; now += 1000 / 30) t.frame(now);
+    expect(t.results.full.maxGapMs).toBeLessThan(50);
+
+    // The 'auto' phase starts without pulling in the last frame of 'full'.
+    for (let now = 5000; !t.done; now += 1000 / 30) t.frame(now);
+    expect(t.results.auto.maxGapMs).toBeLessThan(50);
   });
 
   it('restartMeasurement after done is a no-op', () => {
@@ -103,6 +143,10 @@ describe('verdict', () => {
     expect(verdict({ avgFps: 28, lowFps: 20, frames: 300, maxGapMs: 40 })).toBe('PASS');
     expect(verdict({ avgFps: 27.9, lowFps: 25, frames: 300, maxGapMs: 40 })).toBe('FAIL');
   });
+  it('judges the value as displayed to one decimal', () => {
+    expect(verdict({ avgFps: 27.96, lowFps: 25, frames: 300, maxGapMs: 40 })).toBe('PASS');
+    expect(verdict({ avgFps: 27.94, lowFps: 25, frames: 300, maxGapMs: 40 })).toBe('FAIL');
+  });
 });
 
 describe('formatResults', () => {
@@ -122,5 +166,29 @@ describe('formatResults', () => {
     expect(text).toContain('Longest pause (auto test): 123 ms');
     expect(lines[2]).toBe('Longest pause (auto test): 123 ms');
     expect(text).toContain('Mali-G52');
+  });
+
+  const device: DeviceInfo = {
+    gpu: 'Mali-G52', cores: 8, memoryGb: 4, screen: '1366x768', pixelRatio: 1, userAgent: 'CrOS',
+  };
+  const full = { avgFps: 55, lowFps: 40, frames: 400, maxGapMs: 30 };
+  const auto = { avgFps: 29.6, lowFps: 26, frames: 300, maxGapMs: 123.4 };
+
+  it('adds no restarts line when there were none', () => {
+    expect(formatResults(full, auto, 1, 2000, device)).not.toContain('Measurement restarts');
+    expect(formatResults(full, auto, 1, 2000, device, 0)).not.toContain('Measurement restarts');
+  });
+
+  it('reports restarts directly after the longest pause line', () => {
+    const lines = formatResults(full, auto, 1, 2000, device, 2).split('\n');
+    expect(lines[2]).toBe('Longest pause (auto test): 123 ms');
+    expect(lines[3]).toBe('Measurement restarts: 2');
+  });
+
+  it('flags when the restart limit was reached', () => {
+    const lines = formatResults(full, auto, 1, 2000, device, MAX_RESTARTS).split('\n');
+    expect(lines[3]).toBe(
+      `Measurement restarts: ${MAX_RESTARTS} (limit reached: keep this tab open and visible, then run again)`,
+    );
   });
 });
