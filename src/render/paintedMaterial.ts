@@ -24,6 +24,9 @@ const vertexShader = /* glsl */ `
     #ifdef USE_INSTANCING_COLOR
       col *= instanceColor;
     #endif
+    #ifdef USE_COLOR
+      col *= color;
+    #endif
     vec4 wp = m * vec4(position, 1.0);
     vPosW = wp.xyz;
     vNormalW = normalize(mat3(m) * normal);
@@ -84,6 +87,8 @@ export interface PaintedOptions {
   /** 0 = clean bands, 1 = strong brush breakup. */
   brush?: number;
   doubleSide?: boolean;
+  /** Multiply by the geometry's `color` attribute (baked painted variation). */
+  vertexColors?: boolean;
 }
 
 export function createPaintedMaterial(opts: PaintedOptions): THREE.ShaderMaterial {
@@ -95,6 +100,7 @@ export function createPaintedMaterial(opts: PaintedOptions): THREE.ShaderMateria
     },
     vertexShader,
     fragmentShader,
+    vertexColors: opts.vertexColors ?? false,
     side: opts.doubleSide ? THREE.DoubleSide : THREE.FrontSide,
   });
 }

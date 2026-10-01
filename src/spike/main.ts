@@ -6,6 +6,7 @@ import { FpsMeter } from '../render/fps';
 import { QualityController, TIERS } from '../render/quality';
 import { setRimLight } from '../render/paintedMaterial';
 import { buildScene, WORLD_HALF } from './scene';
+import { terrainHeight } from '../surface/terrain';
 import { createBody, followHead } from '../worm/body';
 import { stepWorm, clampToNeck, type WormMotion, type LocomotionOptions } from '../worm/locomotion';
 import {
@@ -26,6 +27,9 @@ const CAM_DISTANCE = 3.2;
 const CAM_HEIGHT = 1.6;
 const AUTO_DRIVE: Commands = { ...NO_COMMANDS, move: { x: 0.35, y: 1 } };
 const MAX_NECK_BEND = 1.3;
+const HEAD_RADIUS = 0.14;
+/** The camera never dips closer than this to the ground beneath it. */
+const CAM_GROUND_MARGIN = 0.5;
 const LOCOMOTION: LocomotionOptions = {
   speed: 1.6,
   turnRate: 2.2,
@@ -55,14 +59,17 @@ const ui = createUi(app);
 const meter = new FpsMeter();
 const quality = new QualityController();
 
-let motion: WormMotion = { head: { x: 0, y: 0.14, z: 0 }, heading: 0 };
+/** Segment radius tapers from the head toward the tail. */
+const segmentRadius = (i: number): number => HEAD_RADIUS * (1 - i / (WORM_SEGMENTS * 1.6));
+
+let motion: WormMotion = { head: { x: 0, y: terrainHeight(0, 0) + HEAD_RADIUS, z: 0 }, heading: 0 };
 const body = createBody(WORM_SEGMENTS, SPACING, motion.head, motion.heading);
 let cam = createFollowCam(motion.head, motion.heading, CAM_OPTS);
 let mode: 'idle' | 'testing' | 'free' = 'idle';
 let test: SpeedTest | null = null;
 const tmp = new THREE.Object3D();
 
-// Previous-step snapshots, preallocated so update() allocates nothing. Render lerps prev -> current.
+// Previous-step snapshots, preallocated so taking them allocates nothing. Render lerps prev -> current.
 const prevBody: Vec3[] = body.map((s) => ({ x: s.x, y: s.y, z: s.z }));
 const prevCamPos: Vec3 = { ...cam.pos };
 const prevHead: Vec3 = { ...motion.head };
@@ -103,8 +110,18 @@ function update(dt: number): void {
   const move = { x: cmd.move.x, y: Math.max(0, cmd.move.y) };
   motion = { ...motion, heading: clampToNeck(motion.heading, body[0], body[1], MAX_NECK_BEND) };
   motion = stepWorm(motion, move, dt, LOCOMOTION);
+  // stepWorm stays flat and pure; the terrain decides the height here.
+  motion.head.y = terrainHeight(motion.head.x, motion.head.z) + HEAD_RADIUS;
   followHead(body, motion.head, SPACING);
+  // Settle each trailing segment onto the ground. On these gentle slopes (< ~20 degrees)
+  // this changes the 3D spacing by a few percent at most.
+  for (let i = 1; i < body.length; i++) {
+    const s = body[i];
+    s.y = terrainHeight(s.x, s.z) + segmentRadius(i);
+  }
   cam = stepFollowCam(cam, motion.head, motion.heading, dt, CAM_OPTS);
+  const floor = terrainHeight(cam.pos.x, cam.pos.z) + CAM_GROUND_MARGIN;
+  if (cam.pos.y < floor) cam.pos.y = floor;
 }
 
 function phaseLabel(p: PhaseSpec): string {
@@ -156,7 +173,7 @@ function render(now: number, alpha: number): void {
   for (let i = 0; i < body.length; i++) {
     const a = prevBody[i];
     const b = body[i];
-    const r = 0.14 * (1 - i / (body.length * 1.6));
+    const r = segmentRadius(i);
     tmp.position.set(a.x + (b.x - a.x) * alpha, a.y + (b.y - a.y) * alpha, a.z + (b.z - a.z) * alpha);
     tmp.scale.setScalar(r);
     tmp.updateMatrix();
