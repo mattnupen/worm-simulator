@@ -4,7 +4,10 @@ export interface SpikeUi {
   showStart(onStart: () => void): void;
   /** step/steps (1-based) drive the small progress pips; omit them to hide the pips. */
   showRunning(label: string, step?: number, steps?: number): void;
-  showResult(text: string, pass: boolean): void;
+  /** `canDrive` false hides "Try driving the worm" (e.g. when there is no 3D to drive). */
+  showResult(text: string, pass: boolean, canDrive?: boolean): void;
+  /** True while the free-drive card is showing, so the worm should obey keys and joystick. */
+  isDriving(): boolean;
   setFps(fps: number, tier: number): void;
 }
 
@@ -117,7 +120,7 @@ export function createUi(root: HTMLElement): SpikeUi {
       children.push(el('p', 'Please wait. Hands off!', 'wait'));
       panel.replaceChildren(...children);
     },
-    showResult(text, pass) {
+    showResult(text, pass, canDrive = true) {
       setState('result');
       lastResult = { text, pass };
       const verdict = el('div', '', `verdict ${pass ? 'pass' : 'fail'}`);
@@ -152,12 +155,13 @@ export function createUi(root: HTMLElement): SpikeUi {
           copy.setLabel('Text selected. Press Ctrl + C.');
         }
       });
-      const drive = button('Try driving the worm', 'drive', 'secondary', showFree);
       const actions = el('div', '', 'actions');
-      actions.append(copy.el, drive.el);
+      actions.append(copy.el);
+      if (canDrive) actions.append(button('Try driving the worm', 'drive', 'secondary', showFree).el);
       panel.replaceChildren(verdict, pre, actions);
       copy.el.focus();
     },
+    isDriving: () => panel.dataset.state === 'free',
     setFps(fps, tier) {
       const now = performance.now();
       if (now - lastFpsUpdate < 250) return;

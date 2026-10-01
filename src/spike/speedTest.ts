@@ -119,9 +119,35 @@ export function formatResults(
     `Full quality, no cap: ${full.avgFps.toFixed(1)} fps average, ${full.lowFps.toFixed(1)} fps low`,
     `Leaves: ${leaves}`,
     `GPU: ${d.gpu}`,
+    ...deviceLines(d),
+  ].join('\n');
+}
+
+type BaseDeviceInfo = Omit<DeviceInfo, 'gpu'>;
+
+function deviceLines(d: BaseDeviceInfo): string[] {
+  return [
     `CPU cores: ${d.cores}`,
     `Memory: ${d.memoryGb} GB`,
     `Screen: ${d.screen} at ${d.pixelRatio}x`,
     `Browser: ${d.userAgent}`,
+  ];
+}
+
+/** The report when WebGL 2 could not start at all (no GPU info is available then). */
+export function formatNoWebGLResults(d: BaseDeviceInfo, reason: string): string {
+  return [
+    'Result: FAIL',
+    `Reason: this computer could not start 3D graphics (WebGL 2). ${reason}`,
+    ...deviceLines(d),
+  ].join('\n');
+}
+
+/** The report when the browser took the graphics context away mid-test. */
+export function formatContextLostResults(d: BaseDeviceInfo): string {
+  return [
+    'Result: FAIL',
+    'Reason: the graphics system reset during the test (WebGL context lost).',
+    ...deviceLines(d),
   ].join('\n');
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  parseParams, SpeedTest, PHASES, MAX_RESTARTS, quickPhases, verdict, formatResults, type DeviceInfo,
+  parseParams, SpeedTest, PHASES, MAX_RESTARTS, quickPhases, verdict, formatResults, formatNoWebGLResults, formatContextLostResults, type DeviceInfo,
 } from '../../src/spike/speedTest';
 
 describe('parseParams', () => {
@@ -190,5 +190,32 @@ describe('formatResults', () => {
     expect(lines[3]).toBe(
       `Measurement restarts: ${MAX_RESTARTS} (limit reached: keep this tab open and visible, then run again)`,
     );
+  });
+});
+
+describe('formatNoWebGLResults', () => {
+  const device = { cores: 4, memoryGb: 2, screen: '1366x768', pixelRatio: 1, userAgent: 'CrOS' };
+
+  it('leads with FAIL and the reason, then the device lines', () => {
+    const lines = formatNoWebGLResults(device, 'Error creating WebGL context.').split('\n');
+    expect(lines[0]).toBe('Result: FAIL');
+    expect(lines[1]).toBe(
+      'Reason: this computer could not start 3D graphics (WebGL 2). Error creating WebGL context.',
+    );
+    expect(lines.slice(2)).toEqual([
+      'CPU cores: 4', 'Memory: 2 GB', 'Screen: 1366x768 at 1x', 'Browser: CrOS',
+    ]);
+  });
+});
+
+describe('formatContextLostResults', () => {
+  const device = { cores: 4, memoryGb: 2, screen: '1366x768', pixelRatio: 1, userAgent: 'CrOS' };
+
+  it('leads with FAIL and says the graphics system reset, then the device lines', () => {
+    const lines = formatContextLostResults(device).split('\n');
+    expect(lines[0]).toBe('Result: FAIL');
+    expect(lines[1]).toBe('Reason: the graphics system reset during the test (WebGL context lost).');
+    expect(lines).toContain('CPU cores: 4');
+    expect(lines).toContain('Browser: CrOS');
   });
 });
