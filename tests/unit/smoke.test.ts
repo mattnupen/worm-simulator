@@ -5,5 +5,7 @@ describe('build config', () => {
   it('blocks all network connections', () => {
     expect(CSP).toContain("connect-src 'none'");
     expect(CSP).toContain("default-src 'none'");
+    expect(CSP).toContain("base-uri 'none'");
+    expect(CSP).toContain("form-action 'none'");
   });
 });

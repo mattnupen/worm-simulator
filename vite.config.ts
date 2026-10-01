@@ -12,6 +12,8 @@ export const CSP = [
   'font-src data:',
   'worker-src blob:',
   "connect-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
 ].join('; ');
 
 // Build only: the dev server needs its own client script and websocket.
@@ -30,6 +32,6 @@ function injectCsp(): Plugin {
 
 export default defineConfig({
   plugins: [injectCsp(), viteSingleFile()],
-  build: { target: 'es2020' },
+  build: { target: 'es2020', modulePreload: false },
   test: { include: ['tests/unit/**/*.test.ts'] },
 });
