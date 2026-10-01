@@ -41,7 +41,8 @@ const smooth = (a: number, b: number, v: number): number => {
 export function groundColor(x: number, z: number, h: number, out: THREE.Color): THREE.Color {
   const broad = fbm2(x * 0.09, z * 0.09, 3, 11);
   const mid = fbm2(x * 0.35, z * 0.35, 3, 23);
-  const fleck = valueNoise2(x * 1.7, z * 1.7, 37);
+  // ~1.25 m features: comfortably above the 0.5 m vertex grid's Nyquist limit.
+  const fleck = valueNoise2(x * 0.8, z * 0.8, 37);
   out.copy(SOIL).lerp(LOAM, smooth(0.35, 0.7, mid) * 0.7);
   // Hollows hold water: darker, damper soil and more moss.
   const hollow = smooth(0.05, -0.25, h);

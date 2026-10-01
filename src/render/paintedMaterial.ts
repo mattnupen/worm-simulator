@@ -111,17 +111,21 @@ const fragmentShader = /* glsl */ `
     // One fetch of the shared tiling noise: R patches, G strokes, B flecks, A hue drift.
     vec4 nz = texture2D(uNoise, vNoise.xy);
     float b = (nz.g * 0.6 + nz.b * 0.4 - 0.5) * uBrush * vNoise.z;
+    // No mipmaps: fade the broad patches and hue drift toward their mean with distance too,
+    // so far grazing ground doesn't crawl or sparkle.
+    float patches = mix(0.5, nz.r, vNoise.z);
+    float hue = mix(0.5, nz.a, vNoise.z);
 
     // Two soft light bands whose edges are broken up by the brush strokes.
     float sun = smoothstep(-0.02, 0.16, ndl + b * 0.35);
     float hi = smoothstep(0.4, 0.62, ndl + b * 0.55);
     // Dappled canopy light: broad soft patches of sun and shade, even on fully lit ground.
-    float dapple = mix(1.0, smoothstep(0.3, 0.62, nz.r + b * 0.4) * 0.8 + 0.2, 0.7 * uBrush);
+    float dapple = mix(1.0, smoothstep(0.3, 0.62, patches + b * 0.4) * 0.8 + 0.2, 0.7 * uBrush);
     float band = sun * (0.5 + 0.38 * hi) * dapple;
 
     vec3 hemi = mix(uGroundColor, uSkyColor, n.y * 0.5 + 0.5);
     // Warm/cool hue drift and value variation, so lit areas read as paint, not flat fill.
-    vec3 tint = mix(vec3(1.08, 0.98, 0.84), vec3(0.88, 0.98, 1.06), nz.a);
+    vec3 tint = mix(vec3(1.08, 0.98, 0.84), vec3(0.88, 0.98, 1.06), hue);
     vec3 base = vColor * mix(vec3(1.0), tint, 0.7 * uBrush) * (1.0 + b * 0.45);
     vec3 lit = base * (hemi * 0.68 + uLightColor * band);
 

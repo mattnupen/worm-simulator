@@ -17,7 +17,7 @@ const shaftVertex = /* glsl */ `
     vec3 base = (m * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     float width = length(m[0].xyz);
     float len = length(m[1].xyz);
-    vec3 axis = normalize(uLightDir);
+    vec3 axis = uLightDir; // shared value is kept unit length
     vec3 mid = base + axis * len * 0.5;
     vec3 side = normalize(cross(axis, cameraPosition - mid));
     vec3 wp = base + axis * (position.y + 0.5) * len + side * position.x * width;
@@ -37,9 +37,11 @@ const shaftFragment = /* glsl */ `
   varying float vFade;
   void main() {
     float across = 1.0 - abs(vUv.x * 2.0 - 1.0);
-    float along = smoothstep(0.0, 0.2, vUv.y) * smoothstep(0.85, 0.3, vUv.y);
+    float along = smoothstep(0.0, 0.2, vUv.y) * (1.0 - smoothstep(0.3, 0.85, vUv.y));
     float shimmer = 0.85 + 0.15 * sin(uTime * 0.6 + vUv.y * 6.0);
     float a = across * across * along * vFade * shimmer * 0.065;
+    // Additive output still goes through colorspace_fragment (linear -> sRGB), so it reads
+    // brighter on screen than the small linear constant above suggests.
     gl_FragColor = vec4(uLightColor * a, 1.0);
     #include <colorspace_fragment>
   }
@@ -101,7 +103,7 @@ const moteVertex = /* glsl */ `
     float edge = 1.0 - smoothstep(0.7, 1.0, max(max(e.x, e.y), e.z));
     vec4 mv = viewMatrix * vec4(wp, 1.0);
     float depth = -mv.z;
-    float back = pow(max(dot(normalize(wp - cameraPosition), normalize(uLightDir)), 0.0), 2.0);
+    float back = pow(max(dot(normalize(wp - cameraPosition), uLightDir), 0.0), 2.0);
     float twinkle = 0.65 + 0.35 * sin(t * 1.3 + aSeed * 40.0);
     vAlpha = edge * twinkle * (0.35 + 0.9 * back) * smoothstep(0.4, 1.2, depth);
     gl_PointSize = clamp(5.0 * (uResolution.y / 768.0) / max(depth, 0.1), 1.0, 4.0);
@@ -114,7 +116,8 @@ const moteFragment = /* glsl */ `
   varying float vAlpha;
   void main() {
     float d = length(gl_PointCoord - 0.5);
-    float a = smoothstep(0.5, 0.1, d) * vAlpha;
+    float a = (1.0 - smoothstep(0.1, 0.5, d)) * vAlpha;
+    // Additive output goes through colorspace_fragment, so it reads brighter than linear a.
     gl_FragColor = vec4(uLightColor * vec3(1.0, 0.9, 0.7) * a, 1.0);
     #include <colorspace_fragment>
   }
