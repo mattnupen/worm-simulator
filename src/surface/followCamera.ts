@@ -27,14 +27,26 @@ export function smoothDamp(
   velocity: number,
   smoothTimeSec: number,
   dtSec: number,
+  maxSpeed = Infinity,
 ): { value: number; velocity: number } {
   if (!(dtSec > 0)) return { value: current, velocity };
   const omega = 2 / Math.max(1e-4, smoothTimeSec);
   const x = omega * dtSec;
   const decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
-  const change = current - target;
+
+  const maxChange = maxSpeed * smoothTimeSec;
+  const change = Math.max(-maxChange, Math.min(maxChange, current - target));
+  const clampedTarget = current - change;
+
   const temp = (velocity + omega * change) * dtSec;
-  return { value: target + (change + temp) * decay, velocity: (velocity - omega * temp) * decay };
+  const value = clampedTarget + (change + temp) * decay;
+
+  // Overshoot guard: if we passed the target, clamp to it
+  if ((target - current > 0) === (value > target)) {
+    return { value: target, velocity: 0 };
+  }
+
+  return { value, velocity: (velocity - omega * temp) * decay };
 }
 
 export interface FollowCamState {
@@ -50,6 +62,8 @@ export interface FollowCamOptions {
   yawSmoothTime: number;
   /** Exponential rate (1/s) for position follow. Higher = tighter. */
   posRate: number;
+  /** Maximum yaw speed in rad/s. Defaults to Infinity (no limit). */
+  maxYawSpeed?: number;
 }
 
 export function createFollowCam(head: Vec3, heading: number, o: FollowCamOptions): FollowCamState {
@@ -65,7 +79,7 @@ export function stepFollowCam(
   o: FollowCamOptions,
 ): FollowCamState {
   if (!(dtSec > 0)) return s;
-  const y = smoothDamp(s.yaw, heading, s.yawVel, o.yawSmoothTime, dtSec);
+  const y = smoothDamp(s.yaw, heading, s.yawVel, o.yawSmoothTime, dtSec, o.maxYawSpeed);
   const target = cameraTarget(head, y.value, o.distance, o.height);
   return { yaw: y.value, yawVel: y.velocity, pos: smoothToward(s.pos, target, o.posRate, dtSec) };
 }

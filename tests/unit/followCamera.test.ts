@@ -33,6 +33,18 @@ describe('smoothToward', () => {
     for (let i = 0; i < 60; i++) p60 = smoothToward(p60, b, 4, 1 / 60);
     expect(p30.x).toBeCloseTo(p60.x, 6);
   });
+
+  it('with bad dt returns value equal to current', () => {
+    const result1 = smoothToward(a, b, 4, -1);
+    expect(result1.x).toBe(a.x);
+    expect(result1.y).toBe(a.y);
+    expect(result1.z).toBe(a.z);
+
+    const result2 = smoothToward(a, b, 4, NaN);
+    expect(result2.x).toBe(a.x);
+    expect(result2.y).toBe(a.y);
+    expect(result2.z).toBe(a.z);
+  });
 });
 
 describe('smoothDamp', () => {
@@ -58,6 +70,40 @@ describe('smoothDamp', () => {
     expect(smoothDamp(initial.value, 10, initial.velocity, 0.5, 0)).toEqual(initial);
     expect(smoothDamp(initial.value, 10, initial.velocity, 0.5, -1)).toEqual(initial);
     expect(smoothDamp(initial.value, 10, initial.velocity, 0.5, NaN)).toEqual(initial);
+  });
+
+  it('matches closed-form critically damped solution', () => {
+    const x0 = -1;
+    const target = 0;
+    const v0 = 0;
+    const smoothTime = 0.5;
+    const omega = 2 / smoothTime;
+    const t = 0.5;
+
+    let state = { value: x0, velocity: v0 };
+    const dt = 1 / 60;
+    for (let i = 0; i < 30; i++) {
+      state = smoothDamp(state.value, target, state.velocity, smoothTime, dt);
+    }
+
+    const expected = (x0 + (v0 + omega * x0) * t) * Math.exp(-omega * t);
+    expect(state.value).toBeCloseTo(expected, 2);
+  });
+
+  it('respects maxSpeed', () => {
+    let state = { value: 0, velocity: 0 };
+    let maxVel = 0;
+    const maxSpeed = 2;
+    for (let i = 0; i < 300; i++) {
+      state = smoothDamp(state.value, 10, state.velocity, 0.5, 1 / 60, maxSpeed);
+      maxVel = Math.max(maxVel, Math.abs(state.velocity));
+    }
+    expect(maxVel).toBeLessThanOrEqual(maxSpeed + 1e-6);
+
+    for (let i = 0; i < 300; i++) {
+      state = smoothDamp(state.value, 10, state.velocity, 0.5, 1 / 60, maxSpeed);
+    }
+    expect(state.value).toBeCloseTo(10, 3);
   });
 });
 
@@ -96,5 +142,43 @@ describe('stepFollowCam', () => {
     expect(cam.pos.x).toBeCloseTo(target.x, 2);
     expect(cam.pos.y).toBeCloseTo(target.y, 2);
     expect(cam.pos.z).toBeCloseTo(target.z, 2);
+  });
+
+  it('with bad dt returns equal state', () => {
+    let cam = createFollowCam(origin, 0, OPTS);
+    const result1 = stepFollowCam(cam, origin, 0.5, 0, OPTS);
+    expect(result1).toEqual(cam);
+
+    const result2 = stepFollowCam(cam, origin, 0.5, NaN, OPTS);
+    expect(result2).toEqual(cam);
+  });
+
+  it('double pivot respects yaw speed cap', () => {
+    const optsWithCap = { ...OPTS, maxYawSpeed: 1.8 };
+    let cam = createFollowCam(origin, 0, optsWithCap);
+    let maxYawVel = 0;
+
+    // First pivot: 18 steps with heading 1.3
+    for (let i = 0; i < 18; i++) {
+      cam = stepFollowCam(cam, origin, 1.3, dt, optsWithCap);
+      maxYawVel = Math.max(maxYawVel, Math.abs(cam.yawVel));
+      const horz = Math.sqrt(cam.pos.x * cam.pos.x + cam.pos.z * cam.pos.z);
+      const tolerance = optsWithCap.distance * 0.08;
+      expect(horz).toBeGreaterThan(optsWithCap.distance - tolerance);
+      expect(horz).toBeLessThan(optsWithCap.distance + tolerance);
+    }
+
+    // Second pivot: 300 steps with heading 2.6
+    for (let i = 0; i < 300; i++) {
+      cam = stepFollowCam(cam, origin, 2.6, dt, optsWithCap);
+      maxYawVel = Math.max(maxYawVel, Math.abs(cam.yawVel));
+      const horz = Math.sqrt(cam.pos.x * cam.pos.x + cam.pos.z * cam.pos.z);
+      const tolerance = optsWithCap.distance * 0.08;
+      expect(horz).toBeGreaterThan(optsWithCap.distance - tolerance);
+      expect(horz).toBeLessThan(optsWithCap.distance + tolerance);
+    }
+
+    expect(maxYawVel).toBeLessThanOrEqual(1.8 + 1e-6);
+    expect(cam.yaw).toBeCloseTo(2.6, 2);
   });
 });
