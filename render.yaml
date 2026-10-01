@@ -1,0 +1,23 @@
+# Render Blueprint: builds the game into one static file and serves it at wormsimulator.com.
+# Students only ever load wormsimulator.com (Render's CDN); GitHub is only where Render pulls the code from.
+services:
+  - type: web
+    name: wormsimulator
+    runtime: static
+    branch: main
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    domains:
+      # Render adds www.wormsimulator.com automatically and redirects it here.
+      - wormsimulator.com
+    headers:
+      # Revalidate on every load so a fix reaches every classroom right away (the file is ~170 kB gzipped).
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
