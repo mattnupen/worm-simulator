@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { createPaintedMaterial } from '../render/paintedMaterial';
+import { buildSky } from '../render/sky';
 import { buildTerrain } from '../surface/terrainMesh';
 import { buildForestTrees } from '../surface/forestTrees';
+import { buildDistantTrees } from '../surface/distantTrees';
 import { buildLeafLitter } from '../surface/leafLitterMesh';
 
 export { WORLD_HALF } from '../surface/terrain';
@@ -16,7 +18,6 @@ export interface SpikeScene {
 /** Thin composer: every part is built in its own module. */
 export function buildScene(leafCount: number, wormSegments: number): SpikeScene {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#f3c98b');
   const leaves = buildLeafLitter(leafCount);
 
   // Worm: one instanced sphere per segment. No eyes (spec 8.3).
@@ -27,6 +28,6 @@ export function buildScene(leafCount: number, wormSegments: number): SpikeScene 
   );
   worm.frustumCulled = false;
 
-  scene.add(buildTerrain(), buildForestTrees(), leaves, worm);
+  scene.add(buildTerrain(), buildForestTrees(), buildDistantTrees(), leaves, worm, buildSky());
   return { scene, leaves, worm, totalLeaves: leafCount };
 }

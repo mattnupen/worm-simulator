@@ -1,20 +1,64 @@
 import * as THREE from 'three';
+import { getNoiseTexture } from './noiseTexture';
 
-/** Shared by reference across every painted material. */
+/** Shared by reference across every painted material (and the sky / atmosphere shaders). */
 export const sharedLighting = {
-  uLightDir: { value: new THREE.Vector3(0.45, 0.8, 0.35).normalize() },
-  uLightColor: { value: new THREE.Color('#ffe2b0') },
-  uSkyColor: { value: new THREE.Color('#ffd9a0') },
-  uGroundColor: { value: new THREE.Color('#5a3d26') },
+  /** Low golden-afternoon sun, ahead and to the right of the starting view (backlight).
+   *  Shaders assume it is unit length: keep it normalized if you change it. */
+  uLightDir: { value: new THREE.Vector3(0.5, 0.5, 0.7).normalize() },
+  uLightColor: { value: new THREE.Color('#ffd9a0') },
+  uSkyColor: { value: new THREE.Color('#c3cdd0') },
+  uGroundColor: { value: new THREE.Color('#7a5232') },
   uRimColor: { value: new THREE.Color('#ffb347') },
   uRim: { value: 1 },
+  /** Horizon / distance-haze colour. The sky dome uses the same value at its horizon. */
+  uFogColor: { value: new THREE.Color('#e6cc9c') },
+  uFogNear: { value: 11 },
+  uFogFar: { value: 58 },
+  /** Seconds, for wind and drifting motes. */
+  uTime: { value: 0 },
+  /** Drawing-buffer size in pixels, for the screen-space vignette. */
+  uResolution: { value: new THREE.Vector2(1366, 768) },
+  uNoise: { value: getNoiseTexture() },
 };
+
+/**
+ * Shared GLSL: horizon haze colour in a view direction (sun-warmed toward the light).
+ * Needs uniforms uLightDir, uLightColor, uFogColor. Evaluated per vertex (it uses pow).
+ */
+export const HAZE_GLSL = /* glsl */ `
+  vec3 hazeColor(vec3 dir) {
+    float s = max(dot(normalize(dir), uLightDir), 0.0);
+    float s2 = s * s;
+    float s6 = s2 * s2 * s2;
+    return uFogColor + uLightColor * (s6 * 0.28 + pow(s, 40.0) * 0.3);
+  }
+`;
+
+/**
+ * Shared GLSL: warm colour grade and soft warm vignette, in linear space before output.
+ * Needs uniform uResolution. A handful of ALU ops; no post pass.
+ */
+export const GRADE_GLSL = /* glsl */ `
+  vec3 paintedGrade(vec3 c) {
+    vec2 q = gl_FragCoord.xy / uResolution - 0.5;
+    return c * (vec3(1.04, 1.0, 0.93) - dot(q, q) * vec3(0.42, 0.56, 0.64));
+  }
+`;
 
 const vertexShader = /* glsl */ `
   uniform vec3 uColor;
+  uniform vec3 uLightDir;
+  uniform vec3 uLightColor;
+  uniform vec3 uFogColor;
+  uniform float uFogNear;
+  uniform float uFogFar;
   varying vec3 vNormalW;
   varying vec3 vPosW;
   varying vec3 vColor;
+  varying vec3 vNoise;
+  varying vec4 vFog;
+  ${HAZE_GLSL}
   void main() {
     mat4 m = modelMatrix;
     vec3 col = uColor;
@@ -31,6 +75,14 @@ const vertexShader = /* glsl */ `
     vPosW = wp.xyz;
     vNormalW = normalize(mat3(m) * normal);
     vColor = col;
+    vec3 toCam = cameraPosition - wp.xyz;
+    float dist = length(toCam);
+    // Oblique planar projection: ground reads top-down, walls pick up vertical streaks (bark).
+    // z = detail weight: fine brush detail fades out with distance so it never shimmers.
+    vNoise = vec3((wp.xz + wp.y * vec2(0.55, -0.35)) * 0.2, 1.0 - smoothstep(9.0, 26.0, dist));
+    // Distance haze, per vertex: colour toward the view direction, and amount.
+    float f = smoothstep(uFogNear, uFogFar, dist);
+    vFog = vec4(hazeColor(-toCam), f * f * (3.0 - 2.0 * f) * 0.92);
     gl_Position = projectionMatrix * viewMatrix * wp;
   }
 `;
@@ -43,41 +95,42 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uRimColor;
   uniform float uRim;
   uniform float uBrush;
+  uniform vec2 uResolution;
+  uniform sampler2D uNoise;
   varying vec3 vNormalW;
   varying vec3 vPosW;
   varying vec3 vColor;
-
-  float hash(vec3 p) {
-    p = fract(p * 0.3183099 + 0.1);
-    p *= 17.0;
-    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-  }
-  float noise(vec3 x) {
-    vec3 i = floor(x);
-    vec3 f = fract(x);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(
-      mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x),
-          mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
-      mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x),
-          mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y),
-      f.z);
-  }
+  varying vec3 vNoise;
+  varying vec4 vFog;
+  ${GRADE_GLSL}
 
   void main() {
     vec3 n = normalize(vNormalW);
     if (!gl_FrontFacing) n = -n;
-    float ndl = dot(n, normalize(uLightDir));
-    float brush = noise(vPosW * 6.0) * 0.5 + noise(vPosW * 17.0) * 0.25;
-    float band = smoothstep(0.0, 0.15, ndl + (brush - 0.375) * uBrush) * 0.55
-               + smoothstep(0.45, 0.6, ndl) * 0.25;
+    float ndl = dot(n, uLightDir);
+    // One fetch of the shared tiling noise: R patches, G strokes, B flecks, A hue drift.
+    vec4 nz = texture2D(uNoise, vNoise.xy);
+    float b = (nz.g * 0.6 + nz.b * 0.4 - 0.5) * uBrush * vNoise.z;
+
+    // Two soft light bands whose edges are broken up by the brush strokes.
+    float sun = smoothstep(-0.02, 0.16, ndl + b * 0.35);
+    float hi = smoothstep(0.4, 0.62, ndl + b * 0.55);
+    // Dappled canopy light: broad soft patches of sun and shade, even on fully lit ground.
+    float dapple = mix(1.0, smoothstep(0.3, 0.62, nz.r + b * 0.4) * 0.8 + 0.2, 0.7 * uBrush);
+    float band = sun * (0.5 + 0.38 * hi) * dapple;
+
     vec3 hemi = mix(uGroundColor, uSkyColor, n.y * 0.5 + 0.5);
-    vec3 lit = vColor * (hemi * 0.55 + uLightColor * band);
+    // Warm/cool hue drift and value variation, so lit areas read as paint, not flat fill.
+    vec3 tint = mix(vec3(1.08, 0.98, 0.84), vec3(0.88, 0.98, 1.06), nz.a);
+    vec3 base = vColor * mix(vec3(1.0), tint, 0.7 * uBrush) * (1.0 + b * 0.45);
+    vec3 lit = base * (hemi * 0.68 + uLightColor * band);
+
     vec3 v = normalize(cameraPosition - vPosW);
-    float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * uRim;
-    lit += uRimColor * rim * 0.6;
-    lit *= 0.92 + brush * 0.16;
-    gl_FragColor = vec4(lit, 1.0);
+    float r = 1.0 - max(dot(n, v), 0.0);
+    lit += uRimColor * (r * r * r * uRim * 0.6);
+
+    lit = mix(lit, vFog.rgb, vFog.a);
+    gl_FragColor = vec4(paintedGrade(lit), 1.0);
     #include <colorspace_fragment>
   }
 `;
@@ -107,4 +160,13 @@ export function createPaintedMaterial(opts: PaintedOptions): THREE.ShaderMateria
 
 export function setRimLight(on: boolean): void {
   sharedLighting.uRim.value = on ? 1 : 0;
+}
+
+/** Call on resize and whenever the pixel ratio changes. */
+export function setResolution(width: number, height: number): void {
+  sharedLighting.uResolution.value.set(Math.max(1, width), Math.max(1, height));
+}
+
+export function setTime(seconds: number): void {
+  sharedLighting.uTime.value = seconds;
 }

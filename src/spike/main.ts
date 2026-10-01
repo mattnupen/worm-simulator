@@ -4,7 +4,7 @@ import { startLoop } from '../core/loop';
 import type { Vec3 } from '../core/vec';
 import { FpsMeter } from '../render/fps';
 import { QualityController, TIERS } from '../render/quality';
-import { setRimLight } from '../render/paintedMaterial';
+import { setRimLight, setResolution, setTime } from '../render/paintedMaterial';
 import { buildScene, WORLD_HALF } from './scene';
 import { terrainHeight } from '../surface/terrain';
 import { createBody, followHead } from '../worm/body';
@@ -68,6 +68,7 @@ let cam = createFollowCam(motion.head, motion.heading, CAM_OPTS);
 let mode: 'idle' | 'testing' | 'free' = 'idle';
 let test: SpeedTest | null = null;
 const tmp = new THREE.Object3D();
+const drawSize = new THREE.Vector2();
 
 // Previous-step snapshots, preallocated so taking them allocates nothing. Render lerps prev -> current.
 const prevBody: Vec3[] = body.map((s) => ({ x: s.x, y: s.y, z: s.z }));
@@ -85,12 +86,19 @@ function applyTier(i: number): void {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1) * t.resolutionScale);
   setRimLight(t.rimLight);
   world.leaves.count = Math.floor(world.totalLeaves * t.leafDensity);
+  updateResolution();
+}
+
+function updateResolution(): void {
+  renderer.getDrawingBufferSize(drawSize);
+  setResolution(drawSize.x, drawSize.y);
 }
 
 function resize(): void {
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
+  updateResolution();
 }
 
 function commands(): Commands {
@@ -159,6 +167,7 @@ function onPhaseChange(next: PhaseSpec | null): void {
 
 function render(now: number, alpha: number): void {
   meter.frame(now);
+  setTime(now / 1000);
   if (mode === 'testing' && test) {
     const phase = test.current;
     test.frame(now);
