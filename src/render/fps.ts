@@ -1,4 +1,4 @@
-export interface FpsSummary { avgFps: number; lowFps: number; frames: number }
+export interface FpsSummary { avgFps: number; lowFps: number; frames: number; maxGapMs: number }
 
 /** Rolling frames-per-second over the last windowMs. */
 export class FpsMeter {
@@ -18,9 +18,9 @@ export class FpsMeter {
   }
 }
 
-/** Average fps and "low" fps (the 95th-percentile slowest frame) for a run. */
+/** Average fps and "low" fps (the 95th-percentile slowest frame), and longest frame gap for a run. */
 export function summarize(times: number[]): FpsSummary {
-  if (times.length < 2) return { avgFps: 0, lowFps: 0, frames: times.length };
+  if (times.length < 2) return { avgFps: 0, lowFps: 0, frames: times.length, maxGapMs: 0 };
   const intervals: number[] = [];
   for (let i = 1; i < times.length; i++) intervals.push(times[i] - times[i - 1]);
   intervals.sort((a, b) => a - b);
@@ -30,5 +30,6 @@ export function summarize(times: number[]): FpsSummary {
     avgFps: span > 0 ? ((times.length - 1) * 1000) / span : 0,
     lowFps: p95 > 0 ? 1000 / p95 : 0,
     frames: times.length,
+    maxGapMs: intervals[intervals.length - 1],
   };
 }
