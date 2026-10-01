@@ -5,6 +5,7 @@ import { buildTerrain } from '../surface/terrainMesh';
 import { buildForestTrees } from '../surface/forestTrees';
 import { buildDistantTrees } from '../surface/distantTrees';
 import { buildLeafLitter, type LeafLitter } from '../surface/leafLitterMesh';
+import { buildFallingLeaves } from '../surface/fallingLeaves';
 import { buildGroundProps, writeHeroLog, type GroundProps } from '../surface/groundProps';
 import { HeroWorm } from '../worm/wormMesh';
 
@@ -18,7 +19,7 @@ export interface SpikeScene {
   worm: HeroWorm;
   /** Rocks and ground clutter; `setDensity` trims the clutter. */
   props: GroundProps;
-  /** Light shafts and dust motes; hidden on low quality tiers. */
+  /** Light shafts, dust motes and falling leaves; hidden on low quality tiers. */
   atmosphere: THREE.Group;
   totalLeaves: number;
 }
@@ -29,6 +30,7 @@ export function buildScene(leafCount: number, wormSegments: number): SpikeScene 
   const leaves = buildLeafLitter(leafCount);
   const props = buildGroundProps();
   const atmosphere = buildAtmosphere();
+  atmosphere.add(buildFallingLeaves());
 
   // The hero worm: no eyes (spec 8.3); it is posed from the simulated spine every frame.
   const worm = new HeroWorm(wormSegments);
