@@ -10,7 +10,7 @@ const smoothstep = (a: number, b: number, v: number): number => {
 };
 
 /** Fraction of the body length taken by the pointed head cap and the rounded tail cap. */
-const HEAD_CAP = 0.06;
+const HEAD_CAP = 0.085;
 const TAIL_CAP = 0.035;
 /** Body radius peaks here, in the anterior third (like a real Lumbricus). */
 const THICKEST = 0.27;
@@ -23,15 +23,25 @@ const THICKEST = 0.27;
  */
 export function radiusProfile(t: number): number {
   if (!(t > 0 && t < 1)) return 0;
-  const grow = 0.68 + 0.32 * smoothstep(0, THICKEST, t);
-  const taper = 1 - 0.34 * smoothstep(THICKEST, 1, t);
-  // Head cap: (1 - u^2)^0.7 is a touch more pointed than a hemisphere.
+  // Head cap: (1 - u^2)^0.75 tapers to a soft, blunt point, sharper than a hemisphere.
   const uh = 1 - clamp01(t / HEAD_CAP);
-  const head = Math.pow(1 - uh * uh, 0.7);
+  const head = Math.pow(1 - uh * uh, 0.75);
   // Tail cap: an ellipse quadrant, so the end is round.
   const ut = 1 - clamp01((1 - t) / TAIL_CAP);
   const tail = Math.sqrt(1 - ut * ut);
-  return grow * taper * head * tail;
+  return bodyRadius(t) * head * tail;
+}
+
+/**
+ * The body's radius fraction without the end caps closing it: the head stays narrower than
+ * the anterior third, then a long gentle taper toward the tail. The tube's axis rides this
+ * high above the belly line, so the caps close around the axis instead of nosing into the ground.
+ */
+export function bodyRadius(t: number): number {
+  const tc = clamp01(t);
+  const grow = 0.8 + 0.2 * smoothstep(0, THICKEST, tc);
+  const taper = 1 - 0.34 * smoothstep(THICKEST, 1, tc);
+  return grow * taper;
 }
 
 /**
@@ -114,8 +124,8 @@ export interface HeadProbe {
  */
 export function probeHead(timeSec: number, idle: number, out: HeadProbe): void {
   const w = clamp01(idle);
-  const liftAmp = 0.022 + 0.068 * w;
-  const swayAmp = 0.02 + 0.05 * w;
+  const liftAmp = 0.03 + 0.11 * w;
+  const swayAmp = 0.02 + 0.07 * w;
   out.lift = liftAmp * (0.55 + 0.45 * wander(timeSec * 1.1, 0.4));
   out.sway = swayAmp * wander(timeSec * 1.4, 3.7);
 }

@@ -1,7 +1,7 @@
 /**
  * Pure tube-mesh helpers: rings of vertices around a framed spine. Each ring has
  * `radial + 1` vertices (the last duplicates the first, so the around-coordinate can wrap
- * cleanly; the seam sits on the belly). Vertex 0 of each ring is on the dorsal (N) side.
+ * cleanly). Vertex 0 (and the seam) of each ring is on the dorsal (N) side.
  */
 
 export function tubeVertexCount(rings: number, radial: number): number {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  radiusProfile, verticalScale, lateralScale, ringParams, peristalsis, probeHead,
+  radiusProfile, bodyRadius, verticalScale, lateralScale, ringParams, peristalsis, probeHead,
 } from '../../src/worm/wormShape';
 import { createSpine, fitSpine, sampleSpine, catmullRom, transportFrames } from '../../src/worm/spine';
 import { ringTrig, writeTube, tubeVertexCount, tubeIndices } from '../../src/worm/tube';
@@ -26,7 +26,9 @@ describe('radiusProfile', () => {
     expect(tMax).toBeLessThan(1 / 3);
   });
   it('has a narrower head than the body', () => {
-    expect(radiusProfile(0.06)).toBeLessThan(0.8 * max);
+    expect(radiusProfile(0.06)).toBeLessThan(0.82 * max);
+    // Pointed: still well under half the head's width a short way back from the tip.
+    expect(radiusProfile(0.01)).toBeLessThan(0.3);
   });
   it('tapers gently toward the tail', () => {
     expect(radiusProfile(0.6)).toBeLessThan(max);
@@ -34,7 +36,7 @@ describe('radiusProfile', () => {
     expect(radiusProfile(0.9)).toBeGreaterThan(0.45);
   });
   it('rises steeply out of each tip (rounded caps) and stays in [0, 1]', () => {
-    expect(radiusProfile(0.01)).toBeGreaterThan(0.25);
+    expect(radiusProfile(0.01)).toBeGreaterThan(0.15);
     expect(radiusProfile(0.995)).toBeGreaterThan(0.2);
     for (const v of r) {
       expect(v).toBeGreaterThanOrEqual(0);
@@ -44,6 +46,15 @@ describe('radiusProfile', () => {
   it('clamps outside [0, 1]', () => {
     expect(radiusProfile(-1)).toBe(0);
     expect(radiusProfile(2)).toBe(0);
+  });
+});
+
+describe('bodyRadius', () => {
+  it('matches the profile away from the tips and stays open at them', () => {
+    expect(bodyRadius(0.5)).toBeCloseTo(radiusProfile(0.5), 6);
+    expect(bodyRadius(0)).toBeGreaterThan(0.7);
+    expect(bodyRadius(0)).toBeLessThan(0.9);
+    expect(bodyRadius(1)).toBeGreaterThan(0.5);
   });
 });
 
@@ -139,7 +150,7 @@ describe('probeHead', () => {
       probeHead(t, 0, out);
       maxCrawl = Math.max(maxCrawl, Math.abs(out.sway), out.lift);
     }
-    expect(maxIdle).toBeLessThan(0.15);
+    expect(maxIdle).toBeLessThan(0.2);
     expect(maxIdle).toBeGreaterThan(maxCrawl * 1.5);
   });
 });

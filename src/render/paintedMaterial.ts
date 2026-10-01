@@ -46,6 +46,47 @@ export const GRADE_GLSL = /* glsl */ `
   }
 `;
 
+/**
+ * Shared vertex GLSL: world-space brush coordinate (xy) with its distance detail weight (z),
+ * and per-vertex distance haze (rgb colour, a amount).
+ * Needs uniforms uLightDir, uLightColor, uFogColor, uFogNear, uFogFar.
+ */
+export const PAINTED_VERTEX_GLSL = /* glsl */ `
+  ${HAZE_GLSL}
+  vec3 worldBrushCoord(vec3 wp, float dist) {
+    // Oblique planar projection: ground reads top-down, walls pick up vertical streaks (bark).
+    // z = detail weight: fine brush detail fades out with distance so it never shimmers.
+    return vec3((wp.xz + wp.y * vec2(0.55, -0.35)) * 0.2, 1.0 - smoothstep(9.0, 26.0, dist));
+  }
+  vec4 distanceHaze(vec3 toCam, float dist) {
+    float f = smoothstep(uFogNear, uFogFar, dist);
+    return vec4(hazeColor(-toCam), f * f * (3.0 - 2.0 * f) * 0.92);
+  }
+`;
+
+/**
+ * Shared fragment GLSL: the painted-naturalist lighting every surface uses: two soft sun
+ * bands broken by brush strokes, dappled canopy light, sky/ground hemisphere fill and the
+ * warm rim. Needs uniforms uLightDir, uLightColor, uSkyColor, uGroundColor, uRimColor, uRim.
+ */
+export const PAINTED_LIGHT_GLSL = /* glsl */ `
+  // Dappled canopy light: broad soft patches of sun and shade, even on fully lit ground.
+  float dappleLight(float patches, float b, float brush) {
+    return mix(1.0, smoothstep(0.3, 0.62, patches + b * 0.4) * 0.8 + 0.2, 0.7 * brush);
+  }
+  vec3 paintedLight(vec3 base, vec3 n, vec3 v, float b, float dapple) {
+    float ndl = dot(n, uLightDir);
+    // Two soft light bands whose edges are broken up by the brush strokes.
+    float sun = smoothstep(-0.02, 0.16, ndl + b * 0.35);
+    float hi = smoothstep(0.4, 0.62, ndl + b * 0.55);
+    float band = sun * (0.5 + 0.38 * hi) * dapple;
+    vec3 hemi = mix(uGroundColor, uSkyColor, n.y * 0.5 + 0.5);
+    vec3 lit = base * (hemi * 0.68 + uLightColor * band);
+    float r = 1.0 - max(dot(n, v), 0.0);
+    return lit + uRimColor * (r * r * r * uRim * 0.6);
+  }
+`;
+
 const vertexShader = /* glsl */ `
   uniform vec3 uColor;
   uniform vec3 uLightDir;
@@ -58,7 +99,7 @@ const vertexShader = /* glsl */ `
   varying vec3 vColor;
   varying vec3 vNoise;
   varying vec4 vFog;
-  ${HAZE_GLSL}
+  ${PAINTED_VERTEX_GLSL}
   void main() {
     mat4 m = modelMatrix;
     vec3 col = uColor;
@@ -77,12 +118,8 @@ const vertexShader = /* glsl */ `
     vColor = col;
     vec3 toCam = cameraPosition - wp.xyz;
     float dist = length(toCam);
-    // Oblique planar projection: ground reads top-down, walls pick up vertical streaks (bark).
-    // z = detail weight: fine brush detail fades out with distance so it never shimmers.
-    vNoise = vec3((wp.xz + wp.y * vec2(0.55, -0.35)) * 0.2, 1.0 - smoothstep(9.0, 26.0, dist));
-    // Distance haze, per vertex: colour toward the view direction, and amount.
-    float f = smoothstep(uFogNear, uFogFar, dist);
-    vFog = vec4(hazeColor(-toCam), f * f * (3.0 - 2.0 * f) * 0.92);
+    vNoise = worldBrushCoord(wp.xyz, dist);
+    vFog = distanceHaze(toCam, dist);
     gl_Position = projectionMatrix * viewMatrix * wp;
   }
 `;
@@ -102,12 +139,12 @@ const fragmentShader = /* glsl */ `
   varying vec3 vColor;
   varying vec3 vNoise;
   varying vec4 vFog;
+  ${PAINTED_LIGHT_GLSL}
   ${GRADE_GLSL}
 
   void main() {
     vec3 n = normalize(vNormalW);
     if (!gl_FrontFacing) n = -n;
-    float ndl = dot(n, uLightDir);
     // One fetch of the shared tiling noise: R patches, G strokes, B flecks, A hue drift.
     vec4 nz = texture2D(uNoise, vNoise.xy);
     float b = (nz.g * 0.6 + nz.b * 0.4 - 0.5) * uBrush * vNoise.z;
@@ -116,22 +153,12 @@ const fragmentShader = /* glsl */ `
     float patches = mix(0.5, nz.r, vNoise.z);
     float hue = mix(0.5, nz.a, vNoise.z);
 
-    // Two soft light bands whose edges are broken up by the brush strokes.
-    float sun = smoothstep(-0.02, 0.16, ndl + b * 0.35);
-    float hi = smoothstep(0.4, 0.62, ndl + b * 0.55);
-    // Dappled canopy light: broad soft patches of sun and shade, even on fully lit ground.
-    float dapple = mix(1.0, smoothstep(0.3, 0.62, patches + b * 0.4) * 0.8 + 0.2, 0.7 * uBrush);
-    float band = sun * (0.5 + 0.38 * hi) * dapple;
-
-    vec3 hemi = mix(uGroundColor, uSkyColor, n.y * 0.5 + 0.5);
+    float dapple = dappleLight(patches, b, uBrush);
     // Warm/cool hue drift and value variation, so lit areas read as paint, not flat fill.
     vec3 tint = mix(vec3(1.08, 0.98, 0.84), vec3(0.88, 0.98, 1.06), hue);
     vec3 base = vColor * mix(vec3(1.0), tint, 0.7 * uBrush) * (1.0 + b * 0.45);
-    vec3 lit = base * (hemi * 0.68 + uLightColor * band);
-
     vec3 v = normalize(cameraPosition - vPosW);
-    float r = 1.0 - max(dot(n, v), 0.0);
-    lit += uRimColor * (r * r * r * uRim * 0.6);
+    vec3 lit = paintedLight(base, n, v, b, dapple);
 
     lit = mix(lit, vFog.rgb, vFog.a);
     gl_FragColor = vec4(paintedGrade(lit), 1.0);

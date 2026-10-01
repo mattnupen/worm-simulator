@@ -1,0 +1,153 @@
+import * as THREE from 'three';
+import { createSpine, fitSpine, sampleSpine, transportFrames, type Spine } from './spine';
+import { ringTrig, tubeIndices, tubeVertexCount, writeTube } from './tube';
+import {
+  radiusProfile, bodyRadius, verticalScale, lateralScale, ringParams, peristalsis, probeHead,
+  type HeadProbe,
+} from './wormShape';
+import { createWormMaterial } from './wormMaterial';
+
+const RINGS = 48;
+const RADIAL = 14;
+/** Widest body radius (world units). */
+export const WORM_RADIUS = 0.115;
+/** The belly rides this far above the ground, on top of the thinnest litter. */
+export const BELLY_LIFT = 0.035;
+/** Arc length the head and tail caps reach beyond the first and last spine points. */
+const HEAD_EXT = 0.1;
+const TAIL_EXT = 0.06;
+/** Contraction waves along the body at once. */
+export const WAVES = 2.6;
+/** Head probing bends this fraction of the body (from the tip). */
+const PROBE_SPAN = 0.2;
+
+/** Nominal tip-to-tip body length for a spine of `points` evenly spaced by `spacing`. */
+export function wormLength(points: number, spacing: number): number {
+  return HEAD_EXT + (points - 1) * spacing + TAIL_EXT;
+}
+
+export interface WormPose {
+  /** Spine points along the belly line, head first, xyz packed. */
+  spine: Float32Array;
+  /** Peristalsis phase (one unit = one wavelength travelled head to tail). */
+  phase: number;
+  /** 0 resting .. 1 crawling at full speed. */
+  activity: number;
+  timeSec: number;
+}
+
+/**
+ * The hero worm: one continuous tube (1 draw),
+ * rebuilt in place from the simulated spine each rendered frame. Allocates nothing per frame.
+ */
+export class HeroWorm {
+  readonly group = new THREE.Group();
+  private readonly spine: Spine;
+  private readonly m = new Float32Array(RINGS);
+  private readonly s = new Float32Array(RINGS);
+  private readonly k = new Float32Array(RINGS);
+  private readonly r = new Float32Array(RINGS);
+  private readonly rN = new Float32Array(RINGS);
+  private readonly rB = new Float32Array(RINGS);
+  private readonly slope = new Float32Array(RINGS);
+  private readonly c = new Float32Array(RINGS * 3);
+  private readonly T = new Float32Array(RINGS * 3);
+  private readonly N = new Float32Array(RINGS * 3);
+  private readonly B = new Float32Array(RINGS * 3);
+  private readonly trig = ringTrig(RADIAL);
+  private readonly probe: HeadProbe = { lift: 0, sway: 0 };
+  private readonly pos: THREE.BufferAttribute;
+  private readonly nor: THREE.BufferAttribute;
+  private readonly tan: THREE.BufferAttribute;
+
+  constructor(spinePoints: number) {
+    this.spine = createSpine(spinePoints, 4);
+    ringParams(this.m);
+    const verts = tubeVertexCount(RINGS, RADIAL);
+    const geo = new THREE.BufferGeometry();
+    this.pos = dynamicAttr(new Float32Array(verts * 3));
+    this.nor = dynamicAttr(new Float32Array(verts * 3));
+    this.tan = dynamicAttr(new Float32Array(verts * 3));
+    const body = new Float32Array(verts * 2);
+    for (let i = 0; i < RINGS; i++) {
+      for (let j = 0; j <= RADIAL; j++) {
+        const v = i * (RADIAL + 1) + j;
+        body[v * 2] = this.m[i];
+        body[v * 2 + 1] = j / RADIAL;
+      }
+    }
+    geo.setAttribute('position', this.pos);
+    geo.setAttribute('normal', this.nor);
+    geo.setAttribute('aTangent', this.tan);
+    geo.setAttribute('aBody', new THREE.BufferAttribute(body, 2));
+    geo.setIndex(new THREE.BufferAttribute(tubeIndices(RINGS, RADIAL), 1));
+    const mesh = new THREE.Mesh(geo, createWormMaterial());
+    mesh.frustumCulled = false;
+    mesh.name = 'worm';
+
+    this.group.add(mesh);
+    this.group.name = 'heroWorm';
+  }
+
+  update(pose: WormPose): void {
+    const { spine, m, s, k, r, rN, rB, slope, c, T, N, B, probe } = this;
+    fitSpine(spine, pose.spine);
+    const total = HEAD_EXT + spine.length + TAIL_EXT;
+    const act = Math.min(1, Math.max(0, pose.activity));
+    peristalsis(m, pose.phase, 0.08 + 0.18 * act, WAVES, s, k);
+    probeHead(pose.timeSec, 1 - act, probe);
+
+    // Head direction (for the sideways sway), from the first two spine points.
+    let fx = pose.spine[0] - pose.spine[3];
+    let fz = pose.spine[2] - pose.spine[5];
+    const fl = Math.hypot(fx, fz);
+    if (fl > 1e-6) { fx /= fl; fz /= fl; } else { fx = 0; fz = 1; }
+
+    for (let i = 0; i < RINGS; i++) {
+      const mi = m[i];
+      const o = i * 3;
+      sampleSpine(spine, s[i] * total - HEAD_EXT, c, o);
+      const ri = WORM_RADIUS * radiusProfile(mi) * k[i];
+      r[i] = ri;
+      rN[i] = ri * verticalScale(mi);
+      rB[i] = ri * lateralScale(mi);
+      // The spine is the belly line; the axis sits a body radius above it (caps included).
+      c[o + 1] += WORM_RADIUS * bodyRadius(mi) * k[i] * verticalScale(mi);
+      if (mi < PROBE_SPAN) {
+        const u = 1 - mi / PROBE_SPAN;
+        const w = u * u;
+        c[o] += fz * probe.sway * w;
+        c[o + 1] += probe.lift * w;
+        c[o + 2] -= fx * probe.sway * w;
+      }
+    }
+    transportFrames(c, RINGS, T, N, B);
+    for (let i = 0; i < RINGS; i++) {
+      const a = i > 0 ? i - 1 : 0;
+      const b = i < RINGS - 1 ? i + 1 : RINGS - 1;
+      const ds = (s[b] - s[a]) * total;
+      slope[i] = ds > 1e-6 ? (r[b] - r[a]) / ds : 0;
+    }
+    const pos = this.pos.array as Float32Array;
+    const nor = this.nor.array as Float32Array;
+    writeTube(RINGS, this.trig, c, T, N, B, rN, rB, slope, pos, nor);
+    const tan = this.tan.array as Float32Array;
+    for (let i = 0; i < RINGS; i++) {
+      for (let j = 0; j <= RADIAL; j++) {
+        const v = (i * (RADIAL + 1) + j) * 3;
+        tan[v] = T[i * 3];
+        tan[v + 1] = T[i * 3 + 1];
+        tan[v + 2] = T[i * 3 + 2];
+      }
+    }
+    this.pos.needsUpdate = true;
+    this.nor.needsUpdate = true;
+    this.tan.needsUpdate = true;
+  }
+}
+
+function dynamicAttr(arr: Float32Array): THREE.BufferAttribute {
+  const a = new THREE.BufferAttribute(arr, 3);
+  a.setUsage(THREE.DynamicDrawUsage);
+  return a;
+}
