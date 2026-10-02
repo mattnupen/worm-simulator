@@ -10,6 +10,8 @@ const INNER = WORLD_HALF + 2;
 const OUTER = 50;
 const INNER_SEGS = 88;
 const OUTER_SEGS = 8;
+/** The grid's layout, for shaders that rebuild the rendered ground from its vertex heights (groundTexture). */
+export const MESH_GRID = { inner: INNER, outer: OUTER, innerSegs: INNER_SEGS, outerSegs: OUTER_SEGS } as const;
 
 /** Grid line coordinates: dense and uniform over the play area, coarse beyond it. */
 function gridLines(): number[] {
@@ -65,8 +67,8 @@ export function groundColor(x: number, z: number, h: number, out: THREE.Color): 
 
 let gridCache: { lines: number[]; heights: Float64Array } | null = null;
 
-/** The grid lines and the height at every grid vertex (soil plus litter mound), built once. */
-function heightGrid(): { lines: number[]; heights: Float64Array } {
+/** The grid lines and the height at every grid vertex (soil plus litter mound), built once. Read-only. */
+export function heightGrid(): { lines: number[]; heights: Float64Array } {
   if (gridCache) return gridCache;
   const lines = gridLines();
   const n = lines.length;

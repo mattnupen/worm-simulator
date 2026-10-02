@@ -5,6 +5,9 @@ import {
 } from './paintedMaterial';
 import { groundUniforms } from './groundUniforms';
 import { DISTURB_GLSL } from './leafGlsl';
+import { DETAIL_GLSL } from './detailGlsl';
+import { getLitterTexture } from './litterTexture';
+import { getGroundTexture } from './groundTexture';
 
 /**
  * Painted autumn leaves: the shared painted lighting plus, from leaf-local attributes, a
@@ -18,6 +21,8 @@ import { DISTURB_GLSL } from './leafGlsl';
  * With DISTURB defined, leaves near the worm drape, slide and settle by the disturbance map,
  * each as a rigid piece about aAnchor (centre x, centre z, radius, rest height above the ground);
  * aDip is how far a vertex lies below its leaf's rest plane.
+ * With DETAIL defined, aDetail (home x, z in the wrap tile, yaw, radius) places each leaf of the
+ * close-up layer around the worm in the vertex shader, which also gives its anchor (and no dip).
  */
 const vertexShader = /* glsl */ `
   uniform vec3 uLightDir;
@@ -48,9 +53,15 @@ const vertexShader = /* glsl */ `
   vec3 rotZ(vec3 p, float a) { float c = cos(a), s = sin(a); return vec3(c * p.x - s * p.y, s * p.x + c * p.y, p.z); }
   #endif
 
-  #ifdef DISTURB
+  #ifdef DETAIL
+  ${DETAIL_GLSL}
+  #endif
+
+  #if defined(DISTURB) && !defined(DETAIL)
   attribute vec4 aAnchor;
   attribute float aDip;
+  #endif
+  #ifdef DISTURB
   ${DISTURB_GLSL}
   #endif
 
@@ -83,17 +94,29 @@ const vertexShader = /* glsl */ `
         * smoothstep(0.7, 1.6, distance(centre, cameraPosition));
       vec4 wp = vec4(centre + p * fade, 1.0);
       vNormalW = normalize(nrm);
+    #elif defined(DETAIL)
+      float shade;
+      vec4 anchor;
+      vec4 wp = detailPosition(nrm, shade, anchor);
+      vNormalW = normalize(nrm);
     #else
       vec4 wp = modelMatrix * vec4(position, 1.0);
       vNormalW = normalize(mat3(modelMatrix) * nrm);
     #endif
     #ifdef DISTURB
       vec3 nW = vNormalW;
-      wp.xyz = disturb(wp.xyz, aAnchor, aDip, nW);
+      #ifdef DETAIL
+        wp.xyz = disturb(wp.xyz, anchor, 0.0, nW);
+      #else
+        wp.xyz = disturb(wp.xyz, aAnchor, aDip, nW);
+      #endif
       vNormalW = nW;
     #endif
     vPosW = wp.xyz;
     vColor = aColor;
+    #ifdef DETAIL
+      vColor.rgb *= shade;
+    #endif
     vLeaf = aLeaf;
     vLat = aLeaf2.x;
     vec3 toCam = cameraPosition - wp.xyz;
@@ -177,17 +200,26 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
-/** Which leaves: the floor litter (reacts to the worm) or the falling leaves (animated). */
-export type LeafVariant = 'litter' | 'falling';
+/**
+ * Which leaves: the floor litter and the close-up detail layer (both react to the worm), or the
+ * falling leaves (animated).
+ */
+export type LeafVariant = 'litter' | 'falling' | 'detail';
 
 const DEFINES: Record<LeafVariant, Record<string, string>> = {
   litter: { DISTURB: '' },
   falling: { FALLING: '' },
+  detail: { DETAIL: '', DISTURB: '' },
 };
 
 export function createLeafMaterial(variant: LeafVariant = 'litter'): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: { ...sharedLighting, ...groundUniforms },
+    uniforms: {
+      ...sharedLighting,
+      ...groundUniforms,
+      // Only the detail layer needs the baked litter and ground, so only it pays for building them.
+      ...(variant === 'detail' ? { uLitter: { value: getLitterTexture() }, uGround: { value: getGroundTexture() } } : {}),
+    },
     defines: { ...DEFINES[variant] },
     vertexShader,
     fragmentShader,

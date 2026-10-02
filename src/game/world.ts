@@ -8,6 +8,7 @@ import { buildTerrain } from '../surface/terrainMesh';
 import { buildForestTrees } from '../surface/forestTrees';
 import { buildDistantTrees } from '../surface/distantTrees';
 import { buildLeafLitter, type LeafLitter } from '../surface/leafLitterMesh';
+import { buildDetailLeaves, type DetailLeaves } from '../surface/detailLeaves';
 import { buildGroundProps, writeHeroLog, type GroundProps } from '../surface/groundProps';
 import { HeroWorm, type WormPose } from '../worm/wormMesh';
 import { wormSurface, type WormSurface } from '../worm/surfaceHeight';
@@ -17,6 +18,8 @@ export interface World {
   scene: THREE.Scene;
   /** One merged mesh, built with Ultra's leaf count. */
   litter: LeafLitter;
+  /** The close-up leaf layer around the worm. */
+  detail: DetailLeaves;
   /** Rocks and ground clutter. */
   props: GroundProps;
   /** Light shafts, dust motes and falling leaves. */
@@ -39,6 +42,7 @@ export interface World {
 export function buildWorld(): World {
   const scene = new THREE.Scene();
   const litter = buildLeafLitter(PRESETS.ultra.litter);
+  const detail = buildDetailLeaves(PRESETS.ultra.detail);
   const props = buildGroundProps();
   const atmosphere = buildAtmosphere();
   // The hero worm: no eyes (spec 8.3); it is posed from the simulated spine every frame.
@@ -53,14 +57,15 @@ export function buildWorld(): World {
   const terrain = buildTerrain();
   terrain.renderOrder = 5;
   scene.add(
-    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, props.mesh, worm.group,
+    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.mesh, props.mesh, worm.group,
     buildSky(), atmosphere.group,
   );
   return {
-    scene, litter, props, atmosphere, worm,
+    scene, litter, detail, props, atmosphere, worm,
     apply(spec) {
       reaction = spec.reaction;
       litter.setCount(spec.litter);
+      detail.setCount(spec.detail);
       props.setDensity(spec.clutter);
       atmosphere.setLevel(spec.effects, spec.extraEffects);
       setRimLight(spec.rim);
