@@ -1,7 +1,13 @@
-import { detailShape } from './detailShape';
-import { LEAF_KINDS } from './leafLitter';
 import { segmentToBox } from '../core/geom2d';
-import { leafLift, type LeafForm } from './leafForm';
+import { LEAF_HALF_WIDTH, LEAF_REACH, LEAF_RIM, MAX_OUTLINE, OUTLINE } from './heroOutline';
+import {
+  BEND, HEAD_STRENGTH, PUSHER_SPAN, PUSHER_STRIDE, SKIRT, linked, overIt, touches,
+} from './heroBody';
+
+export { HERO_FORM, LEAF_REACH, LEAF_RIM, reachToward } from './heroOutline';
+export {
+  HEAD_STRENGTH, PRESS_RAMP, PUSHER_SPAN, PUSHER_STRIDE, SKIRT, pressTarget,
+} from './heroBody';
 
 /**
  * How a hero leaf lies over the worm without cutting into it (pure; used by heroLeaves.ts).
@@ -20,44 +26,17 @@ import { leafLift, type LeafForm } from './leafForm';
  */
 
 /**
- * Floats per pusher: [x, z, radius, strength, top, under, belly, fall]. `fall`: how far the top
- * surface drops from the spine to the body's side (0, a flat-topped dome, is always safe).
- */
-export const PUSHER_STRIDE = 8;
-/**
- * A body point stands for the tube up to halfway to its neighbours along the spine (at most
- * this far: half the crawl's 0.11 m pusher spacing, plus the spine's bend between them).
- * Consecutive body points closer than LINK are one stretch of tube: each one's dome runs along
- * the spine to the midpoints with its neighbours, and the drawn spine (a curve through them)
- * strays at most BEND from those straight pieces.
- */
-export const PUSHER_SPAN = 0.07;
-const LINK = 0.2;
-const BEND = 0.015;
-/**
  * Skips work that cannot change the result (sleeping far leaves, strips no body point reaches).
  * Tests switch it off to prove the shortcuts change nothing.
  */
 export const heroShortcuts = { on: true };
-/** A pusher with at least this strength is the head. */
-export const HEAD_STRENGTH = 0.9;
 /** A leaf over the worm clears its top by this (m). */
 export const LEAF_CLEAR = 0.01;
 /** Steepest tilt across the body (35 degrees): beyond 45 a cupped leaf's rim would dip under its plane. */
 export const MAX_TILT = Math.tan(0.6);
-/** A leaf flattens over this distance (m) before a body point riding over the litter can reach it. */
-export const PRESS_RAMP = 0.1;
-/**
- * Beyond the body's side the leaf is eased up over this distance (m): a skirt falling from the
- * side of the dome to the litter, so a leaf rises as the worm noses under its edge instead of
- * jumping up when the side arrives.
- */
-export const SKIRT = 0.04;
 /** The leaf is checked against the body in this many strips across its tilt. */
 const STRIPS = 24;
 const MAX_LINES = 1 + STRIPS;
-/** The longest leaf outline (points): scratch for it in the tilt frame. */
-const MAX_OUTLINE = 64;
 const outA = new Float64Array(MAX_OUTLINE);
 const outP = new Float64Array(MAX_OUTLINE);
 /** The body points near the leaf (at most MAX_NEAR): their spine stretch in the tilt frame and dome. */
@@ -66,33 +45,6 @@ const NEAR_STRIDE = 7;
 const nearBody = new Float64Array(MAX_NEAR * NEAR_STRIDE);
 const GOLDEN = (Math.sqrt(5) - 1) / 2;
 
-/** Leaf-local outline (u, v) of every species, and its farthest point from the centre. */
-const OUTLINE = LEAF_KINDS.map((k) => {
-  const s = detailShape(k);
-  if (s.outline > MAX_OUTLINE) throw new Error(`heroClearance: ${k} outline exceeds ${MAX_OUTLINE} points`);
-  return s.points.slice(0, s.outline * 2);
-});
-export const LEAF_REACH = Float32Array.from(OUTLINE, (o) => {
-  let r = 0;
-  for (let j = 0; j < o.length; j += 2) r = Math.max(r, Math.hypot(o[j], o[j + 1]));
-  return r;
-});
-/** Half the leaf's width across its midrib: how far a leaf turning over swings below its centre. */
-const LEAF_HALF_WIDTH = Float32Array.from(OUTLINE, (o) => {
-  let r = 0;
-  for (let j = 0; j < o.length; j += 2) r = Math.max(r, Math.abs(o[j]));
-  return r;
-});
-
-/** The hero leaves' 3D form (leaf units): every point lies on or above the leaf's base plane. */
-export const HERO_FORM: LeafForm = { fold: 0.16, cup: 0.3, curl: 0.24 };
-/** Per species, the form's highest point above the base plane (leaf units). */
-export const LEAF_RIM = Float32Array.from(LEAF_KINDS, (k) => {
-  const pts = detailShape(k).points;
-  let h = 0;
-  for (let j = 0; j < pts.length; j += 2) h = Math.max(h, leafLift(pts[j], pts[j + 1], HERO_FORM));
-  return h;
-});
 /** sin of the steepest tilt. */
 const SIN_MAX_TILT = Math.sin(Math.atan(MAX_TILT));
 
@@ -132,50 +84,7 @@ export function bestTilt(): number {
   return liftForTilt(0) <= liftForTilt(t) + 1e-6 ? 0 : t;
 }
 
-/**
- * How far the leaf (species `kind`, length `size`, as it lies: yaw and flip) reaches from its
- * centre in the ground direction (ux, uz): the most any outline point lies along it.
- */
-export function reachToward(kind: number, size: number, yaw: number, flip: number, ux: number, uz: number): number {
-  const o = OUTLINE[kind];
-  const cf = Math.cos(flip);
-  const cy = Math.cos(yaw);
-  const sy = Math.sin(yaw);
-  let r = 0;
-  for (let j = 0; j < o.length; j += 2) {
-    const xl = o[j] * cf;
-    const zl = -o[j + 1];
-    const proj = (xl * cy + zl * sy) * ux + (zl * cy - xl * sy) * uz;
-    if (proj > r) r = proj;
-  }
-  return r * size;
-}
 
-/** Whether the head pusher at offset `o`, (dx, dz) from the leaf's centre, touches its outline. */
-function touches(
-  pushers: Float32Array, o: number, dx: number, dz: number, d2: number,
-  kind: number, size: number, yaw: number, flip: number,
-): boolean {
-  const d = Math.sqrt(d2);
-  if (d < 1e-6) return true;
-  return d < pushers[o + 2] + reachToward(kind, size, yaw, flip, -dx / d, -dz / d);
-}
-
-/**
- * Whether a leaf resting at height `rest` goes over a body point: it lies above the worm's belly
- * there (the worm is in the litter beneath it), or it is already held up over the body. Below
- * the belly the worm passes over the leaf instead.
- */
-function overIt(pushers: Float32Array, o: number, held: boolean, rest: number): boolean {
-  return held || rest > pushers[o + 6];
-}
-
-/** Whether the body points at offsets o and q are consecutive along one stretch of tube. */
-function linked(pushers: Float32Array, o: number, q: number): boolean {
-  const dx = pushers[q] - pushers[o];
-  const dz = pushers[q + 1] - pushers[o + 1];
-  return dx * dx + dz * dz < LINK * LINK;
-}
 
 /** Whether any of the `near` body stretches (with its dome, skirt and swing) reaches [a, b] along the tilt. */
 function reachesStrip(near: number, swing: number, a: number, b: number): boolean {
@@ -342,28 +251,3 @@ export function overBody(
   return dir;
 }
 
-/**
- * How flat (0 its natural cupped form, 1 pressed flat) a leaf at (x, z), resting at `rest`, must
- * be for the body points that pass over it (its rest is under their belly): the leaf's curled
- * rim would otherwise rise into them. Full before any of them can reach the leaf, easing in over
- * the PRESS_RAMP before that. `held`: the leaf lies over the body (no pressing).
- */
-export function pressTarget(
-  x: number, z: number, size: number, kind: number, rest: number,
-  pushers: Float32Array, count: number, held: boolean,
-): number {
-  if (held) return 0;
-  const reach = size * LEAF_REACH[kind];
-  let press = 0;
-  for (let k = 0; k < count; k++) {
-    const o = k * PUSHER_STRIDE;
-    if (overIt(pushers, o, false, rest)) continue;
-    const dx = x - pushers[o];
-    const dz = z - pushers[o + 1];
-    const lim = reach + pushers[o + 2] + PUSHER_SPAN + PRESS_RAMP;
-    const d2 = dx * dx + dz * dz;
-    if (d2 >= lim * lim) continue;
-    press = Math.max(press, Math.min(1, (lim - Math.sqrt(d2)) / PRESS_RAMP));
-  }
-  return press;
-}
