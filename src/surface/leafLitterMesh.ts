@@ -6,7 +6,8 @@ import { placeLeaves, type LeafKind } from './leafLitter';
 import { leafShape } from './leafShapes';
 import { leafLift, leafNormal, type LeafForm } from './leafForm';
 import { leafTint, LEAF_SIZE, LATERAL_VEINS } from './leafPalette';
-import { terrainHeight, terrainNormal, WORLD_HALF } from './terrain';
+import { terrainHeight, WORLD_HALF } from './terrain';
+import { groundNormal, litterDepth } from './litterDepth';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
 
@@ -30,7 +31,7 @@ const UP = new THREE.Vector3(0, 1, 0);
  * terrain in loose overlapping layers. Presets trim it with a draw range (no rebuild).
  */
 export function buildLeafLitter(count: number, seed = 1): LeafLitter {
-  const leaves = placeLeaves(count, WORLD_HALF, seed);
+  const leaves = placeLeaves(count, WORLD_HALF, seed, litterDepth);
   let verts = 0;
   let idxCount = 0;
   for (const l of leaves) {
@@ -83,12 +84,12 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
     const lateral = LATERAL_VEINS[l.kind];
     const leafSeed = rng();
 
-    const tn = terrainNormal(l.x, l.z);
+    // Lie along the ground, including the slopes of leaf piles.
+    const tn = groundNormal(l.x, l.z);
     slope.setFromUnitVectors(UP, nrm.set(tn.x, tn.y, tn.z));
     q.setFromEuler(euler.set(l.tilt * 0.3, l.rotY, 0)).premultiply(slope);
-    // Loose layers: each leaf at its own small height, so overlaps never z-fight.
-    const lift = 0.006 + l.y * 0.4;
-    tmp.set(l.x, terrainHeight(l.x, l.z) + lift, l.z);
+    // On the litter mound, in loose layers: each leaf at its own height, so overlaps never z-fight.
+    tmp.set(l.x, terrainHeight(l.x, l.z) + l.mound + 0.006 + l.y, l.z);
     m.compose(tmp, q, scl.setScalar(size));
 
     const put = (k: number, u: number, v: number, h: number, nx: number, ny: number, nz: number) => {

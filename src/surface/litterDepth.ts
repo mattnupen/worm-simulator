@@ -1,4 +1,5 @@
 import { valueNoise2 } from '../core/noise';
+import type { Vec3 } from '../core/vec';
 import { terrainHeight } from './terrain';
 import { treeSites } from './treeSites';
 import { HERO_LOG, ROCKS } from './propPlacement';
@@ -120,4 +121,19 @@ export function underAmount(depth: number): number {
  */
 export function litterMound(depth: number): number {
   return depth * (1 - underAmount(depth));
+}
+
+/** The visible ground: the soil plus the solid litter mound. */
+export function groundHeight(x: number, z: number): number {
+  return terrainHeight(x, z) + litterMound(litterDepth(x, z));
+}
+
+const N_EPS = 0.05;
+
+/** Unit normal of groundHeight, from central differences. */
+export function groundNormal(x: number, z: number): Vec3 {
+  const dx = (groundHeight(x + N_EPS, z) - groundHeight(x - N_EPS, z)) / (2 * N_EPS);
+  const dz = (groundHeight(x, z + N_EPS) - groundHeight(x, z - N_EPS)) / (2 * N_EPS);
+  const len = Math.hypot(dx, 1, dz);
+  return { x: -dx / len, y: 1 / len, z: -dz / len };
 }

@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { fbm2, valueNoise2 } from '../core/noise';
 import { createPaintedMaterial, sharedLighting } from '../render/paintedMaterial';
 import { makeShadeAt } from './treeShadows';
-import { terrainHeight, terrainNormal, WORLD_HALF } from './terrain';
+import { terrainHeight, WORLD_HALF } from './terrain';
+import { groundHeight, groundNormal, litterDepth } from './litterDepth';
 
 /** Uniform grid spacing covers +-INNER; a few wide rings reach out to +-OUTER under the fog. */
 const INNER = WORLD_HALF + 2;
@@ -32,6 +33,8 @@ const MOSS = new THREE.Color('#5f6a2e');
 const DRY = new THREE.Color('#a8804e');
 const LOAM = new THREE.Color('#87582f');
 const FAR = new THREE.Color('#5a4630');
+/** Packed, half-rotted leaves: the colour of a deep pile's body. */
+const LITTER = new THREE.Color('#8a5a2e');
 
 const smooth = (a: number, b: number, v: number): number => {
   const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
@@ -73,15 +76,17 @@ export function buildTerrainGeometry(): THREE.BufferGeometry {
       const k = (j * n + i) * 3;
       const x = lines[i];
       const z = lines[j];
-      const h = terrainHeight(x, z);
-      const nn = terrainNormal(x, z);
+      // The soil plus the solid litter mound, so deep piles are real mounds under their leaves.
+      const h = groundHeight(x, z);
+      const nn = groundNormal(x, z);
       pos[k] = x;
       pos[k + 1] = h;
       pos[k + 2] = z;
       nor[k] = nn.x;
       nor[k + 1] = nn.y;
       nor[k + 2] = nn.z;
-      groundColor(x, z, h, c).multiplyScalar(shadeAt(x, z));
+      groundColor(x, z, terrainHeight(x, z), c).lerp(LITTER, smooth(0.05, 0.2, litterDepth(x, z)) * 0.6);
+      c.multiplyScalar(shadeAt(x, z));
       col[k] = c.r;
       col[k + 1] = c.g;
       col[k + 2] = c.b;
