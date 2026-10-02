@@ -8,6 +8,9 @@ import { clampToNeck, stepWorm, type WormMotion } from '../worm/locomotion';
 import { advanceWave, type WaveState } from '../worm/wormShape';
 import { WAVES, wormLength, type WormPose } from '../worm/wormMesh';
 import { bellyHeight, litterTop, wormSurface, type WormSurface } from '../worm/surfaceHeight';
+import {
+  createDisturbance, recentre, stamp, decay, clearDisturbance, type DisturbanceMap,
+} from '../surface/disturbance';
 import { LOCOMOTION } from './drive';
 
 export const WORM_SEGMENTS = 16;
@@ -49,6 +52,10 @@ export class Crawl {
   readonly under = new Float32Array(WORM_SEGMENTS);
   /** Leaves react to the worm (off on Low: it always rides on top). */
   reaction = true;
+  /** The leaves the worm has disturbed: stamped every step, decaying back. */
+  readonly disturbance: DisturbanceMap = createDisturbance();
+  /** The disturbance map changed since the renderer last uploaded it. */
+  disturbed = true;
   private readonly surf: WormSurface = { y: 0, under: 0 };
   private readonly prevBody: Vec3[];
   private readonly prevCam: Vec3;
@@ -69,9 +76,45 @@ export class Crawl {
     copy(this.focus, this.motion.head);
   }
 
-  /** Switches leaf reaction (from the preset). */
+  /** Switches leaf reaction (from the preset). Off clears the map, and stamping stops. */
   setReaction(on: boolean): void {
+    if (on === this.reaction) return;
     this.reaction = on;
+    if (!on) {
+      clearDisturbance(this.disturbance);
+      this.disturbed = true;
+    }
+  }
+
+  /** Stamps the body into the disturbance map: every segment and the midpoints between them. */
+  private disturbLeaves(dt: number): void {
+    const m = this.disturbance;
+    const b = this.body;
+    decay(m, dt);
+    recentre(m, b[0].x, b[0].z);
+    const last = b.length - 1;
+    for (let k = 0; k <= 2 * last; k++) {
+      const i = k >> 1;
+      const j = Math.min(last, i + (k & 1));
+      const x = (b[i].x + b[j].x) / 2;
+      const z = (b[i].z + b[j].z) / 2;
+      // Spine direction here, toward the head.
+      const a = b[Math.max(0, i - 1)];
+      const c = b[Math.min(last, j + 1)];
+      let tx = a.x - c.x;
+      let tz = a.z - c.z;
+      const len = Math.hypot(tx, tz);
+      if (len > 1e-6) {
+        tx /= len;
+        tz /= len;
+      } else {
+        tx = Math.sin(this.motion.heading);
+        tz = Math.cos(this.motion.heading);
+      }
+      const strength = k === 0 ? 1 : 0.6 - 0.3 * (k / (2 * last));
+      stamp(m, x, z, tx, tz, strength, (this.under[i] + this.under[j]) / 2);
+    }
+    this.disturbed = true;
   }
 
   /** Belly height at (x, z) for segment `i`; records whether that segment is under the litter. */
@@ -112,6 +155,7 @@ export class Crawl {
     this.cam = stepFollowCam(this.cam, head, this.motion.heading, dt, CAM_OPTS);
     const floor = litterTop(this.cam.pos.x, this.cam.pos.z) + CAM_GROUND_MARGIN;
     if (this.cam.pos.y < floor) this.cam.pos.y = floor;
+    if (this.reaction) this.disturbLeaves(dt);
   }
 
   /** Writes the render pose, the camera and `focus`, between the last two steps by `alpha`. */

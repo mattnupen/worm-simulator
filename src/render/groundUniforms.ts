@@ -1,0 +1,40 @@
+import * as THREE from 'three';
+import { DIST_N, DIST_CELL, packDisturbance, type DisturbanceMap } from '../surface/disturbance';
+
+const distBytes = new Uint8Array(DIST_N * DIST_N * 4);
+// An empty map: zero push is 128 in the packed form.
+for (let k = 0; k < distBytes.length; k += 4) {
+  distBytes[k] = 128;
+  distBytes[k + 1] = 128;
+}
+const distTexture = new THREE.DataTexture(distBytes, DIST_N, DIST_N, THREE.RGBAFormat, THREE.UnsignedByteType);
+distTexture.magFilter = THREE.LinearFilter;
+distTexture.minFilter = THREE.LinearFilter;
+distTexture.needsUpdate = true;
+
+/**
+ * Uniforms shared by reference by every leaf material (and the near clutter): where the worm
+ * is, and the disturbance map around it. Updated once per rendered frame.
+ */
+export const groundUniforms = {
+  /** The worm's head as rendered (interpolated). */
+  uFocus: { value: new THREE.Vector3() },
+  /** uFocus snapped to the 1 m grid: the centre the near-worm layers wrap around. */
+  uWrapCentre: { value: new THREE.Vector2() },
+  /** The disturbance map, packed by packDisturbance. */
+  uDisturb: { value: distTexture },
+  /** World x, z of the disturbance grid's corner. */
+  uDistOrigin: { value: new THREE.Vector2(-DIST_N * DIST_CELL / 2, -DIST_N * DIST_CELL / 2) },
+};
+
+export function setFocus(x: number, y: number, z: number): void {
+  groundUniforms.uFocus.value.set(x, y, z);
+  groundUniforms.uWrapCentre.value.set(Math.round(x), Math.round(z));
+}
+
+/** The one per-frame texture upload: 16 KB into the same texture, no reallocation. */
+export function uploadDisturbance(m: DisturbanceMap): void {
+  packDisturbance(m, distBytes);
+  distTexture.needsUpdate = true;
+  groundUniforms.uDistOrigin.value.set(m.ci * DIST_CELL, m.cj * DIST_CELL);
+}

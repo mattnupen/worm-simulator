@@ -83,7 +83,7 @@ export function buildFallingLeaves(count = FALLING_MAX): FallingLeaves {
   g.setAttribute('aLeaf2', new THREE.BufferAttribute(leaf2, 2));
   g.setAttribute('aFall', new THREE.BufferAttribute(fall, 4));
   g.setIndex(new THREE.BufferAttribute(index, 1));
-  const mesh = new THREE.Mesh(g, createLeafMaterial(true));
+  const mesh = new THREE.Mesh(g, createLeafMaterial('falling'));
   // Positions are made in the shader around the camera.
   mesh.frustumCulled = false;
   mesh.name = 'fallingLeaves';

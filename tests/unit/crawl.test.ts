@@ -66,3 +66,37 @@ describe('Crawl', () => {
     expect(Number.isFinite(cam.position.x + cam.position.y + cam.position.z)).toBe(true);
   });
 });
+
+describe('Crawl leaf disturbance', () => {
+  const total = (c: Crawl) => c.disturbance.data.reduce((a, v) => a + Math.abs(v), 0);
+
+  it('stamps the body into the map while it crawls, and marks it for upload', () => {
+    const c = new Crawl();
+    c.disturbed = false;
+    for (let i = 0; i < 30; i++) c.step(DT, { x: 0, y: 1 });
+    expect(c.disturbed).toBe(true);
+    expect(total(c)).toBeGreaterThan(1);
+  });
+
+  it('leaves a trail behind that settles back', () => {
+    const c = new Crawl();
+    for (let i = 0; i < 60; i++) c.step(DT, { x: 0, y: 1 });
+    const fresh = total(c);
+    for (let i = 0; i < 60 * 30; i++) c.step(DT, { x: 0, y: 0 });
+    // Resting still stamps the body, but the trail behind it has faded.
+    expect(total(c)).toBeLessThan(fresh);
+  });
+
+  it('turning reaction off clears the map and stops stamping', () => {
+    const c = new Crawl();
+    for (let i = 0; i < 30; i++) c.step(DT, { x: 0, y: 1 });
+    c.disturbed = false;
+    c.setReaction(false);
+    expect(c.disturbed).toBe(true);
+    expect(total(c)).toBe(0);
+    c.disturbed = false;
+    for (let i = 0; i < 30; i++) c.step(DT, { x: 0, y: 1 });
+    expect(total(c)).toBe(0);
+    expect(c.disturbed).toBe(false);
+  });
+});

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildSky } from '../render/sky';
 import { buildAtmosphere, type Atmosphere } from '../render/atmosphere';
 import { setRimLight } from '../render/paintedMaterial';
+import { setFocus, uploadDisturbance } from '../render/groundUniforms';
 import { PRESETS, type PresetSpec } from '../render/graphics';
 import { buildTerrain } from '../surface/terrainMesh';
 import { buildForestTrees } from '../surface/forestTrees';
@@ -67,6 +68,11 @@ export function buildWorld(): World {
     sync(crawl, alpha, timeSec, camera) {
       crawl.interpolate(alpha, timeSec, pose, camera);
       worm.update(pose);
+      setFocus(crawl.focus.x, crawl.focus.y, crawl.focus.z);
+      if (crawl.disturbed) {
+        uploadDisturbance(crawl.disturbance);
+        crawl.disturbed = false;
+      }
     },
   };
 }

@@ -3,6 +3,8 @@ import { TERRAIN_GLSL } from '../surface/terrain';
 import {
   sharedLighting, PAINTED_VERTEX_GLSL, PAINTED_LIGHT_GLSL, GRADE_GLSL,
 } from './paintedMaterial';
+import { groundUniforms } from './groundUniforms';
+import { DISTURB_GLSL } from './leafGlsl';
 
 /**
  * Painted autumn leaves: the shared painted lighting plus, from leaf-local attributes, a
@@ -13,6 +15,7 @@ import {
  * vein weight), aLeaf2 (lateral-vein strength, per-leaf seed).
  * With FALLING defined, aFall (seed, spin rate, box x, box z) animates each leaf down
  * through the light around the camera, looping, entirely in the vertex shader.
+ * With DISTURB defined, leaves near the worm drape, slide and settle by the disturbance map.
  */
 const vertexShader = /* glsl */ `
   uniform vec3 uLightDir;
@@ -41,6 +44,10 @@ const vertexShader = /* glsl */ `
   vec3 rotY(vec3 p, float a) { float c = cos(a), s = sin(a); return vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z); }
   vec3 rotX(vec3 p, float a) { float c = cos(a), s = sin(a); return vec3(p.x, c * p.y - s * p.z, s * p.y + c * p.z); }
   vec3 rotZ(vec3 p, float a) { float c = cos(a), s = sin(a); return vec3(c * p.x - s * p.y, s * p.x + c * p.y, p.z); }
+  #endif
+
+  #ifdef DISTURB
+  ${DISTURB_GLSL}
   #endif
 
   void main() {
@@ -75,6 +82,9 @@ const vertexShader = /* glsl */ `
     #else
       vec4 wp = modelMatrix * vec4(position, 1.0);
       vNormalW = normalize(mat3(modelMatrix) * nrm);
+    #endif
+    #ifdef DISTURB
+      wp.xyz = disturb(wp.xyz);
     #endif
     vPosW = wp.xyz;
     vColor = aColor;
@@ -161,10 +171,18 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
-export function createLeafMaterial(falling = false): THREE.ShaderMaterial {
+/** Which leaves: the floor litter (reacts to the worm) or the falling leaves (animated). */
+export type LeafVariant = 'litter' | 'falling';
+
+const DEFINES: Record<LeafVariant, Record<string, string>> = {
+  litter: { DISTURB: '' },
+  falling: { FALLING: '' },
+};
+
+export function createLeafMaterial(variant: LeafVariant = 'litter'): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: { ...sharedLighting },
-    defines: falling ? { FALLING: '' } : {},
+    uniforms: { ...sharedLighting, ...groundUniforms },
+    defines: { ...DEFINES[variant] },
     vertexShader,
     fragmentShader,
     side: THREE.DoubleSide,
