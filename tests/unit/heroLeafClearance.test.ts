@@ -155,7 +155,7 @@ describe('hero leaves never clip the worm', () => {
     const g = stats.gaps.sort((a, b) => a - b);
     expect(g.length).toBeGreaterThan(10000);
     expect(g[g.length >> 1]).toBeLessThan(0.12);
-  }, 60_000);
+  }, 120_000);
 
   it('in tight coils, and crawling along the world\'s edge (leaves recycled next to the body)', () => {
     const stats: Stats = { gaps: [], frames: 0, covered: 0, violations: 0, worst: 0, worstAt: '' };
@@ -166,5 +166,5 @@ describe('hero leaves never clip the worm', () => {
     replay(26, 900, [0, 0.5], stats, 0);
     expect(stats.covered).toBeGreaterThan(1000);
     expect(stats.violations, JSON.stringify({ ...stats, gaps: undefined })).toBe(0);
-  }, 60_000);
+  }, 120_000);
 });

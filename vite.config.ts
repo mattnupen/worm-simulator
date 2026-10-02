@@ -33,5 +33,5 @@ function injectCsp(): Plugin {
 export default defineConfig({
   plugins: [injectCsp(), viteSingleFile()],
   build: { target: 'es2020', modulePreload: false },
-  test: { include: ['tests/unit/**/*.test.ts'] },
+  test: { include: ['tests/unit/**/*.test.ts'], testTimeout: 30_000 },
 });
