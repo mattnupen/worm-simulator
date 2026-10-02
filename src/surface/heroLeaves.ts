@@ -1,6 +1,7 @@
 import { PLAY_HALF, WORLD_HALF } from './terrain';
 import {
-  HEAD_STRENGTH, LEAF_REACH, PUSHER_STRIDE, bestTilt, liftForTilt, overBody, pressTarget, reachToward,
+  HEAD_STRENGTH, LEAF_REACH, PRESS_RAMP, PUSHER_SPAN, PUSHER_STRIDE, SKIRT, bestTilt, heroShortcuts,
+  liftForTilt, overBody, pressTarget, reachToward,
 } from './heroClearance';
 
 export { PUSHER_SPAN, PUSHER_STRIDE } from './heroClearance';
@@ -66,6 +67,8 @@ const UNPRESS = 3;
 const TRAP_TIME = 2;
 /** A leaf held at least this high (m) is lying over the body. */
 const HELD = 0.002;
+/** Beyond the farthest any body point acts on a leaf (skirt or press ramp), plus a hair. */
+const SLEEP_MARGIN = Math.max(SKIRT, PRESS_RAMP) + 0.02;
 /** Steps this long or longer (s), or not finite, are ignored. */
 const MAX_DT = 1;
 
@@ -157,7 +160,7 @@ const BODY_GAP = 0.1;
 function respawn(
   p: HeroLeaves, i: number, hx: number, hz: number, heading: number, surfaceAt: SurfaceFn, around: boolean,
   pushers: Float32Array = NO_BODY, count = 0,
-): void {
+): number {
   const fx = Math.sin(heading);
   const fz = Math.cos(heading);
   const clear = p.size[i] * LEAF_REACH[p.kind[i]] + BODY_GAP;
@@ -218,10 +221,11 @@ function respawn(
   const h3 = hash01(p.spawned, p.seed + 13);
   p.spawned++;
   const prevY = Number.isFinite(p.y[i]) ? p.y[i] : 0;
-  const y = surfaceOr(surfaceAt, x, z, prevY) + i * HERO_Y_BIAS;
   p.x[i] = p.px[i] = x;
   p.z[i] = p.pz[i] = z;
-  p.y[i] = p.py[i] = y;
+  // The surface where it is stored (Float32), as every step reads it.
+  const surf = surfaceOr(surfaceAt, p.x[i], p.z[i], prevY);
+  p.y[i] = p.py[i] = surf + i * HERO_Y_BIAS;
   p.yaw[i] = p.pyaw[i] = h3 * Math.PI * 2;
   p.flip[i] = p.pflip[i] = h3 < 0.25 ? Math.PI : 0;
   p.pitch[i] = p.ppitch[i] = 0;
@@ -229,6 +233,7 @@ function respawn(
   p.lift[i] = p.pinned[i] = 0;
   p.flat[i] = p.pflat[i] = 0;
   p.vx[i] = p.vy[i] = p.vz[i] = p.spin[i] = p.flipRate[i] = 0;
+  return surf;
 }
 
 /**
@@ -303,8 +308,7 @@ function rideBody(
  * A freshly placed leaf (y on its rest, no lift): lifted over or pressed under the body at once,
  * with no step to interpolate from, so it never appears to pass through the worm.
  */
-function settle(p: HeroLeaves, i: number, pushers: Float32Array, count: number): void {
-  const surf = p.y[i] - i * HERO_Y_BIAS;
+function settle(p: HeroLeaves, i: number, surf: number, pushers: Float32Array, count: number): void {
   rideBody(p, i, surf, pushers, count, 1, 1, 1);
   p.y[i] = p.py[i] = surf + p.lift[i] + i * HERO_Y_BIAS;
   p.ppitch[i] = p.pitch[i];
@@ -316,8 +320,19 @@ function settle(p: HeroLeaves, i: number, pushers: Float32Array, count: number):
  * Places the leaves from slot `from` on (just added by setHeroCount) over or under the body
  * (`count` pushers, see stepHeroLeaves) at once.
  */
-export function settleHeroLeaves(p: HeroLeaves, from: number, pushers: Float32Array, count: number): void {
-  for (let i = Math.max(0, from); i < p.count; i++) settle(p, i, pushers, count);
+export function settleHeroLeaves(
+  p: HeroLeaves, from: number, pushers: Float32Array, count: number, surfaceAt?: SurfaceFn,
+): void {
+  for (let i = Math.max(0, from); i < p.count; i++) {
+    const rest = p.y[i] - i * HERO_Y_BIAS;
+    settle(p, i, surfaceAt ? surfaceOr(surfaceAt, p.x[i], p.z[i], rest) : rest, pushers, count);
+  }
+}
+
+/** Leaf i is at rest on the litter: not moving, turning, held, tilted or pressed. */
+function atRest(p: HeroLeaves, i: number): boolean {
+  return p.vx[i] === 0 && p.vz[i] === 0 && p.vy[i] === 0 && p.spin[i] === 0 && p.flipRate[i] === 0
+    && p.lift[i] === 0 && p.pitch[i] === 0 && p.flat[i] === 0;
 }
 
 /**
@@ -350,16 +365,47 @@ export function stepHeroLeaves(
   const hvz = hpz === hpz && p.headZ === p.headZ ? (hpz - p.headZ) / dt : 0;
   p.headX = hpx;
   p.headZ = hpz;
+  // The body's bounding circle, for the leaves no body point can reach (they sleep).
+  let bcx = 0;
+  let bcz = 0;
+  for (let k = 0; k < count; k++) {
+    bcx += pushers[k * PUSHER_STRIDE];
+    bcz += pushers[k * PUSHER_STRIDE + 1];
+  }
+  if (count > 0) {
+    bcx /= count;
+    bcz /= count;
+  }
+  let bodyR = -Infinity;
+  for (let k = 0; k < count; k++) {
+    const o = k * PUSHER_STRIDE;
+    const dx = pushers[o] - bcx;
+    const dz = pushers[o + 1] - bcz;
+    bodyR = Math.max(bodyR, Math.sqrt(dx * dx + dz * dz) + pushers[o + 2]);
+  }
+  const shortcuts = heroShortcuts.on;
   for (let i = 0; i < p.count; i++) {
     const hdx = p.x[i] - hx;
     const hdz = p.z[i] - hz;
     if (Math.sqrt(hdx * hdx + hdz * hdz) > HERO_RECYCLE) {
-      respawn(p, i, hx, hz, heading, surfaceAt, false, pushers, count);
-      settle(p, i, pushers, count);
+      settle(p, i, respawn(p, i, hx, hz, heading, surfaceAt, false, pushers, count), pushers, count);
       continue;
     }
+    if (shortcuts && atRest(p, i)) {
+      // At rest and beyond the reach of every body point (its shove, lift, press and skirt):
+      // a full step would leave it exactly as it is.
+      const dx = p.x[i] - bcx;
+      const dz = p.z[i] - bcz;
+      const pad = bodyR + p.size[i] * LEAF_REACH[p.kind[i]] + PUSHER_SPAN + SLEEP_MARGIN;
+      if (pad < 0 || !(dx * dx + dz * dz < pad * pad)) {
+        p.pinned[i] = 0;
+        continue;
+      }
+    }
     const slotBias = i * HERO_Y_BIAS;
-    const surf0 = surfaceOr(surfaceAt, p.x[i], p.z[i], p.y[i]);
+    const sx = p.x[i];
+    const sz = p.z[i];
+    const surf0 = surfaceOr(surfaceAt, sx, sz, p.y[i]);
     const grounded = p.y[i] <= surf0 + p.lift[i] + slotBias + 1e-4;
     const reach = p.size[i] * LEAF_REACH[p.kind[i]];
     // A leaf lying over the body rests on it: nothing beneath it shoves it or turns it over.
@@ -414,8 +460,7 @@ export function stepHeroLeaves(
     // Pinned against the body for too long (tight coils): move it clear.
     p.pinned[i] = pinned ? p.pinned[i] + dt : 0;
     if (p.pinned[i] > TRAP_TIME) {
-      respawn(p, i, hx, hz, heading, surfaceAt, false, pushers, count);
-      settle(p, i, pushers, count);
+      settle(p, i, respawn(p, i, hx, hz, heading, surfaceAt, false, pushers, count), pushers, count);
       continue;
     }
     p.vx[i] = clamp(p.vx[i], MAX_SPEED);
@@ -427,7 +472,7 @@ export function stepHeroLeaves(
     p.z[i] = clamp(p.z[i] + p.vz[i] * dt, WORLD_HALF);
     p.y[i] += p.vy[i] * dt;
     p.yaw[i] += p.spin[i] * dt;
-    const surf = surfaceOr(surfaceAt, p.x[i], p.z[i], surf0);
+    const surf = shortcuts && p.x[i] === sx && p.z[i] === sz ? surf0 : surfaceOr(surfaceAt, p.x[i], p.z[i], surf0);
     const jumped = rideBody(p, i, surf, pushers, count, pitchK, liftDown, unpress);
     const floor = surf + p.lift[i] + slotBias;
     // Hopping up as it turns over, a leaf the body lifts is carried up, still in the air.

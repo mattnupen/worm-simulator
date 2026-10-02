@@ -151,7 +151,7 @@ export class Crawl {
     const from = this.hero.count;
     this.packPushers();
     setHeroCount(this.hero, n, h.x, h.z, this.motion.heading, litterTop, this.pushers, PUSHERS);
-    settleHeroLeaves(this.hero, from, this.pushers, PUSHERS);
+    settleHeroLeaves(this.hero, from, this.pushers, PUSHERS, litterTop);
   }
 
   /**

@@ -34,6 +34,11 @@ export const PUSHER_STRIDE = 8;
 export const PUSHER_SPAN = 0.07;
 const LINK = 0.2;
 const BEND = 0.015;
+/**
+ * Skips work that cannot change the result (sleeping far leaves, strips no body point reaches).
+ * Tests switch it off to prove the shortcuts change nothing.
+ */
+export const heroShortcuts = { on: true };
 /** A pusher with at least this strength is the head. */
 export const HEAD_STRENGTH = 0.9;
 /** A leaf over the worm clears its top by this (m). */
@@ -41,13 +46,13 @@ export const LEAF_CLEAR = 0.01;
 /** Steepest tilt across the body (35 degrees): beyond 45 a cupped leaf's rim would dip under its plane. */
 export const MAX_TILT = Math.tan(0.6);
 /** A leaf flattens over this distance (m) before a body point riding over the litter can reach it. */
-const PRESS_RAMP = 0.1;
+export const PRESS_RAMP = 0.1;
 /**
  * Beyond the body's side the leaf is eased up over this distance (m): a skirt falling from the
  * side of the dome to the litter, so a leaf rises as the worm noses under its edge instead of
  * jumping up when the side arrives.
  */
-const SKIRT = 0.04;
+export const SKIRT = 0.04;
 /** The leaf is checked against the body in this many strips across its tilt. */
 const STRIPS = 24;
 const MAX_LINES = 1 + STRIPS;
@@ -172,6 +177,18 @@ function linked(pushers: Float32Array, o: number, q: number): boolean {
   return dx * dx + dz * dz < LINK * LINK;
 }
 
+/** Whether any of the `near` body stretches (with its dome, skirt and swing) reaches [a, b] along the tilt. */
+function reachesStrip(near: number, swing: number, a: number, b: number): boolean {
+  for (let q = 0; q < near; q++) {
+    const o = q * NEAR_STRIDE;
+    const a1 = nearBody[o];
+    const a2 = nearBody[o + 2];
+    const out = nearBody[o + 4] + SKIRT + BEND + swing;
+    if ((a1 < a2 ? a1 : a2) - out < b && (a1 < a2 ? a2 : a1) + out > a) return true;
+  }
+  return false;
+}
+
 /**
  * Sets up the constraints for a leaf at (x, z) on litter of height `surf`, resting at `rest`
  * (its height with no body under it): its species `kind`, length `size`, yaw and flip, and the
@@ -280,6 +297,7 @@ export function overBody(
   for (let s = 0; s < STRIPS && near > 0; s++) {
     const a = -rb + step * s;
     const b = a + step;
+    if (heroShortcuts.on && !reachesStrip(near, swing, a, b)) continue;
     let p0 = Infinity;
     let p1 = -Infinity;
     for (let j = 0; j < n; j++) {
