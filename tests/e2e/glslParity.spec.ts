@@ -1,4 +1,8 @@
 import { test, expect } from '@playwright/test';
+import * as THREE from 'three';
+import { occlusion, ign, OCCLUSION_FN_GLSL, IGN_GLSL, OCC_SEGMENTS } from '../../src/render/occlusion';
+import { occluderSegments } from '../../src/render/occluderSegments';
+import { mulberry32 } from '../../src/core/random';
 import { DETAIL_GLSL, detailVertex, type DetailInputs } from '../../src/render/detailGlsl';
 import { DISTURB_GLSL, disturbVertex, type MapSampler } from '../../src/render/leafGlsl';
 import { litterTextureData, LITTER_TEX_N } from '../../src/render/litterTexture';
@@ -410,4 +414,143 @@ test('near clutter placement, meshGround and the worm keep-clear run on the GPU 
     expect(gone, `case ${ci}`).toBeGreaterThan(100);
     expect(keptClear, `case ${ci}`).toBeGreaterThan(20);
   });
+});
+
+test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', async ({ page }) => {
+  // Three worm poses seen by three cameras; leaves along rays through the screen near each.
+  const poses = [
+    { spine: spineThrough(0.2, -1.3, 1.57, 0.4), cam: [0.1, 1.1, -3.9], look: [0.2, 0.6, 0.4] },
+    { spine: spineThrough(5.0, 2.0, 0.3, -0.8), cam: [3.6, 0.9, 0.8], look: [6.0, 0.2, 3.5] },
+    { spine: spineThrough(-3.0, 4.0, 2.6, 1.2), cam: [-2.0, 1.4, 1.8], look: [-3.5, 0.3, 4.8] },
+  ];
+  const cases = poses.map((c) => {
+    const camera = new THREE.PerspectiveCamera(60, 1366 / 768, 0.2, 120);
+    camera.position.fromArray(c.cam);
+    camera.lookAt(new THREE.Vector3().fromArray(c.look));
+    camera.updateMatrixWorld();
+    const pe = camera.projectionMatrix.elements;
+    const seg = new Float32Array(OCC_SEGMENTS * 8);
+    const count = occluderSegments(c.spine, camera.matrixWorldInverse.elements, pe[0], pe[5], seg, new Float32Array(4));
+    // Pixels within the box's reach, leaves at any depth along them: (tan x, tan y, view depth).
+    const rng = mulberry32(3);
+    const points: number[] = [];
+    for (let k = 0; k < 4000; k++) {
+      const tx = (rng() * 2 - 1) / pe[0];
+      const ty = (rng() * 2 - 1) / pe[5];
+      points.push(tx, ty, 0.3 + rng() * 4, 0);
+    }
+    return { seg: Array.from(seg), count, points };
+  });
+
+  await page.setContent('<canvas id="c" width="64" height="64"></canvas>');
+  const gpu = await page.evaluate(({ fn, ignGlsl, cases, segs }) => {
+    const gl = (document.getElementById('c') as HTMLCanvasElement).getContext('webgl2', { antialias: false });
+    if (!gl) throw new Error('no WebGL 2');
+    const shader = (type: number, src: string) => {
+      const s = gl.createShader(type)!;
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) ?? 'compile');
+      return s;
+    };
+    const program = (vs: string, fs: string, feedback: string[]) => {
+      const pr = gl.createProgram()!;
+      gl.attachShader(pr, shader(gl.VERTEX_SHADER, vs));
+      gl.attachShader(pr, shader(gl.FRAGMENT_SHADER, fs));
+      if (feedback.length) gl.transformFeedbackVaryings(pr, feedback, gl.SEPARATE_ATTRIBS);
+      gl.linkProgram(pr);
+      if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr) ?? 'link');
+      return pr;
+    };
+    // occlusion() at each pixel and depth, by transform feedback.
+    const pr = program(`#version 300 es
+      precision highp float; precision highp int;
+      uniform vec4 uOccSeg[${segs * 2}]; uniform int uOccCount;
+      in vec4 aPoint;
+      ${fn}
+      out float oOcc;
+      void main() { oOcc = occlusion(aPoint.xy, aPoint.z); gl_Position = vec4(0.0); }`,
+    `#version 300 es
+      precision highp float; out vec4 c; void main() { c = vec4(1.0); }`, ['oOcc']);
+    gl.useProgram(pr);
+    const U = (name: string) => gl.getUniformLocation(pr, name);
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    const occ = cases.map((c) => {
+      const n = c.points.length / 4;
+      gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(c.points), gl.STATIC_DRAW);
+      const l = gl.getAttribLocation(pr, 'aPoint');
+      gl.enableVertexAttribArray(l);
+      gl.vertexAttribPointer(l, 4, gl.FLOAT, false, 16, 0);
+      gl.uniform4fv(U('uOccSeg[0]'), new Float32Array(c.seg));
+      gl.uniform1i(U('uOccCount'), c.count);
+      const b = gl.createBuffer();
+      gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, b);
+      gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, n * 4, gl.STATIC_READ);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, b);
+      gl.enable(gl.RASTERIZER_DISCARD);
+      gl.beginTransformFeedback(gl.POINTS);
+      gl.drawArrays(gl.POINTS, 0, n);
+      gl.endTransformFeedback();
+      gl.disable(gl.RASTERIZER_DISCARD);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+      const o = new Float32Array(n);
+      gl.bindBuffer(gl.ARRAY_BUFFER, b);
+      gl.getBufferSubData(gl.ARRAY_BUFFER, 0, o);
+      return Array.from(o);
+    });
+    // The dither on a full-screen triangle: which pixels of a 0.6 drop survive, drawn twice.
+    const dpr = program(`#version 300 es
+      precision highp float;
+      void main() { gl_Position = vec4(gl_VertexID == 1 ? 3.0 : -1.0, gl_VertexID == 2 ? 3.0 : -1.0, 0.0, 1.0); }`,
+    `#version 300 es
+      precision highp float;
+      ${ignGlsl}
+      out vec4 c;
+      void main() { if (ign(gl_FragCoord.xy) < 0.6) discard; c = vec4(1.0); }`, []);
+    gl.useProgram(dpr);
+    const draw = () => {
+      gl.viewport(0, 0, 64, 64);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      const px = new Uint8Array(64 * 64 * 4);
+      gl.readPixels(0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return Array.from({ length: 64 * 64 }, (_, k) => (px[k * 4] > 127 ? 1 : 0));
+    };
+    return { occ, kept: [draw(), draw()] };
+  }, { fn: OCCLUSION_FN_GLSL, ignGlsl: IGN_GLSL, cases, segs: OCC_SEGMENTS });
+
+  cases.forEach((c, ci) => {
+    let worst = 0;
+    let off = 0;
+    let faded = 0;
+    let clear = 0;
+    for (let k = 0; k < c.points.length / 4; k++) {
+      const ts = occlusion(c.points[k * 4], c.points[k * 4 + 1], c.points[k * 4 + 2], c.seg, c.count);
+      const d = Math.abs(gpu.occ[ci][k] - ts);
+      worst = Math.max(worst, d);
+      if (d > 1e-3) off++;
+      if (ts > 0.01) faded++;
+      else clear++;
+    }
+    expect(c.count, `case ${ci}`).toBeGreaterThan(3);
+    expect(Number.isFinite(worst), `case ${ci}`).toBe(true);
+    // Float32 against float64: nearly every pixel agrees to 1e-3 of its drop share. Where two
+    // segments tie for nearest, the GPU may take the other one's line for the touch: still within
+    // about one step of the 8-bit dither.
+    expect(off, `case ${ci}: pixels off by more than 1e-3`).toBeLessThan(c.points.length / 4 / 200);
+    expect(worst, `case ${ci}: worst |GPU - TS|`).toBeLessThan(0.01);
+    // The sample is real: pixels in the fade and pixels out of it.
+    expect(faded, `case ${ci}`).toBeGreaterThan(40);
+    expect(clear, `case ${ci}`).toBeGreaterThan(1000);
+  });
+  // The same pixels survive every frame (no shimmer), 40% of them, as the TS twin picks them.
+  expect(gpu.kept[1]).toEqual(gpu.kept[0]);
+  const kept = gpu.kept[0];
+  expect(kept.reduce((a: number, b) => a + b, 0) / kept.length).toBeCloseTo(0.4, 1);
+  let agree = 0;
+  for (let k = 0; k < kept.length; k++) if (kept[k] === (ign((k % 64) + 0.5, Math.floor(k / 64) + 0.5) < 0.6 ? 0 : 1)) agree++;
+  expect(agree / kept.length).toBeGreaterThan(0.97);
 });

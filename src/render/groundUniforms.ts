@@ -26,6 +26,13 @@ export const groundUniforms = {
   uDistOrigin: { value: new THREE.Vector2(-DIST_N * DIST_CELL / 2, -DIST_N * DIST_CELL / 2) },
   /** The worm's rendered spine (x, y, z per point, head first): the near clutter keeps clear of it. */
   uSpine: { value: new Float32Array(SPINE_POINTS * 3) },
+  /** The leaf fade's view of the body (occluderSegments): projected axis segments, and how many. */
+  uOccSeg: { value: new Float32Array((SPINE_POINTS - 1) * 8) },
+  uOccCount: { value: 0 },
+  /** NDC box (xmin, ymin, xmax, ymax) of the pixels the fade can touch; empty until set. */
+  uOccBox: { value: new THREE.Vector4(2, 2, -2, -2) },
+  /** 1 / p00, 1 / p11 of the camera's projection: NDC to the tan space the segments are in. */
+  uOccTan: { value: new THREE.Vector2(1, 1) },
   /** 1 when leaves react to the worm; 0 (Low) skips every disturbance fetch, without a recompile. */
   uLeafReact: { value: 1 },
 };

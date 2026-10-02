@@ -8,6 +8,7 @@ import { DISTURB_GLSL, HERO_GLSL } from './leafGlsl';
 import { DETAIL_GLSL } from './detailGlsl';
 import { getLitterTexture } from './litterTexture';
 import { getGroundTexture } from './groundTexture';
+import { OCCLUDE_GLSL } from './occlusion';
 
 /**
  * Painted autumn leaves: the shared painted lighting plus, from leaf-local attributes, a
@@ -24,6 +25,8 @@ import { getGroundTexture } from './groundTexture';
  * With DETAIL defined, aDetail (home x, z in the wrap tile, yaw, radius) places each leaf of the
  * close-up layer around the worm in the vertex shader, which also gives its anchor (and no dip).
  * With HERO defined it is the instanced hero-leaf mesh (instanceMatrix, instanceColor tint).
+ * With OCCLUDE defined, leaf pixels between the camera and the worm's body drop out in a fixed
+ * screen-space dither (occlusion.ts), so the worm stays readable without a transparent pass.
  */
 const vertexShader = /* glsl */ `
   uniform vec3 uLightDir;
@@ -156,8 +159,14 @@ const fragmentShader = /* glsl */ `
   varying vec4 vFog;
   ${PAINTED_LIGHT_GLSL}
   ${GRADE_GLSL}
+  #ifdef OCCLUDE
+  ${OCCLUDE_GLSL}
+  #endif
 
   void main() {
+    #ifdef OCCLUDE
+      if (fadedOut()) discard;
+    #endif
     vec3 n = normalize(vNormalW);
     if (!gl_FrontFacing) n = -n;
     vec3 v = normalize(cameraPosition - vPosW);
@@ -218,10 +227,10 @@ const fragmentShader = /* glsl */ `
 export type LeafVariant = 'litter' | 'falling' | 'detail' | 'hero';
 
 const DEFINES: Record<LeafVariant, Record<string, string>> = {
-  litter: { DISTURB: '' },
+  litter: { DISTURB: '', OCCLUDE: '' },
   falling: { FALLING: '' },
-  detail: { DETAIL: '', DISTURB: '' },
-  hero: { HERO: '' },
+  detail: { DETAIL: '', DISTURB: '', OCCLUDE: '' },
+  hero: { HERO: '', OCCLUDE: '' },
 };
 
 export function createLeafMaterial(variant: LeafVariant = 'litter'): THREE.ShaderMaterial {

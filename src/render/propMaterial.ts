@@ -6,6 +6,7 @@ import { groundUniforms } from './groundUniforms';
 import { getLitterTexture } from './litterTexture';
 import { getGroundTexture } from './groundTexture';
 import { NEAR_CLUTTER_GLSL } from './nearClutterGlsl';
+import { OCCLUDE_GLSL } from './occlusion';
 
 export { NEAR_CLUTTER_BOX } from './nearClutterGlsl';
 
@@ -15,7 +16,8 @@ export { NEAR_CLUTTER_BOX } from './nearClutterGlsl';
  * 2 plant, glowing where the sun shines through) and whose fraction is a 0..1 parameter.
  * With WRAP defined (Ultra's near clutter), aWrap is each item's home in a world tile and the
  * vertex shader places the copy nearest the worm on the ground (nearClutterPosition), shrunk away
- * from the worm's body, and shades it by the baked trunk shade.
+ * from the worm's body, and shades it by the baked trunk shade. Its tufts can stand between the
+ * camera and the worm, so it also fades there like the leaves (OCCLUDE, occlusion.ts).
  */
 const vertexShader = /* glsl */ `
   uniform vec3 uLightDir;
@@ -69,7 +71,13 @@ const fragmentShader = /* glsl */ `
   varying vec4 vFog;
   ${PAINTED_LIGHT_GLSL}
   ${GRADE_GLSL}
+  #ifdef OCCLUDE
+  ${OCCLUDE_GLSL}
+  #endif
   void main() {
+    #ifdef OCCLUDE
+      if (fadedOut()) discard;
+    #endif
     vec3 n = normalize(vNormalW);
     if (!gl_FrontFacing) n = -n;
     vec3 v = normalize(cameraPosition - vPosW);
@@ -115,11 +123,15 @@ export function createPropMaterial(wrap = false): THREE.ShaderMaterial {
         uFocus: groundUniforms.uFocus,
         uWrapCentre: groundUniforms.uWrapCentre,
         uSpine: groundUniforms.uSpine,
+        uOccSeg: groundUniforms.uOccSeg,
+        uOccCount: groundUniforms.uOccCount,
+        uOccBox: groundUniforms.uOccBox,
+        uOccTan: groundUniforms.uOccTan,
         uLitter: { value: getLitterTexture() },
         uGround: { value: getGroundTexture() },
       }
       : { ...sharedLighting },
-    defines: wrap ? { WRAP: '' } : {},
+    defines: wrap ? { WRAP: '', OCCLUDE: '' } : {},
     vertexShader,
     fragmentShader,
     side: THREE.DoubleSide,

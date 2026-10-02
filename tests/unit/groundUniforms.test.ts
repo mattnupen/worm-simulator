@@ -3,6 +3,7 @@ import { groundUniforms, setFocus, uploadDisturbance } from '../../src/render/gr
 import { createDisturbance, recentre, stamp, DIST_CELL } from '../../src/surface/disturbance';
 import { createLeafMaterial } from '../../src/render/leafMaterial';
 import { createPaintedMaterial, sharedLighting } from '../../src/render/paintedMaterial';
+import { createPropMaterial } from '../../src/render/propMaterial';
 
 describe('groundUniforms', () => {
   it('setFocus stores the head and snaps the wrap centre to the 1 m grid', () => {
@@ -39,6 +40,20 @@ describe('createLeafMaterial', () => {
     const m = createLeafMaterial('falling');
     expect(m.defines).toHaveProperty('FALLING');
     expect(m.defines).not.toHaveProperty('DISTURB');
+  });
+});
+
+describe('leaf occluder fade', () => {
+  it('is on for every leaf layer the worm moves through (and Ultra\'s near clutter), off for the falling leaves', () => {
+    const faded = [...(['litter', 'detail', 'hero'] as const).map((v) => createLeafMaterial(v)), createPropMaterial(true)];
+    for (const m of faded) {
+      expect(m.defines).toHaveProperty('OCCLUDE');
+      for (const u of ['uOccSeg', 'uOccCount', 'uOccBox', 'uOccTan'] as const) expect(m.uniforms[u]).toBe(groundUniforms[u]);
+      expect(m.uniforms.uResolution).toBe(sharedLighting.uResolution);
+      expect(m.fragmentShader).toContain('if (fadedOut()) discard;');
+    }
+    expect(createLeafMaterial('falling').defines).not.toHaveProperty('OCCLUDE');
+    expect(createPropMaterial().defines).not.toHaveProperty('OCCLUDE');
   });
 });
 

@@ -2,7 +2,10 @@ import * as THREE from 'three';
 import { buildSky } from '../render/sky';
 import { buildAtmosphere, type Atmosphere } from '../render/atmosphere';
 import { setRimLight } from '../render/paintedMaterial';
-import { setFocus, setLeafReaction, setSpine, uploadDisturbance } from '../render/groundUniforms';
+import {
+  groundUniforms, setFocus, setLeafReaction, setSpine, uploadDisturbance,
+} from '../render/groundUniforms';
+import { occluderSegments } from '../render/occluderSegments';
 import { PRESETS, type PresetSpec } from '../render/graphics';
 import { buildTerrain } from '../surface/terrainMesh';
 import { buildForestTrees } from '../surface/forestTrees';
@@ -59,6 +62,7 @@ export function buildWorld(crawl: Crawl): World {
   // The contact shadow lies on the same surface the worm rests on.
   const worm = new HeroWorm(WORM_SEGMENTS, (x, z) => wormSurface(x, z, reaction, surf).y);
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
+  const occBox = new Float32Array(4);
 
   // The ground fills most of the screen: draw it after everything that sits on it, so the
   // depth test skips ground pixels already covered by leaves, props and trunks.
@@ -86,6 +90,14 @@ export function buildWorld(crawl: Crawl): World {
       hero.update(crawl.hero, alpha);
       setFocus(crawl.focus.x, crawl.focus.y, crawl.focus.z);
       if (nearClutter.visible) setSpine(pose.spine);
+      // The leaf fade (every preset): the body as this frame's camera sees it.
+      camera.updateMatrixWorld();
+      const pe = camera.projectionMatrix.elements;
+      const g = groundUniforms;
+      const view = camera.matrixWorldInverse.elements;
+      g.uOccCount.value = occluderSegments(pose.spine, view, pe[0], pe[5], g.uOccSeg.value, occBox);
+      g.uOccBox.value.fromArray(occBox);
+      g.uOccTan.value.set(1 / pe[0], 1 / pe[5]);
       if (crawl.disturbed) {
         uploadDisturbance(crawl.disturbance);
         crawl.disturbed = false;

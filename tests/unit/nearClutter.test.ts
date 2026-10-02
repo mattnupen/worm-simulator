@@ -108,6 +108,26 @@ describe('the lazily built near clutter layer', () => {
     expect(uSpine.length).toBe(WORM_SEGMENTS * 3);
   });
 
+  it('the world hands the leaf fade the body as this frame\'s camera sees it, on every preset', () => {
+    const crawl = new Crawl();
+    const world = buildWorld(crawl);
+    const camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.2, 120);
+    const g = groundUniforms;
+    for (const p of [PRESETS.low, PRESETS.high, PRESETS.ultra]) {
+      g.uOccCount.value = -1;
+      g.uOccBox.value.set(9, 9, 9, 9);
+      world.apply(p);
+      world.sync(crawl, 1, 0, camera);
+      // The worm (straight at first) is in front of the follow camera: a box within the screen.
+      expect(g.uOccCount.value).toBeGreaterThan(0);
+      expect(g.uOccBox.value.x).toBeLessThan(g.uOccBox.value.z);
+      expect(g.uOccBox.value.y).toBeLessThan(g.uOccBox.value.w);
+      expect(g.uOccBox.value.x).toBeGreaterThan(-1);
+      expect(g.uOccBox.value.z).toBeLessThan(1);
+      expect(g.uOccTan.value.y).toBeCloseTo(Math.tan(Math.PI / 6), 6);
+    }
+  });
+
   it('setSpine copies in place', () => {
     const s = Float32Array.from({ length: SPINE_POINTS * 3 }, (_, i) => i);
     const target = groundUniforms.uSpine.value;
