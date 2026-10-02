@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createHeroLeaves, setHeroCount, snapshotHeroLeaves, stepHeroLeaves,
+  createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
   HERO_MAX, HERO_RADIUS, HERO_RECYCLE, HERO_Y_BIAS, PUSHER_STRIDE,
   type HeroLeaves, type SurfaceFn,
 } from '../../src/surface/heroLeaves';
@@ -14,9 +14,15 @@ const NONE = new Float32Array(0);
 const TOP = 0.2;
 const bias = (i: number) => i * HERO_Y_BIAS;
 
-/** Packs one pusher: [x, z, radius, strength, top, under]. */
-function push(buf: Float32Array, k: number, x: number, z: number, strength: number, under: number, top = TOP): void {
-  buf.set([x, z, 0.14, strength, top, under], k * PUSHER_STRIDE);
+/**
+ * Packs one pusher: [x, z, radius, strength, top, under, belly] (fall 0: a flat-topped dome).
+ * Under the litter (under > 0.5) its belly lies below the 0.05 m litter top; riding on it, above.
+ */
+function push(
+  buf: Float32Array, k: number, x: number, z: number, strength: number, under: number, top = TOP,
+  belly = under > 0.5 ? 0.03 : 0.07,
+): void {
+  buf.set([x, z, 0.14, strength, top, under, belly], k * PUSHER_STRIDE);
 }
 
 function fields(p: HeroLeaves): Float32Array[] {
@@ -27,6 +33,12 @@ function pool(n = HERO_MAX, surface: SurfaceFn = flat): HeroLeaves {
   const p = createHeroLeaves(HERO_MAX, 5);
   setHeroCount(p, n, 0, 0, 0, surface);
   return p;
+}
+
+/** Height of leaf i's plane (its base, tilted by its pitch) above the point (x, z). */
+function planeAt(p: HeroLeaves, i: number, x: number, z: number): number {
+  const d = (x - p.x[i]) * Math.sin(p.pitchDir[i]) + (z - p.z[i]) * Math.cos(p.pitchDir[i]);
+  return p.y[i] - d * Math.tan(p.pitch[i]);
 }
 
 describe('hero leaves', () => {
@@ -147,6 +159,21 @@ describe('hero leaves', () => {
     }
   });
 
+  it('at the world\'s edge, a recycled leaf lands clear of the body (not on it, where the spots ahead are clamped)', () => {
+    const p = pool();
+    // The worm crawls along the edge (z = PLAY_HALF) heading +z, into it: every spot ahead clamps
+    // back onto the body. 16 body points trail behind the head along the edge.
+    const pushers = new Float32Array(16 * PUSHER_STRIDE);
+    for (let k = 0; k < 16; k++) push(pushers, k, 0, PLAY_HALF - 0.11 * k, k === 0 ? 1 : 0.5, 1);
+    stepHeroLeaves(p, DT, pushers, 16, 0, PLAY_HALF, 0, flat);
+    for (let i = 0; i < p.count; i++) {
+      for (let k = 0; k < 16; k++) {
+        const d = Math.hypot(p.x[i] - pushers[k * PUSHER_STRIDE], p.z[i] - pushers[k * PUSHER_STRIDE + 1]);
+        expect(d).toBeGreaterThan(0.14 + p.size[i] * 0.3);
+      }
+    }
+  });
+
   it('snapshot copies the current state for interpolation', () => {
     const p = pool(4);
     p.x[2] = 1.25;
@@ -185,7 +212,8 @@ describe('hero leaves', () => {
       expect(Number.isFinite(p.y[0]) && Number.isFinite(p.pitch[0])).toBe(true);
       if (Math.hypot(p.x[0], p.z[0] - wz) < 0.14) {
         overlaps++;
-        expect(p.y[0]).toBeGreaterThanOrEqual(TOP + 0.005);
+        // Its plane, where it passes over the body point, clears the top.
+        expect(planeAt(p, 0, 0, wz)).toBeGreaterThanOrEqual(TOP + 0.005);
       }
       maxPitch = Math.max(maxPitch, p.pitch[0]);
     }
@@ -217,35 +245,80 @@ describe('hero leaves', () => {
     expect(Math.cos(p.flip[0])).toBeCloseTo(1, 6);
   });
 
-  it('half under the litter: shoved and lifted a little', () => {
+  it('half under the litter (belly below the leaf): shoved out from under the body, held up over it while it reaches it', () => {
     const p = createHeroLeaves(1, 5);
     setHeroCount(p, 1, 0, 0, 0, flat);
     p.x[0] = 0;
     p.z[0] = 1;
     const pushers = new Float32Array(PUSHER_STRIDE);
-    push(pushers, 0, 0, 1, 0.5, 0.5);
-    for (let t = 0; t < 5; t++) stepHeroLeaves(p, DT, pushers, 1, 0, 0, 0, flat);
-    // Lifted part of the way over the body (full lift would be to TOP + 0.01 at under 1)...
-    expect(p.y[0]).toBeGreaterThan(0.05 + 0.02);
-    expect(p.y[0]).toBeLessThan(0.05 + 0.5 * (TOP + 0.01 - 0.05) + 1e-3);
-    // ...and shoved out from under it.
-    for (let t = 0; t < 30; t++) stepHeroLeaves(p, DT, pushers, 1, 0, 0, 0, flat);
+    let held = 0;
+    for (let t = 0; t < 60; t++) {
+      // The body point creeps after the leaf, so its rim keeps reaching it.
+      const wz = 1 + 1.4 * t * DT;
+      push(pushers, 0, 0, wz, 0.5, 0.5, TOP, 0.03);
+      stepHeroLeaves(p, DT, pushers, 1, 0, 0, 0, flat);
+      if (p.lift[0] > 0) held++;
+      // Never pressed under it: the worm is beneath the leaf here.
+      expect(p.flat[0]).toBe(0);
+    }
+    expect(held).toBeGreaterThan(0);
     expect(Math.hypot(p.x[0], p.z[0] - 1)).toBeGreaterThan(0.1);
   });
 
-  it('recycles a leaf trapped between body coils for more than 2 s', () => {
+  it('a body riding over a leaf presses it flat before it reaches it, and it springs back after', () => {
     const p = createHeroLeaves(1, 5);
     setHeroCount(p, 1, 0, 0, 0, flat);
-    p.size[0] = 0.8;
     p.x[0] = 0;
     p.z[0] = 1;
-    const pushers = new Float32Array(2 * PUSHER_STRIDE);
+    const pushers = new Float32Array(PUSHER_STRIDE);
+    // A riding body point passes 0.3 m to the side: close enough for the leaf's rim to reach it.
+    let pressed = false;
+    for (let t = 0; t < 240; t++) {
+      const wz = -1 + t * DT * 1.5;
+      push(pushers, 0, 0.3, wz, 0.5, 0);
+      stepHeroLeaves(p, DT, pushers, 1, 0, 0, 0, flat);
+      const reach = Math.hypot(p.x[0] - 0.3, p.z[0] - wz) < 0.14 + p.size[0] * 0.5;
+      if (reach) {
+        pressed = true;
+        expect(p.flat[0]).toBe(1);
+      }
+      expect(p.lift[0]).toBe(0);
+    }
+    expect(pressed).toBe(true);
+    for (let t = 0; t < 180; t++) stepHeroLeaves(p, DT, NONE, 0, 0, 0, 0, flat);
+    expect(p.flat[0]).toBeLessThan(0.01);
+  });
+
+  it('a leaf placed on the body goes over it at once, with no step to interpolate through it', () => {
+    const p = createHeroLeaves(1, 5);
+    setHeroCount(p, 1, 0, 0, 0, flat);
+    const pushers = new Float32Array(PUSHER_STRIDE);
+    push(pushers, 0, p.x[0], p.z[0], 0.5, 1);
+    settleHeroLeaves(p, 0, pushers, 1);
+    expect(p.lift[0]).toBeGreaterThan(TOP - 0.05);
+    expect(p.py[0]).toBe(p.y[0]);
+    expect(p.ppitch[0]).toBe(p.pitch[0]);
+    expect(planeAt(p, 0, p.x[0], p.z[0])).toBeGreaterThanOrEqual(TOP + 0.005);
+  });
+
+  it('recycles a leaf pinned against the body (tight coils) for more than 2 s', () => {
+    const p = createHeroLeaves(1, 5);
+    setHeroCount(p, 1, 0, 0, 0, flat);
+    p.x[0] = 0;
+    p.z[0] = 1;
+    const pushers = new Float32Array(PUSHER_STRIDE);
     const spawned = p.spawned;
-    push(pushers, 0, -0.3, 1, 0.5, 0);
-    push(pushers, 1, 0.3, 1, 0.5, 0);
-    for (let t = 0; t < 110; t++) stepHeroLeaves(p, DT, pushers, 2, 0, 0, 0, flat);
+    // The body riding on the litter keeps pressing into the leaf's side, wherever it goes.
+    const pin = (steps: number) => {
+      for (let t = 0; t < steps; t++) {
+        push(pushers, 0, p.x[0] - 0.2, p.z[0], 0.5, 0);
+        // The head stays near, so the leaf is never recycled for distance.
+        stepHeroLeaves(p, DT, pushers, 1, p.x[0], p.z[0], 0, flat);
+      }
+    };
+    pin(110);
     expect(p.spawned).toBe(spawned);
-    for (let t = 0; t < 40; t++) stepHeroLeaves(p, DT, pushers, 2, 0, 0, 0, flat);
+    pin(40);
     expect(p.spawned).toBeGreaterThan(spawned);
   });
 

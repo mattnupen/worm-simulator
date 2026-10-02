@@ -98,9 +98,35 @@ export function peristalsis(
     const a = i > 0 ? i - 1 : 0;
     const b = i < n - 1 ? i + 1 : n - 1;
     const dm = m[b] - m[a];
-    const stretch = dm > 0 ? (outS[b] - outS[a]) / dm : 1;
-    outScale[i] = Math.min(1.45, Math.max(0.72, 1 / Math.sqrt(Math.max(0.2, stretch))));
+    outScale[i] = swellOf(dm > 0 ? (outS[b] - outS[a]) / dm : 1);
   }
+}
+
+/** Peristalsis' envelope along the body (no wave at the tips), and its slope. */
+function envelope(m: number): number {
+  return smoothstep(0.05, 0.3, m) * (1 - smoothstep(0.8, 1, m));
+}
+function envelopeSlope(m: number): number {
+  return smoothSlope(0.05, 0.3, m) * (1 - smoothstep(0.8, 1, m)) - smoothstep(0.05, 0.3, m) * smoothSlope(0.8, 1, m);
+}
+function smoothSlope(a: number, b: number, v: number): number {
+  const t = clamp01((v - a) / (b - a));
+  return (6 * t * (1 - t)) / (b - a);
+}
+
+/**
+ * How much peristalsis stretches the body at rest coordinate m (the slope of its moved
+ * coordinate there; below 1 it shortens and thickens). peristalsis() takes a ring's stretch
+ * as the mean of this between its neighbours.
+ */
+export function peristalsisStretch(m: number, phase: number, amplitude: number, waves: number): number {
+  const a = 2 * Math.PI * (waves * m - phase);
+  return 1 + amplitude * (envelope(m) * Math.cos(a) + (envelopeSlope(m) * Math.sin(a)) / (2 * Math.PI * waves));
+}
+
+/** A ring's radius scale for a stretch (peristalsis keeps volume, within its clamp). */
+export function swellOf(stretch: number): number {
+  return Math.min(1.45, Math.max(0.72, 1 / Math.sqrt(Math.max(0.2, stretch))));
 }
 
 /** Smooth, bounded pseudo-noise in [-1, 1] from incommensurate sines (no jitter). */
@@ -124,11 +150,19 @@ export interface HeadProbe {
  * 1 = resting (big, slow searching), 0 = crawling (small). Writes into `out`; allocates nothing.
  */
 export function probeHead(timeSec: number, idle: number, out: HeadProbe): void {
+  probeReach(idle, out);
+  out.lift *= 0.55 + 0.45 * wander(timeSec * 1.1, 0.4);
+  out.sway *= wander(timeSec * 1.4, 3.7);
+}
+
+/**
+ * The most the head tip can rise and swing to either side at `idle` (probeHead's amplitudes:
+ * `wander` stays within [-1, 1]). Writes into `out`; allocates nothing.
+ */
+export function probeReach(idle: number, out: HeadProbe): void {
   const w = clamp01(idle);
-  const liftAmp = 0.03 + 0.11 * w;
-  const swayAmp = 0.02 + 0.07 * w;
-  out.lift = liftAmp * (0.55 + 0.45 * wander(timeSec * 1.1, 0.4));
-  out.sway = swayAmp * wander(timeSec * 1.4, 3.7);
+  out.lift = 0.03 + 0.11 * w;
+  out.sway = 0.02 + 0.07 * w;
 }
 
 export interface WaveState {
