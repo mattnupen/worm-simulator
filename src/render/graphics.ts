@@ -78,7 +78,8 @@ export function isChoice(v: unknown): v is GraphicsChoice {
 
 /** The renderer pixel ratio for a preset on a screen with device pixel ratio `dpr`. */
 export function pixelRatioFor(spec: PresetSpec, dpr: number): number {
-  return Math.min(dpr, spec.maxDpr) * spec.resolution;
+  const d = Number.isFinite(dpr) && dpr > 0 ? dpr : 1;
+  return Math.min(d, spec.maxDpr) * spec.resolution;
 }
 
 /** Auto steps down through these, in order. It never chooses Ultra. */
@@ -104,6 +105,10 @@ export class AutoGraphics {
 
   /** Returns true when it stepped down. */
   update(nowMs: number, fps: number): boolean {
+    if (!Number.isFinite(fps)) {
+      this.q.interrupt();
+      return false;
+    }
     return this.q.update(nowMs, fps);
   }
 
@@ -116,6 +121,7 @@ export class AutoGraphics {
 const TIER_PRESETS: readonly PresetId[] = ['high', 'medium', 'medium', 'low'];
 
 export function recommendedPreset(tier: number): PresetId {
+  if (!Number.isFinite(tier)) return 'high';
   return TIER_PRESETS[Math.max(0, Math.min(TIER_PRESETS.length - 1, Math.round(tier)))];
 }
 

@@ -66,6 +66,15 @@ describe('pixelRatioFor', () => {
     expect(pixelRatioFor(PRESETS.ultra, 1)).toBe(1);
     expect(pixelRatioFor(PRESETS.high, 0.5)).toBe(0.5);
   });
+
+  it('treats non-finite or non-positive DPR as 1', () => {
+    expect(pixelRatioFor(PRESETS.high, NaN)).toBe(pixelRatioFor(PRESETS.high, 1));
+    expect(pixelRatioFor(PRESETS.high, 0)).toBe(pixelRatioFor(PRESETS.high, 1));
+    expect(pixelRatioFor(PRESETS.high, -1)).toBe(pixelRatioFor(PRESETS.high, 1));
+    expect(pixelRatioFor(PRESETS.ultra, NaN)).toBe(pixelRatioFor(PRESETS.ultra, 1));
+    expect(pixelRatioFor(PRESETS.ultra, 0)).toBe(pixelRatioFor(PRESETS.ultra, 1));
+    expect(pixelRatioFor(PRESETS.ultra, -1)).toBe(pixelRatioFor(PRESETS.ultra, 1));
+  });
 });
 
 describe('AutoGraphics', () => {
@@ -119,6 +128,13 @@ describe('AutoGraphics', () => {
     expect(a.update(2500, 20)).toBe(false);
     expect(a.preset).toBe('high');
   });
+
+  it('treats non-finite fps as no data: does not step and clears the streak', () => {
+    const a = new AutoGraphics(null);
+    expect(a.update(0, NaN)).toBe(false);
+    expect(a.update(5000, NaN)).toBe(false);
+    expect(a.preset).toBe('high');
+  });
 });
 
 describe('recommendedPreset', () => {
@@ -128,6 +144,9 @@ describe('recommendedPreset', () => {
   it('clamps out-of-range tiers', () => {
     expect(recommendedPreset(-1)).toBe('high');
     expect(recommendedPreset(9)).toBe('low');
+  });
+  it('treats non-finite tier as high', () => {
+    expect(recommendedPreset(NaN)).toBe('high');
   });
 });
 
