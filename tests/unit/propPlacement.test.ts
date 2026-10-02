@@ -5,9 +5,9 @@ import {
 import { treeSites } from '../../src/surface/treeSites';
 import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
 import { PLAY_HALF } from '../../src/surface/terrain';
-import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/spike/drive';
+import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
 
-/** The speed test's auto-drive: the exact move and locomotion options src/spike/main.ts uses. */
+/** The speed test's auto-drive: the exact move and locomotion options the game uses. */
 function autoDrivePath(seconds: number): { x: number; z: number }[] {
   let m: WormMotion = { head: { x: 0, y: 0, z: 0 }, heading: 0 };
   const out = [];

@@ -1,7 +1,7 @@
 import { mulberry32 } from '../core/random';
 import { PLAY_HALF } from './terrain';
 import { treeSites } from './treeSites';
-import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../spike/drive';
+import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../game/drive';
 
 /**
  * Where the forest-floor props go. Pure. Everything stays out of the worm's way: the

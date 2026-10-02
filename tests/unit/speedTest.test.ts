@@ -1,18 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  parseParams, SpeedTest, PHASES, MAX_RESTARTS, quickPhases, verdict, formatResults, formatNoWebGLResults, formatContextLostResults, type DeviceInfo,
-} from '../../src/spike/speedTest';
-
-describe('parseParams', () => {
-  it('defaults to 2000 leaves, not quick', () => {
-    expect(parseParams('')).toEqual({ leaves: 2000, quick: false });
-  });
-  it('reads and clamps leaves, reads quick', () => {
-    expect(parseParams('?leaves=4000&quick=1')).toEqual({ leaves: 4000, quick: true });
-    expect(parseParams('?leaves=999999')).toEqual({ leaves: 10000, quick: false });
-    expect(parseParams('?leaves=abc')).toEqual({ leaves: 2000, quick: false });
-  });
-});
+  SpeedTest, PHASES, MAX_RESTARTS, quickPhases, verdict, formatResults, formatNoWebGLResults, formatContextLostResults, type DeviceInfo,
+} from '../../src/perf/speedTest';
 
 describe('PHASES', () => {
   it('runs full quality uncapped, then auto quality capped', () => {

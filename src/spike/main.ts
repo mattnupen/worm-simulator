@@ -6,7 +6,8 @@ import { FpsMeter } from '../render/fps';
 import { QualityController, TIERS } from '../render/quality';
 import { setRimLight, setResolution, setTime } from '../render/paintedMaterial';
 import { buildScene } from './scene';
-import { AUTO_DRIVE_MOVE, LOCOMOTION } from './drive';
+import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../game/drive';
+import { parseParams } from '../game/params';
 import { terrainHeight } from '../surface/terrain';
 import { createBody, followHead } from '../worm/body';
 import { advanceWave, type WaveState } from '../worm/wormShape';
@@ -19,13 +20,15 @@ import { KeyboardInput } from '../input/keyboard';
 import { TouchJoystick } from '../input/touchJoystick';
 import { keysToCommands, mergeCommands, NO_COMMANDS, type Commands } from '../input/commands';
 import {
-  SpeedTest, PHASES, quickPhases, parseParams, formatResults, formatNoWebGLResults,
+  SpeedTest, PHASES, quickPhases, formatResults, formatNoWebGLResults,
   formatContextLostResults, verdict,
   type DeviceInfo, type PhaseSpec,
-} from './speedTest';
+} from '../perf/speedTest';
 import { createUi } from './ui';
 
 const WORM_SEGMENTS = 16;
+/** Step 0's leaf count; the presets replace it when the game shell lands. */
+const LEAVES = 2000;
 const SPACING = 0.22;
 const CAM_DISTANCE = 2.6;
 const CAM_HEIGHT = 1.1;
@@ -84,7 +87,7 @@ function run(renderer: THREE.WebGLRenderer): void {
   // camera stays >= CAM_GROUND_MARGIN (0.5) above the ground and 2.6 behind the worm, so
   // nothing it normally looks at comes within 0.2 of the lens.
   const camera = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
-  const world = buildScene(params.leaves, WORM_SEGMENTS);
+  const world = buildScene(LEAVES, WORM_SEGMENTS);
 
   const keyboard = new KeyboardInput();
   const joystick = new TouchJoystick(app);
@@ -209,7 +212,7 @@ function run(renderer: THREE.WebGLRenderer): void {
     loop.setMaxFps(30);
     const { full, auto } = test!.results;
     finished = {
-      text: formatResults(full, auto, quality.tier, params.leaves, deviceInfo(), test!.restarts),
+      text: formatResults(full, auto, quality.tier, LEAVES, deviceInfo(), test!.restarts),
       pass: verdict(auto) === 'PASS',
     };
     ui.showResult(finished.text, finished.pass);

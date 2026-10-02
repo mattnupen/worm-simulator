@@ -1,15 +1,6 @@
 import { summarize, type FpsSummary } from '../render/fps';
 import { TIERS } from '../render/quality';
 
-export interface SpikeParams { leaves: number; quick: boolean }
-
-export function parseParams(search: string): SpikeParams {
-  const p = new URLSearchParams(search);
-  const n = Number(p.get('leaves'));
-  const leaves = Number.isFinite(n) && n > 0 ? Math.min(10000, Math.max(100, Math.round(n))) : 2000;
-  return { leaves, quick: p.get('quick') === '1' };
-}
-
 export interface PhaseSpec {
   id: 'full' | 'auto';
   durationMs: number;
