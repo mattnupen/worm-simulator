@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { GraphicsControl } from '../../src/game/graphicsControl';
 import { SETTINGS_KEY, type KeyValueStore } from '../../src/save/settingsStore';
+import type { GraphicsChoice } from '../../src/render/graphics';
 
 function memory(initial?: object): KeyValueStore & { data: Record<string, string> } {
   const data: Record<string, string> = initial ? { [SETTINGS_KEY]: JSON.stringify(initial) } : {};
@@ -22,9 +23,29 @@ describe('GraphicsControl', () => {
     expect(g.active).toBe('high');
   });
 
-  it('Auto starts from the saved autoSettled preset', () => {
-    const g = new GraphicsControl(memory({ version: 1, graphics: 'auto', autoSettled: 'low' }), null);
+  it('a new session starts Auto one step above the saved autoSettled (never Ultra)', () => {
+    const at = (autoSettled: string) =>
+      new GraphicsControl(memory({ version: 1, graphics: 'auto', autoSettled }), null).active;
+    expect(at('low')).toBe('medium');
+    expect(at('medium')).toBe('high');
+    expect(at('high')).toBe('high');
+  });
+
+  it('steps back down within seconds when the raised start is still too slow', () => {
+    const store = memory({ version: 1, graphics: 'auto', autoSettled: 'low' });
+    const g = new GraphicsControl(store, null);
+    expect(g.active).toBe('medium');
+    slow(g, 0, 2000, 20);
     expect(g.active).toBe('low');
+    expect(saved(store).autoSettled).toBe('low');
+  });
+
+  it('a raised start that runs fine does not rewrite autoSettled', () => {
+    const store = memory({ version: 1, graphics: 'auto', autoSettled: 'low' });
+    const g = new GraphicsControl(store, null);
+    slow(g, 0, 10_000, 30);
+    expect(g.active).toBe('medium');
+    expect(saved(store).autoSettled).toBe('low');
   });
 
   it('picking a preset turns Auto off and saves it', () => {
@@ -55,6 +76,39 @@ describe('GraphicsControl', () => {
     g.choose('auto');
     expect(g.active).toBe('medium');
     expect(saved(store).graphics).toBe('auto');
+  });
+
+  it('re-choosing Auto mid-session starts at autoSettled itself, without the session step', () => {
+    const store = memory({ version: 1, graphics: 'auto', autoSettled: 'low' });
+    const g = new GraphicsControl(store, null);
+    g.choose('high');
+    g.choose('auto');
+    expect(g.active).toBe('low');
+  });
+
+  it('choose() ignores values that are not a graphics choice', () => {
+    const store = memory({ version: 1, graphics: 'medium', autoSettled: null });
+    const g = new GraphicsControl(store, null);
+    for (const bad of ['bogus', '', null, undefined, 3, 'ULTRA']) g.choose(bad as unknown as GraphicsChoice);
+    expect(g.choice).toBe('medium');
+    expect(g.active).toBe('medium');
+    expect(saved(store).graphics).toBe('medium');
+    const forced = new GraphicsControl(memory(), 'ultra');
+    forced.choose('nope' as unknown as GraphicsChoice);
+    expect(forced.active).toBe('ultra');
+  });
+
+  it('interruptAuto(now) forgets a slow streak and ignores fps until the meter window has refilled', () => {
+    const g = new GraphicsControl(memory(), null);
+    slow(g, 0, 1500, 20);
+    g.interruptAuto(1500);
+    // Samples inside the window still mix in frames from before the interruption: ignored.
+    expect(g.updateAuto(2400, 5)).toBe(false);
+    // From 2500 on the samples count, and a fresh 2 s streak is needed.
+    slow(g, 2500, 1900, 20);
+    expect(g.active).toBe('high');
+    expect(g.updateAuto(4500, 20)).toBe(true);
+    expect(g.active).toBe('medium');
   });
 
   it('a forced ?preset= wins, is never saved, and Auto stays still', () => {

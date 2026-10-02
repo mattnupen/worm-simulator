@@ -10316,6 +10316,7 @@ These change the approved spec. Task 23 writes them into it.
 | Detail leaves | 0 / 800 / 1,500 / 2,500 | 0 / 800 / 1,000 / 1,500 (starting point; Task 23 tunes) | Same; they are now 0.6× the size, which roughly halves each one's cost. |
 | Detail leaf size | "smaller" than the litter (no number) | 0.21 to 0.62 m (litter 0.6 to 1.9 m) | Within the spec's wording; recorded because it is what makes the higher near-worm density affordable. |
 | Leaf shading | (not specified) | Noise sampled per vertex; distant litter skips veins and sheen | Measured cost cuts that keep the near look. |
+| Auto's starting preset | Starts at the saved autoSettled (or High) | A new session starts one step above autoSettled (Low → Medium, Medium → High, High stays High, never Ultra), then steps down within seconds if still slow; re-choosing Auto mid-session starts at autoSettled itself | One slow session (battery saver, a busy machine) would otherwise pin a Chromebook at Low for good, since Auto never steps up. From code review (Task 7). |
 
 ## Self-review
 

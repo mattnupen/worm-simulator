@@ -30,6 +30,8 @@ import { showResult, showRunning, showTestIntro } from './ui/speedTestUi';
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
 const NO_MOVE: Vec2 = Object.freeze({ x: 0, y: 0 });
+/** The game's frame cap; the speed test lifts it for its uncapped phase. */
+const MAX_FPS = 30;
 
 const params = parseParams(location.search);
 const app = document.getElementById('app')!;
@@ -50,6 +52,11 @@ if (renderer) run(renderer);
 
 function run(renderer: THREE.WebGLRenderer): void {
   app.appendChild(renderer.domElement);
+  let state: ScreenState = initialScreens(params.speedTest);
+  // The first card (Start, or the speed-test intro) goes up synchronously, before the slow
+  // world build, so no frame is ever painted with an empty card. (The no-WebGL path shows its
+  // FAIL card just as synchronously, above.) Its buttons only act once run() has finished.
+  draw();
   // Near plane 0.2 (not 0.1) doubles depth precision for the thin, layered leaf litter. The
   // camera stays >= 0.5 above the litter and 2.6 behind the worm, so nothing it normally looks
   // at comes within 0.2 of the lens.
@@ -63,7 +70,6 @@ function run(renderer: THREE.WebGLRenderer): void {
   // The speed test measures a forced ?preset= or, normally, High.
   const testBase = PRESETS[params.preset ?? 'high'];
   const drawSize = new THREE.Vector2();
-  let state: ScreenState = initialScreens(params.speedTest);
   let spec: PresetSpec = PRESETS[graphics.active];
   /** What the results screen shows. */
   let report: { text: string; pass: boolean; summary?: string } | null = null;
@@ -94,6 +100,8 @@ function run(renderer: THREE.WebGLRenderer): void {
     world.apply(s);
     updateResolution();
     dirty = true;
+    // The frames around a preset change say nothing about the new preset's speed.
+    graphics.interruptAuto(performance.now());
   }
 
   /** The player's own preset: a forced ?preset=, a menu choice, or Auto's current pick. */
@@ -113,10 +121,21 @@ function run(renderer: THREE.WebGLRenderer): void {
     if (lost) return;
     const next = transition(state, e);
     if (next === state) return;
+    // Leaving the speed-test screen while the test runs (Back to start) stops the test first:
+    // otherwise its uncapped frame rate and quality tier would stay on, and its result would
+    // later land on another screen. The running card offers no such button today.
+    if (runner.running && next.screen !== 'speedTest') stopTest();
     state = next;
     // A slow streak from before (or a menu over the scene) must not count against Auto.
-    graphics.interruptAuto();
+    graphics.interruptAuto(performance.now());
     draw();
+  }
+
+  /** Abandons a running speed test without a result and restores the player's own settings. */
+  function stopTest(): void {
+    runner.abort();
+    loop.setMaxFps(MAX_FPS);
+    applyActive();
   }
 
   function draw(): void {
@@ -191,23 +210,22 @@ function run(renderer: THREE.WebGLRenderer): void {
     lastNow = now;
     const still = frozen();
     if (!still) clock += elapsed;
-    if (runner.running) {
-      if (runner.frame(now, meter.fps)) finishTest();
-    } else if (state.screen === 'crawl' && graphics.updateAuto(now, meter.fps)) {
-      applyActive();
-    }
+    if (runner.running && runner.frame(now, meter.fps)) finishTest();
     if (still && !dirty) return;
     dirty = false;
     setTime(clock / 1000);
     world.sync(crawl, alpha, clock / 1000, camera);
     renderer.render(world.scene, camera);
     shell.setFps(meter.fps, runner.running ? `quality ${runner.quality.tier}` : CHOICE_LABELS[spec.id]);
+    // Auto is fed only by frames actually drawn on the crawl screen: never menus, pauses or the
+    // speed test (GraphicsControl also skips a meter window after every interruption).
+    if (!runner.running && state.screen === 'crawl' && graphics.updateAuto(now, meter.fps)) applyActive();
   }
 
   applyActive();
   resize();
   window.addEventListener('resize', resize);
-  const loop = startLoop(update, render, { maxFps: 30 });
+  const loop = startLoop(update, render, { maxFps: MAX_FPS });
 
   renderer.domElement.addEventListener('webglcontextlost', (e) => {
     // Without preventDefault the browser never offers to restore the context; we do not restore
@@ -232,7 +250,7 @@ function run(renderer: THREE.WebGLRenderer): void {
   });
 
   document.addEventListener('visibilitychange', () => {
-    graphics.interruptAuto();
+    graphics.interruptAuto(performance.now());
     if (document.hidden) {
       runner.onHidden();
       dispatch({ type: 'hidden' });
@@ -252,6 +270,4 @@ function run(renderer: THREE.WebGLRenderer): void {
     e.preventDefault();
   });
   onPauseButton = () => dispatch({ type: 'pause' });
-
-  draw();
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   PRESETS, PRESET_IDS, CHOICES, CHOICE_LABELS, CHOICE_DESCRIPTIONS, AUTO_ORDER, AutoGraphics,
-  recommendedPreset, tierSpec, pixelRatioFor, isPresetId, isChoice, type PresetSpec,
+  autoSessionStart, recommendedPreset, tierSpec, pixelRatioFor, isPresetId, isChoice, type PresetSpec,
 } from '../../src/render/graphics';
 import { TIERS } from '../../src/render/quality';
 
@@ -134,6 +134,16 @@ describe('AutoGraphics', () => {
     expect(a.update(0, NaN)).toBe(false);
     expect(a.update(5000, NaN)).toBe(false);
     expect(a.preset).toBe('high');
+  });
+});
+
+describe('autoSessionStart', () => {
+  it('starts a new session one step above where Auto last settled, never Ultra', () => {
+    expect(autoSessionStart('low')).toBe('medium');
+    expect(autoSessionStart('medium')).toBe('high');
+    expect(autoSessionStart('high')).toBe('high');
+    expect(autoSessionStart(null)).toBe(null);
+    expect(new AutoGraphics(autoSessionStart('low')).preset).toBe('medium');
   });
 });
 

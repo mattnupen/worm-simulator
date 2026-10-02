@@ -117,6 +117,17 @@ export class AutoGraphics {
   }
 }
 
+/**
+ * Where a new session's Auto starts: one step above the saved autoSettled (Low -> Medium,
+ * Medium -> High, High stays High; never Ultra). One slow session (battery saver, a busy
+ * machine) must not pin a computer at Low for good; if it is still slow, Auto steps down
+ * again within seconds. null (nothing saved) stays null, which starts on High.
+ */
+export function autoSessionStart(settled: PresetId | null): PresetId | null {
+  const i = settled ? AUTO_ORDER.indexOf(settled) : -1;
+  return i < 0 ? null : AUTO_ORDER[Math.max(0, i - 1)];
+}
+
 /** Speed-test tier (0..3) to the preset "Use recommended setting" saves. */
 const TIER_PRESETS: readonly PresetId[] = ['high', 'medium', 'medium', 'low'];
 

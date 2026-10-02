@@ -1,9 +1,12 @@
 export interface FpsSummary { avgFps: number; lowFps: number; frames: number; maxGapMs: number }
 
+/** FpsMeter's default window: its fps still includes frames from this long ago. */
+export const FPS_WINDOW_MS = 1000;
+
 /** Rolling frames-per-second over the last windowMs. */
 export class FpsMeter {
   private times: number[] = [];
-  constructor(private readonly windowMs = 1000) {}
+  constructor(private readonly windowMs = FPS_WINDOW_MS) {}
 
   frame(nowMs: number): void {
     this.times.push(nowMs);
