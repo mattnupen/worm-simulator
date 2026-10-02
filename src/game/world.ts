@@ -9,6 +9,7 @@ import { buildForestTrees } from '../surface/forestTrees';
 import { buildDistantTrees } from '../surface/distantTrees';
 import { buildLeafLitter, type LeafLitter } from '../surface/leafLitterMesh';
 import { buildDetailLayer, type DetailLayer } from '../surface/detailLeaves';
+import { HeroLeafMesh } from '../surface/heroLeafMesh';
 import { buildGroundProps, writeHeroLog, type GroundProps } from '../surface/groundProps';
 import { HeroWorm, type WormPose } from '../worm/wormMesh';
 import { wormSurface, type WormSurface } from '../worm/surfaceHeight';
@@ -20,6 +21,8 @@ export interface World {
   litter: LeafLitter;
   /** The close-up leaf layer around the worm (built when a preset first draws it). */
   detail: DetailLayer;
+  /** The loose physics leaves near the head (one instanced draw; the crawl's pool sets the count). */
+  hero: HeroLeafMesh;
   /** Rocks and ground clutter. */
   props: GroundProps;
   /** Light shafts, dust motes and falling leaves. */
@@ -39,10 +42,11 @@ export interface World {
  * The forest floor, built once at Ultra size so presets only trim it. Thin composer: every
  * part is built in its own module.
  */
-export function buildWorld(): World {
+export function buildWorld(crawl: Crawl): World {
   const scene = new THREE.Scene();
   const litter = buildLeafLitter(PRESETS.ultra.litter);
   const detail = buildDetailLayer(PRESETS.ultra.detail);
+  const hero = new HeroLeafMesh(crawl.hero);
   const props = buildGroundProps();
   const atmosphere = buildAtmosphere();
   // The hero worm: no eyes (spec 8.3); it is posed from the simulated spine every frame.
@@ -57,11 +61,11 @@ export function buildWorld(): World {
   const terrain = buildTerrain();
   terrain.renderOrder = 5;
   scene.add(
-    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.group, props.mesh, worm.group,
+    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.group, hero.mesh, props.mesh, worm.group,
     buildSky(), atmosphere.group,
   );
   return {
-    scene, litter, detail, props, atmosphere, worm,
+    scene, litter, detail, hero, props, atmosphere, worm,
     apply(spec) {
       reaction = spec.reaction;
       litter.setCount(spec.litter);
@@ -74,6 +78,7 @@ export function buildWorld(): World {
     sync(crawl, alpha, timeSec, camera) {
       crawl.interpolate(alpha, timeSec, pose, camera);
       worm.update(pose);
+      hero.update(crawl.hero, alpha);
       setFocus(crawl.focus.x, crawl.focus.y, crawl.focus.z);
       if (crawl.disturbed) {
         uploadDisturbance(crawl.disturbance);

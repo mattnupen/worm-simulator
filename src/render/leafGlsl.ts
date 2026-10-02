@@ -184,3 +184,26 @@ export const TRAIL_GROUND_GLSL = /* glsl */ `
     return 1.0 - ${f(TRAIL_DARKEN)} * band * d.w * max(edge, 0.0);
   }
 `;
+
+/**
+ * Vertex GLSL for the hero leaves: one instanced leaf of every species, of which each instance
+ * keeps only its own (aKind per vertex, aHeroKind per instance); the rest collapse to a single
+ * point far below the ground, so their triangles draw nothing.
+ * The instance matrix is a rotation, a uniform scale and a squash of the leaf's own height (a
+ * leaf pressed flat, heroLeafMatrix): the normal takes the inverse transpose of that squash,
+ * built from the matrix's columns so it stays finite when the leaf is fully flat.
+ */
+export const HERO_GLSL = /* glsl */ `
+  attribute float aKind;
+  attribute float aHeroKind;
+  vec4 heroPosition(inout vec3 n) {
+    mat4 m = modelMatrix * instanceMatrix;
+    mat3 r = mat3(m);
+    float k = length(r[0]);
+    float squash = length(r[1]) / k;
+    vec3 up = cross(r[2], r[0]) / k;
+    n = r[0] * (n.x * squash) + up * n.y + r[2] * (n.z * squash);
+    if (abs(aKind - aHeroKind) > 0.5) return vec4(0.0, -50.0, 0.0, 1.0);
+    return m * vec4(position, 1.0);
+  }
+`;

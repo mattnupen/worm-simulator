@@ -6,11 +6,18 @@ import {
 import { createBody, followHead } from '../worm/body';
 import { clampToNeck, stepWorm, type WormMotion } from '../worm/locomotion';
 import { advanceWave, type WaveState } from '../worm/wormShape';
-import { WAVES, wormLength, type WormPose } from '../worm/wormMesh';
+import {
+  WAVES, bodyCoordAt, peristalsisAmplitude, swellRange, wormExtent, wormLength, type WormExtent, type WormPose,
+} from '../worm/wormMesh';
+import { probeReach, type HeadProbe } from '../worm/wormShape';
 import { bellyHeight, litterTop, wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import {
   createDisturbance, recentre, stamp, decay, clearDisturbance, type DisturbanceMap,
 } from '../surface/disturbance';
+import {
+  createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
+  HERO_MAX, PUSHER_SPAN, PUSHER_STRIDE, type HeroLeaves,
+} from '../surface/heroLeaves';
 import { LOCOMOTION } from './drive';
 
 export const WORM_SEGMENTS = 16;
@@ -32,6 +39,13 @@ const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
  * plus the leaves they reach, all lie inside the map's unfaded middle.
  */
 const MAP_CENTRE = 7;
+/** Hero-leaf pushers: every segment and the midpoints between them, head first. */
+const PUSHERS = 2 * WORM_SEGMENTS - 1;
+/** The head pusher shoves hardest (>= 0.9 is the head to the leaf physics); the body gently. */
+const HEAD_PUSH = 1;
+const BODY_PUSH = 0.5;
+/** A pusher stands for the rings within PUSHER_SPAN of it along the spine (in body coordinate). */
+const PUSHER_REACH = PUSHER_SPAN / wormLength(WORM_SEGMENTS, SPACING);
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
@@ -61,6 +75,19 @@ export class Crawl {
   readonly disturbance: DisturbanceMap = createDisturbance();
   /** The disturbance map changed since the renderer last uploaded it. */
   disturbed = true;
+  /** Loose physics leaves near the head. */
+  readonly hero: HeroLeaves = createHeroLeaves(HERO_MAX);
+  /** PUSHER_STRIDE floats per pusher ([x, z, radius, strength, top, under, belly, fall]), for the hero leaves. */
+  readonly pushers = new Float32Array(PUSHERS * PUSHER_STRIDE);
+  /** Per pusher, the body it stands for at rest thickness (wormExtent): top, half-width, fall, probe share. */
+  private readonly pushTop = new Float32Array(PUSHERS);
+  private readonly pushHalf = new Float32Array(PUSHERS);
+  private readonly pushFall = new Float32Array(PUSHERS);
+  private readonly pushProbe = new Float32Array(PUSHERS);
+  /** Per pusher, its rest body coordinate. */
+  private readonly pushM = new Float32Array(PUSHERS);
+  private readonly swell = { min: 1, max: 1 };
+  private readonly probe: HeadProbe = { lift: 0, sway: 0 };
   private readonly surf: WormSurface = { y: 0, under: 0 };
   private readonly prevBody: Vec3[];
   private readonly prevCam: Vec3;
@@ -79,6 +106,15 @@ export class Crawl {
     this.prevHead = { ...this.motion.head };
     this.prevYaw = this.cam.yaw;
     copy(this.focus, this.motion.head);
+    const ext: WormExtent = { top: 0, half: 0, fall: 0, probe: 0 };
+    for (let k = 0; k < PUSHERS; k++) {
+      this.pushM[k] = bodyCoordAt((k * SPACING) / 2, WORM_SEGMENTS, SPACING);
+      wormExtent(this.pushM[k], PUSHER_REACH, ext);
+      this.pushTop[k] = ext.top;
+      this.pushHalf[k] = ext.half;
+      this.pushFall[k] = ext.fall;
+      this.pushProbe[k] = ext.probe;
+    }
   }
 
   /** Switches leaf reaction (from the preset). Off clears the map, and stamping stops. */
@@ -106,6 +142,62 @@ export class Crawl {
     this.disturbed = true;
   }
 
+  /**
+   * How many hero leaves are live (the preset). New ones are scattered around the head, over or
+   * under the body at once if they land on it.
+   */
+  setHeroCount(n: number): void {
+    const h = this.motion.head;
+    const from = this.hero.count;
+    this.packPushers();
+    setHeroCount(this.hero, n, h.x, h.z, this.motion.heading, litterTop, this.pushers, PUSHERS);
+    settleHeroLeaves(this.hero, from, this.pushers, PUSHERS);
+  }
+
+  /**
+   * Packs the body for the hero leaves (every segment and the midpoints between them): where it
+   * is, how wide, how hard it shoves (the head hardest), the height of its top, how far under
+   * the litter it is, the height of its belly and how far its top falls to its side. The worm is
+   * drawn between the last two steps, so its thickness (swellRange) and the head's probing
+   * (probeReach) are bounded over the phase and activity of both.
+   */
+  private packPushers(): void {
+    const b = this.body;
+    const out = this.pushers;
+    const last = b.length - 1;
+    const a0 = this.prevWave.activity;
+    const a1 = this.wave.activity;
+    const amp0 = peristalsisAmplitude(a0);
+    const amp1 = peristalsisAmplitude(a1);
+    const swell = this.swell;
+    const probe = this.probe;
+    probeReach(1 - Math.min(a0, a1), probe);
+    for (let k = 0; k < PUSHERS; k++) {
+      const i = k >> 1;
+      const j = Math.min(last, i + (k & 1));
+      const o = k * PUSHER_STRIDE;
+      swellRange(this.pushM[k], PUSHER_REACH, this.prevWave.phase, this.wave.phase, amp0, amp1, swell);
+      const share = this.pushProbe[k];
+      out[o] = (b[i].x + b[j].x) / 2;
+      out[o + 1] = (b[i].z + b[j].z) / 2;
+      out[o + 2] = this.pushHalf[k] * swell.max + probe.sway * share;
+      out[o + 3] = k === 0 ? HEAD_PUSH : BODY_PUSH;
+      // The segments rest at their belly height (bellyHeight of their surface).
+      const belly = (b[i].y + b[j].y) / 2;
+      out[o + 4] = belly + this.pushTop[k] * swell.max + probe.lift * share;
+      out[o + 5] = (this.under[i] + this.under[j]) / 2;
+      out[o + 6] = belly;
+      out[o + 7] = this.pushFall[k] * swell.min;
+    }
+  }
+
+  /** Steps the hero leaves against the body as it is now. */
+  private pushLeaves(dt: number): void {
+    this.packPushers();
+    const h = this.motion.head;
+    stepHeroLeaves(this.hero, dt, this.pushers, PUSHERS, h.x, h.z, this.motion.heading, litterTop);
+  }
+
   /** Belly height at (x, z) for segment `i`; records whether that segment is under the litter. */
   private rest(i: number, x: number, z: number): number {
     const s = wormSurface(x, z, this.reaction, this.surf);
@@ -122,6 +214,7 @@ export class Crawl {
     copy(this.prevHead, this.motion.head);
     this.prevWave.phase = wave.phase;
     this.prevWave.activity = wave.activity;
+    snapshotHeroLeaves(this.hero);
 
     this.move.x = move.x;
     this.move.y = Math.max(0, move.y);
@@ -145,6 +238,7 @@ export class Crawl {
     const floor = litterTop(this.cam.pos.x, this.cam.pos.z) + CAM_GROUND_MARGIN;
     if (this.cam.pos.y < floor) this.cam.pos.y = floor;
     if (this.reaction) this.disturbLeaves(dt);
+    this.pushLeaves(dt);
   }
 
   /** Writes the render pose, the camera and `focus`, between the last two steps by `alpha`. */

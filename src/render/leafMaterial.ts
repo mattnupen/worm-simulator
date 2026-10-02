@@ -4,7 +4,7 @@ import {
   sharedLighting, PAINTED_VERTEX_GLSL, PAINTED_LIGHT_GLSL, GRADE_GLSL,
 } from './paintedMaterial';
 import { groundUniforms } from './groundUniforms';
-import { DISTURB_GLSL } from './leafGlsl';
+import { DISTURB_GLSL, HERO_GLSL } from './leafGlsl';
 import { DETAIL_GLSL } from './detailGlsl';
 import { getLitterTexture } from './litterTexture';
 import { getGroundTexture } from './groundTexture';
@@ -23,6 +23,7 @@ import { getGroundTexture } from './groundTexture';
  * aDip is how far a vertex lies below its leaf's rest plane.
  * With DETAIL defined, aDetail (home x, z in the wrap tile, yaw, radius) places each leaf of the
  * close-up layer around the worm in the vertex shader, which also gives its anchor (and no dip).
+ * With HERO defined it is the instanced hero-leaf mesh (instanceMatrix, instanceColor tint).
  */
 const vertexShader = /* glsl */ `
   uniform vec3 uLightDir;
@@ -55,6 +56,10 @@ const vertexShader = /* glsl */ `
 
   #ifdef DETAIL
   ${DETAIL_GLSL}
+  #endif
+
+  #ifdef HERO
+  ${HERO_GLSL}
   #endif
 
   #if defined(DISTURB) && !defined(DETAIL)
@@ -99,6 +104,9 @@ const vertexShader = /* glsl */ `
       vec4 anchor;
       vec4 wp = detailPosition(nrm, shade, anchor);
       vNormalW = normalize(nrm);
+    #elif defined(HERO)
+      vec4 wp = heroPosition(nrm);
+      vNormalW = normalize(nrm);
     #else
       vec4 wp = modelMatrix * vec4(position, 1.0);
       vNormalW = normalize(mat3(modelMatrix) * nrm);
@@ -116,6 +124,9 @@ const vertexShader = /* glsl */ `
     vColor = aColor;
     #ifdef DETAIL
       vColor.rgb *= shade;
+    #endif
+    #ifdef USE_INSTANCING_COLOR
+      vColor.rgb *= instanceColor;
     #endif
     vLeaf = aLeaf;
     vLat = aLeaf2.x;
@@ -201,15 +212,16 @@ const fragmentShader = /* glsl */ `
 `;
 
 /**
- * Which leaves: the floor litter and the close-up detail layer (both react to the worm), or the
- * falling leaves (animated).
+ * Which leaves: the floor litter and the close-up detail layer (both react to the worm), the
+ * falling leaves (animated), or the hero leaves (instanced, moved by their own physics).
  */
-export type LeafVariant = 'litter' | 'falling' | 'detail';
+export type LeafVariant = 'litter' | 'falling' | 'detail' | 'hero';
 
 const DEFINES: Record<LeafVariant, Record<string, string>> = {
   litter: { DISTURB: '' },
   falling: { FALLING: '' },
   detail: { DETAIL: '', DISTURB: '' },
+  hero: { HERO: '' },
 };
 
 export function createLeafMaterial(variant: LeafVariant = 'litter'): THREE.ShaderMaterial {

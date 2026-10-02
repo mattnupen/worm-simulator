@@ -100,3 +100,23 @@ describe('Crawl leaf disturbance', () => {
     expect(c.disturbed).toBe(false);
   });
 });
+
+describe('Crawl hero leaves', () => {
+  it('keeps the preset count of leaves near the head, shoving them as it crawls', () => {
+    const c = new Crawl();
+    c.setHeroCount(24);
+    expect(c.hero.count).toBe(24);
+    let moved = false;
+    for (let i = 0; i < 600; i++) {
+      c.step(DT, { x: 0.2, y: 1 });
+      for (let k = 0; k < c.hero.count; k++) {
+        if (c.hero.vx[k] !== 0 || c.hero.vz[k] !== 0) moved = true;
+        const h = c.motion.head;
+        expect(Math.hypot(c.hero.x[k] - h.x, c.hero.z[k] - h.z)).toBeLessThanOrEqual(4.1);
+      }
+    }
+    expect(moved).toBe(true);
+    c.setHeroCount(0);
+    expect(c.hero.count).toBe(0);
+  });
+});

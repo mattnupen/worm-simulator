@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import type * as THREE from 'three';
+import * as THREE from 'three';
 import { buildLeafLitter } from '../../src/surface/leafLitterMesh';
 import { buildGroundProps } from '../../src/surface/groundProps';
 import { buildFallingLeaves, FALLING_COUNT, FALLING_MAX } from '../../src/surface/fallingLeaves';
 import { buildDustMotes, MOTE_COUNT, MOTE_MAX } from '../../src/render/atmosphere';
 import { buildWorld } from '../../src/game/world';
+import { Crawl } from '../../src/game/crawl';
 import { PRESETS } from '../../src/render/graphics';
 import { sharedLighting } from '../../src/render/paintedMaterial';
 
@@ -75,7 +76,8 @@ describe('falling leaves and dust motes', () => {
 });
 
 describe('world.apply', () => {
-  const world = buildWorld();
+  const crawl = new Crawl();
+  const world = buildWorld(crawl);
   const litterG = world.litter.mesh.geometry;
   const motes = world.atmosphere.group.getObjectByName('dustMotes') as THREE.Points;
   const falling = world.atmosphere.group.getObjectByName('fallingLeaves') as THREE.Mesh;
@@ -110,6 +112,22 @@ describe('world.apply', () => {
     expect(world.atmosphere.group.visible).toBe(false);
     expect(sharedLighting.uRim.value).toBe(0);
     expect(litterG.drawRange.count).toBeLessThan(ultraLeaves / 4);
+  });
+
+  it('draws each preset\'s hero leaves as the instance count, live (Low none)', () => {
+    const camera = new THREE.PerspectiveCamera();
+    const mesh = world.hero.mesh;
+    const matrices = mesh.instanceMatrix;
+    for (const id of ['ultra', 'low', 'medium', 'high', 'ultra', 'low'] as const) {
+      // As main.ts applies a preset: the world, then the crawl's pool; the next frame shows it.
+      world.apply(PRESETS[id]);
+      crawl.setHeroCount(PRESETS[id].hero);
+      world.sync(crawl, 1, 0, camera);
+      expect(mesh.count).toBe(PRESETS[id].hero);
+      expect(mesh.visible).toBe(PRESETS[id].hero > 0);
+      expect(mesh.instanceMatrix).toBe(matrices);
+    }
+    expect([PRESETS.low.hero, PRESETS.medium.hero, PRESETS.high.hero, PRESETS.ultra.hero]).toEqual([0, 12, 24, 32]);
   });
 
   it('switching presets does not touch the geometry buffers', () => {

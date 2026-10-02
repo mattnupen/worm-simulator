@@ -75,8 +75,8 @@ function start(renderer: THREE.WebGLRenderer): void {
   // camera stays >= 0.5 above the litter and 2.6 behind the worm, so nothing it normally looks
   // at comes within 0.2 of the lens.
   const camera = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
-  const world = buildWorld();
   const crawl = new Crawl();
+  const world = buildWorld(crawl);
   const keyboard = new KeyboardInput();
   const joystick = new TouchJoystick(app);
   const meter = new FpsMeter();
@@ -113,6 +113,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     renderer.setPixelRatio(pixelRatioFor(s, window.devicePixelRatio));
     world.apply(s);
     crawl.setReaction(s.reaction);
+    crawl.setHeroCount(s.hero);
     updateResolution();
     dirty = true;
     // The frames around a preset change say nothing about the new preset's speed.
