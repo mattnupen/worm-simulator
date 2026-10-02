@@ -6,6 +6,8 @@ import {
 import { treeSites } from '../../src/surface/treeSites';
 import { HERO_LOG, ROCKS } from '../../src/surface/propPlacement';
 import { PLAY_HALF, WORLD_HALF } from '../../src/surface/terrain';
+import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
+import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
 
 const grid = (half: number, step: number): [number, number][] => {
   const pts: [number, number][] = [];
@@ -107,5 +109,20 @@ describe('underAmount and litterMound', () => {
       expect(litterMound(d)).toBeGreaterThanOrEqual(0);
       expect(litterMound(d)).toBeLessThanOrEqual(d);
     }
+  });
+});
+
+describe('the speed test path', () => {
+  it('stays on thin litter (the worm slips under it) for the whole auto-drive loop', () => {
+    // The exact move and locomotion options the speed test drives, from the spawn.
+    let m: WormMotion = { head: { x: 0, y: 0, z: 0 }, heading: 0 };
+    let max = 0;
+    for (let i = 0; i < 4000; i++) {
+      m = stepWorm(m, AUTO_DRIVE_MOVE.move, 1 / 60, LOCOMOTION);
+      max = Math.max(max, litterDepth(m.head.x, m.head.z));
+    }
+    expect(max).toBeLessThan(UNDER_THIN);
+    // And with margin, so tuning the litter never makes the benchmark's worm start riding piles.
+    expect(max).toBeLessThanOrEqual(0.05);
   });
 });

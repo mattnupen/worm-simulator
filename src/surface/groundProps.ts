@@ -2,8 +2,9 @@ import { mulberry32 } from '../core/random';
 import * as THREE from 'three';
 import { createPropMaterial } from '../render/propMaterial';
 import { MeshWriter } from './meshWriter';
-import { HERO_LOG, ROCKS, placeClutter } from './propPlacement';
+import { HERO_LOG, ROCKS, placeClutter, type ClutterItem } from './propPlacement';
 import { writeFern, writeMushrooms, writeRock, writeSedge } from './propGeometry';
+import { groundHeight } from './litterDepth';
 import { terrainHeight } from './terrain';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
@@ -11,6 +12,16 @@ import { BARK, writeLog } from './trunkGeometry';
 
 /** Ground clutter items at full density. */
 export const CLUTTER_COUNT = 64;
+
+/**
+ * One clutter item. Clutter rests on the litter mound (soil plus mound), so the ground mesh that
+ * rises under deep piles never buries it; rocks and the log stay on the soil.
+ */
+export function writeClutterItem(w: MeshWriter, c: ClutterItem, rng: () => number): void {
+  if (c.kind === 'mushrooms') writeMushrooms(w, c.x, c.z, c.scale, rng, groundHeight);
+  else if (c.kind === 'sedge') writeSedge(w, c.x, c.z, c.scale, rng, groundHeight);
+  else writeFern(w, c.x, c.z, c.scale, rng, groundHeight);
+}
 
 export interface GroundProps {
   mesh: THREE.Mesh;
@@ -29,9 +40,7 @@ export function buildGroundProps(): GroundProps {
   const rockIndices = w.idx.length;
   const ends: number[] = [];
   for (const c of placeClutter(CLUTTER_COUNT)) {
-    if (c.kind === 'mushrooms') writeMushrooms(w, c.x, c.z, c.scale, rng);
-    else if (c.kind === 'sedge') writeSedge(w, c.x, c.z, c.scale, rng);
-    else writeFern(w, c.x, c.z, c.scale, rng);
+    writeClutterItem(w, c, rng);
     ends.push(w.idx.length);
   }
   // Long trunk shadows, baked into the colours.

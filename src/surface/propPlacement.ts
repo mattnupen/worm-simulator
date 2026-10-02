@@ -5,7 +5,7 @@ import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../game/drive';
 
 /**
  * Where the forest-floor props go. Pure. Everything stays out of the worm's way: the
- * straight run ahead of the spawn point, the speed test's auto-drive loop (AUTO_DRIVE_MOVE
+ * straight run ahead of the spawn point (see CORRIDOR), the speed test's auto-drive loop (AUTO_DRIVE_MOVE
  * with LOCOMOTION: move {x: 0.35, y: 1} at speed 1.6 and turn rate 2.2 traces a circle of
  * radius 1.6 / 0.77 ~ 2.08 centred left of the spawn), the trailing camera, and the tree trunks.
  */
@@ -13,6 +13,10 @@ const LOOP_RADIUS = (LOCOMOTION.speed * AUTO_DRIVE_MOVE.move.y) / (LOCOMOTION.tu
 const LOOP = { x: -LOOP_RADIUS, z: 0, r: LOOP_RADIUS };
 /** Clearance around the loop line: the body, its shadow, and the camera 2.6 behind the head. */
 const LOOP_MARGIN = 1.8;
+/**
+ * The straight run ahead of the spawn point, kept clear of rigid props (rocks, trunks, the log,
+ * clutter). It is not empty: a climbable windblown leaf pile (PILES) sits ahead, next to the log.
+ */
 const CORRIDOR = { x0: -1.8, x1: 1.8, z0: -3.5, z1: 7.5 };
 const TRUNK_CLEAR = 1.0;
 

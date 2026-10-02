@@ -38,10 +38,20 @@ const smoothstep = (a: number, b: number, v: number): number => {
   return t * t * (3 - 2 * t);
 };
 
+/** The deepest drift against a trunk. */
+const TRUNK_DRIFT = 0.17;
+
+/**
+ * A rock stands about 0.44 of its size above the soil, and the mound rises right up to it, so
+ * a small rock's drift is capped (about half its height): litter banks against a rock, it does
+ * not bury it.
+ */
+const rockDrift = (size: number): number => Math.min(TRUNK_DRIFT, Math.max(0.1, 0.22 * size));
+
 /** Round obstacles that leaves drift against: trunks (with their root flare) and rocks. */
-const ROUND: readonly { x: number; z: number; r: number }[] = [
-  ...treeSites().map((t) => ({ x: t.x, z: t.z, r: (t.birch ? 0.32 : 0.48) * 1.3 })),
-  ...ROCKS.map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05 })),
+const ROUND: readonly { x: number; z: number; r: number; peak: number }[] = [
+  ...treeSites().map((t) => ({ x: t.x, z: t.z, r: (t.birch ? 0.32 : 0.48) * 1.3, peak: TRUNK_DRIFT })),
+  ...ROCKS.map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05, peak: rockDrift(k.size) })),
 ];
 
 const LOG_DX = Math.cos(HERO_LOG.yaw);
@@ -64,7 +74,7 @@ export function driftDepth(x: number, z: number): number {
     const d = Math.hypot(dx, dz);
     if (d > o.r + 1.2) continue;
     const inv = d > 1e-9 ? 1 / d : 0;
-    best = Math.max(best, drift(d - o.r, dx * inv, dz * inv, 0.17));
+    best = Math.max(best, drift(d - o.r, dx * inv, dz * inv, o.peak));
   }
   const t = Math.max(-HERO_LOG.length / 2, Math.min(HERO_LOG.length / 2,
     (x - HERO_LOG.x) * LOG_DX + (z - HERO_LOG.z) * LOG_DZ));
@@ -105,7 +115,7 @@ export function hollowAmount(x: number, z: number): number {
 
 export function litterDepth(x: number, z: number): number {
   const open = LITTER_OPEN + 0.008 * (valueNoise2(x * 0.6, z * 0.6, 91) - 0.5);
-  const d = open + 0.07 * hollowAmount(x, z) + Math.max(driftDepth(x, z), pileDepth(x, z));
+  const d = open + 0.05 * hollowAmount(x, z) + Math.max(driftDepth(x, z), pileDepth(x, z));
   return Math.min(LITTER_MAX, Math.max(LITTER_MIN, d));
 }
 

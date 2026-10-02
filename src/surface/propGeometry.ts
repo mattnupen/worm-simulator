@@ -13,6 +13,11 @@ const col = new THREE.Color();
 const col2 = new THREE.Color();
 const TAU = Math.PI * 2;
 
+/** Ground height at (x, z): the soil, or the soil plus the litter mound clutter rests on. */
+export type GroundAt = (x: number, z: number) => number;
+/** Sedge and fern bases sit this far below the ground, so no blade root shows. */
+export const CLUTTER_SINK = 0.02;
+
 const code = (kind: number, param: number) => kind + Math.min(0.99, Math.max(0, param));
 
 /** A lumpy granite boulder, settled into the ground. */
@@ -103,7 +108,9 @@ const HONEY = [new THREE.Color('#c8954a'), new THREE.Color('#6e4422')];
 const RUSSULA = [new THREE.Color('#c0392b'), new THREE.Color('#7a2018')];
 
 /** A cluster of 3-5 mushrooms (honey mushrooms, or a red russula pair). */
-export function writeMushrooms(w: MeshWriter, x: number, z: number, scale: number, rng: () => number): void {
+export function writeMushrooms(
+  w: MeshWriter, x: number, z: number, scale: number, rng: () => number, groundAt: GroundAt = terrainHeight,
+): void {
   const red = rng() < 0.3;
   const n = red ? 2 : 3 + Math.floor(rng() * 3);
   const [cap, centre] = red ? RUSSULA : HONEY;
@@ -113,7 +120,7 @@ export function writeMushrooms(w: MeshWriter, x: number, z: number, scale: numbe
     const mx = x + Math.cos(a) * d;
     const mz = z + Math.sin(a) * d;
     const s = scale * (k === 0 ? 1 : 0.55 + rng() * 0.4);
-    writeMushroom(w, mx, mz, terrainHeight(mx, mz), (red ? 0.3 : 0.24) * s, (red ? 0.24 : 0.26) * s, a, cap, centre);
+    writeMushroom(w, mx, mz, groundAt(mx, mz), (red ? 0.3 : 0.24) * s, (red ? 0.24 : 0.26) * s, a, cap, centre);
   }
 }
 
@@ -143,8 +150,10 @@ function writeBlade(
 }
 
 /** A tuft of Pennsylvania sedge in fall: fine, arching golden-green blades. */
-export function writeSedge(w: MeshWriter, x: number, z: number, scale: number, rng: () => number): void {
-  const g = terrainHeight(x, z) - 0.02;
+export function writeSedge(
+  w: MeshWriter, x: number, z: number, scale: number, rng: () => number, groundAt: GroundAt = terrainHeight,
+): void {
+  const g = groundAt(x, z) - CLUTTER_SINK;
   const base = new THREE.Color('#6f7a2e');
   const tip = new THREE.Color(rng() < 0.5 ? '#c8a860' : '#b8a048');
   const blades = 9;
@@ -156,8 +165,10 @@ export function writeSedge(w: MeshWriter, x: number, z: number, scale: number, r
 }
 
 /** A fern clump turning golden-bronze: arching fronds with paired leaflets. */
-export function writeFern(w: MeshWriter, x: number, z: number, scale: number, rng: () => number): void {
-  const g = terrainHeight(x, z) - 0.02;
+export function writeFern(
+  w: MeshWriter, x: number, z: number, scale: number, rng: () => number, groundAt: GroundAt = terrainHeight,
+): void {
+  const g = groundAt(x, z) - CLUTTER_SINK;
   const green = rng() < 0.3;
   const base = new THREE.Color(green ? '#5f6e28' : '#8a5a22');
   const tip = new THREE.Color(green ? '#a0a040' : '#d09a3a');

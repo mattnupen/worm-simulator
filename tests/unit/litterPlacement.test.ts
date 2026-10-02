@@ -4,6 +4,10 @@ import { buildLeafLitter } from '../../src/surface/leafLitterMesh';
 import { buildTerrainGeometry } from '../../src/surface/terrainMesh';
 import { PILES, litterDepth, litterMound } from '../../src/surface/litterDepth';
 import { terrainHeight } from '../../src/surface/terrain';
+import { placeClutter } from '../../src/surface/propPlacement';
+import { writeClutterItem } from '../../src/surface/groundProps';
+import { CLUTTER_SINK } from '../../src/surface/propGeometry';
+import { MeshWriter } from '../../src/surface/meshWriter';
 
 describe('placeLeaves with a depth field', () => {
   const field = (x: number) => (x > 0 ? 0.2 : 0.02);
@@ -59,5 +63,31 @@ describe('litter and ground on a pile', () => {
       expect(pos[v + 1] - terrainHeight(x, z)).toBeGreaterThan(0.12);
     }
     expect(near).toBeGreaterThan(20);
+  });
+});
+
+describe('clutter on the litter mound', () => {
+  const items = placeClutter(150);
+  const mound = (x: number, z: number) => terrainHeight(x, z) + litterMound(litterDepth(x, z));
+
+  it('some clutter really stands where the mound is deep enough to bury it', () => {
+    expect(items.filter((c) => mound(c.x, c.z) - terrainHeight(c.x, c.z) > 0.05).length).toBeGreaterThan(0);
+  });
+
+  it('sets every item on the mound: its base is never below soil plus mound', () => {
+    for (const c of items) {
+      const w = new MeshWriter('aProp', 4);
+      writeClutterItem(w, c, () => 0.5);
+      let low = Infinity;
+      for (let v = 0; v < w.vertexCount; v++) low = Math.min(low, w.pos[v * 3 + 1]);
+      const floor = mound(c.x, c.z);
+      if (c.kind === 'mushrooms') {
+        // Each mushroom stands on the ground under it; across a cluster the mound slopes a little.
+        expect(low).toBeGreaterThanOrEqual(floor - 0.06);
+      } else {
+        // Sedge and fern roots sit CLUTTER_SINK below the ground at the item's centre.
+        expect(low + CLUTTER_SINK).toBeGreaterThanOrEqual(floor - 1e-6);
+      }
+    }
   });
 });
