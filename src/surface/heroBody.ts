@@ -82,3 +82,33 @@ export function pressTarget(
   }
   return press;
 }
+
+/**
+ * A circle around the whole body (`count` pushers, each with its radius) into `out`; its radius
+ * is -Infinity with no body. Allocates nothing.
+ */
+export function bodyBounds(
+  pushers: Float32Array, count: number, out: { x: number; z: number; r: number },
+): { x: number; z: number; r: number } {
+  let cx = 0;
+  let cz = 0;
+  for (let k = 0; k < count; k++) {
+    cx += pushers[k * PUSHER_STRIDE];
+    cz += pushers[k * PUSHER_STRIDE + 1];
+  }
+  if (count > 0) {
+    cx /= count;
+    cz /= count;
+  }
+  let r = -Infinity;
+  for (let k = 0; k < count; k++) {
+    const o = k * PUSHER_STRIDE;
+    const dx = pushers[o] - cx;
+    const dz = pushers[o + 1] - cz;
+    r = Math.max(r, Math.sqrt(dx * dx + dz * dz) + pushers[o + 2]);
+  }
+  out.x = cx;
+  out.z = cz;
+  out.r = r;
+  return out;
+}

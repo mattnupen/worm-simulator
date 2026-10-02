@@ -1,5 +1,6 @@
 import { PLAY_HALF } from './terrain';
 import { LEAF_REACH, PUSHER_STRIDE } from './heroClearance';
+import { obstacleDepth, type ObstacleHit } from './heroObstacles';
 import {
   HERO_RADIUS, HERO_Y_BIAS, clamp, hash01, surfaceOr, type HeroLeaves, type SurfaceFn,
 } from './heroPool';
@@ -12,11 +13,15 @@ const SPACING = 0.6;
 const NO_BODY = new Float32Array(0);
 /** A new leaf lands at least this far (m) beyond the body's side and its own reach. */
 const BODY_GAP = 0.1;
+/** A leaf's centre keeps this share of its reach clear of trunks, rocks and the log. */
+export const OBSTACLE_PAD = 0.5;
+const hit: ObstacleHit = { nx: 0, nz: 0 };
 
 /**
  * Moves slot i to a free spot: around the head (`around`) or ahead of it, inside the playable
- * world, clear of the other leaves and of the body (`count` pushers; at the world's edge the
- * spots ahead can all be on it, so later tries look around the head too). Resets its motion.
+ * world, clear of the other leaves, of trunks, rocks and the log, and of the body (`count`
+ * pushers; at the world's edge the spots ahead can all be on it, so later tries look around
+ * the head too). Resets its motion.
  * Only slots below `p.count` count as occupied.
  */
 export function respawn(
@@ -25,7 +30,8 @@ export function respawn(
 ): number {
   const fx = Math.sin(heading);
   const fz = Math.cos(heading);
-  const clear = p.size[i] * LEAF_REACH[p.kind[i]] + BODY_GAP;
+  const clear0 = p.size[i] * LEAF_REACH[p.kind[i]];
+  const clear = clear0 + BODY_GAP;
   let x = hx;
   let z = hz;
   // A spot clear of the body but crowded by other leaves, if no spot is clear of both.
@@ -52,7 +58,8 @@ export function respawn(
     }
     x = clamp(x, PLAY_HALF);
     z = clamp(z, PLAY_HALF);
-    let clearOfBody = true;
+    // Off trunks, rocks and the log too (they block like the body).
+    let clearOfBody = !(obstacleDepth(x, z, OBSTACLE_PAD * clear0, hit) > 0);
     for (let k = 0; k < count && clearOfBody; k++) {
       const o = k * PUSHER_STRIDE;
       const dx = pushers[o] - x;
@@ -92,7 +99,7 @@ export function respawn(
   p.flip[i] = p.pflip[i] = h3 < 0.25 ? Math.PI : 0;
   p.pitch[i] = p.ppitch[i] = 0;
   p.ppitchDir[i] = p.pitchDir[i];
-  p.lift[i] = p.pinned[i] = 0;
+  p.lift[i] = p.pinned[i] = p.wedged[i] = 0;
   p.flat[i] = p.pflat[i] = 0;
   p.vx[i] = p.vy[i] = p.vz[i] = p.spin[i] = p.flipRate[i] = 0;
   return surf;

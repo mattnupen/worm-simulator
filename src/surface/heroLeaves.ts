@@ -3,10 +3,12 @@ import {
   HEAD_STRENGTH, LEAF_REACH, PRESS_RAMP, PUSHER_SPAN, PUSHER_STRIDE, SKIRT, heroShortcuts, reachToward,
 } from './heroClearance';
 import { HELD, atRest, rideBody, settle } from './heroRide';
+import { bodyBounds } from './heroBody';
 import {
   HERO_RECYCLE, HERO_Y_BIAS, clamp, surfaceOr, type HeroLeaves, type SurfaceFn,
 } from './heroPool';
-import { respawn } from './heroSpawn';
+import { OBSTACLE_PAD, respawn } from './heroSpawn';
+import { unwedge } from './heroObstacles';
 
 export { PUSHER_SPAN, PUSHER_STRIDE } from './heroClearance';
 export {
@@ -38,8 +40,9 @@ export { settleHeroLeaves } from './heroRide';
  * HERO_RECYCLE from the head, or one pinned against the body (tight coils) for more than
  * TRAP_TIME, is recycled to a free spot ahead of the worm (around the head if every spot ahead
  * is on the body, as at the world's edge), chosen deterministically and kept inside the
- * playable world. Pure: plain typed arrays, no allocation per step (no Math.hypot,
- * no subarray in the step path).
+ * playable world. A leaf shoved into a trunk, a rock or the log is pushed back out of its
+ * footprint, and recycled if it stays wedged there (heroObstacles.ts). Pure: plain typed
+ * arrays, no allocation per step (no Math.hypot, no subarray in the step path).
  */
 
 const GRAVITY = 9.8;
@@ -68,6 +71,7 @@ const UNPRESS = 3;
 const TRAP_TIME = 2;
 /** Beyond the farthest any body point acts on a leaf (skirt or press ramp), plus a hair. */
 const SLEEP_MARGIN = Math.max(SKIRT, PRESS_RAMP) + 0.02;
+const bounds = { x: 0, z: 0, r: 0 };
 /** Steps this long or longer (s), or not finite, are ignored. */
 const MAX_DT = 1;
 
@@ -102,23 +106,10 @@ export function stepHeroLeaves(
   p.headX = hpx;
   p.headZ = hpz;
   // The body's bounding circle, for the leaves no body point can reach (they sleep).
-  let bcx = 0;
-  let bcz = 0;
-  for (let k = 0; k < count; k++) {
-    bcx += pushers[k * PUSHER_STRIDE];
-    bcz += pushers[k * PUSHER_STRIDE + 1];
-  }
-  if (count > 0) {
-    bcx /= count;
-    bcz /= count;
-  }
-  let bodyR = -Infinity;
-  for (let k = 0; k < count; k++) {
-    const o = k * PUSHER_STRIDE;
-    const dx = pushers[o] - bcx;
-    const dz = pushers[o + 1] - bcz;
-    bodyR = Math.max(bodyR, Math.sqrt(dx * dx + dz * dz) + pushers[o + 2]);
-  }
+  bodyBounds(pushers, count, bounds);
+  const bcx = bounds.x;
+  const bcz = bounds.z;
+  const bodyR = bounds.r;
   const shortcuts = heroShortcuts.on;
   for (let i = 0; i < p.count; i++) {
     const hdx = p.x[i] - hx;
@@ -135,6 +126,7 @@ export function stepHeroLeaves(
       const pad = bodyR + p.size[i] * LEAF_REACH[p.kind[i]] + PUSHER_SPAN + SLEEP_MARGIN;
       if (pad < 0 || !(dx * dx + dz * dz < pad * pad)) {
         p.pinned[i] = 0;
+        p.wedged[i] = 0;
         continue;
       }
     }
@@ -208,6 +200,11 @@ export function stepHeroLeaves(
     p.z[i] = clamp(p.z[i] + p.vz[i] * dt, WORLD_HALF);
     p.y[i] += p.vy[i] * dt;
     p.yaw[i] += p.spin[i] * dt;
+    // Shoved into a trunk, a rock or the log: back out; wedged there for long, recycled.
+    if (unwedge(p, i, OBSTACLE_PAD * reach, dt)) {
+      settle(p, i, respawn(p, i, hx, hz, heading, surfaceAt, false, pushers, count), pushers, count);
+      continue;
+    }
     const surf = shortcuts && p.x[i] === sx && p.z[i] === sz ? surf0 : surfaceOr(surfaceAt, p.x[i], p.z[i], surf0);
     const jumped = rideBody(p, i, surf, pushers, count, pitchK, liftDown, unpress);
     const floor = surf + p.lift[i] + slotBias;

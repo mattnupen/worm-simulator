@@ -39,6 +39,8 @@ export interface HeroLeaves {
   readonly lift: Float32Array;
   /** How long (s) the leaf has been continuously pinned against the body. */
   readonly pinned: Float32Array;
+  /** How long (s) the leaf has been continuously pushed back out of a trunk, rock or the log. */
+  readonly wedged: Float32Array;
   /**
    * How flat the leaf is pressed (0 its natural cupped form, 1 flat): a body point riding on
    * the litter presses a leaf it passes over, which springs back once the worm has gone.
@@ -67,7 +69,7 @@ export function createHeroLeaves(max = HERO_MAX, seed = 1): HeroLeaves {
   const p: HeroLeaves = {
     max, count: 0, seed, spawned: 0, headX: NaN, headZ: NaN,
     x: f(), y: f(), z: f(), yaw: f(), flip: f(), vx: f(), vy: f(), vz: f(), spin: f(), flipRate: f(),
-    pitch: f(), pitchDir: f(), lift: f(), pinned: f(), flat: f(),
+    pitch: f(), pitchDir: f(), lift: f(), pinned: f(), wedged: f(), flat: f(),
     px: f(), py: f(), pz: f(), pyaw: f(), pflip: f(), ppitch: f(), ppitchDir: f(), pflat: f(), size: f(), kind: new Uint8Array(max),
   };
   for (let i = 0; i < max; i++) {
