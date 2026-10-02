@@ -62,3 +62,16 @@ describe('QualityController', () => {
     expect(q.tier).toBe(0);
   });
 });
+
+describe('QualityController levels', () => {
+  it('stops at levels - 1 when given fewer levels than TIERS', () => {
+    const q = new QualityController(30, 2000, 3000, 2);
+    for (let t = 0; t < 60_000; t += 100) q.update(t, 5);
+    expect(q.tier).toBe(1);
+  });
+  it('with one level never changes', () => {
+    const q = new QualityController(30, 2000, 3000, 1);
+    for (let t = 0; t < 10_000; t += 100) expect(q.update(t, 5)).toBe(false);
+    expect(q.tier).toBe(0);
+  });
+});

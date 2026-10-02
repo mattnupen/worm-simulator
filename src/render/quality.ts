@@ -15,7 +15,10 @@ export const TIERS: readonly QualityTier[] = [
   { resolutionScale: 0.6, rimLight: false, leafDensity: 0.5 },
 ];
 
-/** Steps quality down (never up, to avoid flicker) when fps stays under target. */
+/**
+ * Steps quality down (never up, to avoid flicker) when fps stays under target. `levels` is how
+ * many tiers it may use (0 .. levels - 1); the speed test uses all of TIERS.
+ */
 export class QualityController {
   tier = 0;
   private belowSince: number | null = null;
@@ -25,6 +28,7 @@ export class QualityController {
     private readonly targetFps = 30,
     private readonly holdMs = 2000,
     private readonly cooldownMs = 3000,
+    private readonly levels = TIERS.length,
   ) {}
 
   /** Returns true when the tier changed. */
@@ -35,7 +39,7 @@ export class QualityController {
       return false;
     }
     if (this.belowSince === null) this.belowSince = nowMs;
-    if (nowMs - this.belowSince >= this.holdMs && this.tier < TIERS.length - 1) {
+    if (nowMs - this.belowSince >= this.holdMs && this.tier < this.levels - 1) {
       this.tier++;
       this.lastChange = nowMs;
       this.belowSince = null;
