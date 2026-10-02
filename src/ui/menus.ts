@@ -39,12 +39,15 @@ export function showPause(shell: Shell, a: PauseActions): void {
   resume.el.focus();
 }
 
-/** The graphics context was lost outside the speed test: the only way on is a reload. */
-export function showLost(shell: Shell): void {
+/** The graphics stopped (context lost outside the speed test, or the world failed to build): the only way on is a reload. */
+export function showLost(
+  shell: Shell,
+  message = 'The computer reset its 3D graphics. Reload the page to keep playing.',
+): void {
   const reload = button('Reload the page', 'back', 'primary', () => location.reload());
   shell.show('lost', 'Graphics stopped', [
     el('h1', 'The graphics stopped', 'screen-title'),
-    el('p', 'The computer reset its 3D graphics. Reload the page to keep playing.', 'lead'),
+    el('p', message, 'lead'),
     menu(reload),
   ]);
   reload.el.focus();

@@ -50,7 +50,21 @@ try {
 }
 if (renderer) run(renderer);
 
+/**
+ * Building the world is the one slow, fallible step. If it throws, the Start card (already up)
+ * would sit there with buttons that cannot work, so it is replaced with a Reload card.
+ */
 function run(renderer: THREE.WebGLRenderer): void {
+  try {
+    start(renderer);
+  } catch (e) {
+    console.error(e);
+    renderer.domElement.remove();
+    showLost(shell, 'The game could not start. Reload the page to try again.');
+  }
+}
+
+function start(renderer: THREE.WebGLRenderer): void {
   app.appendChild(renderer.domElement);
   let state: ScreenState = initialScreens(params.speedTest);
   // The first card (Start, or the speed-test intro) goes up synchronously, before the slow
