@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildLeafLitter } from '../../src/surface/leafLitterMesh';
 import { buildGroundProps } from '../../src/surface/groundProps';
 import { buildFallingLeaves, FALLING_COUNT } from '../../src/surface/fallingLeaves';
-import { buildScene } from '../../src/spike/scene';
+import { buildWorld } from '../../src/game/world';
 
 describe('leaf litter (merged)', () => {
   const litter = buildLeafLitter(2000);
@@ -54,7 +54,7 @@ describe('falling leaves', () => {
     expect(FALLING_COUNT).toBeLessThanOrEqual(24);
   });
   it('live with the atmosphere extras that the low tiers switch off', () => {
-    const world = buildScene(200, 16);
+    const world = buildWorld();
     expect(world.atmosphere.getObjectByName('fallingLeaves')).toBeDefined();
   });
 });
