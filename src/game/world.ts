@@ -9,6 +9,7 @@ import { buildDistantTrees } from '../surface/distantTrees';
 import { buildLeafLitter, type LeafLitter } from '../surface/leafLitterMesh';
 import { buildGroundProps, writeHeroLog, type GroundProps } from '../surface/groundProps';
 import { HeroWorm, type WormPose } from '../worm/wormMesh';
+import { wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import { WORM_SEGMENTS, type Crawl } from './crawl';
 
 export interface World {
@@ -40,7 +41,10 @@ export function buildWorld(): World {
   const props = buildGroundProps();
   const atmosphere = buildAtmosphere();
   // The hero worm: no eyes (spec 8.3); it is posed from the simulated spine every frame.
-  const worm = new HeroWorm(WORM_SEGMENTS);
+  let reaction = true;
+  const surf: WormSurface = { y: 0, under: 0 };
+  // The contact shadow lies on the same surface the worm rests on.
+  const worm = new HeroWorm(WORM_SEGMENTS, (x, z) => wormSurface(x, z, reaction, surf).y);
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
 
   // The ground fills most of the screen: draw it after everything that sits on it, so the
@@ -54,6 +58,7 @@ export function buildWorld(): World {
   return {
     scene, litter, props, atmosphere, worm,
     apply(spec) {
+      reaction = spec.reaction;
       litter.setCount(spec.litter);
       props.setDensity(spec.clutter);
       atmosphere.setLevel(spec.effects, spec.extraEffects);

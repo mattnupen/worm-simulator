@@ -112,6 +112,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     spec = s;
     renderer.setPixelRatio(pixelRatioFor(s, window.devicePixelRatio));
     world.apply(s);
+    crawl.setReaction(s.reaction);
     updateResolution();
     dirty = true;
     // The frames around a preset change say nothing about the new preset's speed.

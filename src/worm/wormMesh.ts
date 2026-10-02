@@ -6,14 +6,12 @@ import {
   type HeadProbe,
 } from './wormShape';
 import { createWormMaterial } from './wormMaterial';
-import { WormShadow } from './wormShadow';
+import { WormShadow, type GroundFn } from './wormShadow';
 
 const RINGS = 48;
 const RADIAL = 14;
 /** Widest body radius (world units). */
 export const WORM_RADIUS = 0.115;
-/** The belly rides this far above the ground, on top of the thinnest litter. */
-export const BELLY_LIFT = 0.035;
 /** Arc length the head and tail caps reach beyond the first and last spine points. */
 const HEAD_EXT = 0.1;
 const TAIL_EXT = 0.06;
@@ -64,7 +62,8 @@ export class HeroWorm {
   private readonly tan: THREE.BufferAttribute;
   private readonly shadow: WormShadow;
 
-  constructor(spinePoints: number) {
+  /** `groundAt`: the surface the worm rests on; its contact shadow is draped over it. */
+  constructor(spinePoints: number, groundAt?: GroundFn) {
     this.spine = createSpine(spinePoints, 4);
     ringParams(this.m);
     const verts = tubeVertexCount(RINGS, RADIAL);
@@ -89,7 +88,7 @@ export class HeroWorm {
     mesh.frustumCulled = false;
     mesh.name = 'worm';
 
-    this.shadow = new WormShadow(this.m, SHADOW_STEP);
+    this.shadow = new WormShadow(this.m, SHADOW_STEP, groundAt);
 
     this.group.add(this.shadow.mesh, mesh);
     this.group.name = 'heroWorm';

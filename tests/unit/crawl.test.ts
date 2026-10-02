@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { Crawl, WORM_SEGMENTS, CAM_GROUND_MARGIN } from '../../src/game/crawl';
-import { terrainHeight } from '../../src/surface/terrain';
+import { bellyHeight, litterTop, wormSurface } from '../../src/worm/surfaceHeight';
 import type { WormPose } from '../../src/worm/wormMesh';
 
 const DT = 1 / 60;
@@ -22,12 +22,32 @@ describe('Crawl', () => {
     expect(c.motion.head.z).toBeCloseTo(0, 6);
   });
 
-  it('keeps the camera above the ground margin', () => {
+  it('keeps the camera above the litter top plus its margin', () => {
     const c = new Crawl();
     for (let i = 0; i < 600; i++) {
       c.step(DT, { x: 0.6, y: 1 });
-      expect(c.cam.pos.y).toBeGreaterThanOrEqual(terrainHeight(c.cam.pos.x, c.cam.pos.z) + CAM_GROUND_MARGIN - 1e-9);
+      expect(c.cam.pos.y).toBeGreaterThanOrEqual(litterTop(c.cam.pos.x, c.cam.pos.z) + CAM_GROUND_MARGIN - 1e-9);
     }
+  });
+
+  it('rests every segment on its own worm surface, and records under per segment', () => {
+    const c = new Crawl();
+    for (let i = 0; i < 240; i++) c.step(DT, { x: 0.3, y: 1 });
+    c.body.forEach((s, i) => {
+      const surf = wormSurface(s.x, s.z);
+      expect(s.y).toBeCloseTo(bellyHeight(surf), 9);
+      expect(c.under[i]).toBeCloseTo(surf.under, 6);
+    });
+  });
+
+  it('with leaf reaction off, rides on top everywhere', () => {
+    const c = new Crawl();
+    c.setReaction(false);
+    for (let i = 0; i < 120; i++) c.step(DT, { x: 0, y: 1 });
+    c.body.forEach((s, i) => {
+      expect(s.y).toBeCloseTo(bellyHeight(wormSurface(s.x, s.z, false)), 9);
+      expect(c.under[i]).toBe(0);
+    });
   });
 
   it('interpolates between the last two steps by alpha', () => {

@@ -4,7 +4,10 @@ import { terrainHeight } from '../surface/terrain';
 import { radiusProfile } from './wormShape';
 import { createWormShadowMaterial } from './wormMaterial';
 
-/** Height of the ribbon above the ground: just over most of the leaf litter. */
+/** Height of a point of ground under the worm (m). */
+export type GroundFn = (x: number, z: number) => number;
+
+/** Height of the ribbon above the worm's surface: just over most of the leaf litter. */
 const SHADOW_LIFT = 0.07;
 /** How far the shadow slides away from the sun, per unit of sun height. */
 const SUN_SHIFT = 0.05;
@@ -19,8 +22,11 @@ export class WormShadow {
   private readonly pos: THREE.BufferAttribute;
   private readonly rings: Int16Array;
 
-  /** `m`: the tube's ring body coordinates; one shadow station every `step` rings. */
-  constructor(m: Float32Array, step: number) {
+  /**
+   * `m`: the tube's ring body coordinates; one shadow station every `step` rings. `groundAt`:
+   * the surface the worm rests on, so the shadow follows it over and under the litter.
+   */
+  constructor(m: Float32Array, step: number, private readonly groundAt: GroundFn = terrainHeight) {
     const stations = Math.floor((m.length - 1) / step) + 1;
     this.rings = new Int16Array(stations);
     this.pos = new THREE.BufferAttribute(new Float32Array(stations * 9), 3);
@@ -71,7 +77,7 @@ export class WormShadow {
         const z = c[o + 2] + oz + sz * (e - 1);
         const v = (q * 3 + e) * 3;
         out[v] = x;
-        out[v + 1] = terrainHeight(x, z) + SHADOW_LIFT;
+        out[v + 1] = this.groundAt(x, z) + SHADOW_LIFT;
         out[v + 2] = z;
       }
     }

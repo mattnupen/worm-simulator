@@ -45,3 +45,13 @@ describe('HeroWorm.update', () => {
     }
   }
 });
+
+describe('HeroWorm contact shadow', () => {
+  it('lies on the ground function it is given', () => {
+    const worm = new HeroWorm(N, () => 0.5);
+    worm.update({ spine: SPINES.straight, phase: 0, activity: 0, timeSec: 0 });
+    const shadow = (worm.group.children as THREE.Mesh[]).find((o) => o.name === 'wormShadow')!;
+    const pos = shadow.geometry.getAttribute('position').array as Float32Array;
+    for (let v = 1; v < pos.length; v += 3) expect(pos[v]).toBeCloseTo(0.57, 6);
+  });
+});
