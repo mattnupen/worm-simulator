@@ -1,0 +1,237 @@
+import { test, expect } from '@playwright/test';
+import { DETAIL_GLSL, detailVertex, type DetailInputs } from '../../src/render/detailGlsl';
+import { DISTURB_GLSL, disturbVertex, type MapSampler } from '../../src/render/leafGlsl';
+import { litterTextureData, LITTER_TEX_N } from '../../src/render/litterTexture';
+import { groundTextureData, GROUND_TEX_N } from '../../src/render/groundTexture';
+import { buildDetailLeaves } from '../../src/surface/detailLeaves';
+import {
+  createDisturbance, recentre, stamp, decay, packDisturbance, DIST_N, DIST_CELL,
+} from '../../src/surface/disturbance';
+
+/**
+ * The GLSL twins on a real GPU: runs the shipped detailPosition (with meshGround and litterAt)
+ * and disturb() in Chromium through transform feedback, on every vertex of a seeded third of the
+ * detail leaves around five worm placements (two near the world edge, on the terrain mesh's
+ * outer rings), and checks the TS twins (detailVertex, disturbVertex) land in the same place.
+ */
+
+/** Floats per vertex: aDetail (4), position (3) + pad, aLeaf2 (2) + pad, normal (3) + pad. */
+const STRIDE = 16;
+/** Float32 on the GPU, approximate sin/cos: 0.2 mm is far below anything visible. */
+const TOLERANCE = 2e-4;
+
+interface Case { focus: [number, number]; dist: number[]; origin: [number, number] }
+
+function worm(hx: number, hz: number, yaw: number, curve: number): Case {
+  const n = 16;
+  const pts: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    const th = curve * i * 0.22;
+    const lx = (1 - Math.cos(th)) / curve;
+    const lz = -Math.sin(th) / curve;
+    pts.push([hx + Math.cos(yaw) * lx - Math.sin(yaw) * lz, hz + Math.sin(yaw) * lx + Math.cos(yaw) * lz]);
+  }
+  const m = createDisturbance();
+  recentre(m, pts[7][0], pts[7][1]);
+  const pass = (dx: number, dz: number) => {
+    for (let k = 0; k <= 2 * (n - 1); k++) {
+      const i = k >> 1;
+      const j = Math.min(n - 1, i + (k & 1));
+      stamp(m, (pts[i][0] + pts[j][0]) / 2 + dx, (pts[i][1] + pts[j][1]) / 2 + dz, 1);
+    }
+  };
+  // An older, fading trail beside the body, so the slide is exercised too.
+  pass(0.4, -0.3);
+  for (let t = 0; t < 120; t++) decay(m, 1 / 60);
+  pass(0, 0);
+  const bytes = new Uint8Array(DIST_N * DIST_N * 4);
+  packDisturbance(m, bytes);
+  // The head a little off the 1 m snap, so the wrap centre and the focus differ.
+  return { focus: [hx + 0.13, hz - 0.27], dist: Array.from(bytes), origin: [m.ci * DIST_CELL, m.cj * DIST_CELL] };
+}
+
+function samplerOf(bytes: number[]): MapSampler {
+  return (u, v, out) => {
+    const tx = u * DIST_N - 0.5;
+    const tz = v * DIST_N - 0.5;
+    const i = Math.floor(tx);
+    const j = Math.floor(tz);
+    const fx = tx - i;
+    const fz = tz - j;
+    const at = (a: number, b: number, ch: number) =>
+      bytes[(Math.min(DIST_N - 1, Math.max(0, b)) * DIST_N + Math.min(DIST_N - 1, Math.max(0, a))) * 4 + ch] / 255;
+    for (let ch = 0; ch < 4; ch++) {
+      out[ch] = (at(i, j, ch) * (1 - fx) + at(i + 1, j, ch) * fx) * (1 - fz)
+        + (at(i, j + 1, ch) * (1 - fx) + at(i + 1, j + 1, ch) * fx) * fz;
+    }
+  };
+}
+
+test('detail placement, meshGround and disturb run on the GPU as their TS twins say', async ({ page }) => {
+  const litter = litterTextureData();
+  const ground = groundTextureData();
+  const g = buildDetailLeaves(2500).mesh.geometry;
+  const pos = g.getAttribute('position');
+  const det = g.getAttribute('aDetail');
+  const leaf2 = g.getAttribute('aLeaf2');
+  const nor = g.getAttribute('normal');
+  // Every vertex of every third leaf (a leaf's vertices share one aDetail).
+  const inputs: number[] = [];
+  let leaf = -1;
+  for (let v = 0; v < pos.count; v++) {
+    if (v === 0 || det.getX(v) !== det.getX(v - 1) || det.getW(v) !== det.getW(v - 1)) leaf++;
+    if (leaf % 3) continue;
+    inputs.push(
+      det.getX(v), det.getY(v), det.getZ(v), det.getW(v), pos.getX(v), pos.getY(v), pos.getZ(v), 0,
+      leaf2.getX(v), leaf2.getY(v), 0, 0, nor.getX(v), nor.getY(v), nor.getZ(v), 0,
+    );
+  }
+  const cases = [
+    worm(0.31, -0.17, 0.7, 0.5), worm(6.4, -3.3, 2.1, -0.4), worm(-6.9, -7.2, 4.0, 0.3),
+    worm(18.6, 17.9, 0.9, 0.2), worm(-18.8, 4.2, 3.3, -0.5),
+  ];
+
+  await page.setContent('<canvas id="c"></canvas>');
+  const gpu = await page.evaluate(({ glsl, litter, litterN, ground, groundN, inputs, cases, stride }) => {
+    const gl = (document.getElementById('c') as HTMLCanvasElement).getContext('webgl2');
+    if (!gl) throw new Error('no WebGL 2');
+    const vs = `#version 300 es
+      precision highp float; precision highp int; precision highp sampler2D;
+      #define texture2D texture
+      #define attribute in
+      in vec3 position; in vec2 aLeaf2; in vec3 normal;
+      ${glsl}
+      out vec4 oW; out vec4 oP; out vec4 oA;
+      void main() {
+        vec3 n = normal; float shade; vec4 anchor;
+        vec4 wp = detailPosition(n, shade, anchor);
+        oW = vec4(wp.xyz, shade);
+        // As leafMaterial's main(): a leaf shrunk to nothing skips the drape.
+        vec3 p = wp.xyz;
+        if (anchor.z > 0.0) p = disturb(wp.xyz, anchor, 0.0, n);
+        oP = vec4(p, 0.0); oA = anchor; gl_Position = vec4(0.0);
+      }`;
+    const fs = `#version 300 es
+      precision highp float; out vec4 c; void main() { c = vec4(1.0); }`;
+    const shader = (type: number, src: string) => {
+      const s = gl.createShader(type)!;
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) ?? 'compile');
+      return s;
+    };
+    const pr = gl.createProgram()!;
+    gl.attachShader(pr, shader(gl.VERTEX_SHADER, vs));
+    gl.attachShader(pr, shader(gl.FRAGMENT_SHADER, fs));
+    gl.transformFeedbackVaryings(pr, ['oW', 'oP', 'oA'], gl.SEPARATE_ATTRIBS);
+    gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr) ?? 'link');
+    gl.useProgram(pr);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    const tex = (unit: number, internal: number, n: number, fmt: number, type: number, data: ArrayBufferView, filter: number) => {
+      const t = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, internal, n, n, 0, fmt, type, data);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      return t;
+    };
+    // As three uploads them: the maps filtered, the ground read texel by texel.
+    const dist = tex(0, gl.RGBA8, 64, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(64 * 64 * 4), gl.LINEAR);
+    tex(1, gl.RGBA8, litterN, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(litter), gl.LINEAR);
+    tex(2, gl.R32F, groundN, gl.RED, gl.FLOAT, new Float32Array(ground), gl.NEAREST);
+    const U = (name: string) => gl.getUniformLocation(pr, name);
+    gl.uniform1i(U('uDisturb'), 0);
+    gl.uniform1i(U('uLitter'), 1);
+    gl.uniform1i(U('uGround'), 2);
+    gl.uniform1f(U('uLeafReact'), 1);
+    const n = inputs.length / stride;
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(inputs), gl.STATIC_DRAW);
+    for (const [name, off, size] of [['aDetail', 0, 4], ['position', 4, 3], ['aLeaf2', 8, 2], ['normal', 12, 3]] as const) {
+      const l = gl.getAttribLocation(pr, name);
+      if (l < 0) throw new Error(`no attribute ${name}`);
+      gl.enableVertexAttribArray(l);
+      gl.vertexAttribPointer(l, size, gl.FLOAT, false, stride * 4, off * 4);
+    }
+    gl.enable(gl.RASTERIZER_DISCARD);
+    return cases.map((c) => {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, dist);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(c.dist));
+      gl.uniform2f(U('uDistOrigin'), c.origin[0], c.origin[1]);
+      gl.uniform3f(U('uFocus'), c.focus[0], 0, c.focus[1]);
+      gl.uniform2f(U('uWrapCentre'), Math.round(c.focus[0]), Math.round(c.focus[1]));
+      const bufs = [0, 1, 2].map((i) => {
+        const b = gl.createBuffer();
+        gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, b);
+        gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, n * 16, gl.STATIC_READ);
+        gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, i, b);
+        return b;
+      });
+      gl.beginTransformFeedback(gl.POINTS);
+      gl.drawArrays(gl.POINTS, 0, n);
+      gl.endTransformFeedback();
+      for (const i of [0, 1, 2]) gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, i, null);
+      return bufs.map((b) => {
+        const o = new Float32Array(n * 4);
+        gl.bindBuffer(gl.ARRAY_BUFFER, b);
+        gl.getBufferSubData(gl.ARRAY_BUFFER, 0, o);
+        return Array.from(o);
+      });
+    });
+  }, {
+    glsl: `${DETAIL_GLSL}\n${DISTURB_GLSL}`, litter: Array.from(litter), litterN: LITTER_TEX_N,
+    ground: Array.from(ground), groundN: GROUND_TEX_N, inputs, cases, stride: STRIDE,
+  });
+
+  const n = inputs.length / STRIDE;
+  const w = [0, 0, 0];
+  const p = [0, 0, 0];
+  const a = [0, 0, 0, 0];
+  cases.forEach((c, ci) => {
+    const [gw, gp, ga] = gpu[ci];
+    const sample = samplerOf(c.dist);
+    const inp: DetailInputs = {
+      focusX: c.focus[0], focusZ: c.focus[1], wrapX: Math.round(c.focus[0]), wrapZ: Math.round(c.focus[1]), litter, ground,
+    };
+    let worst = 0;
+    let shown = 0;
+    let moved = 0;
+    let gone = 0;
+    for (let k = 0; k < n; k++) {
+      const I = inputs.slice(k * STRIDE, k * STRIDE + STRIDE);
+      const shade = detailVertex(inp, I.slice(0, 4), I.slice(4, 7), I[9], w, a);
+      p[0] = w[0];
+      p[1] = w[1];
+      p[2] = w[2];
+      if (a[2] > 0) disturbVertex(sample, c.origin[0], c.origin[1], true, w, a, 0, p);
+      const o = k * 4;
+      // A home exactly on a tile edge may land a tile apart on the CPU and GPU: only if shrunk to nothing.
+      if (Math.abs(ga[o] - a[0]) > 1 || Math.abs(ga[o + 1] - a[1]) > 1) {
+        expect(Math.max(a[2], ga[o + 2])).toBeLessThan(1e-6);
+        continue;
+      }
+      if (a[2] > 0) shown++;
+      else gone++;
+      if (Math.hypot(p[0] - w[0], p[1] - w[1], p[2] - w[2]) > 1e-3) moved++;
+      worst = Math.max(
+        worst,
+        Math.abs(gw[o] - w[0]), Math.abs(gw[o + 1] - w[1]), Math.abs(gw[o + 2] - w[2]), Math.abs(gw[o + 3] - shade),
+        Math.abs(gp[o] - p[0]), Math.abs(gp[o + 1] - p[1]), Math.abs(gp[o + 2] - p[2]),
+        Math.abs(ga[o] - a[0]), Math.abs(ga[o + 1] - a[1]), Math.abs(ga[o + 2] - a[2]), Math.abs(ga[o + 3] - a[3]),
+      );
+    }
+    expect(Number.isFinite(worst), `case ${ci}`).toBe(true);
+    expect(worst, `case ${ci}: worst |GPU - TS|`).toBeLessThan(TOLERANCE);
+    // The sample is real: leaves near and far, and the drape moved some.
+    expect(shown, `case ${ci}`).toBeGreaterThan(n / 2);
+    expect(gone, `case ${ci}`).toBeGreaterThan(n / 10);
+    expect(moved, `case ${ci}`).toBeGreaterThan(200);
+  });
+});
