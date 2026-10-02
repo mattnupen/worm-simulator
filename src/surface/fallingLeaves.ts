@@ -7,7 +7,10 @@ import { leafShape } from './leafShapes';
 import { leafLift, leafNormal } from './leafForm';
 import { leafTint, LATERAL_VEINS } from './leafPalette';
 
+/** Falling leaves on Medium and High. */
 export const FALLING_COUNT = 18;
+/** Ultra's 1.5x; the mesh is built at this size and trimmed with a draw range. */
+export const FALLING_MAX = 27;
 /** Falling leaves come from the canopy overhead: maples and (aspen-shaped) birch leaves. */
 const KINDS: readonly LeafKind[] = ['maple', 'aspen', 'maple', 'aspen', 'basswood'];
 
@@ -16,7 +19,13 @@ const KINDS: readonly LeafKind[] = ['maple', 'aspen', 'maple', 'aspen', 'basswoo
  * geometry in leaf-local space; all motion is in the vertex shader (shared uTime), so it
  * costs no CPU per frame. One draw.
  */
-export function buildFallingLeaves(count = FALLING_COUNT): THREE.Mesh {
+export interface FallingLeaves {
+  mesh: THREE.Mesh;
+  /** Draws the first `n` leaves. */
+  setCount(n: number): void;
+}
+
+export function buildFallingLeaves(count = FALLING_MAX): FallingLeaves {
   const rng = mulberry32(2024);
   const kinds = Array.from({ length: count }, (_, i) => KINDS[i % KINDS.length]);
   let verts = 0;
@@ -32,6 +41,7 @@ export function buildFallingLeaves(count = FALLING_COUNT): THREE.Mesh {
   const leaf2 = new Float32Array(verts * 2);
   const fall = new Float32Array(verts * 4);
   const index = new Uint16Array(idx);
+  const ends = new Uint32Array(count);
   const inner = new THREE.Color();
   const edge = new THREE.Color();
   const stem = new THREE.Color();
@@ -63,6 +73,7 @@ export function buildFallingLeaves(count = FALLING_COUNT): THREE.Mesh {
     }
     for (const t of s.indices) index[ii++] = v0 + t;
     v0 += np;
+    ends[li] = ii;
   });
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -76,5 +87,11 @@ export function buildFallingLeaves(count = FALLING_COUNT): THREE.Mesh {
   // Positions are made in the shader around the camera.
   mesh.frustumCulled = false;
   mesh.name = 'fallingLeaves';
-  return mesh;
+  return {
+    mesh,
+    setCount(n: number) {
+      const k = Math.max(0, Math.min(count, Math.floor(n)));
+      g.setDrawRange(0, k > 0 ? ends[k - 1] : 0);
+    },
+  };
 }

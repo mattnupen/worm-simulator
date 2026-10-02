@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../core/random';
 import { terrainHeight } from '../surface/terrain';
+import { buildFallingLeaves, FALLING_COUNT, FALLING_MAX } from '../surface/fallingLeaves';
 import { sharedLighting } from './paintedMaterial';
 
 /**
@@ -123,13 +124,16 @@ const moteFragment = /* glsl */ `
   }
 `;
 
+/** Dust motes on Medium and High. */
 export const MOTE_COUNT = 260;
+/** Ultra's 1.5x; built at this size and trimmed with a draw range. */
+export const MOTE_MAX = 390;
 
-export function buildDustMotes(): THREE.Points {
+export function buildDustMotes(count = MOTE_MAX): THREE.Points {
   const rng = mulberry32(4242);
-  const pos = new Float32Array(MOTE_COUNT * 3);
-  const seed = new Float32Array(MOTE_COUNT);
-  for (let i = 0; i < MOTE_COUNT; i++) {
+  const pos = new Float32Array(count * 3);
+  const seed = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
     pos[i * 3] = rng();
     pos[i * 3 + 1] = rng();
     pos[i * 3 + 2] = rng();
@@ -157,10 +161,26 @@ export function buildDustMotes(): THREE.Points {
   return pts;
 }
 
-/** Atmosphere extras grouped so the quality controller can switch them off in one place. */
-export function buildAtmosphere(): THREE.Group {
-  const g = new THREE.Group();
-  g.name = 'atmosphere';
-  g.add(buildLightShafts(), buildDustMotes());
-  return g;
+export interface Atmosphere {
+  /** Light shafts, dust motes and falling leaves. */
+  group: THREE.Group;
+  /** `on` false hides them all; `extra` draws Ultra's 1.5x motes and falling leaves. */
+  setLevel(on: boolean, extra: boolean): void;
+}
+
+/** Atmosphere extras grouped so a preset can switch them off or up in one place. */
+export function buildAtmosphere(): Atmosphere {
+  const group = new THREE.Group();
+  group.name = 'atmosphere';
+  const motes = buildDustMotes();
+  const falling = buildFallingLeaves();
+  group.add(buildLightShafts(), motes, falling.mesh);
+  return {
+    group,
+    setLevel(on, extra) {
+      group.visible = on;
+      motes.geometry.setDrawRange(0, extra ? MOTE_MAX : MOTE_COUNT);
+      falling.setCount(extra ? FALLING_MAX : FALLING_COUNT);
+    },
+  };
 }

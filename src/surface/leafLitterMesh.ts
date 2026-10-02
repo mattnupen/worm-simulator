@@ -16,8 +16,10 @@ const PETIOLE: Record<LeafKind, number> = { maple: 0.32, oak: 0.08, aspen: 0.3, 
 
 export interface LeafLitter {
   mesh: THREE.Mesh;
-  /** Shows the first `fraction` of the leaves (the order is random, so any prefix is uniform). */
-  setDensity(fraction: number): void;
+  /** Leaves built: the most it can draw. */
+  readonly max: number;
+  /** Draws the first `n` leaves (the order is random, so any prefix is an even thinning). */
+  setCount(n: number): void;
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -25,7 +27,7 @@ const UP = new THREE.Vector3(0, 1, 0);
 /**
  * The whole leaf litter as ONE merged, static mesh (one draw, no per-instance cost):
  * species silhouettes with a midrib fold, cup and curl, tinted per leaf and lying on the
- * terrain in loose overlapping layers. Density tiers trim it with a draw range.
+ * terrain in loose overlapping layers. Presets trim it with a draw range (no rebuild).
  */
 export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   const leaves = placeLeaves(count, WORLD_HALF, seed);
@@ -142,8 +144,9 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   mesh.name = 'leafLitter';
   return {
     mesh,
-    setDensity(fraction: number) {
-      const k = Math.max(0, Math.min(count, Math.floor(count * fraction)));
+    max: count,
+    setCount(n: number) {
+      const k = Math.max(0, Math.min(count, Math.floor(n)));
       g.setDrawRange(0, k > 0 ? ends[k - 1] : 0);
     },
   };

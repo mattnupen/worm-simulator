@@ -1,13 +1,12 @@
 import * as THREE from 'three';
 import { buildSky } from '../render/sky';
-import { buildAtmosphere } from '../render/atmosphere';
+import { buildAtmosphere, type Atmosphere } from '../render/atmosphere';
 import { setRimLight } from '../render/paintedMaterial';
 import { PRESETS, type PresetSpec } from '../render/graphics';
 import { buildTerrain } from '../surface/terrainMesh';
 import { buildForestTrees } from '../surface/forestTrees';
 import { buildDistantTrees } from '../surface/distantTrees';
 import { buildLeafLitter, type LeafLitter } from '../surface/leafLitterMesh';
-import { buildFallingLeaves } from '../surface/fallingLeaves';
 import { buildGroundProps, writeHeroLog, type GroundProps } from '../surface/groundProps';
 import { HeroWorm, type WormPose } from '../worm/wormMesh';
 import { WORM_SEGMENTS, type Crawl } from './crawl';
@@ -19,10 +18,13 @@ export interface World {
   /** Rocks and ground clutter. */
   props: GroundProps;
   /** Light shafts, dust motes and falling leaves. */
-  atmosphere: THREE.Group;
+  atmosphere: Atmosphere;
   /** Continuous tube body plus its contact shadow. */
   worm: HeroWorm;
-  /** Shows a preset's counts, effects and rim light. The renderer's pixel ratio is the caller's. */
+  /**
+   * Shows a preset: counts by draw range, effects by visibility, rim light by uniform. Allocates
+   * nothing. The renderer's pixel ratio is the caller's.
+   */
   apply(spec: PresetSpec): void;
   /** Poses everything that moves with the simulation for this rendered frame. Allocates nothing. */
   sync(crawl: Crawl, alpha: number, timeSec: number, camera: THREE.PerspectiveCamera): void;
@@ -37,7 +39,6 @@ export function buildWorld(): World {
   const litter = buildLeafLitter(PRESETS.ultra.litter);
   const props = buildGroundProps();
   const atmosphere = buildAtmosphere();
-  atmosphere.add(buildFallingLeaves());
   // The hero worm: no eyes (spec 8.3); it is posed from the simulated spine every frame.
   const worm = new HeroWorm(WORM_SEGMENTS);
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
@@ -48,14 +49,14 @@ export function buildWorld(): World {
   terrain.renderOrder = 5;
   scene.add(
     terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, props.mesh, worm.group,
-    buildSky(), atmosphere,
+    buildSky(), atmosphere.group,
   );
   return {
     scene, litter, props, atmosphere, worm,
     apply(spec) {
-      litter.setDensity(spec.litter / PRESETS.ultra.litter);
+      litter.setCount(spec.litter);
       props.setDensity(spec.clutter);
-      atmosphere.visible = spec.effects;
+      atmosphere.setLevel(spec.effects, spec.extraEffects);
       setRimLight(spec.rim);
     },
     sync(crawl, alpha, timeSec, camera) {
