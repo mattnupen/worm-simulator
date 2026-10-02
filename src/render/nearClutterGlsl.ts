@@ -27,7 +27,9 @@ export const NEAR_CLUTTER_REACH = 0.8;
  * 16 points head first): scale = (distance - CLEAR) / REACH, so even its farthest vertex stays
  * CLEAR from the spine and nothing pokes into the body. The disturbance map cannot tell this: a
  * worm riding on top of the litter stamps only 0.2 m around itself. A home 4.5 m or more from the
- * head returns early, so the spine loop runs for the few items near the worm only.
+ * head returns early, before the spine loop. That skips only about a third of the items: about 64%
+ * of the homes in the 10 m tile (pi * 4.5^2 / 10^2) lie within 4.5 m of the head, so most of the
+ * mesh's vertices do run the 15-segment loop.
  *
  * Writes the baked trunk shade at the home to `shade`. Needs aWrap and uniforms uFocus, uWrapCentre,
  * uLitter, uGround and uSpine.

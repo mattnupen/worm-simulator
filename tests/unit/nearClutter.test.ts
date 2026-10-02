@@ -17,7 +17,7 @@ import { buildWorld } from '../../src/game/world';
 import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
 import { PRESETS } from '../../src/render/graphics';
 import { mulberry32 } from '../../src/core/random';
-import type { WormPose } from '../../src/worm/wormMesh';
+import { HeroWorm, type WormPose } from '../../src/worm/wormMesh';
 
 describe('near-worm clutter (Ultra)', () => {
   const mesh = buildNearClutter();
@@ -258,6 +258,42 @@ describe('near clutter placement (TS twin of nearClutterPosition)', () => {
     // The sample is real: items near the worm, some of them shrunk by it.
     expect(checked).toBeGreaterThan(5000);
     expect(shrunk).toBeGreaterThan(50);
+  });
+
+  it('CLEAR covers the real body: no vertex of the worm tube lies farther than CLEAR from its spine', () => {
+    // clearScale measures from the 16-point spine polyline, but the body is a tube around it, wider
+    // where it swells and curving between the points. Rest, crawl and hard turns, seeded.
+    const crawl = new Crawl();
+    const worm = new HeroWorm(WORM_SEGMENTS);
+    const tube = (worm.group.getObjectByName('worm') as THREE.Mesh).geometry.getAttribute('position');
+    const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
+    const camera = new THREE.PerspectiveCamera();
+    const rng = mulberry32(5);
+    // [steps, move x, move y]: rest, crawl, turn left, turn right, then a seeded wander.
+    const script: [number, number, number][] = [[120, 0, 0], [240, 0, 1], [180, -1, 1], [180, 1, 1], [120, 0, 0]];
+    for (let k = 0; k < 20; k++) {
+      const r = rng();
+      script.push([90, (rng() * 2 - 1) * (r < 0.3 ? 1 : 0.5), r < 0.25 ? 0 : 1]);
+    }
+    let t = 0;
+    let worst = 0;
+    let poses = 0;
+    for (const [steps, mx, my] of script) {
+      const move = { x: mx, y: my };
+      for (let s = 0; s < steps; s++) {
+        crawl.step(1 / 60, move);
+        t += 1 / 60;
+        if (s % 6) continue;
+        crawl.interpolate(0.5, t, pose, camera);
+        worm.update(pose);
+        poses++;
+        for (let v = 0; v < tube.count; v++) worst = Math.max(worst, spineDistance(pose.spine, tube.getX(v), tube.getZ(v)));
+      }
+    }
+    expect(poses).toBeGreaterThan(400);
+    // Measured 0.135 against 0.2 (seed 5): the body's side plus its peristaltic swell.
+    expect(worst).toBeGreaterThan(0.1);
+    expect(worst).toBeLessThan(NEAR_CLUTTER_CLEAR);
   });
 
   it('an item grows smoothly back to full size as the worm moves away, and never pops', () => {

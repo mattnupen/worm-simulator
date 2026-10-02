@@ -107,7 +107,11 @@ function start(renderer: THREE.WebGLRenderer): void {
     setResolution(drawSize.x, drawSize.y);
   }
 
-  /** Applies live: pixel ratio, draw ranges, visibility, uniforms. No rebuilds, no recompiles. */
+  /**
+   * Applies live: pixel ratio, draw ranges, visibility, uniforms. No rebuilds and no recompiles,
+   * except the first time a preset shows a lazily built layer (the detail leaves; Ultra's near
+   * clutter): that layer is built and its shader compiles once, then it is only shown and hidden.
+   */
   function applySpec(s: PresetSpec): void {
     spec = s;
     renderer.setPixelRatio(pixelRatioFor(s, window.devicePixelRatio));
