@@ -2,12 +2,13 @@ import * as THREE from 'three';
 import { mulberry32 } from '../core/random';
 import type { Vec3 } from '../core/vec';
 import { createLeafMaterial } from '../render/leafMaterial';
-import { placeLeaves, type LeafKind } from './leafLitter';
+import { placeLeaves, wetnessLayer, type LeafKind } from './leafLitter';
 import { leafShape } from './leafShapes';
 import { leafLift, leafNormal, type LeafForm } from './leafForm';
 import { leafTint, LEAF_SIZE, LATERAL_VEINS } from './leafPalette';
-import { terrainHeight, WORLD_HALF } from './terrain';
+import { WORLD_HALF } from './terrain';
 import { groundNormal, litterDepth } from './litterDepth';
+import { meshGroundHeight } from './terrainMesh';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
 
@@ -75,7 +76,7 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
     form.fold = (0.04 + rng() * 0.2) * flat;
     form.cup = rng() * (l.kind === 'oak' ? 0.6 : 0.3) * flat;
     form.curl = rng() * (l.kind === 'oak' ? 0.45 : 0.25) * flat;
-    const wet = leafTint(l.kind, l.y, rng, inner, edge, petiole);
+    const wet = leafTint(l.kind, wetnessLayer(l), rng, inner, edge, petiole);
     // Long trunk shadows, baked.
     const shade = shadeAt(l.x, l.z);
     inner.multiplyScalar(shade);
@@ -88,8 +89,9 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
     const tn = groundNormal(l.x, l.z);
     slope.setFromUnitVectors(UP, nrm.set(tn.x, tn.y, tn.z));
     q.setFromEuler(euler.set(l.tilt * 0.3, l.rotY, 0)).premultiply(slope);
-    // On the litter mound, in loose layers: each leaf at its own height, so overlaps never z-fight.
-    tmp.set(l.x, terrainHeight(l.x, l.z) + l.mound + 0.006 + l.y, l.z);
+    // On the ground as the terrain mesh draws it (soil plus mound, at the mesh's own resolution), in
+    // loose layers: each leaf at its own height, so overlaps never z-fight.
+    tmp.set(l.x, meshGroundHeight(l.x, l.z) + 0.006 + l.y, l.z);
     m.compose(tmp, q, scl.setScalar(size));
 
     const put = (k: number, u: number, v: number, h: number, nx: number, ny: number, nz: number) => {

@@ -63,8 +63,54 @@ export function groundColor(x: number, z: number, h: number, out: THREE.Color): 
   return out;
 }
 
-export function buildTerrainGeometry(): THREE.BufferGeometry {
+let gridCache: { lines: number[]; heights: Float64Array } | null = null;
+
+/** The grid lines and the height at every grid vertex (soil plus litter mound), built once. */
+function heightGrid(): { lines: number[]; heights: Float64Array } {
+  if (gridCache) return gridCache;
   const lines = gridLines();
+  const n = lines.length;
+  const heights = new Float64Array(n * n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) heights[j * n + i] = groundHeight(lines[i], lines[j]);
+  gridCache = { lines, heights };
+  return gridCache;
+}
+
+/** Index of the grid cell [lines[i], lines[i + 1]] holding v (clamped to the grid). */
+function cellOf(lines: number[], v: number): number {
+  let lo = 0;
+  let hi = lines.length - 2;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (lines[mid] <= v) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
+/**
+ * The height of the ground exactly as the terrain mesh draws it at (x, z): the same grid, the same
+ * diagonal split (b-d, as in the index buffer) and barycentric interpolation of the vertex
+ * heights. The mesh is coarse (0.5 m), so this differs from `groundHeight` by up to a few cm at
+ * the edges of mounds; things that must not sink into the surface (leaves, clutter) anchor here.
+ */
+export function meshGroundHeight(x: number, z: number): number {
+  const { lines, heights } = heightGrid();
+  const n = lines.length;
+  const i = cellOf(lines, x);
+  const j = cellOf(lines, z);
+  const u = Math.min(1, Math.max(0, (x - lines[i]) / (lines[i + 1] - lines[i])));
+  const v = Math.min(1, Math.max(0, (z - lines[j]) / (lines[j + 1] - lines[j])));
+  const a = heights[j * n + i];
+  const b = heights[j * n + i + 1];
+  const d = heights[(j + 1) * n + i];
+  const e = heights[(j + 1) * n + i + 1];
+  // Triangles (a, d, b) and (b, d, e) share the diagonal b-d, where u + v = 1.
+  return u + v <= 1 ? a + u * (b - a) + v * (d - a) : e + (1 - u) * (d - e) + (1 - v) * (b - e);
+}
+
+export function buildTerrainGeometry(): THREE.BufferGeometry {
+  const { lines, heights } = heightGrid();
   const n = lines.length;
   const pos = new Float32Array(n * n * 3);
   const nor = new Float32Array(n * n * 3);
@@ -77,7 +123,7 @@ export function buildTerrainGeometry(): THREE.BufferGeometry {
       const x = lines[i];
       const z = lines[j];
       // The soil plus the solid litter mound, so deep piles are real mounds under their leaves.
-      const h = groundHeight(x, z);
+      const h = heights[j * n + i];
       const nn = groundNormal(x, z);
       pos[k] = x;
       pos[k + 1] = h;

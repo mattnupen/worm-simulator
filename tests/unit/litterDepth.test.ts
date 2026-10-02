@@ -45,17 +45,19 @@ describe('litterDepth', () => {
   });
 
   it('is deeper in hollows than on rises (away from drifts and piles)', () => {
-    let hollow: [number, number] | null = null;
-    let rise: [number, number] | null = null;
+    const hollow: number[] = [];
+    const rise: number[] = [];
     for (const [x, z] of grid(PLAY_HALF, 0.5)) {
       if (Math.hypot(x, z) < 8 || !awayFromEverything(x, z)) continue;
       const h = hollowAmount(x, z);
-      if (h > 0.9 && !hollow) hollow = [x, z];
-      if (h === 0 && !rise) rise = [x, z];
+      if (h > 0.9) hollow.push(litterDepth(x, z));
+      else if (h === 0) rise.push(litterDepth(x, z));
     }
-    expect(hollow).not.toBeNull();
-    expect(rise).not.toBeNull();
-    expect(litterDepth(...hollow!)).toBeGreaterThan(litterDepth(...rise!) + 0.04);
+    expect(hollow.length).toBeGreaterThan(5);
+    expect(rise.length).toBeGreaterThan(5);
+    // Aggregates over every sampled point, not the first pair found: the shallowest hollow
+    // is still clearly deeper than the deepest rise.
+    expect(Math.min(...hollow) - Math.max(...rise)).toBeGreaterThanOrEqual(0.03);
   });
 
   it('drifts against every trunk and rock, deeper downwind than upwind', () => {

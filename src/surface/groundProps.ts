@@ -4,7 +4,7 @@ import { createPropMaterial } from '../render/propMaterial';
 import { MeshWriter } from './meshWriter';
 import { HERO_LOG, ROCKS, placeClutter, type ClutterItem } from './propPlacement';
 import { writeFern, writeMushrooms, writeRock, writeSedge } from './propGeometry';
-import { groundHeight } from './litterDepth';
+import { meshGroundHeight } from './terrainMesh';
 import { terrainHeight } from './terrain';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
@@ -14,13 +14,13 @@ import { BARK, writeLog } from './trunkGeometry';
 export const CLUTTER_COUNT = 64;
 
 /**
- * One clutter item. Clutter rests on the litter mound (soil plus mound), so the ground mesh that
- * rises under deep piles never buries it; rocks and the log stay on the soil.
+ * One clutter item. Clutter rests on the terrain mesh exactly as drawn (soil plus litter mound), so
+ * the mound under deep piles never buries it; rocks and the log stay on the soil.
  */
 export function writeClutterItem(w: MeshWriter, c: ClutterItem, rng: () => number): void {
-  if (c.kind === 'mushrooms') writeMushrooms(w, c.x, c.z, c.scale, rng, groundHeight);
-  else if (c.kind === 'sedge') writeSedge(w, c.x, c.z, c.scale, rng, groundHeight);
-  else writeFern(w, c.x, c.z, c.scale, rng, groundHeight);
+  if (c.kind === 'mushrooms') writeMushrooms(w, c.x, c.z, c.scale, rng, meshGroundHeight);
+  else if (c.kind === 'sedge') writeSedge(w, c.x, c.z, c.scale, rng, meshGroundHeight);
+  else writeFern(w, c.x, c.z, c.scale, rng, meshGroundHeight);
 }
 
 export interface GroundProps {

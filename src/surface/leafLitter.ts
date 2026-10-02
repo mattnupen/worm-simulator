@@ -19,6 +19,8 @@ export interface LeafPlacement {
   mound: number;
   /** The leaf's layer in the loose litter above the mound; the lowest leaves are the dampest. */
   y: number;
+  /** The thickness `y` is drawn from (0 to `span`): the loose layer above the mound. */
+  span: number;
   rotY: number; tilt: number; scale: number;
   kind: LeafKind;
 }
@@ -45,9 +47,10 @@ export function placeLeaves(count: number, halfSize: number, seed = 1, depthAt: 
     const depth = depthAt(x, z);
     if (r() > 0.3 + 0.7 * (depth / LITTER_MAX)) continue;
     const mound = litterMound(depth);
+    const span = Math.max(LITTER_OPEN, depth - mound) * 0.8;
     out.push({
-      x, z, mound,
-      y: r() * Math.max(LITTER_OPEN, depth - mound) * 0.8,
+      x, z, mound, span,
+      y: r() * span,
       rotY: r() * Math.PI * 2,
       tilt: (r() - 0.5) * 0.5,
       scale: 0.6 + r() * 0.6,
@@ -55,4 +58,16 @@ export function placeLeaves(count: number, halfSize: number, seed = 1, depthAt: 
     });
   }
   return out;
+}
+
+/** Step 0's leaf layer range: `leafTint` was tuned for layers drawn from 0 to this. */
+export const WETNESS_LAYER_RANGE = 0.079;
+
+/**
+ * The layer to hand `leafTint`: the leaf's place in its loose layer (0 bottom, 1 top), scaled to
+ * Step 0's range, so the share of damp leaves and their mean dampness stay as tuned however
+ * thick the litter is (about 35% damp, mean about 0.12).
+ */
+export function wetnessLayer(l: LeafPlacement): number {
+  return (l.y / l.span) * WETNESS_LAYER_RANGE;
 }
