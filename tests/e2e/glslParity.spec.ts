@@ -3,7 +3,12 @@ import { DETAIL_GLSL, detailVertex, type DetailInputs } from '../../src/render/d
 import { DISTURB_GLSL, disturbVertex, type MapSampler } from '../../src/render/leafGlsl';
 import { litterTextureData, LITTER_TEX_N } from '../../src/render/litterTexture';
 import { groundTextureData, GROUND_TEX_N } from '../../src/render/groundTexture';
+import {
+  NEAR_CLUTTER_GLSL, nearClutterVertex, clearScale, NEAR_CLUTTER_BOX, type NearClutterInputs,
+} from '../../src/render/nearClutterGlsl';
 import { buildDetailLeaves } from '../../src/surface/detailLeaves';
+import { buildNearClutter } from '../../src/surface/nearClutter';
+import { wrapAround } from '../../src/render/wrap';
 import {
   createDisturbance, recentre, stamp, decay, packDisturbance, DIST_N, DIST_CELL,
 } from '../../src/surface/disturbance';
@@ -233,5 +238,176 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
     expect(shown, `case ${ci}`).toBeGreaterThan(n / 2);
     expect(gone, `case ${ci}`).toBeGreaterThan(n / 10);
     expect(moved, `case ${ci}`).toBeGreaterThan(200);
+  });
+});
+
+/** A 16-point curved spine (x, y, z triples, head first) whose seventh point is at (x, z). */
+function spineThrough(x: number, z: number, yaw: number, curve: number): number[] {
+  const pts: number[][] = [];
+  for (let i = 0; i < 16; i++) {
+    const th = curve * i * 0.22;
+    const lx = (1 - Math.cos(th)) / curve;
+    const lz = -Math.sin(th) / curve;
+    pts.push([Math.cos(yaw) * lx - Math.sin(yaw) * lz, Math.sin(yaw) * lx + Math.cos(yaw) * lz]);
+  }
+  const dx = x - pts[6][0];
+  const dz = z - pts[6][1];
+  return pts.flatMap((p) => [p[0] + dx, 0.03, p[1] + dz]);
+}
+
+test('near clutter placement, meshGround and the worm keep-clear run on the GPU as their TS twins say', async ({ page }) => {
+  const litter = litterTextureData();
+  const ground = groundTextureData();
+  const g = buildNearClutter().geometry;
+  const pos = g.getAttribute('position');
+  const wrap = g.getAttribute('aWrap');
+  const stride = 8;
+  // Every vertex of every item: aWrap (2), position (3), padding.
+  const inputs: number[] = [];
+  for (let v = 0; v < pos.count; v++) inputs.push(wrap.getX(v), wrap.getY(v), pos.getX(v), pos.getY(v), pos.getZ(v), 0, 0, 0);
+  const n = pos.count;
+  // Five wrap centres (two near the world edge, on the terrain mesh's outer rings); the worm's body
+  // passes 0.1 to 0.5 m from the home of a different item in each, so the keep-clear shrinks it.
+  const homeOf = (item: number, cx: number, cz: number): [number, number] => {
+    let first = 0;
+    for (let seen = -1, v = 0; v < n; v++) {
+      if (v === 0 || wrap.getX(v) !== wrap.getX(v - 1) || wrap.getY(v) !== wrap.getY(v - 1)) seen++;
+      if (seen === item) { first = v; break; }
+    }
+    return [wrapAround(wrap.getX(first), cx, NEAR_CLUTTER_BOX), wrapAround(wrap.getY(first), cz, NEAR_CLUTTER_BOX)];
+  };
+  const place = [
+    { c: [0, 0], item: 3, off: [0.1, 0.05], yaw: 0.7, curve: 0.5 },
+    { c: [6, -3], item: 11, off: [0.3, -0.2], yaw: 2.1, curve: -0.4 },
+    { c: [-7, -7], item: 19, off: [-0.15, 0.4], yaw: 4.0, curve: 0.3 },
+    { c: [19, 18], item: 27, off: [0.4, 0.1], yaw: 0.9, curve: 0.2 },
+    { c: [-19, 4], item: 35, off: [0.0, -0.25], yaw: 3.3, curve: -0.5 },
+  ];
+  const cases = place.map((p) => {
+    const [hx, hz] = homeOf(p.item, p.c[0], p.c[1]);
+    const spine = spineThrough(hx + p.off[0], hz + p.off[1], p.yaw, p.curve);
+    // The head a little off the 1 m snap, so the wrap centre and the focus differ.
+    return { focus: [spine[0] + 0.13, spine[2] - 0.27] as [number, number], spine };
+  });
+
+  await page.setContent('<canvas id="c"></canvas>');
+  const gpu = await page.evaluate(({ glsl, litter, litterN, ground, groundN, inputs, cases, stride }) => {
+    const gl = (document.getElementById('c') as HTMLCanvasElement).getContext('webgl2');
+    if (!gl) throw new Error('no WebGL 2');
+    const vs = `#version 300 es
+      precision highp float; precision highp int; precision highp sampler2D;
+      #define texture2D texture
+      #define attribute in
+      in vec3 position;
+      ${glsl}
+      out vec4 oW;
+      void main() {
+        float shade;
+        vec4 wp = nearClutterPosition(position, shade);
+        oW = vec4(wp.xyz, shade); gl_Position = vec4(0.0);
+      }`;
+    const fs = `#version 300 es
+      precision highp float; out vec4 c; void main() { c = vec4(1.0); }`;
+    const shader = (type: number, src: string) => {
+      const s = gl.createShader(type)!;
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) ?? 'compile');
+      return s;
+    };
+    const pr = gl.createProgram()!;
+    gl.attachShader(pr, shader(gl.VERTEX_SHADER, vs));
+    gl.attachShader(pr, shader(gl.FRAGMENT_SHADER, fs));
+    gl.transformFeedbackVaryings(pr, ['oW'], gl.SEPARATE_ATTRIBS);
+    gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr) ?? 'link');
+    gl.useProgram(pr);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    const tex = (unit: number, internal: number, size: number, fmt: number, type: number, data: ArrayBufferView, filter: number) => {
+      const t = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, internal, size, size, 0, fmt, type, data);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    };
+    // As three uploads them: the litter filtered, the ground read texel by texel.
+    tex(1, gl.RGBA8, litterN, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(litter), gl.LINEAR);
+    tex(2, gl.R32F, groundN, gl.RED, gl.FLOAT, new Float32Array(ground), gl.NEAREST);
+    const U = (name: string) => gl.getUniformLocation(pr, name);
+    gl.uniform1i(U('uLitter'), 1);
+    gl.uniform1i(U('uGround'), 2);
+    const count = inputs.length / stride;
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(inputs), gl.STATIC_DRAW);
+    for (const [name, off, size] of [['aWrap', 0, 2], ['position', 2, 3]] as const) {
+      const l = gl.getAttribLocation(pr, name);
+      if (l < 0) throw new Error(`no attribute ${name}`);
+      gl.enableVertexAttribArray(l);
+      gl.vertexAttribPointer(l, size, gl.FLOAT, false, stride * 4, off * 4);
+    }
+    gl.enable(gl.RASTERIZER_DISCARD);
+    return cases.map((c) => {
+      gl.uniform3fv(U('uSpine[0]'), new Float32Array(c.spine));
+      gl.uniform3f(U('uFocus'), c.focus[0], 0, c.focus[1]);
+      gl.uniform2f(U('uWrapCentre'), Math.round(c.focus[0]), Math.round(c.focus[1]));
+      const b = gl.createBuffer();
+      gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, b);
+      gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, count * 16, gl.STATIC_READ);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, b);
+      gl.beginTransformFeedback(gl.POINTS);
+      gl.drawArrays(gl.POINTS, 0, count);
+      gl.endTransformFeedback();
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+      const o = new Float32Array(count * 4);
+      gl.bindBuffer(gl.ARRAY_BUFFER, b);
+      gl.getBufferSubData(gl.ARRAY_BUFFER, 0, o);
+      return Array.from(o);
+    });
+  }, {
+    glsl: NEAR_CLUTTER_GLSL, litter: Array.from(litter), litterN: LITTER_TEX_N,
+    ground: Array.from(ground), groundN: GROUND_TEX_N, inputs, cases, stride,
+  });
+
+  const out = [0, 0, 0];
+  cases.forEach((c, ci) => {
+    const inp: NearClutterInputs = {
+      focusX: c.focus[0], focusZ: c.focus[1], wrapX: Math.round(c.focus[0]), wrapZ: Math.round(c.focus[1]),
+      spine: c.spine, litter, ground,
+    };
+    let worst = 0;
+    let shown = 0;
+    let keptClear = 0;
+    let gone = 0;
+    for (let k = 0; k < n; k++) {
+      const I = inputs.slice(k * stride, k * stride + stride);
+      const shade = nearClutterVertex(inp, I.slice(0, 2), I.slice(2, 5), out);
+      const o = k * 4;
+      const hx = wrapAround(I[0], inp.wrapX, NEAR_CLUTTER_BOX);
+      const hz = wrapAround(I[1], inp.wrapZ, NEAR_CLUTTER_BOX);
+      // A home exactly on a tile edge may land a tile apart on the CPU and GPU: it is faded out there.
+      if (Math.abs(gpu[ci][o] - out[0]) > 1 || Math.abs(gpu[ci][o + 2] - out[2]) > 1) {
+        expect(Math.hypot(hx - inp.focusX, hz - inp.focusZ)).toBeGreaterThan(4.4);
+        continue;
+      }
+      const s = clearScale(c.spine, hx, hz);
+      if (Math.hypot(hx - inp.focusX, hz - inp.focusZ) >= 4.5) gone++;
+      else if (s > 0 && s < 1) keptClear++;
+      else if (s === 1) shown++;
+      worst = Math.max(
+        worst, Math.abs(gpu[ci][o] - out[0]), Math.abs(gpu[ci][o + 1] - out[1]), Math.abs(gpu[ci][o + 2] - out[2]),
+        Math.abs(gpu[ci][o + 3] - shade),
+      );
+    }
+    expect(Number.isFinite(worst), `case ${ci}`).toBe(true);
+    expect(worst, `case ${ci}: worst |GPU - TS|`).toBeLessThan(TOLERANCE);
+    // The sample is real: items at full size, items far and faded out, items shrunk by the worm.
+    expect(shown, `case ${ci}`).toBeGreaterThan(100);
+    expect(gone, `case ${ci}`).toBeGreaterThan(100);
+    expect(keptClear, `case ${ci}`).toBeGreaterThan(20);
   });
 });

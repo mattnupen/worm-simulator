@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { buildSky } from '../render/sky';
 import { buildAtmosphere, type Atmosphere } from '../render/atmosphere';
 import { setRimLight } from '../render/paintedMaterial';
-import { setFocus, setLeafReaction, uploadDisturbance } from '../render/groundUniforms';
+import { setFocus, setLeafReaction, setSpine, uploadDisturbance } from '../render/groundUniforms';
 import { PRESETS, type PresetSpec } from '../render/graphics';
 import { buildTerrain } from '../surface/terrainMesh';
 import { buildForestTrees } from '../surface/forestTrees';
@@ -10,6 +10,7 @@ import { buildDistantTrees } from '../surface/distantTrees';
 import { buildLeafLitter, type LeafLitter } from '../surface/leafLitterMesh';
 import { buildDetailLayer, type DetailLayer } from '../surface/detailLeaves';
 import { HeroLeafMesh } from '../surface/heroLeafMesh';
+import { buildNearClutterLayer, type NearClutterLayer } from '../surface/nearClutter';
 import { buildGroundProps, writeHeroLog, type GroundProps } from '../surface/groundProps';
 import { HeroWorm, type WormPose } from '../worm/wormMesh';
 import { wormSurface, type WormSurface } from '../worm/surfaceHeight';
@@ -25,6 +26,8 @@ export interface World {
   hero: HeroLeafMesh;
   /** Rocks and ground clutter. */
   props: GroundProps;
+  /** Ultra's extra clutter around the worm (built when Ultra is first shown). */
+  nearClutter: NearClutterLayer;
   /** Light shafts, dust motes and falling leaves. */
   atmosphere: Atmosphere;
   /** Continuous tube body plus its contact shadow. */
@@ -48,6 +51,7 @@ export function buildWorld(crawl: Crawl): World {
   const detail = buildDetailLayer(PRESETS.ultra.detail);
   const hero = new HeroLeafMesh(crawl.hero);
   const props = buildGroundProps();
+  const nearClutter = buildNearClutterLayer();
   const atmosphere = buildAtmosphere();
   // The hero worm: no eyes (spec 8.3); it is posed from the simulated spine every frame.
   let reaction = true;
@@ -61,16 +65,17 @@ export function buildWorld(crawl: Crawl): World {
   const terrain = buildTerrain();
   terrain.renderOrder = 5;
   scene.add(
-    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.group, hero.mesh, props.mesh, worm.group,
+    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.group, hero.mesh, props.mesh, nearClutter.group, worm.group,
     buildSky(), atmosphere.group,
   );
   return {
-    scene, litter, detail, hero, props, atmosphere, worm,
+    scene, litter, detail, hero, props, nearClutter, atmosphere, worm,
     apply(spec) {
       reaction = spec.reaction;
       litter.setCount(spec.litter);
       detail.setCount(spec.detail);
       props.setDensity(spec.clutter);
+      nearClutter.show(spec.nearClutter);
       atmosphere.setLevel(spec.effects, spec.extraEffects);
       setRimLight(spec.rim);
       setLeafReaction(spec.reaction);
@@ -80,6 +85,7 @@ export function buildWorld(crawl: Crawl): World {
       worm.update(pose);
       hero.update(crawl.hero, alpha);
       setFocus(crawl.focus.x, crawl.focus.y, crawl.focus.z);
+      if (nearClutter.visible) setSpine(pose.spine);
       if (crawl.disturbed) {
         uploadDisturbance(crawl.disturbance);
         crawl.disturbed = false;

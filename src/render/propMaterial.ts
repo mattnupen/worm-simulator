@@ -2,11 +2,20 @@ import * as THREE from 'three';
 import {
   sharedLighting, PAINTED_VERTEX_GLSL, PAINTED_LIGHT_GLSL, GRADE_GLSL,
 } from './paintedMaterial';
+import { groundUniforms } from './groundUniforms';
+import { getLitterTexture } from './litterTexture';
+import { getGroundTexture } from './groundTexture';
+import { NEAR_CLUTTER_GLSL } from './nearClutterGlsl';
+
+export { NEAR_CLUTTER_BOX } from './nearClutterGlsl';
 
 /**
  * Forest-floor props on the painted lighting. Attribute aProp: linear rgb, and a surface
  * code whose integer part picks the treatment (0 plain, 1 stone with lichen and moss,
  * 2 plant, glowing where the sun shines through) and whose fraction is a 0..1 parameter.
+ * With WRAP defined (Ultra's near clutter), aWrap is each item's home in a world tile and the
+ * vertex shader places the copy nearest the worm on the ground (nearClutterPosition), shrunk away
+ * from the worm's body, and shades it by the baked trunk shade.
  */
 const vertexShader = /* glsl */ `
   uniform vec3 uLightDir;
@@ -21,11 +30,21 @@ const vertexShader = /* glsl */ `
   varying vec3 vNoise;
   varying vec4 vFog;
   ${PAINTED_VERTEX_GLSL}
+  #ifdef WRAP
+  ${NEAR_CLUTTER_GLSL}
+  #endif
   void main() {
-    vec4 wp = modelMatrix * vec4(position, 1.0);
+    #ifdef WRAP
+      float shade;
+      vec4 wp = nearClutterPosition(position, shade);
+      vNormalW = normal;
+      vProp = vec4(aProp.rgb * shade, aProp.w);
+    #else
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vNormalW = mat3(modelMatrix) * normal;
+      vProp = aProp;
+    #endif
     vPosW = wp.xyz;
-    vNormalW = mat3(modelMatrix) * normal;
-    vProp = aProp;
     vec3 toCam = cameraPosition - wp.xyz;
     float dist = length(toCam);
     vNoise = worldBrushCoord(wp.xyz, dist);
@@ -87,9 +106,20 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
-export function createPropMaterial(): THREE.ShaderMaterial {
+/** `wrap`: the near-worm clutter variant (placed around the worm in the vertex shader). */
+export function createPropMaterial(wrap = false): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: { ...sharedLighting },
+    uniforms: wrap
+      ? {
+        ...sharedLighting,
+        uFocus: groundUniforms.uFocus,
+        uWrapCentre: groundUniforms.uWrapCentre,
+        uSpine: groundUniforms.uSpine,
+        uLitter: { value: getLitterTexture() },
+        uGround: { value: getGroundTexture() },
+      }
+      : { ...sharedLighting },
+    defines: wrap ? { WRAP: '' } : {},
     vertexShader,
     fragmentShader,
     side: THREE.DoubleSide,
