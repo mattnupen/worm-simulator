@@ -108,3 +108,43 @@ export function buildDetailLeaves(count = PRESETS.ultra.detail, seed = 3): Detai
     },
   };
 }
+
+/** The detail layer as the world holds it: built only when a preset first draws it. */
+export interface DetailLayer {
+  /** Always in the scene; holds the detail mesh once it is built. */
+  readonly group: THREE.Group;
+  /** The built layer, or null until the first setCount(n > 0). */
+  readonly built: DetailLeaves | null;
+  /** Leaves it builds: the most it can draw. */
+  readonly max: number;
+  /** Draws the first `n` leaves, building the layer on the first n > 0; hides it at 0. */
+  setCount(n: number): void;
+}
+
+/**
+ * The detail layer, built lazily: on Low (no detail leaves) neither the mesh, its material nor the
+ * baked litter and ground textures it reads are ever made, which saves memory and start-up time on
+ * the weakest machines. Switching up to a preset that draws it builds it then (a one-time hitch
+ * while its shader compiles).
+ */
+export function buildDetailLayer(count = PRESETS.ultra.detail, seed = 3): DetailLayer {
+  const group = new THREE.Group();
+  group.name = 'detailLayer';
+  let built: DetailLeaves | null = null;
+  return {
+    group,
+    max: count,
+    get built() {
+      return built;
+    },
+    setCount(n: number) {
+      if (!built) {
+        if (n <= 0) return;
+        built = buildDetailLeaves(count, seed);
+        group.add(built.mesh);
+      }
+      built.setCount(n);
+    },
+  };
+}
+

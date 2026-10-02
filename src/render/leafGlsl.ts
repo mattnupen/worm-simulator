@@ -1,4 +1,5 @@
 import { DIST_CELL, DIST_REACH, DIST_SPAN } from '../surface/disturbance';
+import { glslFloat as f } from './glslNumber';
 
 /**
  * A leaf over the body clears this height above the ground: the worm's top (at most 0.247 while
@@ -24,24 +25,21 @@ export function drapeProfile(s: number): number {
   return DRAPE_HEIGHT * Math.min(1, Math.max(0, (DRAPE_FOOT - s) / (DRAPE_FOOT - DRAPE_FLAT)));
 }
 
-const r4 = (v: number): number => Math.round(v * 1e4) / 1e4;
-const f = (v: number): string => v.toFixed(4);
-
 /**
- * Every number the leaf shaders use, rounded as the GLSL prints them, so the TS twin
- * (disturbVertex) computes exactly what the shader does.
+ * Every number the leaf shaders use. The GLSL prints each with glslFloat (exact to float32), so
+ * the TS twin (disturbVertex) computes what the shader does.
  */
 const C = {
   span: DIST_SPAN,
-  step: r4(DIST_CELL / DIST_SPAN),
-  even: r4(DIST_CELL / DIST_REACH),
-  reach: r4(DIST_REACH),
-  furrow: r4(FURROW_HALF),
-  slide: r4(PUSH_SLIDE),
-  height: r4(DRAPE_HEIGHT),
-  flat: r4(DRAPE_FLAT),
-  foot: r4(DRAPE_FOOT),
-  ramp: r4(DRAPE_FOOT - DRAPE_FLAT),
+  step: DIST_CELL / DIST_SPAN,
+  even: DIST_CELL / DIST_REACH,
+  reach: DIST_REACH,
+  furrow: FURROW_HALF,
+  slide: PUSH_SLIDE,
+  height: DRAPE_HEIGHT,
+  flat: DRAPE_FLAT,
+  foot: DRAPE_FOOT,
+  ramp: DRAPE_FOOT - DRAPE_FLAT,
   /** A lifted leaf's dips (parts below its rest plane) are raised by the time it has lifted this much. */
   unsag: 0.02,
 };

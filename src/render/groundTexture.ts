@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { heightGrid, MESH_GRID } from '../surface/terrainMesh';
+import { glslFloat as f } from './glslNumber';
 
 /**
  * The rendered ground (`meshGroundHeight`) baked for shaders that lay things on it themselves
@@ -63,8 +64,6 @@ export function getGroundTexture(): THREE.DataTexture {
   }
   return texture;
 }
-
-const f = (v: number): string => v.toFixed(4);
 
 /** GLSL: meshGround(xz), the rendered ground height. Needs uniform uGround. */
 export const GROUND_GLSL = /* glsl */ `

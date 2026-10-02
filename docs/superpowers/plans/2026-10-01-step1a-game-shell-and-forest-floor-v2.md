@@ -7152,6 +7152,22 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task 16: Hero leaf mesh and wiring
 
+> NOTE (post-Task 14): Task 14 moved the detail placement into its own file and changed some
+> names; the steps below are already adjusted. In short:
+> - `DETAIL_GLSL`, `DETAIL_BOX`, `DETAIL_FADE_IN/OUT` and the TS twin `detailVertex` live in
+>   `src/render/detailGlsl.ts` (re-exporting them from `leafGlsl.ts` makes an import cycle:
+>   terrainMesh -> paintedMaterial -> leafGlsl -> groundTexture -> terrainMesh). `HERO_GLSL` is
+>   appended to the end of `leafGlsl.ts`.
+> - `detailPosition(n, shade, anchor)` also writes the disturbance anchor; it rests leaves on
+>   `meshGround` (the baked terrain-mesh heights, `src/render/groundTexture.ts`, uniform
+>   `uGround`), and returns at once (radius 0, all vertices on one point) for leaves shrunk to
+>   nothing, which then skip `disturb()`.
+> - The world's detail layer is lazy (`buildDetailLayer`): add `detail.group` to the scene, not
+>   `detail.mesh`; `detail.built` is the `DetailLeaves` (or null until a preset draws it).
+> - Print GLSL constants with `glslFloat` (`src/render/glslNumber.ts`), never `toFixed`.
+> - `tests/e2e/glslParity.spec.ts` runs the GLSL twins on the GPU; extend it when a new GLSL twin
+>   gets a TS twin.
+
 One instanced draw holds a leaf of every species; each instance shows only its own species (the vertex shader collapses the other four to a point below the ground). The crawl shoves the leaves with every body segment each step, and the world writes the instance matrices each rendered frame, interpolated by alpha.
 
 **Files:**
@@ -7303,22 +7319,9 @@ Expected: FAIL: `heroLeafMesh` is missing, `crawl.setHeroCount` does not exist, 
 
 - [ ] **Step 3: The hero GLSL**
 
-In `src/render/leafGlsl.ts`, append:
-
-Replace:
+Append to the end of `src/render/leafGlsl.ts`:
 
 ```ts
-    return vec4(xz.x, terrainHeight(xz) + lit.x + rest + p.y, xz.y, 1.0);
-  }
-`;
-```
-
-with:
-
-```ts
-    return vec4(xz.x, terrainHeight(xz) + lit.x + rest + p.y, xz.y, 1.0);
-  }
-`;
 
 /**
  * Vertex GLSL for the hero leaves: one instanced leaf of every species, of which each instance
@@ -7346,8 +7349,10 @@ Replace:
 ```ts
 } from './paintedMaterial';
 import { groundUniforms } from './groundUniforms';
-import { DISTURB_GLSL, DETAIL_GLSL } from './leafGlsl';
+import { DISTURB_GLSL } from './leafGlsl';
+import { DETAIL_GLSL } from './detailGlsl';
 import { getLitterTexture } from './litterTexture';
+import { getGroundTexture } from './groundTexture';
 
 ```
 
@@ -7356,17 +7361,18 @@ with:
 ```ts
 } from './paintedMaterial';
 import { groundUniforms } from './groundUniforms';
-import { DISTURB_GLSL, DETAIL_GLSL, HERO_GLSL } from './leafGlsl';
+import { DISTURB_GLSL, HERO_GLSL } from './leafGlsl';
+import { DETAIL_GLSL } from './detailGlsl';
 import { getLitterTexture } from './litterTexture';
+import { getGroundTexture } from './groundTexture';
 
 ```
 
 Replace:
 
 ```ts
- * With DISTURB defined, leaves near the worm drape, slide and settle by the disturbance map.
- * With DETAIL defined, aDetail (home x, z in the wrap tile, yaw, size) places each leaf of the
- * close-up layer around the worm in the vertex shader.
+ * With DETAIL defined, aDetail (home x, z in the wrap tile, yaw, radius) places each leaf of the
+ * close-up layer around the worm in the vertex shader, which also gives its anchor (and no dip).
  */
 const vertexShader = /* glsl */ `
 ```
@@ -7374,10 +7380,9 @@ const vertexShader = /* glsl */ `
 with:
 
 ```ts
- * With DISTURB defined, leaves near the worm drape, slide and settle by the disturbance map.
- * With DETAIL defined, aDetail (home x, z in the wrap tile, yaw, size) places each leaf of the
- * close-up layer around the worm in the vertex shader. With HERO defined it is the instanced
- * hero-leaf mesh (instanceMatrix, instanceColor tint).
+ * With DETAIL defined, aDetail (home x, z in the wrap tile, yaw, radius) places each leaf of the
+ * close-up layer around the worm in the vertex shader, which also gives its anchor (and no dip).
+ * With HERO defined it is the instanced hero-leaf mesh (instanceMatrix, instanceColor tint).
  */
 const vertexShader = /* glsl */ `
 ```
@@ -7407,7 +7412,7 @@ with:
 Replace:
 
 ```ts
-      vec4 wp = detailPosition(nrm, shade);
+      vec4 wp = detailPosition(nrm, shade, anchor);
       vNormalW = normalize(nrm);
     #else
       vec4 wp = modelMatrix * vec4(position, 1.0);
@@ -7416,7 +7421,7 @@ Replace:
 with:
 
 ```ts
-      vec4 wp = detailPosition(nrm, shade);
+      vec4 wp = detailPosition(nrm, shade, anchor);
       vNormalW = normalize(nrm);
     #elif defined(HERO)
       vec4 wp = heroPosition(nrm);
@@ -7806,7 +7811,7 @@ Replace:
 ```ts
   terrain.renderOrder = 5;
   scene.add(
-    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.mesh, props.mesh, worm.group,
+    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.group, props.mesh, worm.group,
     buildSky(), atmosphere.group,
   );
   return {
@@ -7820,7 +7825,7 @@ with:
 ```ts
   terrain.renderOrder = 5;
   scene.add(
-    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.mesh, hero.mesh, props.mesh, worm.group,
+    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.group, hero.mesh, props.mesh, worm.group,
     buildSky(), atmosphere.group,
   );
   return {
@@ -7914,6 +7919,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task 17: Ultra's extra clutter near the worm
 
+> NOTE (post-Task 14): the near clutter rests on the rendered ground, as the litter, the detail
+> leaves and the worm do: `meshGround(xz)` from `GROUND_GLSL`/`getGroundTexture()`
+> (`src/render/groundTexture.ts`, uniform `uGround`), not `terrainHeight(xz) + lit.x`, which
+> differs from the terrain mesh by up to ~18 cm at mound edges. `litterAt` is still read, for the
+> trunk shade only. GLSL constants are printed with `glslFloat` (`src/render/glslNumber.ts`). The
+> steps below are already adjusted; the world adds `detail.group` (lazy detail layer).
+
 **Files:**
 - Create: `src/surface/nearClutter.ts`, `tests/unit/nearClutter.test.ts`
 - Modify: `src/render/propMaterial.ts`, `src/game/world.ts`
@@ -7992,8 +8004,9 @@ with:
 } from './paintedMaterial';
 import { groundUniforms } from './groundUniforms';
 import { getLitterTexture, LITTER_GLSL } from './litterTexture';
+import { getGroundTexture, GROUND_GLSL } from './groundTexture';
 import { WRAP_GLSL } from './wrap';
-import { TERRAIN_GLSL } from '../surface/terrain';
+import { glslFloat } from './glslNumber';
 
 /** Side of the world tile the near-worm clutter repeats in (m); it fades out from 3.5 to 4.5 m. */
 export const NEAR_CLUTTER_BOX = 10;
@@ -8045,17 +8058,17 @@ with:
   uniform vec2 uWrapCentre;
   uniform sampler2D uLitter;
   attribute vec2 aWrap;
-  ${TERRAIN_GLSL}
+  ${GROUND_GLSL}
   ${WRAP_GLSL}
   ${LITTER_GLSL}
   #endif
   void main() {
     #ifdef WRAP
-      vec2 home = wrapAround(aWrap, uWrapCentre, ${NEAR_CLUTTER_BOX.toFixed(1)});
+      vec2 home = wrapAround(aWrap, uWrapCentre, ${glslFloat(NEAR_CLUTTER_BOX)});
       vec3 p = position * (1.0 - smoothstep(3.5, 4.5, distance(home, uFocus.xz)));
       vec2 xz = home + p.xz;
       vec3 lit = litterAt(home);
-      vec4 wp = vec4(xz.x, terrainHeight(xz) + lit.x + p.y, xz.y, 1.0);
+      vec4 wp = vec4(xz.x, meshGround(xz) + p.y, xz.y, 1.0);
       vNormalW = normal;
       vProp = vec4(aProp.rgb * lit.z, aProp.w);
     #else
@@ -8094,6 +8107,7 @@ export function createPropMaterial(wrap = false): THREE.ShaderMaterial {
         uFocus: groundUniforms.uFocus,
         uWrapCentre: groundUniforms.uWrapCentre,
         uLitter: { value: getLitterTexture() },
+        uGround: { value: getGroundTexture() },
       }
       : { ...sharedLighting },
     defines: wrap ? { WRAP: '' } : {},
@@ -8212,7 +8226,7 @@ Replace:
 ```ts
   terrain.renderOrder = 5;
   scene.add(
-    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.mesh, hero.mesh, props.mesh, worm.group,
+    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.group, hero.mesh, props.mesh, worm.group,
     buildSky(), atmosphere.group,
   );
   return {
@@ -8226,7 +8240,7 @@ with:
 ```ts
   terrain.renderOrder = 5;
   scene.add(
-    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.mesh, hero.mesh, props.mesh, nearClutter, worm.group,
+    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.group, hero.mesh, props.mesh, nearClutter, worm.group,
     buildSky(), atmosphere.group,
   );
   return {
@@ -8366,6 +8380,8 @@ Expected: FAIL: `occlusion` is missing; no material has `OCCLUDE`.
 Create `src/render/occlusion.ts`:
 
 ```ts
+import { glslFloat } from './glslNumber';
+
 /**
  * Leaves between the camera and the worm's head fade to 40% (spec 5.2) with a dithered
  * discard, so there is no extra transparent pass. `occlusion` says how much a point sits in
@@ -8398,7 +8414,8 @@ export function occlusion(
   return (1 - smoothstep(OCC_INNER, OCC_OUTER, d)) * smoothstep(0.02, 0.1, t) * (1 - smoothstep(0.92, 0.98, t));
 }
 
-const f = (v: number): string => v.toFixed(4);
+// Constants print exactly to float32, as every GLSL twin's do (post-Task 14).
+const f = glslFloat;
 
 /**
  * Fragment GLSL: fadedOut(p) is true for the dropped pixels of a leaf in the sight line. The
@@ -8430,8 +8447,10 @@ In `src/render/leafMaterial.ts`:
 Replace:
 
 ```ts
-import { DISTURB_GLSL, DETAIL_GLSL, HERO_GLSL } from './leafGlsl';
+import { DISTURB_GLSL, HERO_GLSL } from './leafGlsl';
+import { DETAIL_GLSL } from './detailGlsl';
 import { getLitterTexture } from './litterTexture';
+import { getGroundTexture } from './groundTexture';
 
 /**
 ```
@@ -8439,8 +8458,10 @@ import { getLitterTexture } from './litterTexture';
 with:
 
 ```ts
-import { DISTURB_GLSL, DETAIL_GLSL, HERO_GLSL } from './leafGlsl';
+import { DISTURB_GLSL, HERO_GLSL } from './leafGlsl';
+import { DETAIL_GLSL } from './detailGlsl';
 import { getLitterTexture } from './litterTexture';
+import { getGroundTexture } from './groundTexture';
 import { OCCLUDE_GLSL } from './occlusion';
 
 /**
@@ -9756,7 +9777,7 @@ Replace:
 ```ts
   terrain.renderOrder = 5;
   scene.add(
-    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.mesh, hero.mesh, props.mesh, nearClutter, worm.group,
+    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.group, hero.mesh, props.mesh, nearClutter, worm.group,
     buildSky(), atmosphere.group,
   );
 ```
@@ -9766,7 +9787,7 @@ with:
 ```ts
   terrain.renderOrder = 5;
   scene.add(
-    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.group, detail.mesh, hero.mesh, props.mesh, nearClutter, worm.group,
+    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.group, detail.group, hero.mesh, props.mesh, nearClutter, worm.group,
     buildSky(), atmosphere.group,
   );
 ```
@@ -9812,6 +9833,22 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ---
 
 ### Task 22: Cheaper leaf shading
+
+> NOTE (post-Task 14), perf findings. On High, the detail layer (1,500 leaves) took the SwiftShader
+> speed test from about 27 to about 19.5 fps (+1 draw, +~72k triangles a frame). The regression is
+> fragment/fill-bound: vertex work is not the cost (proven by clipping the detail geometry). The
+> levers, in order:
+> 1. A lighter DETAIL fragment variant: drop the lateral veins and the `fwidth` work for detail
+>    leaves (fixed `#define`, no recompile on preset switch).
+> 2. A smaller detail fade radius on High, e.g. 3.5 -> 4.5 m instead of 5 -> 6 m, which about
+>    halves the fill. Keep `DETAIL_BOX / 2 >= DETAIL_FADE_OUT + 0.5` (tested in detailLeaves.test.ts).
+> 3. Thinning the base litter under the detail circle, so the two layers do not both cover it.
+> Vertex-side packing (RGBA32F corner heights for meshGround, an RGBA16F gradient texture for
+> disturb) only if real hardware turns out vertex-bound.
+> Also: the detail leaves' size now lives in `aDetail.w` as the leaf's radius (shapes are scaled so
+> the farthest vertex is 1 out), so shrinking them to 0.6x means scaling that radius; the
+> clearance test in leafGlsl.test.ts and the GPU parity test (tests/e2e/glslParity.spec.ts) must
+> still pass.
 
 Three cuts, each measured with the frame profiler:
 - The painted-noise sample is fetched once per vertex instead of once per pixel, for every leaf variant: about −3 ms on High. Leaves are small next to the noise's dapple features, so the look holds.
@@ -10054,6 +10091,16 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ---
 
 ### Task 23: Set the leaf counts, record the deviations, and check realism
+
+> NOTE (post-Task 14), perf findings. The detail layer's cost is fragment/fill-bound, not vertex
+> work (proven by clipping its geometry). Before raising or trading `detail`
+> counts, prefer, in order: a lighter DETAIL fragment variant (drop lateral veins and `fwidth`);
+> a smaller detail fade radius on High (e.g. 3.5 -> 4.5 m instead of 5 -> 6 m, about half the
+> fill; keep `DETAIL_BOX / 2 >= DETAIL_FADE_OUT + 0.5`); thinning the base litter under the
+> detail circle. Vertex-side packing (RGBA32F corner heights, an RGBA16F gradient texture) only
+> if real hardware is vertex-bound. Measured at Task 14 on High (SwiftShader, interleaved):
+> about 27 fps before, about 19.5 fps after. On Low the detail layer is never built
+> (`buildDetailLayer`), so it costs Low nothing.
 
 Spec section 6: the fps gates are the hard requirement. Draw calls may now be up to 40 per frame on every preset; the controller authorized this so the litter could be chunked. Triangle gates are unchanged. Each preset must use the highest counts that pass its gate and be strictly richer than the preset below: `litter`, `detail` and `hero` must never decrease from Low to Ultra, and `litter + detail` must increase. The `PRESETS` cost test enforces both.
 
@@ -10403,7 +10450,10 @@ I searched the plan for "TBD", "TODO", "implement later", "fill in", "similar to
   - `+ 'hero'` in 16;
   - `+ 'plain' | 'far'` in 21.
   - `createLeafMaterial('falling')` replaces `createLeafMaterial(true)` in Task 13.
-- `DETAIL_BOX` lives in `src/render/leafGlsl.ts` (Task 14), so `leafGlsl.ts` never imports `detailLeaves.ts`, which imports the leaf material. This avoids an import cycle.
+- `DETAIL_BOX`, `DETAIL_GLSL`, `DETAIL_FADE_IN/OUT` and `detailVertex` live in `src/render/detailGlsl.ts` (Task 14); import them from `'./detailGlsl'`, never `'./leafGlsl'`. `leafGlsl.ts` must not import or re-export them: that makes an import cycle (terrainMesh -> paintedMaterial -> leafGlsl -> groundTexture -> terrainMesh), and it never imports `detailLeaves.ts`, which imports the leaf material.
+- `GROUND_GLSL`/`meshGround`, `getGroundTexture` and `bakedGroundHeight` (Task 14, `src/render/groundTexture.ts`) are the rendered ground for GPU-placed layers: the detail leaves (14) and the near clutter (17).
+- `glslFloat` (`src/render/glslNumber.ts`, Task 14 follow-up) prints every GLSL constant that has a TS twin.
+- `buildDetailLayer`/`DetailLayer` (Task 14 follow-up): the world's lazily built detail layer; the scene holds `detail.group`.
 - `HeroLeaves`, `createHeroLeaves`, `setHeroCount`, `snapshotHeroLeaves`, `stepHeroLeaves`, `HERO_MAX` and `SurfaceFn` (Task 15) are used by `Crawl` and `HeroLeafMesh` (16).
 - `wrapAround`/`WRAP_GLSL` (Task 14) are used by the detail GLSL (14) and the prop WRAP variant (17); `getLitterTexture`/`LITTER_GLSL` likewise.
 - `occlusion`/`OCCLUDE_GLSL` (Task 18) are used only by the leaf material.

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildDetailLeaves } from '../../src/surface/detailLeaves';
-import { DETAIL_BOX } from '../../src/render/detailGlsl';
+import { buildDetailLeaves, buildDetailLayer } from '../../src/surface/detailLeaves';
+import { DETAIL_BOX, DETAIL_FADE_OUT } from '../../src/render/detailGlsl';
 import { PRESETS } from '../../src/render/graphics';
 
 describe('detail leaves', () => {
@@ -61,7 +61,32 @@ describe('detail leaves', () => {
   });
 
   it('covers the 6 m fade circle with its 13 m tile, and Ultra builds 2,500', () => {
-    expect(DETAIL_BOX / 2).toBeGreaterThanOrEqual(6.5);
+    // A leaf jumps a tile only past half a box from the wrap centre, which sits up to half a metre
+    // (per axis) from the head: there it must already be gone.
+    expect(DETAIL_BOX / 2).toBeGreaterThanOrEqual(DETAIL_FADE_OUT + 0.5);
     expect(buildDetailLeaves().max).toBe(PRESETS.ultra.detail);
   });
 });
+
+describe('the lazily built detail layer', () => {
+  it('builds nothing while no preset draws it, then builds once and switches live', () => {
+    const d = buildDetailLayer(200);
+    expect(d.max).toBe(200);
+    d.setCount(0);
+    expect(d.built).toBeNull();
+    expect(d.group.children).toHaveLength(0);
+    d.setCount(100);
+    const built = d.built!;
+    expect(d.group.children).toEqual([built.mesh]);
+    expect(built.mesh.visible).toBe(true);
+    const g = built.mesh.geometry;
+    expect(g.drawRange.count).toBeLessThan(g.index!.count);
+    d.setCount(0);
+    expect(built.mesh.visible).toBe(false);
+    d.setCount(200);
+    expect(d.built).toBe(built);
+    expect(g.drawRange.count).toBe(g.index!.count);
+    expect(d.group.children).toHaveLength(1);
+  });
+});
+

@@ -106,7 +106,7 @@ const vertexShader = /* glsl */ `
     #ifdef DISTURB
       vec3 nW = vNormalW;
       #ifdef DETAIL
-        wp.xyz = disturb(wp.xyz, anchor, 0.0, nW);
+        if (anchor.z > 0.0) wp.xyz = disturb(wp.xyz, anchor, 0.0, nW);
       #else
         wp.xyz = disturb(wp.xyz, aAnchor, aDip, nW);
       #endif

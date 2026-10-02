@@ -221,8 +221,9 @@ describe('the drape on the real litter and the real worm', () => {
           lp[1] = pos.getY(v);
           lp[2] = pos.getZ(v);
           detailVertex(inp, dv, lp, leaf2.getY(v), placed[v - v0], a4);
-          // dip is 0: the curl only lifts a detail leaf off its rest plane.
-          disturbVertex(sample, ox, oz, true, placed[v - v0], a4, 0, placed[v - v0]);
+          // dip is 0: the curl only lifts a detail leaf off its rest plane. A leaf shrunk to
+          // nothing skips the drape, as the shader does.
+          if (a4[2] > 0) disturbVertex(sample, ox, oz, true, placed[v - v0], a4, 0, placed[v - v0]);
         }
         for (let t = firstT[l]; t < firstT[l + 1]; t += 3) {
           for (let c = 0; c < 3; c++) {

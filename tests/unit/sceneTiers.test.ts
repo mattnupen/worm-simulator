@@ -80,12 +80,19 @@ describe('world.apply', () => {
   const motes = world.atmosphere.group.getObjectByName('dustMotes') as THREE.Points;
   const falling = world.atmosphere.group.getObjectByName('fallingLeaves') as THREE.Mesh;
 
-  it('builds the litter at Ultra size', () => {
+  it('builds the litter at Ultra size, and the detail layer only once a preset draws it', () => {
     expect(world.litter.max).toBe(PRESETS.ultra.litter);
+    expect(world.detail.max).toBe(PRESETS.ultra.detail);
+    expect(world.detail.built).toBeNull();
+    world.apply(PRESETS.low);
+    expect(world.detail.built).toBeNull();
   });
 
   it('trims counts and switches effects and rim per preset, live', () => {
     world.apply(PRESETS.ultra);
+    const detail = world.detail.built!;
+    expect(detail.mesh.visible).toBe(true);
+    expect(detail.mesh.geometry.drawRange.count).toBe(detail.mesh.geometry.index!.count);
     const ultraLeaves = litterG.drawRange.count;
     expect(ultraLeaves).toBe(litterG.index!.count);
     expect(world.atmosphere.group.visible).toBe(true);
@@ -99,6 +106,7 @@ describe('world.apply', () => {
     expect(falling.geometry.drawRange.count).toBeLessThan(ultraFalling);
 
     world.apply(PRESETS.low);
+    expect(detail.mesh.visible).toBe(false);
     expect(world.atmosphere.group.visible).toBe(false);
     expect(sharedLighting.uRim.value).toBe(0);
     expect(litterG.drawRange.count).toBeLessThan(ultraLeaves / 4);

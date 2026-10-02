@@ -3,6 +3,7 @@ import { litterDepth, litterMound, LITTER_MAX } from '../surface/litterDepth';
 import { WORLD_HALF } from '../surface/terrain';
 import { makeShadeAt } from '../surface/treeShadows';
 import { sharedLighting } from './paintedMaterial';
+import { glslFloat } from './glslNumber';
 
 /** Texels per side of the baked litter map: 0.16 m each over the 40 m world. */
 export const LITTER_TEX_N = 256;
@@ -52,8 +53,8 @@ export function getLitterTexture(): THREE.DataTexture {
 /** GLSL: litterAt(xz) = (mound m, depth m, trunk shade). Needs uniform uLitter. */
 export const LITTER_GLSL = /* glsl */ `
   vec3 litterAt(vec2 xz) {
-    vec4 t = texture2D(uLitter, xz / ${LITTER_SPAN.toFixed(1)} + 0.5);
-    return vec3(t.rg * ${LITTER_MAX.toFixed(4)}, t.b);
+    vec4 t = texture2D(uLitter, xz / ${glslFloat(LITTER_SPAN)} + 0.5);
+    return vec3(t.rg * ${glslFloat(LITTER_MAX)}, t.b);
   }
 `;
 

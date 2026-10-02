@@ -40,6 +40,8 @@ describe('detail leaf placement (TS twin of detailPosition)', () => {
         expect(shade).toBeLessThanOrEqual(1);
         expect(Math.abs(anchor[0] - inp.wrapX)).toBeLessThanOrEqual(DETAIL_BOX / 2);
         expect(Math.abs(anchor[1] - inp.wrapZ)).toBeLessThanOrEqual(DETAIL_BOX / 2);
+        // Shrunk to nothing: one point, nothing drawn (see below).
+        if (anchor[2] === 0) continue;
         // So a detail leaf's dip is always 0.
         expect(out[1] - bakedGroundHeight(inp.ground, out[0], out[2]) - anchor[3]).toBeGreaterThanOrEqual(-1e-9);
         expect(anchor[3]).toBeGreaterThan(0.007);
@@ -72,6 +74,53 @@ describe('detail leaf placement (TS twin of detailPosition)', () => {
     expect(jumps).toBeGreaterThan(100);
   });
 
+  it('at the snap itself, every leaf that jumps is exactly gone on both sides', () => {
+    let jumps = 0;
+    const before = new Float64Array(pos.count * 3);
+    for (let k = -18; k <= 18; k += 1) {
+      for (const axis of [0, 1]) {
+        const other = 0.37 * k - 2.1;
+        const at = (eps: number, store: boolean) => {
+          const s = k + 0.5 + eps;
+          setFocus(axis ? other : s, axis ? s : other);
+          for (let v = 0; v < pos.count; v += 3) {
+            place(v);
+            const i = v * 3;
+            if (store) {
+              before[i] = anchor[0];
+              before[i + 1] = anchor[1];
+              before[i + 2] = anchor[2];
+            } else if (Math.hypot(anchor[0] - before[i], anchor[1] - before[i + 1]) > 1) {
+              jumps++;
+              expect(before[i + 2]).toBeLessThan(1e-9);
+              expect(anchor[2]).toBeLessThan(1e-9);
+            }
+          }
+        };
+        at(-1e-9, true);
+        at(1e-9, false);
+      }
+    }
+    expect(jumps).toBeGreaterThan(1000);
+  });
+
+  it('a leaf shrunk to nothing returns at once: one point, no texture reads, no drape', () => {
+    setFocus(0.2, 0.1);
+    let gone = 0;
+    for (let v = 0; v < pos.count; v++) {
+      const shade = place(v);
+      if (anchor[2] > 0) continue;
+      gone++;
+      expect(shade).toBe(1);
+      expect(anchor[3]).toBe(0);
+      expect(out).toEqual([anchor[0], 0, anchor[1]]);
+    }
+    // About a third of the tile lies outside the 6 m circle.
+    expect(gone / pos.count).toBeGreaterThan(0.2);
+    expect(gone / pos.count).toBeLessThan(0.5);
+    expect(DETAIL_GLSL).toContain('if (r <= 0.0)');
+  });
+
   it('shrinks leaves to nothing by 6 m from the head', () => {
     setFocus(1.2, -3.4);
     let seen = 0;
@@ -87,7 +136,7 @@ describe('detail leaf placement (TS twin of detailPosition)', () => {
   });
 
   it('has a GLSL twin that reads the same textures and gives the same anchor', () => {
-    expect(DETAIL_GLSL).toContain('wrapAround(aDetail.xy, uWrapCentre, 13.0000)');
+    expect(DETAIL_GLSL).toContain('wrapAround(aDetail.xy, uWrapCentre, 13.0000000)');
     expect(DETAIL_GLSL).toContain('meshGround(xz) + rest + p.y');
     expect(DETAIL_GLSL).toContain('anchor = vec4(home, r, rest)');
   });

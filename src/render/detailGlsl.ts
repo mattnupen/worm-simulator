@@ -1,6 +1,7 @@
 import { wrapAround, WRAP_GLSL } from './wrap';
 import { LITTER_GLSL, sampleLitter } from './litterTexture';
 import { bakedGroundHeight, GROUND_GLSL } from './groundTexture';
+import { glslFloat as f } from './glslNumber';
 
 /** Side of the world tile the detail leaves repeat in (m); they fade out from 5 to 6 m. */
 export const DETAIL_BOX = 13;
@@ -14,8 +15,6 @@ const REST_SHARE = 0.6;
 /** ...counted as at least one leaf thick. */
 const LOOSE_MIN = 0.02;
 
-const f = (v: number): string => v.toFixed(4);
-
 /**
  * Vertex GLSL for the detail layer. aDetail = (home x, z as 0..1 of the DETAIL_BOX tile, yaw,
  * radius m); the shape's positions are scaled so its farthest vertex is 1 out, so the leaf's
@@ -25,7 +24,8 @@ const f = (v: number): string => v.toFixed(4);
  * the whole leaf, in the loose litter above the mound. Every vertex follows the ground under it
  * and lies at or above the leaf's rest plane over it (the curl only lifts), so a leaf's dip is 0.
  * Writes the baked trunk shade to `shade` and the disturbance anchor (home x, z, radius, rest) to
- * `anchor`. Needs aLeaf2 and uniforms uFocus, uWrapCentre, uLitter and uGround.
+ * `anchor`. A leaf shrunk to nothing returns at once with radius 0, all its vertices on one point:
+ * the caller skips disturb() for it. Needs aLeaf2 and uniforms uFocus, uWrapCentre, uLitter and uGround.
  */
 export const DETAIL_GLSL = /* glsl */ `
   uniform vec3 uFocus;
@@ -39,6 +39,13 @@ export const DETAIL_GLSL = /* glsl */ `
     vec2 home = wrapAround(aDetail.xy, uWrapCentre, ${f(DETAIL_BOX)});
     float fade = 1.0 - smoothstep(${f(DETAIL_FADE_IN)}, ${f(DETAIL_FADE_OUT)}, distance(home, uFocus.xz));
     float r = aDetail.w * fade;
+    if (r <= 0.0) {
+      // Shrunk to nothing (about a third of the tile): every vertex of the leaf lands on one
+      // point, so it draws nothing. Skip the texture reads (and, in the caller, the drape).
+      shade = 1.0;
+      anchor = vec4(home, 0.0, 0.0);
+      return vec4(home.x, 0.0, home.y, 1.0);
+    }
     float c = cos(aDetail.z);
     float s = sin(aDetail.z);
     vec3 p = position * r;
@@ -70,7 +77,8 @@ export interface DetailInputs {
 /**
  * TS twin of DETAIL_GLSL's detailPosition() (positions only), for tests: places leaf-local vertex
  * `position` of a leaf with `detail` (aDetail) and `layer` (aLeaf2.y). Writes the world point into
- * `out` and the disturbance anchor into `anchor`; returns the trunk shade.
+ * `out` and the disturbance anchor into `anchor`; returns the trunk shade. When the anchor's radius
+ * is 0 the shader skips disturb(), so callers replaying it must too.
  */
 export function detailVertex(
   inp: DetailInputs, detail: ArrayLike<number>, position: ArrayLike<number>, layer: number,
@@ -80,6 +88,16 @@ export function detailVertex(
   const hz = wrapAround(detail[1], inp.wrapZ, DETAIL_BOX);
   const fade = 1 - smooth(DETAIL_FADE_IN, DETAIL_FADE_OUT, Math.hypot(hx - inp.focusX, hz - inp.focusZ));
   const r = detail[3] * fade;
+  if (r <= 0) {
+    anchor[0] = hx;
+    anchor[1] = hz;
+    anchor[2] = 0;
+    anchor[3] = 0;
+    out[0] = hx;
+    out[1] = 0;
+    out[2] = hz;
+    return 1;
+  }
   const c = Math.cos(detail[2]);
   const s = Math.sin(detail[2]);
   const px = position[0] * r;
