@@ -28,6 +28,8 @@ export function showRunning(shell: Shell, label: string, step: number, steps: nu
   shell.show('running', 'Speed test', [
     el('p', 'Speed test running', 'eyebrow'), p, pips, el('p', 'Please wait. Hands off!', 'wait'),
   ]);
+  // Whatever button held focus is gone: rest it on the card, as the Crawl card does.
+  shell.panel.focus({ preventScroll: true });
 }
 
 export interface ResultOptions {

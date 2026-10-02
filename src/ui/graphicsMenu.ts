@@ -20,6 +20,7 @@ export function showGraphics(
     input.id = id;
     input.value = c;
     input.checked = c === current;
+    input.setAttribute('aria-labelledby', `${id}-name`);
     input.setAttribute('aria-describedby', `${id}-desc`);
     input.addEventListener('change', () => { if (input.checked) onChoose(c); });
     if (input.checked) checked = input;
@@ -28,7 +29,9 @@ export function showGraphics(
     const words = el('span', '', 'choice-words');
     const desc = el('span', CHOICE_DESCRIPTIONS[c], 'choice-desc');
     desc.id = `${id}-desc`;
-    words.append(el('span', CHOICE_LABELS[c], 'choice-name'), desc);
+    const name = el('span', CHOICE_LABELS[c], 'choice-name');
+    name.id = `${id}-name`;
+    words.append(name, desc);
     label.append(input, words);
     set.append(label);
   }

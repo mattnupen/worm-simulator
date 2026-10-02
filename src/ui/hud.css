@@ -22,10 +22,11 @@
   position: fixed; z-index: 3; top: 12px; right: 12px; width: auto; min-width: 112px;
   min-height: 60px; padding: 8px 18px; font-size: 21px;
 }
-[data-ui]:not([data-ui="crawl"]) > .pause-btn { display: none; }
+/* Hidden unless crawling, including before the first shell.show() sets data-ui. */
+:not([data-ui="crawl"]) > .pause-btn.btn { display: none; }
 
 /* ---------- Joystick (crawl only) ---------- */
-[data-ui]:not([data-ui="crawl"]) > .joystick { display: none; }
+:not([data-ui="crawl"]) > .joystick { display: none; }
 .joystick {
   position: fixed; z-index: 1; left: 24px; bottom: 24px; width: 140px; height: 140px; border-radius: 50%;
   touch-action: none; cursor: grab;
