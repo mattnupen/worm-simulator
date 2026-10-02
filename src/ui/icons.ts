@@ -1,5 +1,5 @@
 /**
- * Small decorative inline SVG icons for the speed-test UI. Every icon is aria-hidden: the words
+ * Small decorative inline SVG icons for the menus and the speed test. Every icon is aria-hidden: the words
  * next to it carry the meaning. The markup is static (no user data), so innerHTML is safe here.
  */
 const SVG = 'xmlns="http://www.w3.org/2000/svg" focusable="false"';
@@ -29,9 +29,26 @@ const ICONS = {
   /** Four arrows for driving. */
   drive: `<svg ${SVG} viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l4 5h-8zM12 22l-4-5h8zM2 12l5-4v8zM22 12l-5 4V8z"/>
     <circle cx="12" cy="12" r="2.6"/></svg>`,
-  /** Back arrow for returning to the results. */
+  /** Back arrow. */
   back: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
       stroke-linecap="round" stroke-linejoin="round"><path d="M10 5l-7 7 7 7M3 12h18"/></svg>`,
+  /** Two bars: Pause. */
+  pause: `<svg ${SVG} viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16" rx="1.5"/>
+    <rect x="14" y="4" width="5" height="16" rx="1.5"/></svg>`,
+  /** Three sliders: Graphics. */
+  sliders: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+      stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2.4" fill="currentColor"/>
+    <circle cx="15" cy="12" r="2.4" fill="currentColor"/><circle cx="7" cy="18" r="2.4" fill="currentColor"/></svg>`,
+  /** A speedometer: Speed test. */
+  gauge: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+      stroke-linecap="round"><path d="M3.5 17a9 9 0 1 1 17 0"/><path d="M12 15l4.5-5.5"/>
+    <circle cx="12" cy="15" r="1.8" fill="currentColor"/></svg>`,
+  /** A little house: Back to start. */
+  home: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+      stroke-linejoin="round"><path d="M3.5 11L12 4l8.5 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/></svg>`,
+  /** A tick: a saved setting. */
+  check: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+      stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></svg>`,
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -1,4 +1,4 @@
-import { icon, type IconName } from './icons';
+import { icon, type IconName } from '../ui/icons';
 
 export interface SpikeUi {
   showStart(onStart: () => void): void;
