@@ -21,7 +21,14 @@ export const groundUniforms = {
   uDisturb: { value: distTexture },
   /** World x, z of the disturbance grid's corner. */
   uDistOrigin: { value: new THREE.Vector2(-DIST_N * DIST_CELL / 2, -DIST_N * DIST_CELL / 2) },
+  /** 1 when leaves react to the worm; 0 (Low) skips every disturbance fetch, without a recompile. */
+  uLeafReact: { value: 1 },
 };
+
+/** Leaf reaction on or off (from the preset). */
+export function setLeafReaction(on: boolean): void {
+  groundUniforms.uLeafReact.value = on ? 1 : 0;
+}
 
 export function setFocus(x: number, y: number, z: number): void {
   groundUniforms.uFocus.value.set(x, y, z);

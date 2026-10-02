@@ -46,6 +46,7 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   const leafAttr = new Float32Array(verts * 4);
   const leaf2 = new Float32Array(verts * 2);
   const anchor = new Float32Array(verts * 4);
+  const dip = new Float32Array(verts);
   const index = verts > 65535 ? new Uint32Array(idxCount) : new Uint16Array(idxCount);
   const ends = new Uint32Array(count);
 
@@ -134,7 +135,11 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
     for (let k = v0; k < v0 + np + PETIOLE_VERTS; k++) {
       radius = Math.max(radius, Math.hypot(pos[k * 3] - l.x, pos[k * 3 + 2] - l.z));
     }
-    for (let k = v0; k < v0 + np + PETIOLE_VERTS; k++) anchor.set([l.x, l.z, radius, rest], k * 4);
+    for (let k = v0; k < v0 + np + PETIOLE_VERTS; k++) {
+      anchor.set([l.x, l.z, radius, rest], k * 4);
+      // How far this vertex lies below the leaf's rest plane over its own ground (tilt, curl, slope).
+      dip[k] = Math.max(0, rest - (pos[k * 3 + 1] - meshGroundHeight(pos[k * 3], pos[k * 3 + 2])));
+    }
     for (let t = 0; t < shape.indices.length; t++) index[ii++] = v0 + shape.indices[t];
     index[ii++] = v0 + shape.base;
     index[ii++] = v0 + np;
@@ -150,6 +155,7 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   g.setAttribute('aLeaf', new THREE.BufferAttribute(leafAttr, 4));
   g.setAttribute('aLeaf2', new THREE.BufferAttribute(leaf2, 2));
   g.setAttribute('aAnchor', new THREE.BufferAttribute(anchor, 4));
+  g.setAttribute('aDip', new THREE.BufferAttribute(dip, 1));
   g.setIndex(new THREE.BufferAttribute(index, 1));
   g.computeBoundingSphere();
   const mesh = new THREE.Mesh(g, createLeafMaterial());

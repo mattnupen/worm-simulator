@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { buildSky } from '../render/sky';
 import { buildAtmosphere, type Atmosphere } from '../render/atmosphere';
 import { setRimLight } from '../render/paintedMaterial';
-import { setFocus, uploadDisturbance } from '../render/groundUniforms';
+import { setFocus, setLeafReaction, uploadDisturbance } from '../render/groundUniforms';
 import { PRESETS, type PresetSpec } from '../render/graphics';
 import { buildTerrain } from '../surface/terrainMesh';
 import { buildForestTrees } from '../surface/forestTrees';
@@ -64,6 +64,7 @@ export function buildWorld(): World {
       props.setDensity(spec.clutter);
       atmosphere.setLevel(spec.effects, spec.extraEffects);
       setRimLight(spec.rim);
+      setLeafReaction(spec.reaction);
     },
     sync(crawl, alpha, timeSec, camera) {
       crawl.interpolate(alpha, timeSec, pose, camera);

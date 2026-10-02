@@ -16,7 +16,8 @@ import { DISTURB_GLSL } from './leafGlsl';
  * With FALLING defined, aFall (seed, spin rate, box x, box z) animates each leaf down
  * through the light around the camera, looping, entirely in the vertex shader.
  * With DISTURB defined, leaves near the worm drape, slide and settle by the disturbance map,
- * each as a rigid piece about aAnchor (centre x, centre z, radius, rest height above the ground).
+ * each as a rigid piece about aAnchor (centre x, centre z, radius, rest height above the ground);
+ * aDip is how far a vertex lies below its leaf's rest plane.
  */
 const vertexShader = /* glsl */ `
   uniform vec3 uLightDir;
@@ -49,6 +50,7 @@ const vertexShader = /* glsl */ `
 
   #ifdef DISTURB
   attribute vec4 aAnchor;
+  attribute float aDip;
   ${DISTURB_GLSL}
   #endif
 
@@ -87,7 +89,7 @@ const vertexShader = /* glsl */ `
     #endif
     #ifdef DISTURB
       vec3 nW = vNormalW;
-      wp.xyz = disturb(wp.xyz, aAnchor, nW);
+      wp.xyz = disturb(wp.xyz, aAnchor, aDip, nW);
       vNormalW = nW;
     #endif
     vPosW = wp.xyz;
