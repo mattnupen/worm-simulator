@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { groundUniforms, setFocus, uploadDisturbance } from '../../src/render/groundUniforms';
 import { createDisturbance, recentre, stamp, DIST_CELL } from '../../src/surface/disturbance';
 import { createLeafMaterial } from '../../src/render/leafMaterial';
-import { sharedLighting } from '../../src/render/paintedMaterial';
+import { createPaintedMaterial, sharedLighting } from '../../src/render/paintedMaterial';
 
 describe('groundUniforms', () => {
   it('setFocus stores the head and snaps the wrap centre to the 1 m grid', () => {
@@ -17,7 +17,7 @@ describe('groundUniforms', () => {
     const version = tex.version;
     const m = createDisturbance();
     recentre(m, 1, 1);
-    stamp(m, 1, 1, 0, 1, 1, 1);
+    stamp(m, 1, 1, 1);
     uploadDisturbance(m);
     expect(tex.image.data).toBe(data);
     expect(tex.version).toBeGreaterThan(version);
@@ -33,11 +33,21 @@ describe('createLeafMaterial', () => {
     expect(m.defines).toHaveProperty('DISTURB');
     expect(m.uniforms.uDisturb).toBe(groundUniforms.uDisturb);
     expect(m.uniforms.uLightDir).toBe(sharedLighting.uLightDir);
-    expect(m.vertexShader).toContain('disturb(wp.xyz)');
+    expect(m.vertexShader).toContain('disturb(wp.xyz, aAnchor');
   });
   it('the falling leaves do not', () => {
     const m = createLeafMaterial('falling');
     expect(m.defines).toHaveProperty('FALLING');
     expect(m.defines).not.toHaveProperty('DISTURB');
+  });
+});
+
+describe('the ground', () => {
+  it('darkens the soil along a fresh trail from the shared map', () => {
+    const m = createPaintedMaterial({ color: '#ffffff', trail: true });
+    expect(m.defines).toHaveProperty('TRAIL');
+    expect(m.uniforms.uDisturb).toBe(groundUniforms.uDisturb);
+    expect(m.fragmentShader).toContain('trailShade(vPosW.xz)');
+    expect(createPaintedMaterial({ color: '#ffffff' }).defines).not.toHaveProperty('TRAIL');
   });
 });

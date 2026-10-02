@@ -1,12 +1,8 @@
 import * as THREE from 'three';
 import { DIST_N, DIST_CELL, packDisturbance, type DisturbanceMap } from '../surface/disturbance';
 
+// An empty map packs to all zeros.
 const distBytes = new Uint8Array(DIST_N * DIST_N * 4);
-// An empty map: zero push is 128 in the packed form.
-for (let k = 0; k < distBytes.length; k += 4) {
-  distBytes[k] = 128;
-  distBytes[k + 1] = 128;
-}
 const distTexture = new THREE.DataTexture(distBytes, DIST_N, DIST_N, THREE.RGBAFormat, THREE.UnsignedByteType);
 distTexture.magFilter = THREE.LinearFilter;
 distTexture.minFilter = THREE.LinearFilter;

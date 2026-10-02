@@ -45,6 +45,7 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   const colr = new Float32Array(verts * 4);
   const leafAttr = new Float32Array(verts * 4);
   const leaf2 = new Float32Array(verts * 2);
+  const anchor = new Float32Array(verts * 4);
   const index = verts > 65535 ? new Uint32Array(idxCount) : new Uint16Array(idxCount);
   const ends = new Uint32Array(count);
 
@@ -91,7 +92,8 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
     q.setFromEuler(euler.set(l.tilt * 0.3, l.rotY, 0)).premultiply(slope);
     // On the ground as the terrain mesh draws it (soil plus mound, at the mesh's own resolution), in
     // loose layers: each leaf at its own height, so overlaps never z-fight.
-    tmp.set(l.x, meshGroundHeight(l.x, l.z) + 0.006 + l.y, l.z);
+    const rest = 0.006 + l.y;
+    tmp.set(l.x, meshGroundHeight(l.x, l.z) + rest, l.z);
     m.compose(tmp, q, scl.setScalar(size));
 
     const put = (k: number, u: number, v: number, h: number, nx: number, ny: number, nz: number) => {
@@ -127,6 +129,12 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
       colr.set([petiole.r, petiole.g, petiole.b, wet], k * 4);
       leafAttr.set([u, v, 0.5, 1], k * 4);
     }
+    // The disturbance moves each leaf as one piece about its centre, as far out as its farthest vertex.
+    let radius = 0;
+    for (let k = v0; k < v0 + np + PETIOLE_VERTS; k++) {
+      radius = Math.max(radius, Math.hypot(pos[k * 3] - l.x, pos[k * 3 + 2] - l.z));
+    }
+    for (let k = v0; k < v0 + np + PETIOLE_VERTS; k++) anchor.set([l.x, l.z, radius, rest], k * 4);
     for (let t = 0; t < shape.indices.length; t++) index[ii++] = v0 + shape.indices[t];
     index[ii++] = v0 + shape.base;
     index[ii++] = v0 + np;
@@ -141,6 +149,7 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   g.setAttribute('aColor', new THREE.BufferAttribute(colr, 4));
   g.setAttribute('aLeaf', new THREE.BufferAttribute(leafAttr, 4));
   g.setAttribute('aLeaf2', new THREE.BufferAttribute(leaf2, 2));
+  g.setAttribute('aAnchor', new THREE.BufferAttribute(anchor, 4));
   g.setIndex(new THREE.BufferAttribute(index, 1));
   g.computeBoundingSphere();
   const mesh = new THREE.Mesh(g, createLeafMaterial());

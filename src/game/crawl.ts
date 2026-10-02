@@ -27,6 +27,11 @@ const CAM_OPTS: FollowCamOptions = {
   distance: 2.6, height: 1.1, yawSmoothTime: 0.5, posRate: 10, maxYawSpeed: 1.8,
 };
 const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
+/**
+ * The disturbance map centres on this segment (1.5 m behind the head), so the head and the tail,
+ * plus the leaves they reach, all lie inside the map's unfaded middle.
+ */
+const MAP_CENTRE = 7;
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
@@ -91,28 +96,12 @@ export class Crawl {
     const m = this.disturbance;
     const b = this.body;
     decay(m, dt);
-    recentre(m, b[0].x, b[0].z);
+    recentre(m, b[MAP_CENTRE].x, b[MAP_CENTRE].z);
     const last = b.length - 1;
     for (let k = 0; k <= 2 * last; k++) {
       const i = k >> 1;
       const j = Math.min(last, i + (k & 1));
-      const x = (b[i].x + b[j].x) / 2;
-      const z = (b[i].z + b[j].z) / 2;
-      // Spine direction here, toward the head.
-      const a = b[Math.max(0, i - 1)];
-      const c = b[Math.min(last, j + 1)];
-      let tx = a.x - c.x;
-      let tz = a.z - c.z;
-      const len = Math.hypot(tx, tz);
-      if (len > 1e-6) {
-        tx /= len;
-        tz /= len;
-      } else {
-        tx = Math.sin(this.motion.heading);
-        tz = Math.cos(this.motion.heading);
-      }
-      const strength = k === 0 ? 1 : 0.6 - 0.3 * (k / (2 * last));
-      stamp(m, x, z, tx, tz, strength, (this.under[i] + this.under[j]) / 2);
+      stamp(m, (b[i].x + b[j].x) / 2, (b[i].z + b[j].z) / 2, (this.under[i] + this.under[j]) / 2);
     }
     this.disturbed = true;
   }

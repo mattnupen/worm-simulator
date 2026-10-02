@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createDisturbance, recentre, stamp, decay, clearDisturbance, packDisturbance, cellAt,
-  originX, originZ, DIST_N, DIST_SPAN, DIST_CELL, BODY_R, PUSH_R, type DisturbanceMap,
+  originX, originZ, DIST_N, DIST_SPAN, DIST_CELL, DIST_REACH, ON_TOP_DISTANCE, type DisturbanceMap,
 } from '../../src/surface/disturbance';
 
 const sum = (m: DisturbanceMap) => m.data.reduce((a, v) => a + Math.abs(v), 0);
@@ -28,54 +28,71 @@ describe('disturbance map', () => {
   });
 
   describe('stamp', () => {
-    it('lifts the cells under the body, more when the worm is under the leaves', () => {
+    it('marks the body near, more when the worm is under the leaves', () => {
       const under = createDisturbance();
       const onTop = createDisturbance();
-      stamp(under, 0.06, 0.06, 0, 1, 1, 1);
-      stamp(onTop, 0.06, 0.06, 0, 1, 1, 0);
+      stamp(under, 0.06, 0.06, 1);
+      stamp(onTop, 0.06, 0.06, 0);
       expect(cell(under, 0.06, 0.06)![2]).toBeGreaterThan(0.9);
       expect(cell(onTop, 0.06, 0.06)![2]).toBeGreaterThan(0.1);
       expect(cell(onTop, 0.06, 0.06)![2]).toBeLessThan(0.3);
     });
 
-    it('pushes beside the body away from the spine, with nothing on the spine itself', () => {
+    it('nearness falls linearly with distance, so a shader can read the distance back', () => {
       const m = createDisturbance();
-      // Spine along +z through x = 0.0625 (a cell centre).
-      stamp(m, 0.0625, 0.0625, 0, 1, 1, 1);
-      const right = cell(m, 0.0625 - 0.2, 0.0625)!;
-      const left = cell(m, 0.0625 + 0.2, 0.0625)!;
-      const centre = cell(m, 0.0625, 0.0625)!;
-      expect(Math.hypot(centre[0], centre[1])).toBeLessThan(1e-9);
-      expect(right[0]).toBeLessThan(-0.1);
-      expect(left[0]).toBeGreaterThan(0.1);
-      expect(Math.abs(right[1])).toBeLessThan(1e-9);
+      // At a cell centre, so the cells 0.5 m and 1 m away along x sit exactly that far.
+      stamp(m, 0.0625, 0.0625, 1);
+      for (const dx of [0, 0.5, 1]) {
+        const c = cell(m, 0.0625 + dx, 0.0625)!;
+        expect(c[0]).toBeCloseTo(1 - dx / DIST_REACH, 6);
+        expect(c[1]).toBe(0);
+        expect(c[2]).toBeCloseTo(1 - dx / DIST_REACH, 6);
+        expect(c[3]).toBe(1);
+      }
     });
 
-    it('stamps the head hardest, and nothing beyond PUSH_R', () => {
-      const head = createDisturbance();
-      const body = createDisturbance();
-      stamp(head, 0, 0, 0, 1, 1, 1);
-      stamp(body, 0, 0, 0, 1, 0.5, 1);
-      expect(sum(head)).toBeGreaterThan(sum(body));
-      expect(cell(head, PUSH_R + DIST_CELL, 0)!.every((v) => v === 0)).toBe(true);
+    it('a segment on top of the litter reaches less far', () => {
+      const m = createDisturbance();
+      stamp(m, 0.0625, 0.0625, 0);
+      expect(cell(m, 0.0625, 0.0625)![2]).toBeCloseTo(1 - ON_TOP_DISTANCE / DIST_REACH, 6);
+      expect(cell(m, 0.0625 + 0.25, 0.0625)!.every((v) => v === 0)).toBe(true);
+    });
+
+    it('stamps nothing beyond DIST_REACH', () => {
+      const m = createDisturbance();
+      stamp(m, 0, 0, 1);
+      expect(cell(m, DIST_REACH + DIST_CELL, 0)!.every((v) => v === 0)).toBe(true);
+      expect(cell(m, 0, -DIST_REACH - DIST_CELL)!.every((v) => v === 0)).toBe(true);
+    });
+
+    it('a nearer path takes a cell over; a farther one leaves it and its fading trail alone', () => {
+      const m = createDisturbance();
+      stamp(m, 0.0625, 0.0625, 1);
+      for (let t = 0; t < 6 * 60; t++) decay(m, 1 / 60);
+      const old = cell(m, 0.0625, 0.0625)!;
+      stamp(m, 0.5625, 0.0625, 1);
+      const kept = cell(m, 0.0625, 0.0625)!;
+      expect([kept[0], kept[3]]).toEqual([old[0], old[3]]);
+      expect(kept[3]).toBeCloseTo(0.5, 2);
+      const taken = cell(m, 0.5625, 0.0625)!;
+      expect(taken[0]).toBeGreaterThan(0.99);
+      expect(taken[3]).toBe(1);
     });
 
     it('stamping the same point twice changes nothing more', () => {
       const m = createDisturbance();
-      stamp(m, 0.3, 0.2, 0.6, 0.8, 1, 0.5);
+      stamp(m, 0.3, 0.2, 0.5);
       const once = Float32Array.from(m.data);
-      stamp(m, 0.3, 0.2, 0.6, 0.8, 1, 0.5);
+      stamp(m, 0.3, 0.2, 0.5);
       expect(m.data).toEqual(once);
     });
 
     it('keeps every value within its range', () => {
       const m = createDisturbance();
-      for (let t = 0; t < 200; t++) stamp(m, Math.sin(t) * 2, Math.cos(t * 0.7) * 2, Math.cos(t), Math.sin(t), 1, (t % 3) / 2);
-      for (let k = 0; k < m.data.length; k += 4) {
-        expect(Math.hypot(m.data[k], m.data[k + 1])).toBeLessThanOrEqual(1 + 1e-6);
-        expect(m.data[k + 2]).toBeLessThanOrEqual(1);
-        expect(m.data[k + 3]).toBeLessThanOrEqual(1);
-        expect(m.data[k + 2]).toBeGreaterThanOrEqual(0);
+      for (let t = 0; t < 200; t++) stamp(m, Math.sin(t) * 2, Math.cos(t * 0.7) * 2, (t % 3) / 2);
+      for (let k = 0; k < m.data.length; k++) {
+        expect(m.data[k]).toBeGreaterThanOrEqual(0);
+        expect(m.data[k]).toBeLessThanOrEqual(1);
       }
     });
   });
@@ -83,7 +100,7 @@ describe('disturbance map', () => {
   describe('decay', () => {
     it('halves a trail in about 6 s and settles it in about 20 s', () => {
       const m = createDisturbance();
-      stamp(m, 0, 0, 0, 1, 1, 1);
+      stamp(m, 0, 0, 1);
       const k = cellAt(m, 0, 0);
       const start = m.data[k + 3];
       for (let t = 0; t < 6 * 60; t++) decay(m, 1 / 60);
@@ -92,17 +109,25 @@ describe('disturbance map', () => {
       expect(m.data[k + 3] / start).toBeLessThan(0.11);
     });
 
-    it('lets the drape fall back within about a second', () => {
+    it('empties the body nearness each step, ready for the body as it is now', () => {
       const m = createDisturbance();
-      stamp(m, 0, 0, 0, 1, 1, 1);
+      stamp(m, 0, 0, 1);
       const k = cellAt(m, 0, 0);
-      for (let t = 0; t < 60; t++) decay(m, 1 / 60);
-      expect(m.data[k + 2]).toBeLessThan(0.11);
+      decay(m, 1 / 60);
+      expect(m.data[k + 2]).toBe(0);
+      expect(m.data[k]).toBeGreaterThan(0.9);
+    });
+
+    it('clears a settled trail, path and all', () => {
+      const m = createDisturbance();
+      stamp(m, 0, 0, 1);
+      for (let t = 0; t < 45 * 60; t++) decay(m, 1 / 60);
+      expect(sum(m)).toBe(0);
     });
 
     it('never goes negative', () => {
       const m = createDisturbance();
-      stamp(m, 0, 0, 0, 1, 1, 1);
+      stamp(m, 0, 0, 1);
       for (let t = 0; t < 3000; t++) decay(m, 1 / 60);
       for (let k = 2; k < m.data.length; k += 4) expect(m.data[k]).toBeGreaterThanOrEqual(0);
     });
@@ -112,11 +137,12 @@ describe('disturbance map', () => {
     it('keeps each stamp at its world place, with no loss and no doubling', () => {
       const m = createDisturbance();
       recentre(m, 0, 0);
-      stamp(m, 0.5, -0.4, 0, 1, 1, 1);
+      stamp(m, 0.5, -0.4, 1);
       const before = cell(m, 0.5, -0.4);
       const total = sum(m);
-      // Walk a few metres in odd directions, whole and part cells at a time.
-      for (const [x, z] of [[0.3, 0.1], [1.1, -0.6], [-0.7, 1.4], [2.0, 2.0], [-2.5, -1.0]]) {
+      // Walk a few metres in odd directions, whole and part cells at a time, keeping the stamp
+      // (DIST_REACH around it) on the map.
+      for (const [x, z] of [[0.3, 0.1], [1.1, -0.6], [-0.7, 1.4], [1.8, 1.6], [-1.5, -1.0]]) {
         recentre(m, x, z);
         expect(cell(m, 0.5, -0.4)).toEqual(before);
         expect(sum(m)).toBeCloseTo(total, 6);
@@ -126,7 +152,7 @@ describe('disturbance map', () => {
     it('clears what scrolls off and exposes only empty cells', () => {
       const m = createDisturbance();
       recentre(m, 0, 0);
-      stamp(m, 0, 0, 0, 1, 1, 1);
+      stamp(m, 0, 0, 1);
       recentre(m, 10, 0);
       expect(sum(m)).toBe(0);
       recentre(m, 0, 0);
@@ -135,7 +161,7 @@ describe('disturbance map', () => {
 
     it('a big jump clears everything', () => {
       const m = createDisturbance();
-      stamp(m, 0, 0, 0, 1, 1, 1);
+      stamp(m, 0, 0, 1);
       recentre(m, 100, -100);
       expect(sum(m)).toBe(0);
     });
@@ -143,25 +169,23 @@ describe('disturbance map', () => {
 
   it('clearDisturbance empties the map', () => {
     const m = createDisturbance();
-    stamp(m, 0, 0, 0, 1, 1, 1);
+    stamp(m, 0, 0, 1);
     clearDisturbance(m);
     expect(sum(m)).toBe(0);
   });
 
-  it('packs zero push to exactly 128 and full values to the ends', () => {
+  it('packs an empty map to zeros and full values to 255', () => {
     const m = createDisturbance();
     const out = new Uint8Array(m.data.length);
     packDisturbance(m, out);
-    expect(Array.from(out.subarray(0, 4))).toEqual([128, 128, 0, 0]);
-    m.data.set([1, -1, 1, 0.5], 0);
+    expect(Array.from(out.subarray(0, 4))).toEqual([0, 0, 0, 0]);
+    m.data.set([1, 0, 1, 0.5], 0);
     packDisturbance(m, out);
-    expect(Array.from(out.subarray(0, 4))).toEqual([255, 1, 255, 128]);
-    // The shader decodes (v - 128) / 127.
-    expect((out[0] - 128) / 127).toBe(1);
+    expect(Array.from(out.subarray(0, 4))).toEqual([255, 0, 255, 128]);
   });
 
-  it('BODY_R and PUSH_R fit the worm (radius 0.115)', () => {
-    expect(BODY_R).toBeGreaterThan(0.115);
-    expect(PUSH_R).toBeGreaterThan(BODY_R * 2);
+  it('reaches past the body plus a leaf, inside the map', () => {
+    expect(DIST_REACH).toBeGreaterThan(ON_TOP_DISTANCE);
+    expect(DIST_REACH).toBeLessThan(DIST_SPAN / 4);
   });
 });

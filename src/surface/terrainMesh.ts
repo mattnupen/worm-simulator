@@ -163,7 +163,7 @@ export function buildTerrainGeometry(): THREE.BufferGeometry {
 export function buildTerrain(): THREE.Mesh {
   const mesh = new THREE.Mesh(
     buildTerrainGeometry(),
-    createPaintedMaterial({ color: '#ffffff', brush: 1, vertexColors: true }),
+    createPaintedMaterial({ color: '#ffffff', brush: 1, vertexColors: true, trail: true }),
   );
   mesh.name = 'terrain';
   return mesh;
