@@ -87,7 +87,9 @@ describe('the lazily built detail layer', () => {
     expect(g.drawRange.count).toBeLessThan(g.index!.count);
     d.setCount(0);
     expect(built.mesh.visible).toBe(false);
+    expect(d.drawn).toBe(0);
     d.setCount(200);
+    expect(d.drawn).toBe(200);
     expect(d.built).toBe(built);
     expect(g.drawRange.count).toBe(g.index!.count);
     expect(d.group.children).toHaveLength(1);

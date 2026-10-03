@@ -128,12 +128,21 @@ export function autoSessionStart(settled: PresetId | null): PresetId | null {
   return i < 0 ? null : AUTO_ORDER[Math.max(0, i - 1)];
 }
 
-/** Speed-test tier (0..3) to the preset "Use recommended setting" saves. */
+/** Speed-test tier (0..3) to the preset a tier recommends on its own. */
 const TIER_PRESETS: readonly PresetId[] = ['high', 'medium', 'medium', 'low'];
 
-export function recommendedPreset(tier: number): PresetId {
-  if (!Number.isFinite(tier)) return 'high';
-  return TIER_PRESETS[Math.max(0, Math.min(TIER_PRESETS.length - 1, Math.round(tier)))];
+/**
+ * The preset "Use recommended setting" saves: the speed-test tier's preset, but never above
+ * the preset that was tested (`tested`: High unless the test was forced with ?preset=).
+ */
+export function recommendedPreset(tier: number, tested: PresetId = 'high'): PresetId {
+  const byTier = Number.isFinite(tier)
+    ? TIER_PRESETS[Math.max(0, Math.min(TIER_PRESETS.length - 1, Math.round(tier)))]
+    : 'high';
+  // Never above the preset the test measured (a forced ?preset=low must not recommend High).
+  // Ultra is not in AUTO_ORDER: it keeps the tier mapping, as Auto never picks Ultra either.
+  const i = AUTO_ORDER.indexOf(tested);
+  return i < 0 ? byTier : AUTO_ORDER[Math.max(i, AUTO_ORDER.indexOf(byTier))];
 }
 
 /**

@@ -34,7 +34,8 @@ Either way works:
      it again.
    - The **Leaves** line is how many leaves were drawn at the end of the test (the base litter
      plus the close-up detail leaves). It is lower than the graphics setting's full count if the
-     test had to drop to the simplest quality level.
+     test had to drop to the simplest quality level. If the result is FAIL, share the copied
+     results with your teacher (paste them into the Claude session).
 5. Click **Copy results** and paste them into the Claude session.
 6. Click **Use recommended setting** to save the graphics setting the test suggests for this
    Chromebook. It stays saved on this Chromebook, and the screen then says which setting it saved.
@@ -56,7 +57,9 @@ once and is remembered on this computer. Press **Esc** or choose **Back** to lea
 ## Extra checks (optional)
 
 Add these to the end of the address:
-- `?fps=1`: show the frame rate while crawling.
+- `?fps=1`: show the frame rate and the graphics setting in use (a small tag in the top right)
+  on every screen that draws the forest, including the start screen. (The speed test shows
+  this tag on its own, without `?fps=1`.)
 - `?preset=low` (or `medium`, `high`, `ultra`): use that setting for this visit only, without
   saving it. The speed test then measures that setting. (Without it, the speed test measures High.)
 
@@ -64,7 +67,10 @@ To use more than one, join them with `&`, for example `?speedtest=1&preset=mediu
 
 ## What the quality level means
 
-The report's "Quality level used" is what **Use recommended setting** saves:
+The report's "Quality level used" is what **Use recommended setting** saves. The recommendation
+never goes above the setting that was tested: a test run with `?preset=low` will not recommend
+High.
+
 - **0:** High.
 - **1 or 2:** Medium.
 - **3:** Low.

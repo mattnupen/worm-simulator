@@ -149,7 +149,7 @@ describe('autoSessionStart', () => {
 
 describe('recommendedPreset', () => {
   it('maps the speed test tiers 0..3 to High, Medium, Medium, Low', () => {
-    expect([0, 1, 2, 3].map(recommendedPreset)).toEqual(['high', 'medium', 'medium', 'low']);
+    expect([0, 1, 2, 3].map((t) => recommendedPreset(t))).toEqual(['high', 'medium', 'medium', 'low']);
   });
   it('clamps out-of-range tiers', () => {
     expect(recommendedPreset(-1)).toBe('high');
@@ -157,6 +157,14 @@ describe('recommendedPreset', () => {
   });
   it('treats non-finite tier as high', () => {
     expect(recommendedPreset(NaN)).toBe('high');
+  });
+  it('never recommends a preset above the one that was tested', () => {
+    const rec = (base: 'low' | 'medium' | 'high' | 'ultra') => [0, 1, 2, 3].map((t) => recommendedPreset(t, base));
+    expect(rec('low')).toEqual(['low', 'low', 'low', 'low']);
+    expect(rec('medium')).toEqual(['medium', 'medium', 'medium', 'low']);
+    expect(rec('high')).toEqual(['high', 'medium', 'medium', 'low']);
+    // Ultra keeps the tier mapping: Auto never picks Ultra, so neither does the recommendation.
+    expect(rec('ultra')).toEqual(['high', 'medium', 'medium', 'low']);
   });
 });
 

@@ -163,7 +163,8 @@ test('a chosen preset (picked with the arrow keys) is still selected after a rel
 
 test('switching presets live during Crawl (Low, Ultra, High and more) causes no errors', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto(PAGE);
+  // ?fps=1 puts the active preset's name in the fps tag, so a switch that did nothing shows.
+  await page.goto(PAGE + '?fps=1');
   await startCrawling(page);
   for (const name of ['Low', 'Ultra', 'High', 'Medium', 'Ultra', 'Auto']) {
     await button(page, 'Pause').click();
@@ -176,6 +177,9 @@ test('switching presets live during Crawl (Low, Ultra, High and more) causes no 
     await page.keyboard.down('ArrowUp');
     await page.waitForTimeout(300);
     await page.keyboard.up('ArrowUp');
+    // Auto starts on High (nothing is saved, so it has not settled lower).
+    const shown = name === 'Auto' ? 'High' : name;
+    await expect(page.locator('.fps')).toContainText(`fps, ${shown}`, { timeout: 5000 });
   }
   expect(errors).toEqual([]);
 });

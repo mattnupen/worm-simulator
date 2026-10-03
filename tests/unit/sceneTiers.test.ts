@@ -118,6 +118,15 @@ describe('world.apply', () => {
     expect(litterG.drawRange.count).toBeLessThan(ultraLeaves / 4);
   });
 
+  it('reports the leaves it draws for each preset (Low: 1000 litter, no detail)', () => {
+    for (const id of ['low', 'medium', 'high', 'ultra', 'low'] as const) {
+      world.apply(PRESETS[id]);
+      expect(world.litter.drawn, `${id} litter`).toBe(PRESETS[id].litter);
+      expect(world.detail.drawn, `${id} detail`).toBe(PRESETS[id].detail);
+    }
+    expect(PRESETS.low).toMatchObject({ litter: 1000, detail: 0 });
+  });
+
   it('draws each preset\'s hero leaves as the instance count, live (Low none)', () => {
     const camera = new THREE.PerspectiveCamera();
     const mesh = world.hero.mesh;
