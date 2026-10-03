@@ -20,7 +20,7 @@ import {
   HERO_MAX, PUSHER_SPAN, PUSHER_STRIDE, type HeroLeaves,
 } from '../surface/heroLeaves';
 import { LOCOMOTION } from './drive';
-import { pushOut, slideMove } from '../surface/obstacles';
+import { pushOut, sightReach, slideMove } from '../surface/obstacles';
 
 export const WORM_SEGMENTS = 16;
 const SPACING = 0.22;
@@ -34,9 +34,18 @@ const MAX_NECK_BEND = 1.3;
 const BREATH_HZ = 0.22;
 /** The camera never dips closer than this to the litter top beneath it. */
 export const CAM_GROUND_MARGIN = 0.5;
-const CAM_OPTS: FollowCamOptions = {
+const CAM_OPTS: Readonly<FollowCamOptions> = {
   distance: 2.6, height: 1.1, yawSmoothTime: 0.5, posRate: 10, maxYawSpeed: 1.8,
 };
+/** The camera stops this far (m) short of a trunk, rock or log in its way (spec 4.4)... */
+const CAM_PROP_MARGIN = 0.35;
+/** Half the angle (rad) of the fan of sight lines the camera checks behind the head. */
+const CAM_FAN = 0.5;
+/** It never gets nearer than this to one, even while easing (crawl.step). */
+const CAM_HARD_MARGIN = 0.15;
+/** ...pulling in (1/s) faster than it eases back out, on top of its own position smoothing. */
+const CAM_IN_RATE = 5;
+const CAM_OUT_RATE = 2.5;
 const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
 /**
  * The disturbance map centres on this segment (1.5 m behind the head), so the head and the tail,
@@ -102,6 +111,13 @@ export class Crawl {
   private readonly prevWave: WaveState = { phase: 0, activity: 0 };
   private prevYaw = 0;
   private readonly move: Vec2 = { x: 0, y: 0 };
+  /** How much of its full distance the camera keeps (1 clear; less when a prop is in its way). */
+  private camReach = 1;
+  get cameraReach(): number {
+    return this.camReach;
+  }
+  /** CAM_OPTS with the distance and height cut to camReach. */
+  private readonly camOpts: FollowCamOptions = { ...CAM_OPTS };
 
   constructor() {
     this.placeAtSpawn();
@@ -131,6 +147,9 @@ export class Crawl {
       this.body[i] = body[i];
       copy(this.prevBody[i], body[i]);
     }
+    this.camReach = 1;
+    this.camOpts.distance = CAM_OPTS.distance;
+    this.camOpts.height = CAM_OPTS.height;
     this.cam = createFollowCam(head, 0, CAM_OPTS);
     copy(this.prevCam, this.cam.pos);
     copy(this.prevHead, head);
@@ -279,11 +298,45 @@ export class Crawl {
       pushOut(s, BODY_RADIUS);
       s.y = this.rest(i, s.x, s.z);
     }
-    this.cam = stepFollowCam(this.cam, head, this.motion.heading, dt, CAM_OPTS);
-    const floor = litterTop(this.cam.pos.x, this.cam.pos.z) + CAM_GROUND_MARGIN;
-    if (this.cam.pos.y < floor) this.cam.pos.y = floor;
+    this.keepCameraClear(dt);
+    this.cam = stepFollowCam(this.cam, head, this.motion.heading, dt, this.camOpts);
+    const c = this.cam.pos;
+    // The eased target can trail a hard turn by a step or two: never let the camera itself into a
+    // prop (it stops on its line to the head, a little short).
+    const r = sightReach(head.x, head.y, head.z, c.x, c.y, c.z, CAM_HARD_MARGIN);
+    if (r < 1) {
+      c.x = head.x + (c.x - head.x) * r;
+      c.y = head.y + (c.y - head.y) * r;
+      c.z = head.z + (c.z - head.z) * r;
+    }
+    const floor = litterTop(c.x, c.z) + CAM_GROUND_MARGIN;
+    if (c.y < floor) c.y = floor;
     if (this.reaction) this.disturbLeaves(dt);
     this.pushLeaves(dt);
+  }
+
+  /**
+   * Keeps the camera out of tall props (spec 4.4): if the line from the head to where the camera
+   * wants to be (behind it, along its yaw) runs into a trunk, rock or log taller than the line
+   * there, the camera's distance and height shrink so it stops just short, easing in and back out.
+   */
+  private keepCameraClear(dt: number): void {
+    const h = this.motion.head;
+    // Three sight lines fanning out behind the head: a prop sweeping toward the middle one meets a
+    // side one first, so the camera starts to ease in before it would have to jump.
+    let reach = 1;
+    for (let k = -1; k <= 1; k++) {
+      const yaw = this.cam.yaw + k * CAM_FAN;
+      reach = Math.min(reach, sightReach(
+        h.x, h.y, h.z,
+        h.x - Math.sin(yaw) * CAM_OPTS.distance, h.y + CAM_OPTS.height, h.z - Math.cos(yaw) * CAM_OPTS.distance,
+        CAM_PROP_MARGIN,
+      ));
+    }
+    const rate = reach < this.camReach ? CAM_IN_RATE : CAM_OUT_RATE;
+    this.camReach += (reach - this.camReach) * (1 - Math.exp(-rate * dt));
+    this.camOpts.distance = CAM_OPTS.distance * this.camReach;
+    this.camOpts.height = CAM_OPTS.height * this.camReach;
   }
 
   /** Writes the render pose, the camera and `focus`, between the last two steps by `alpha`. */

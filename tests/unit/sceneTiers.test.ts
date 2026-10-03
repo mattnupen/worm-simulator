@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { buildLeafLitter, type LeafLitter } from '../../src/surface/leafLitterMesh';
 import {
-  CHUNKS, CHUNK_SIZE, LOD_NEAR, ACTIVE_MARGIN, chunkIndex, chunkDistance,
+  CHUNKS, CHUNK_SIZE, LOD_NEAR, LOD_GAP, ACTIVE_MARGIN, chunkIndex, chunkDistance,
 } from '../../src/surface/litterChunks';
 import { LOD_POINTS } from '../../src/surface/leafLod';
 import { buildGroundProps } from '../../src/surface/groundProps';
@@ -286,8 +286,9 @@ describe('world.apply', () => {
     }
     expect(reacting).toBeGreaterThan(frames);
     expect(lowDetail).toBe(0);
-    // Not only by the update's rule: the reacting chunks lie well inside the full-leaf ring.
-    expect(farthest).toBeLessThan(LOD_NEAR);
+    // Not only by the update's rule: the reacting chunks lie inside the full-leaf ring and its
+    // hysteresis band (a camera pulled in by a prop stands nearer the head, farther from the trail).
+    expect(farthest).toBeLessThan(LOD_NEAR + LOD_GAP);
   });
 
   it('switching presets does not touch the geometry buffers', () => {

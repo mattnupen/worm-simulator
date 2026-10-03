@@ -1,12 +1,13 @@
 import { treeSites, trunkFootOf } from './treeSites';
 import { heroLog, LOG_END, LOG_FOOT, rocks, ROCK_FOOT } from './propPlacement';
 import { scaleSpec, type ScaleSpec } from './worldScale';
+import { terrainHeight } from './terrain';
 
 /**
  * The solid things on the forest floor, as footprints on the ground (pure; Step 1b spec 4.4):
  * circles for the trunks (their root flare) and rocks, a capsule for the fallen log. Built from
  * the active ScaleSpec. The worm slides along them (crawl.ts), hero leaves are pushed back out of
- * them (heroObstacles.ts), and the camera stops short of the tall ones (followCamera.ts).
+ * them (heroObstacles.ts), and the camera stops short of the tall ones (crawl.ts).
  */
 
 /** How far the drawn rocks and log reach past their size (propPlacement.ts, beside the props). */
@@ -221,4 +222,54 @@ export function slideMove(from: { x: number; z: number }, to: { x: number; z: nu
     to.x = from.x + bestX;
     to.z = from.z + bestZ;
   }
+}
+
+/** Whether ground point (x, z) at height y lies inside a footprint that stands taller than y there. */
+export function insideTall(x: number, z: number, y: number): boolean {
+  const { round, log } = footprints();
+  for (let o = 0; o < round.length; o += 4) {
+    const dx = x - round[o];
+    const dz = z - round[o + 1];
+    const r = round[o + 2];
+    if (dx * dx + dz * dz < r * r && terrainHeight(round[o], round[o + 1]) + round[o + 3] > y) return true;
+  }
+  const t = Math.max(-log.half, Math.min(log.half, (x - log.x) * log.dx + (z - log.z) * log.dz));
+  const cx = log.x + log.dx * t;
+  const cz = log.z + log.dz * t;
+  const dx = x - cx;
+  const dz = z - cz;
+  return dx * dx + dz * dz < log.r * log.r && terrainHeight(cx, cz) + log.top > y;
+}
+
+/** Samples along the sight line, then halvings of the first blocked stretch. */
+const SIGHT_SAMPLES = 48;
+const SIGHT_HALVINGS = 8;
+
+/**
+ * How far along the line from (hx, hy, hz) to (tx, ty, tz) the camera can go (0..1) without
+ * entering a solid prop taller than the line there, stopping `margin` (m) short of it: 1 when the
+ * line is clear. A rock or the log lower than the line is passed over. Allocates nothing.
+ */
+export function sightReach(
+  hx: number, hy: number, hz: number, tx: number, ty: number, tz: number, margin: number,
+): number {
+  const len = Math.hypot(tx - hx, tz - hz);
+  if (!(len > 1e-6)) return 1;
+  let clear = 0;
+  for (let k = 1; k <= SIGHT_SAMPLES; k++) {
+    const t = k / SIGHT_SAMPLES;
+    if (!insideTall(hx + (tx - hx) * t, hz + (tz - hz) * t, hy + (ty - hy) * t)) {
+      clear = t;
+      continue;
+    }
+    let lo = clear;
+    let hi = t;
+    for (let h = 0; h < SIGHT_HALVINGS; h++) {
+      const mid = (lo + hi) / 2;
+      if (insideTall(hx + (tx - hx) * mid, hz + (tz - hz) * mid, hy + (ty - hy) * mid)) hi = mid;
+      else lo = mid;
+    }
+    return Math.max(0, lo - margin / len);
+  }
+  return 1;
 }

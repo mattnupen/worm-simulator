@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Crawl, BODY_RADIUS } from '../../src/game/crawl';
-import { obstacleDepth, footprints } from '../../src/surface/obstacles';
+import { obstacleDepth, footprints, insideTall, sightReach, ROCK_FOOT } from '../../src/surface/obstacles';
+import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
+import { rocks } from '../../src/surface/propPlacement';
+import { terrainHeight } from '../../src/surface/terrain';
 import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
 import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
 import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
@@ -124,5 +127,84 @@ describe('classic: a notch between two props', () => {
       last = { x: p.x, z: p.z };
     }
     expect(c.wave.phase - phase0).toBeCloseTo(still.wave.phase - stillPhase0, 3);
+  });
+});
+
+describe('sightReach', () => {
+  beforeAll(() => { setScale('classic'); });
+
+  it('is 1 for a clear line', () => {
+    expect(sightReach(0, 0.05, 0, 0, 1.15, -2.6, 0.35)).toBe(1);
+  });
+
+  it('stops short of a trunk in the way, by the margin', () => {
+    const t = treeSites()[0];
+    const foot = trunkFootOf(t);
+    // From 1 m beside the trunk, looking back through it.
+    const hx = t.x + foot + 1;
+    const r = sightReach(hx, 0.1, t.z, hx - 4, 1.2, t.z, 0.35);
+    expect(r).toBeGreaterThan(0);
+    expect(r).toBeLessThan(1);
+    // The stop point is the margin short of the trunk's edge.
+    expect(hx - 4 * r - (t.x + foot)).toBeCloseTo(0.35, 2);
+  });
+
+  it('passes over a rock lower than the line, not one taller', () => {
+    const k = rocks()[0];
+    const top = terrainHeight(k.x, k.z) + k.size * 0.6;
+    const foot = k.size * ROCK_FOOT;
+    const hx = k.x + foot + 0.5;
+    expect(sightReach(hx, top + 0.2, k.z, hx - 2 * foot - 1, top + 0.5, k.z, 0.35)).toBe(1);
+    expect(sightReach(hx, top - 0.3, k.z, hx - 2 * foot - 1, top - 0.1, k.z, 0.35)).toBeLessThan(1);
+  });
+});
+
+describe.each(SCALE_MODES)('%s: the camera stays out of props', (mode) => {
+  beforeAll(() => { setScale(mode); });
+
+  it('driving at and around every tall prop, the camera never enters one, and moves smoothly', () => {
+    const { round, log } = footprints();
+    const targets = [];
+    for (let o = 0; o < round.length; o += 4) targets.push({ x: round[o], z: round[o + 1] });
+    targets.push({ x: log.x + log.dx * log.half * 0.3, z: log.z + log.dz * log.half * 0.3 });
+    let pulled = 0;
+    let fastest = 0;
+    let jerk = 0;
+    for (const t of targets) {
+      const c = new Crawl();
+      let last = { ...c.cam.pos };
+      let lastStep = { x: 0, y: 0, z: 0 };
+      const check = (cc: Crawl) => {
+        const p = cc.cam.pos;
+        expect(insideTall(p.x, p.z, p.y)).toBe(false);
+        const step = { x: p.x - last.x, y: p.y - last.y, z: p.z - last.z };
+        fastest = Math.max(fastest, Math.hypot(step.x, step.y, step.z));
+        jerk = Math.max(jerk, Math.hypot(step.x - lastStep.x, step.y - lastStep.y, step.z - lastStep.z));
+        last = { ...p };
+        lastStep = step;
+        if (cc.cameraReach < 0.99) pulled++;
+      };
+      driveTo(c, t.x, t.z, 700, check);
+      // Then turn hard on the spot against it, swinging the camera round behind.
+      const move = { x: 1, y: 0.2 };
+      for (let s = 0; s < 400; s++) {
+        c.step(DT, move);
+        check(c);
+      }
+    }
+    // The test is real: the camera did have to pull in.
+    expect(pulled).toBeGreaterThan(50);
+    // It eases: at most about 10 m/s while pulling in past a trunk (its hard turns alone reach
+    // about 5), and its speed changes gradually from step to step (no snap).
+    expect(fastest).toBeLessThan(0.18);
+    expect(jerk).toBeLessThan(0.06);
+  }, 60_000);
+
+  it('the speed test\'s drive never pulls the camera in', () => {
+    const c = new Crawl();
+    for (let s = 0; s < 30 * 60; s++) {
+      c.step(DT, AUTO_DRIVE_MOVE.move);
+      expect(c.cameraReach).toBe(1);
+    }
   });
 });
