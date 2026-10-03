@@ -19,9 +19,10 @@ describe('detail leaves', () => {
       expect(a[k]).toBeLessThan(1);
       expect(a[k + 1]).toBeGreaterThanOrEqual(0);
       expect(a[k + 1]).toBeLessThan(1);
-      // The leaf's radius (m): smaller than the litter's leaves.
-      expect(a[k + 3]).toBeGreaterThan(0.15);
-      expect(a[k + 3]).toBeLessThan(0.7);
+      // The leaf's radius (m): well under the litter's leaves (0.21 to 0.39 of a species' size,
+      // against the litter's 0.6 to 1.2), as a leaf's cost is its area on screen.
+      expect(a[k + 3]).toBeGreaterThan(0.1);
+      expect(a[k + 3]).toBeLessThan(0.42);
     }
   });
 

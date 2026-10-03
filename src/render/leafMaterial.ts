@@ -13,7 +13,7 @@ import { OCCLUDE_GLSL } from './occlusion';
 /**
  * Painted autumn leaves: the shared painted lighting plus, from leaf-local attributes, a
  * midrib and main veins, faint lateral veins, darker dried margins, a wet sheen on damp
- * leaves and a warm glow where the sun shines through the blade. One noise fetch per pixel.
+ * leaves and a warm glow where the sun shines through the blade. One noise fetch per vertex.
  *
  * Attributes: aColor (rgb, wetness), aLeaf (u, v leaf-local; r 0 inside .. 1 on the margin;
  * vein weight), aLeaf2 (lateral-vein strength, per-leaf seed).
@@ -45,6 +45,11 @@ const vertexShader = /* glsl */ `
   varying vec4 vLeaf;
   varying float vLat;
   varying vec3 vNoise;
+  // The painted-noise sample, fetched per vertex for every leaf layer alike (so their tones match
+  // across layer and LOD seams): a leaf is small next to the noise's patches and strokes, and the
+  // per-pixel fetch was a measurable share of the leaves' fill cost.
+  varying vec4 vNz;
+  uniform sampler2D uNoise;
   varying vec4 vFog;
   ${PAINTED_VERTEX_GLSL}
 
@@ -138,6 +143,7 @@ const vertexShader = /* glsl */ `
     vec3 toCam = cameraPosition - wp.xyz;
     float dist = length(toCam);
     vNoise = worldBrushCoord(wp.xyz, dist);
+    vNz = texture2D(uNoise, vNoise.xy);
     vFog = distanceHaze(toCam, dist);
     gl_Position = projectionMatrix * viewMatrix * wp;
   }
@@ -158,6 +164,7 @@ const fragmentShader = /* glsl */ `
   varying vec4 vLeaf;
   varying float vLat;
   varying vec3 vNoise;
+  varying vec4 vNz;
   varying vec4 vFog;
   ${PAINTED_LIGHT_GLSL}
   ${GRADE_GLSL}
@@ -173,7 +180,7 @@ const fragmentShader = /* glsl */ `
     if (!gl_FrontFacing) n = -n;
     vec3 v = normalize(cameraPosition - vPosW);
     float detail = vNoise.z;
-    vec4 nz = texture2D(uNoise, vNoise.xy);
+    vec4 nz = vNz;
     float b = (nz.g * 0.6 + nz.b * 0.4 - 0.5) * 0.5 * detail;
     float dapple = dappleLight(mix(0.5, nz.r, detail), b, 0.9);
 
