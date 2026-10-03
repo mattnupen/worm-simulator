@@ -15,7 +15,9 @@ import {
  *
  * Attribute aBark: x around the trunk 0..1 (radial fraction on wood ends), y metres along it,
  * z surface kind, w per-tree seed 0..1 (plus 1 for a fallen log: no root-collar darkening,
- * a shallower contact shadow and more moss).
+ * a shallower contact shadow and more moss). w reaches the fragment shader flat (vSeedW): even a
+ * constant varying comes out a hair off from pixel to pixel, and the scar hashes magnify that
+ * into speckles.
  */
 const vertexShader = /* glsl */ `
   uniform vec3 uLightDir;
@@ -27,6 +29,7 @@ const vertexShader = /* glsl */ `
   varying vec3 vNormalW;
   varying vec3 vPosW;
   varying vec4 vBark;
+  flat varying float vSeedW;
   varying float vAbove;
   varying vec3 vNoise;
   varying vec4 vFog;
@@ -37,6 +40,7 @@ const vertexShader = /* glsl */ `
     vPosW = wp.xyz;
     vNormalW = mat3(modelMatrix) * normal;
     vBark = aBark;
+    vSeedW = aBark.w;
     vAbove = wp.y - terrainHeight(wp.xz);
     vec3 toCam = cameraPosition - wp.xyz;
     float dist = length(toCam);
@@ -58,6 +62,7 @@ const fragmentShader = /* glsl */ `
   varying vec3 vNormalW;
   varying vec3 vPosW;
   varying vec4 vBark;
+  flat varying float vSeedW;
   varying float vAbove;
   varying vec3 vNoise;
   varying vec4 vFog;
@@ -107,8 +112,8 @@ const fragmentShader = /* glsl */ `
     float around = vBark.x;
     float h = vBark.y;
     float kind = vBark.z;
-    float lying = step(1.0, vBark.w);
-    float seed = fract(vBark.w);
+    float lying = step(1.0, vSeedW);
+    float seed = fract(vSeedW);
     float detail = vNoise.z;
 
     vec4 wz = texture2D(uNoise, vNoise.xy);
