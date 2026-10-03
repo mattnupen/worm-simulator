@@ -15,9 +15,10 @@ export const LOD_NEAR = 9;
 export const LOD_GAP = 2;
 /**
  * Slack (m) round a chunk's leaves for the disturbance map: a lifted leaf rises up to about 0.5
- * and slides up to PUSH_SLIDE (0.2) sideways. Pads the bounding spheres and the active test.
+ * and slides up to PUSH_SLIDE (0.2) sideways (extreme probes moved a vertex 0.71). Pads the
+ * bounding spheres and the active test.
  */
-export const DRAPE_MARGIN = 0.6;
+export const DRAPE_MARGIN = 0.75;
 /**
  * A chunk reacts to the worm (the material with the disturbance map and the occluder fade) when
  * the x, z box of its leaves, grown by this, meets the disturbed part of the map or the fade's

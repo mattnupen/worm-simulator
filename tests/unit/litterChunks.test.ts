@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
+import * as THREE from 'three';
 import {
   CHUNKS, CHUNK_SIZE, LOD_NEAR, LOD_GAP, chunkIndex, chunkCentreX, chunkCentreZ, chunkDistance,
   groupByChunk, countBelow, nextLod, DRAPE_MARGIN, ACTIVE_MARGIN, boxesMeet, hullBox,
 } from '../../src/surface/litterChunks';
-import { OCC_OUTER } from '../../src/render/occlusion';
+import { occlusion, OCC_OUTER, OCC_SEGMENTS } from '../../src/render/occlusion';
+import { occluderSegments } from '../../src/render/occluderSegments';
+import { SPINE_POINTS } from '../../src/render/groundUniforms';
+import { mulberry32 } from '../../src/core/random';
 import { PUSH_SLIDE, DRAPE_HEIGHT } from '../../src/render/leafGlsl';
 import { WORLD_HALF } from '../../src/surface/terrain';
 import { placeLeaves } from '../../src/surface/leafLitter';
@@ -65,7 +69,8 @@ describe('litter chunks', () => {
 
   it('pads chunks for the drape and the fade', () => {
     // A lifted leaf rises up to ~0.5 and slides up to PUSH_SLIDE: the bounding spheres need both.
-    expect(DRAPE_MARGIN).toBeGreaterThanOrEqual(0.6);
+    // Extreme drape probes moved a vertex up to 0.71 from rest.
+    expect(DRAPE_MARGIN).toBeGreaterThanOrEqual(0.75);
     expect(DRAPE_MARGIN).toBeGreaterThanOrEqual(Math.hypot(2 * DRAPE_HEIGHT, PUSH_SLIDE));
     expect(ACTIVE_MARGIN).toBe(DRAPE_MARGIN + OCC_OUTER);
   });
@@ -86,5 +91,61 @@ describe('litter chunks', () => {
     expect(Array.from(out)).toEqual([-1, -2, 3, 4]);
     hullBox(0, 0, [], out);
     expect(Array.from(out)).toEqual([0, 0, 0, 0]);
+  });
+
+  it('every pixel the fade drops lies within OCC_OUTER of hullBox (random cameras, spines and pixels)', () => {
+    const rng = mulberry32(11);
+    const cam = new THREE.PerspectiveCamera(65, 1366 / 768, 0.05, 200);
+    const seg = new Float32Array(OCC_SEGMENTS * 8);
+    const box = new Float32Array(5);
+    const spine = new Float32Array(SPINE_POINTS * 3);
+    const hull = new Float32Array(4);
+    const p = new THREE.Vector3();
+    let faded = 0;
+    let worst = 0;
+    for (let t = 0; t < 1500; t++) {
+      // A wavy worm heading `h` from a head near the origin, a little above the ground.
+      const hx = rng() * 6 - 3;
+      const hz = rng() * 6 - 3;
+      const h = rng() * Math.PI * 2;
+      for (let i = 0; i < SPINE_POINTS; i++) {
+        const s = i * 0.11;
+        spine[i * 3] = hx - Math.cos(h) * s + Math.sin(h) * 0.3 * Math.sin(s * 3);
+        spine[i * 3 + 1] = 0.02 + rng() * 0.05;
+        spine[i * 3 + 2] = hz - Math.sin(h) * s;
+      }
+      // A camera behind it, near or far, low or high, looking roughly at the head.
+      const back = 0.6 + rng() * 4;
+      cam.position.set(
+        hx - Math.cos(h) * back + rng() - 0.5, 0.15 + rng() * 2, hz - Math.sin(h) * back + rng() - 0.5,
+      );
+      cam.lookAt(hx + rng() - 0.5, 0.1, hz + rng() - 0.5);
+      cam.updateMatrixWorld();
+      const pe = cam.projectionMatrix.elements;
+      const count = occluderSegments(spine, cam.matrixWorldInverse.elements, pe[0], pe[5], seg, box);
+      hullBox(cam.position.x, cam.position.z, spine, hull);
+      for (let k = 0; k < 200; k++) {
+        // A leaf pixel somewhere along the ray from the camera to a point near the body.
+        const si = Math.floor(rng() * SPINE_POINTS) * 3;
+        const f = rng() * 1.1;
+        p.set(
+          spine[si] + (rng() - 0.5) * 0.7, spine[si + 1] + 0.1 + (rng() - 0.5) * 0.7, spine[si + 2] + (rng() - 0.5) * 0.7,
+        ).sub(cam.position).multiplyScalar(f).add(cam.position);
+        const wx = p.x;
+        const wz = p.z;
+        p.applyMatrix4(cam.matrixWorldInverse);
+        const dl = -p.z;
+        if (dl <= 0.05) continue;
+        if (occlusion(p.x / dl, p.y / dl, dl, seg, count, box[4]) <= 0) continue;
+        faded++;
+        const dx = Math.max(hull[0] - wx, 0, wx - hull[2]);
+        const dz = Math.max(hull[1] - wz, 0, wz - hull[3]);
+        worst = Math.max(worst, Math.hypot(dx, dz));
+      }
+    }
+    // The sample is real: many faded pixels, some of them outside the box itself.
+    expect(faded).toBeGreaterThan(50000);
+    expect(worst).toBeGreaterThan(0.05);
+    expect(worst).toBeLessThanOrEqual(OCC_OUTER + 1e-4);
   });
 });
