@@ -10,7 +10,8 @@ the code from, so the school's GitHub block doesn't affect students.
    private `worm-simulator` repo.
 2. **Create the site from the Blueprint:** in the Render Dashboard choose **New → Blueprint**,
    pick the `worm-simulator` repo, and approve. Render reads `render.yaml` and creates a static
-   site called `wormsimulator`. It builds `main` with `npm ci && npm run build` and publishes `dist/`.
+   site called `wormsimulator`. It builds `main` with
+   `npm ci && npm run build && node scripts/copy-releases.mjs` and publishes `dist/`.
    The first build takes about a minute. When it finishes the game is live at
    `https://wormsimulator.onrender.com` (the exact name is shown in the Dashboard).
 3. **Point the domain at Render.** At the company where you bought wormsimulator.com, open DNS
@@ -30,8 +31,29 @@ the code from, so the school's GitHub block doesn't affect students.
 
 ## Updating the game
 
-Every push to `main` on GitHub rebuilds and redeploys automatically. Students get the new version
-on their next page load.
+Every push to `main` on GitHub rebuilds and redeploys automatically. The root,
+`wormsimulator.com/`, always shows the newest `main`: it is Matt's preview.
+
+## Versions students play (`/v1/`, `/v2/`, ...)
+
+Students only ever get a version link such as `https://wormsimulator.com/v1/`
+(docs/codev/README.md). Each one is a frozen copy of the single-file build:
+
+1. When Matt has checked the root build, freeze it: `npm run release -- 1` (the version number).
+   It builds, checks that the Start-screen label says V1, and copies `dist/index.html` to
+   `releases/v1/index.html`.
+2. Commit that file and push. Render's build (`render.yaml`) copies every `releases/vN/` folder
+   into the site, so the snapshot is served at `/v1/` and `/v1`, next to the root build.
+3. Check `https://wormsimulator.com/v1/` loads and shows "V1 · …" on the Start screen.
+
+The first time, check the site's **Settings → Build Command** in the Render Dashboard reads
+`npm ci && npm run build && node scripts/copy-releases.mjs`. A Blueprint with auto-sync picks up the
+`render.yaml` change on its own; if it still shows the old command, paste the new one in.
+
+A released version is never rebuilt. `npm run release` refuses to overwrite `releases/vN/` unless
+you add `--emergency-fix`, and an emergency fix is noted in that version's doc and changelog entry.
+Every version runs on the same site, so they share saved settings (see CLAUDE.md, "One origin,
+shared saves").
 
 ## Before using it with a class
 

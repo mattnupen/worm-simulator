@@ -39,3 +39,8 @@ export function checkBuild(html, n) {
   }
   return null;
 }
+
+/** The release folders to serve (`v1`, `v2`, ...) among a folder's entry names, in version order. */
+export function releasesToServe(names) {
+  return names.filter((n) => /^v[1-9]\d*$/.test(n)).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
+}

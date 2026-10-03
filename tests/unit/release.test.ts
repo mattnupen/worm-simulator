@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  parseReleaseArgs, parseVersionLabel, checkTarget, checkBuild, releasePath,
+  parseReleaseArgs, parseVersionLabel, checkTarget, checkBuild, releasePath, releasesToServe,
 } from '../../scripts/releaseLib.mjs';
 import { VERSION, VERSION_META } from '../../src/version';
 
@@ -56,5 +56,15 @@ describe('checkBuild', () => {
 describe('releasePath', () => {
   it('is releases/vN/index.html', () => {
     expect(releasePath(4)).toBe('releases/v4/index.html');
+  });
+});
+
+describe('releasesToServe (the Render build copies these into dist/)', () => {
+  it('keeps only vN folders, in version order', () => {
+    expect(releasesToServe(['v10', 'v2', 'README.md', '.DS_Store', 'v1', 'v0', 'vx', 'V3', 'v02']))
+      .toEqual(['v1', 'v2', 'v10']);
+  });
+  it('is empty when there are no releases yet', () => {
+    expect(releasesToServe([])).toEqual([]);
   });
 });

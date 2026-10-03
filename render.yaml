@@ -1,11 +1,14 @@
 # Render Blueprint: builds the game into one static file and serves it at wormsimulator.com.
 # Students only ever load wormsimulator.com (Render's CDN); GitHub is only where Render pulls the code from.
+# The root (/) is the build of main, Matt's preview. Each frozen version in releases/vN/ is copied
+# into dist/ after the build and served at /vN/ (and /vN: Render serves a folder's index.html at
+# both, and a route never overrides a file that exists, so no redirect is needed).
 services:
   - type: web
     name: wormsimulator
     runtime: static
     branch: main
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci && npm run build && node scripts/copy-releases.mjs
     staticPublishPath: ./dist
     domains:
       # Render adds www.wormsimulator.com automatically and redirects it here.

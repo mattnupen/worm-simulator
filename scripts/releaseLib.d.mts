@@ -4,3 +4,4 @@ export function parseVersionLabel(html: string): { number: number; name: string 
 export function releasePath(n: number): string;
 export function checkTarget(n: number, exists: boolean, emergencyFix: boolean): string | null;
 export function checkBuild(html: string, n: number): string | null;
+export function releasesToServe(names: readonly string[]): string[];
