@@ -1,6 +1,7 @@
 import { el, button, cardHead, menu } from './dom';
 import { icon } from './icons';
 import type { Shell } from './shell';
+import { VERSION_LABEL } from '../version';
 
 export interface StartActions { onCrawl(): void; onGraphics(): void; onSpeedTest(): void }
 
@@ -15,6 +16,7 @@ export function showStart(shell: Shell, a: StartActions, fromGraphics = false): 
     cardHead('A forest floor in fall'),
     el('p', 'You are an earthworm under the leaves of a northern forest.', 'lead'),
     menu(crawl, graphics, button('Speed test', 'gauge', 'secondary', a.onSpeedTest)),
+    el('p', VERSION_LABEL, 'version'),
   ]);
   (fromGraphics ? graphics : crawl).el.focus();
 }

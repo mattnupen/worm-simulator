@@ -120,6 +120,8 @@ canvas { display: block; }
   box-shadow: inset 0 0 0 1px rgba(90, 40, 10, 0.4);
 }
 .menu { display: grid; gap: 14px; margin-top: 22px; }
+/* Which version this is ("V1 · True Size"): small, but body-size text in the soft ink (>= 7:1). */
+.version { margin-top: 14px !important; font-size: 18px; font-weight: 700; color: var(--ink-soft); text-align: right; }
 
 /* ---------- Buttons ---------- */
 .btn {

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import type { Plugin } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
+import { VERSION_META } from './src/version.js';
 
 // Blocks every outside connection. Nothing the student does can leave the device.
 export const CSP = [
@@ -16,7 +17,8 @@ export const CSP = [
   "form-action 'none'",
 ].join('; ');
 
-// Build only: the dev server needs its own client script and websocket.
+// Build only: the dev server needs its own client script and websocket. Also stamps the version
+// (src/version.ts), which `npm run release` checks.
 function injectCsp(): Plugin {
   return {
     name: 'inject-csp',
@@ -24,7 +26,7 @@ function injectCsp(): Plugin {
     transformIndexHtml(html) {
       return html.replace(
         '<head>',
-        `<head>\n    <meta http-equiv="Content-Security-Policy" content="${CSP}">`,
+        `<head>\n    <meta http-equiv="Content-Security-Policy" content="${CSP}">\n    ${VERSION_META}`,
       );
     },
   };
