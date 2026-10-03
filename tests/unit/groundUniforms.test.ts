@@ -48,7 +48,7 @@ describe('leaf occluder fade', () => {
     const faded = [...(['litter', 'detail', 'hero'] as const).map((v) => createLeafMaterial(v)), createPropMaterial(true)];
     for (const m of faded) {
       expect(m.defines).toHaveProperty('OCCLUDE');
-      for (const u of ['uOccSeg', 'uOccCount', 'uOccBox', 'uOccTan'] as const) expect(m.uniforms[u]).toBe(groundUniforms[u]);
+      for (const u of ['uOccSeg', 'uOccCount', 'uOccBox', 'uOccTan', 'uOccDepth'] as const) expect(m.uniforms[u]).toBe(groundUniforms[u]);
       expect(m.uniforms.uResolution).toBe(sharedLighting.uResolution);
       expect(m.fragmentShader).toContain('if (fadedOut()) discard;');
     }

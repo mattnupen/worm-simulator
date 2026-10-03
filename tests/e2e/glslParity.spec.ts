@@ -430,7 +430,8 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
     camera.updateMatrixWorld();
     const pe = camera.projectionMatrix.elements;
     const seg = new Float32Array(OCC_SEGMENTS * 8);
-    const count = occluderSegments(c.spine, camera.matrixWorldInverse.elements, pe[0], pe[5], seg, new Float32Array(4));
+    const box = new Float32Array(5);
+    const count = occluderSegments(c.spine, camera.matrixWorldInverse.elements, pe[0], pe[5], seg, box);
     // Pixels within the box's reach, leaves at any depth along them: (tan x, tan y, view depth).
     const rng = mulberry32(3);
     const points: number[] = [];
@@ -439,7 +440,7 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
       const ty = (rng() * 2 - 1) / pe[5];
       points.push(tx, ty, 0.3 + rng() * 4, 0);
     }
-    return { seg: Array.from(seg), count, points };
+    return { seg: Array.from(seg), count, far: box[4], points };
   });
 
   await page.setContent('<canvas id="c" width="64" height="64"></canvas>');
@@ -465,7 +466,7 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
     // occlusion() at each pixel and depth, by transform feedback.
     const pr = program(`#version 300 es
       precision highp float; precision highp int;
-      uniform vec4 uOccSeg[${segs * 2}]; uniform int uOccCount;
+      uniform vec4 uOccSeg[${segs * 2}]; uniform int uOccCount; uniform float uOccDepth;
       in vec4 aPoint;
       ${fn}
       out float oOcc;
@@ -485,6 +486,7 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
       gl.vertexAttribPointer(l, 4, gl.FLOAT, false, 16, 0);
       gl.uniform4fv(U('uOccSeg[0]'), new Float32Array(c.seg));
       gl.uniform1i(U('uOccCount'), c.count);
+      gl.uniform1f(U('uOccDepth'), c.far);
       const b = gl.createBuffer();
       gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, b);
       gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, n * 4, gl.STATIC_READ);
@@ -528,7 +530,7 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
     let faded = 0;
     let clear = 0;
     for (let k = 0; k < c.points.length / 4; k++) {
-      const ts = occlusion(c.points[k * 4], c.points[k * 4 + 1], c.points[k * 4 + 2], c.seg, c.count);
+      const ts = occlusion(c.points[k * 4], c.points[k * 4 + 1], c.points[k * 4 + 2], c.seg, c.count, c.far);
       const d = Math.abs(gpu.occ[ci][k] - ts);
       worst = Math.max(worst, d);
       if (d > 1e-3) off++;

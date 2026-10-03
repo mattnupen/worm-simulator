@@ -125,6 +125,7 @@ describe('the lazily built near clutter layer', () => {
       expect(g.uOccBox.value.x).toBeGreaterThan(-1);
       expect(g.uOccBox.value.z).toBeLessThan(1);
       expect(g.uOccTan.value.y).toBeCloseTo(Math.tan(Math.PI / 6), 6);
+      expect(g.uOccDepth.value).toBeGreaterThan(2);
     }
   });
 

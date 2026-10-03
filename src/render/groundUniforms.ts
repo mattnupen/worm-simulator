@@ -33,6 +33,8 @@ export const groundUniforms = {
   uOccBox: { value: new THREE.Vector4(2, 2, -2, -2) },
   /** 1 / p00, 1 / p11 of the camera's projection: NDC to the tan space the segments are in. */
   uOccTan: { value: new THREE.Vector2(1, 1) },
+  /** The farthest view depth of the kept body: leaves beyond it skip the segment loop. */
+  uOccDepth: { value: 0 },
   /** 1 when leaves react to the worm; 0 (Low) skips every disturbance fetch, without a recompile. */
   uLeafReact: { value: 1 },
 };

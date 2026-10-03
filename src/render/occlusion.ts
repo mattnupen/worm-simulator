@@ -35,6 +35,9 @@ export const OCC_CLEAR = 0.4;
  */
 export const OCC_NEAR = 0.4;
 export const OCC_NEAR_FADE = 0.2;
+/** A leaf counts as in front of the body from OCC_FRONT nearer than it, fully from OCC_FRONT_FULL. */
+export const OCC_FRONT = 0.02;
+export const OCC_FRONT_FULL = 0.1;
 /**
  * The axis is simplified to within this (m) before projecting: a gently curving worm needs only
  * a few segments, so each pixel near it runs fewer loop steps. Far below OCC_INNER.
@@ -55,9 +58,13 @@ const smoothstep = (a: number, b: number, v: number): number => {
 /**
  * TS twin of occlusion() below: the share of a leaf's pixels dropped at the pixel whose ray has
  * tan-space direction (tx, ty) (NDC x / p00, y / p11), for a leaf at view depth dl there. seg and
- * count are occluderSegments' output.
+ * count are occluderSegments' output; far its farthest kept depth (box[4], uOccDepth).
  */
-export function occlusion(tx: number, ty: number, dl: number, seg: ArrayLike<number>, count: number): number {
+export function occlusion(
+  tx: number, ty: number, dl: number, seg: ArrayLike<number>, count: number, far: number,
+): number {
+  // Behind the whole body: the "in front" factor below is 0 for every segment, so skip the loop.
+  if (dl >= far - OCC_FRONT) return 0;
   let best = 1e9;
   let bi = 0;
   let bu = 0;
@@ -95,7 +102,7 @@ export function occlusion(tx: number, ty: number, dl: number, seg: ArrayLike<num
   const v = Math.min(3, Math.max(-2, (lx * ex + ly * ey + lz * ed) / Math.max(ex * ex + ey * ey + ed * ed, 1e-8)));
   const touch = Math.hypot(lx - ex * v, ly - ey * v, lz - ed * v);
   return (1 - smoothstep(OCC_INNER, OCC_OUTER, Math.sqrt(best)))
-    * smoothstep(0.02, 0.1, ds - dl)
+    * smoothstep(OCC_FRONT, OCC_FRONT_FULL, ds - dl)
     * smoothstep(OCC_NEAR, OCC_NEAR + OCC_NEAR_FADE, ds)
     * (OCC_DRAPE + (OCC_DROP - OCC_DRAPE) * smoothstep(OCC_TOUCH, OCC_CLEAR, touch));
 }
@@ -109,9 +116,10 @@ export function ign(x: number, y: number): number {
   return fr(52.9829189 * fr(x * 0.06711056 + y * 0.00583715));
 }
 
-/** GLSL occlusion(t, dl), stage-agnostic: needs uOccSeg and uOccCount declared. */
+/** GLSL occlusion(t, dl), stage-agnostic: needs uOccSeg, uOccCount and uOccDepth declared. */
 export const OCCLUSION_FN_GLSL = /* glsl */ `
   float occlusion(vec2 t, float dl) {
+    if (dl >= uOccDepth - ${f(OCC_FRONT)}) return 0.0;
     float best = 1e9;
     int bi = 0;
     float bu = 0.0;
@@ -136,7 +144,7 @@ export const OCCLUSION_FN_GLSL = /* glsl */ `
     float v = clamp(dot(l, e) / max(dot(e, e), 1e-8), -2.0, 3.0);
     float touch = length(l - e * v);
     return (1.0 - smoothstep(${f(OCC_INNER)}, ${f(OCC_OUTER)}, sqrt(best)))
-      * smoothstep(0.02, 0.1, ds - dl)
+      * smoothstep(${f(OCC_FRONT)}, ${f(OCC_FRONT_FULL)}, ds - dl)
       * smoothstep(${f(OCC_NEAR)}, ${f(OCC_NEAR + OCC_NEAR_FADE)}, ds)
       * mix(${f(OCC_DRAPE)}, ${f(OCC_DROP)}, smoothstep(${f(OCC_TOUCH)}, ${f(OCC_CLEAR)}, touch));
   }
@@ -160,11 +168,13 @@ export const OCCLUDE_GLSL = /* glsl */ `
   uniform int uOccCount;
   uniform vec4 uOccBox;
   uniform vec2 uOccTan;
+  uniform float uOccDepth;
   ${OCCLUSION_FN_GLSL}
   ${IGN_GLSL}
   bool fadedOut() {
     vec2 ndc = gl_FragCoord.xy / uResolution * 2.0 - 1.0;
     if (any(lessThan(ndc, uOccBox.xy)) || any(greaterThan(ndc, uOccBox.zw))) return false;
+    // 1 / gl_FragCoord.w is the view depth only for a perspective camera without setViewOffset.
     return ign(gl_FragCoord.xy) < occlusion(ndc * uOccTan, 1.0 / gl_FragCoord.w);
   }
 `;

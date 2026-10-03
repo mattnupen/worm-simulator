@@ -64,6 +64,7 @@ function put(
   box[1] = Math.min(box[1], (ty - r) * p11);
   box[2] = Math.max(box[2], (tx + r) * p00);
   box[3] = Math.max(box[3], (ty + r) * p11);
+  box[4] = Math.max(box[4], d);
 }
 
 /**
@@ -74,7 +75,9 @@ function put(
  * from every on-screen ray, so it cannot fade a pixel); what remains goes into seg (the layout
  * OCC_SEGMENTS describes), compacted. Returns how many. box (NDC xmin, ymin, xmax, ymax) gets
  * every pixel occlusion() can fade: the hole round a segment lies in the hull of its two end
- * disks, as the disk's radius is linear in screen position. Empty (2, 2, -2, -2) with no segment.
+ * disks, as the disk's radius is linear in screen position. box[4] gets the farthest kept view
+ * depth (uOccDepth): a leaf beyond it, less OCC_FRONT, cannot be in front of any of the body.
+ * Empty (2, 2, -2, -2, 0) with no segment.
  * Allocates nothing.
  */
 export function occluderSegments(
@@ -84,6 +87,7 @@ export function occluderSegments(
   box[1] = Infinity;
   box[2] = -Infinity;
   box[3] = -Infinity;
+  box[4] = 0;
   for (let i = 0; i < SPINE_POINTS; i++) {
     const wx = spine[i * 3];
     const wy = spine[i * 3 + 1] + OCC_AXIS_UP;

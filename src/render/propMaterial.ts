@@ -127,6 +127,7 @@ export function createPropMaterial(wrap = false): THREE.ShaderMaterial {
         uOccCount: groundUniforms.uOccCount,
         uOccBox: groundUniforms.uOccBox,
         uOccTan: groundUniforms.uOccTan,
+        uOccDepth: groundUniforms.uOccDepth,
         uLitter: { value: getLitterTexture() },
         uGround: { value: getGroundTexture() },
       }

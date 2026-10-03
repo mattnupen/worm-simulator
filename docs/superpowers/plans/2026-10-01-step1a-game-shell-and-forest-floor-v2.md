@@ -8286,6 +8286,16 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task 18: Camera-occluder dither fade
 
+> NOTE (post-Task 18): the shipped design is a screen-space fade over the whole visible body, not
+> the head cone below. Each frame `occluderSegments` (`src/render/occluderSegments.ts`) projects
+> the body axis (the spine raised 0.1, simplified to 0.02 m, clipped to depth >= 0.4 and the
+> widened frustum) into `uOccSeg`/`uOccCount`, with a conservative NDC box `uOccBox`, `uOccTan`
+> (1 / p00, 1 / p11) and the farthest body depth `uOccDepth`. `OCCLUDE_GLSL` (`fadedOut()`, no
+> argument) skips pixels outside the box or behind the body, then drops 60% of a clear occluder's
+> pixels (40% stays, spec 5.2) and 40% of a leaf lying on the body, in a fixed screen-space dither.
+> Litter, detail, hero and Ultra's near clutter (prop WRAP) fade. The `fadedOut(vPosW)`/head-cone
+> code and tests in this task are superseded.
+
 Leaves between the camera and the worm's head drop 60% of their pixels in a fixed screen-space pattern, so they read as 40% opacity with no transparent pass and no sorting. The pattern does not change over time, so nothing flickers.
 
 **Files:**
@@ -9049,6 +9059,15 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ---
 
 ### Task 21: Chunked litter with distance LOD and per-chunk materials
+
+> NOTE (post-Task 18): the reviewer measured that about 75% of Task 18's cost is the presence of
+> `discard` in the leaf shaders (the GPU loses its early depth rejection), not the segment loop.
+> So the chunked litter MUST keep two precompiled programs per litter LOD, one with `OCCLUDE` and
+> one plain, and select per chunk each frame by swapping the material (no recompile). A chunk may
+> use the plain program when its bounds cannot intersect the fade hull: the camera plus the body
+> points, inflated by `OCC_OUTER` (0.24) plus the drape/slide margin (`DRAPE_MARGIN` >= 0.6). The
+> test is conservative, so nothing pops. Detail, hero and Ultra's props stay `OCCLUDE` (they are
+> near the worm only). This path also gives Low a runtime switch, which it does not have today.
 
 The base litter becomes 36 chunks (6 × 6 over the world). Each chunk has two meshes: full leaves and 6-triangle leaves. Each mesh sits at its chunk's centre with a tight bounding sphere, so three's frustum culling skips chunks off screen and the renderer sorts chunks near-first. Every rendered frame, a chunk shows full leaves when the camera is within 9 m of it (hysteresis to 11 m) and low-detail leaves otherwise. Only chunks within 5 m of the worm's head get the material that samples the disturbance map and does the occluder fade (`litter`). Other near chunks get `plain`, which has neither. Distant chunks get `far`, which also skips the veins and the wet sheen. The three materials are created once, so switching between them never recompiles. A preset still shows the first n leaves overall: each chunk keeps its leaves in placement order and draws its own prefix.
 
@@ -10101,6 +10120,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 > if real hardware is vertex-bound. Measured at Task 14 on High (SwiftShader, interleaved):
 > about 27 fps before, about 19.5 fps after. On Low the detail layer is never built
 > (`buildDetailLayer`), so it costs Low nothing.
+>
+> (post-Task 18) The occluder fade's dither stipple is visible at DPR 1 (the High render is
+> 819 x 460 scaled up): mention it in the realism check. Non-WRAP props (High's mushrooms, plants
+> and rocks) intentionally do not fade; only leaves and Ultra's near clutter do.
 
 Spec section 6: the fps gates are the hard requirement. Draw calls may now be up to 40 per frame on every preset; the controller authorized this so the litter could be chunked. Triangle gates are unchanged. Each preset must use the highest counts that pass its gate and be strictly richer than the preset below: `litter`, `detail` and `hero` must never decrease from Low to Ultra, and `litter + detail` must increase. The `PRESETS` cost test enforces both.
 

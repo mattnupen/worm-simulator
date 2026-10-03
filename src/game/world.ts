@@ -62,7 +62,7 @@ export function buildWorld(crawl: Crawl): World {
   // The contact shadow lies on the same surface the worm rests on.
   const worm = new HeroWorm(WORM_SEGMENTS, (x, z) => wormSurface(x, z, reaction, surf).y);
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
-  const occBox = new Float32Array(4);
+  const occBox = new Float32Array(5);
 
   // The ground fills most of the screen: draw it after everything that sits on it, so the
   // depth test skips ground pixels already covered by leaves, props and trunks.
@@ -97,6 +97,7 @@ export function buildWorld(crawl: Crawl): World {
       const view = camera.matrixWorldInverse.elements;
       g.uOccCount.value = occluderSegments(pose.spine, view, pe[0], pe[5], g.uOccSeg.value, occBox);
       g.uOccBox.value.fromArray(occBox);
+      g.uOccDepth.value = occBox[4];
       g.uOccTan.value.set(1 / pe[0], 1 / pe[5]);
       if (crawl.disturbed) {
         uploadDisturbance(crawl.disturbance);

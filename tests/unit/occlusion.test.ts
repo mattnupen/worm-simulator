@@ -33,7 +33,7 @@ function followCamera(): THREE.PerspectiveCamera {
 /** The fade's inputs for a camera and spine, and occlusion() at a world point. */
 function view(c: THREE.PerspectiveCamera, spine: Float32Array) {
   const seg = new Float32Array(OCC_SEGMENTS * 8);
-  const box = new Float32Array(4);
+  const box = new Float32Array(5);
   const pe = c.projectionMatrix.elements;
   const count = occluderSegments(spine, c.matrixWorldInverse.elements, pe[0], pe[5], seg, box);
   const v = new THREE.Vector3();
@@ -45,7 +45,7 @@ function view(c: THREE.PerspectiveCamera, spine: Float32Array) {
   };
   const at = (p: number[]): number => {
     const [nx, ny, d] = project(p);
-    return occlusion(nx / pe[0], ny / pe[5], d, seg, count);
+    return occlusion(nx / pe[0], ny / pe[5], d, seg, count, box[4]);
   };
   return { seg, box, count, project, at };
 }
@@ -132,7 +132,12 @@ describe('occluderSegments (the projected body and the screen box that skips the
       dir.copy(ndc).sub(c.position).normalize();
       const t = 0.25 + rng() * 4;
       const p = [c.position.x + dir.x * t, c.position.y + dir.y * t, c.position.z + dir.z * t];
-      if (f.at(p) <= 0) continue;
+      const o = f.at(p);
+      // The depth early-out is exact: without it, the same answer.
+      const [tx, ty, d] = f.project(p);
+      const pe = c.projectionMatrix.elements;
+      expect(occlusion(tx / pe[0], ty / pe[5], d, f.seg, f.count, Infinity)).toBe(o);
+      if (o <= 0) continue;
       hits++;
       const [nx, ny] = f.project(p);
       expect(nx).toBeGreaterThanOrEqual(f.box[0]);
@@ -169,15 +174,20 @@ describe('occluderSegments (the projected body and the screen box that skips the
     const b = fv.box;
     // NDC spans 2 x 2: under a sixth of the screen.
     expect(((Math.min(b[2], 1) - Math.max(b[0], -1)) * (Math.min(b[3], 1) - Math.max(b[1], -1))) / 4).toBeLessThan(1 / 6);
-    // Every kept end is in front, at OCC_NEAR or deeper.
-    for (let i = 0; i < fv.count * 2; i++) expect(1 / fv.seg[i * 4 + 2]).toBeGreaterThanOrEqual(OCC_NEAR - 1e-6);
+    // Every kept end is in front, at OCC_NEAR or deeper, and box[4] is the farthest of them.
+    let far = 0;
+    for (let i = 0; i < fv.count * 2; i++) {
+      expect(1 / fv.seg[i * 4 + 2]).toBeGreaterThanOrEqual(OCC_NEAR - 1e-6);
+      far = Math.max(far, 1 / fv.seg[i * 4 + 2]);
+    }
+    expect(fv.box[4]).toBeCloseTo(far, 4);
   });
 
   it('keeps nothing when the worm is behind the camera or well off the side of the view', () => {
     for (const s of [spineFrom(0, -4), spineFrom(-12, 1)]) {
       const f = view(camera, s);
       expect(f.count).toBe(0);
-      expect(Array.from(f.box)).toEqual([2, 2, -2, -2]);
+      expect(Array.from(f.box)).toEqual([2, 2, -2, -2, 0]);
     }
   });
 });
