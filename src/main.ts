@@ -19,7 +19,7 @@ import { buildWorld } from './game/world';
 import { Crawl } from './game/crawl';
 import { AUTO_DRIVE_MOVE } from './game/drive';
 import { browserStore } from './save/settingsStore';
-import { SpeedTestRunner } from './perf/speedTestRunner';
+import { FPS_CAP, SpeedTestRunner } from './perf/speedTestRunner';
 import { formatContextLostResults, formatNoWebGLResults } from './perf/speedTest';
 import { basicDeviceInfo, deviceInfo } from './perf/device';
 import { createShell } from './ui/shell';
@@ -31,9 +31,11 @@ const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results 
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
 const CRASH_AFTER_TEST_NOTE = 'Something went wrong after the test. These results are still valid. '
   + 'Reload the page to keep playing.';
+/** The Lost card's heading when the game threw (not a graphics reset). */
+const CRASH_TITLE = 'Something went wrong';
 const NO_MOVE: Vec2 = Object.freeze({ x: 0, y: 0 });
 /** The game's frame cap; the speed test lifts it for its uncapped phase. */
-const MAX_FPS = 30;
+const MAX_FPS = FPS_CAP;
 
 const params = parseParams(location.search);
 const app = document.getElementById('app')!;
@@ -62,7 +64,7 @@ function run(renderer: THREE.WebGLRenderer): void {
   } catch (e) {
     console.error(e);
     renderer.domElement.remove();
-    showLost(shell, 'The game could not start. Reload the page to try again.');
+    showLost(shell, 'The game could not start. Reload the page to try again.', CRASH_TITLE);
   }
 }
 
@@ -141,7 +143,9 @@ function start(renderer: THREE.WebGLRenderer): void {
    * atmosphere (light shafts, motes, falling leaves) is hidden, so without this three would
    * compile those programs on the first switch up from Low and the game would hitch once. The
    * lazily built layers (detail leaves, Ultra's near clutter) are deliberately not built here:
-   * their one-time build and compile on first show is accepted (see applySpec).
+   * their one-time build and compile on first show is accepted (see applySpec). Nor are the
+   * litter's plain and reacting (active) programs: its near chunks stay hidden until the first
+   * frame places them, so those two compile on that frame, also behind the Start card.
    */
   function warmShaders(): void {
     const group = world.atmosphere.group;
@@ -290,7 +294,7 @@ function start(renderer: THREE.WebGLRenderer): void {
         report = { ...finished, summary: CRASH_AFTER_TEST_NOTE };
         showReport();
       } else {
-        showLost(shell, 'Something went wrong. Reload the page to try again.');
+        showLost(shell, 'The game stopped unexpectedly. Reload the page to try again.', CRASH_TITLE);
       }
     },
   });

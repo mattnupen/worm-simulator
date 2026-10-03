@@ -39,14 +39,19 @@ export function showPause(shell: Shell, a: PauseActions): void {
   resume.el.focus();
 }
 
-/** The graphics stopped (context lost outside the speed test, or the world failed to build): the only way on is a reload. */
+/**
+ * The game cannot go on, and the only way on is a reload: by default the graphics stopped (the
+ * context was lost outside the speed test); main.ts passes its own title and message when the
+ * world failed to build or the game loop crashed ("Something went wrong").
+ */
 export function showLost(
   shell: Shell,
   message = 'The computer reset its 3D graphics. Reload the page to keep playing.',
+  title = 'The graphics stopped',
 ): void {
   const reload = button('Reload the page', 'back', 'primary', () => location.reload());
-  shell.show('lost', 'Graphics stopped', [
-    el('h1', 'The graphics stopped', 'screen-title'),
+  shell.show('lost', title, [
+    el('h1', title, 'screen-title'),
     el('p', message, 'lead'),
     menu(reload),
   ]);

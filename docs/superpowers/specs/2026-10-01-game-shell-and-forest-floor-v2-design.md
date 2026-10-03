@@ -1,7 +1,7 @@
 # Step 1, Sub-project 1: Game Shell and Forest Floor v2, Design
 
 Date: 2026-10-01
-Status: Approved in brainstorming, awaiting written-spec review
+Status: Implemented (Step 1a), with the deviations recorded below
 Parent spec: `docs/superpowers/specs/2026-09-30-worm-simulator-design.md` (sections 3.1, 7, 8)
 
 ## 1. Why
@@ -298,7 +298,8 @@ phase) after forcing each preset with `?preset=`:
 - The leaf counts in 4.1 are tuning targets. If a gate fails, counts are lowered (and this spec's
   table updated) before anything else is cut.
 - No shadow maps, post-processing passes, extra render targets or MSAA (unchanged from Step 0).
-- No per-frame allocation in render or step paths.
+- No allocation in new per-frame/per-step code; the Step 0 helpers stepWorm/stepFollowCam still
+  return small objects per step.
 - The disturbance map upload is the only per-frame texture upload.
 
 ## 7. Testing

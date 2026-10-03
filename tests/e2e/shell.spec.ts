@@ -214,3 +214,20 @@ test('a hidden tab pauses the crawl', async ({ page }) => {
   await expect(paused(page)).toBeVisible();
   await expect(button(page, 'Resume')).toBeFocused();
 });
+
+test('a crash while crawling shows the Something went wrong card with a Reload button', async ({ page }) => {
+  await page.goto(PAGE);
+  await startCrawling(page);
+  // Break every draw call, so the next rendered frame throws and the game loop stops.
+  await page.evaluate(() => {
+    const fail = () => { throw new Error('test: draw failed'); };
+    for (const proto of [WebGL2RenderingContext.prototype, WebGLRenderingContext.prototype] as unknown as Record<string, unknown>[]) {
+      proto.drawElements = fail;
+      proto.drawArrays = fail;
+      proto.drawElementsInstanced = fail;
+      proto.drawArraysInstanced = fail;
+    }
+  });
+  await expect(page.getByRole('heading', { name: 'Something went wrong' })).toBeVisible();
+  await expect(button(page, 'Reload the page')).toBeFocused();
+});

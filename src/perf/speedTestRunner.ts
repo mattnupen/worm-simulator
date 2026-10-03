@@ -3,6 +3,9 @@ import {
   SpeedTest, PHASES, quickPhases, formatResults, verdict, type DeviceInfo, type PhaseSpec,
 } from './speedTest';
 
+/** The game's frame cap (fps); the speed test lifts it only for its uncapped phase. */
+export const FPS_CAP = 30;
+
 /**
  * What the runner needs from the game: a fresh start, frame cap, quality tiers, the running
  * card, device info.
@@ -52,7 +55,7 @@ export class SpeedTestRunner {
     this.quality.reset();
     this.host.applyTier(0);
     const first = this.test.current!;
-    this.host.setMaxFps(first.capped ? 30 : Infinity);
+    this.host.setMaxFps(first.capped ? FPS_CAP : Infinity);
     this.host.showPhase(first);
   }
 
@@ -69,11 +72,11 @@ export class SpeedTestRunner {
     const next = test.current;
     if (next === phase) return false;
     if (next) {
-      this.host.setMaxFps(next.capped ? 30 : Infinity);
+      this.host.setMaxFps(next.capped ? FPS_CAP : Infinity);
       this.host.showPhase(next);
       return false;
     }
-    this.host.setMaxFps(30);
+    this.host.setMaxFps(FPS_CAP);
     const { full, auto } = test.results;
     this.result = {
       text: formatResults(full, auto, this.quality.tier, this.leaves(), this.host.deviceInfo(), test.restarts),
@@ -95,7 +98,10 @@ export class SpeedTestRunner {
     this.quality.interrupt();
   }
 
-  /** Stops a running test without a result (the graphics were lost). */
+  /**
+   * Stops a running test without a result: the player left the test, the graphics were lost,
+   * or the game loop crashed.
+   */
   abort(): void {
     this.test = null;
   }
