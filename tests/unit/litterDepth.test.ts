@@ -90,6 +90,62 @@ describe('litterDepth', () => {
   });
 });
 
+describe('litterDepth at obstacle centres', () => {
+  const round = [
+    ...treeSites().map((t) => ({ x: t.x, z: t.z, r: (t.birch ? 0.32 : 0.48) * 1.3 })),
+    ...ROCKS.map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05 })),
+  ];
+  const STEP = 0.001;
+  /** Largest depth change between neighbouring 1 mm samples along a line through (cx, cz). */
+  const worstStep = (cx: number, cz: number, angle: number, half: number): number => {
+    const dx = Math.cos(angle);
+    const dz = Math.sin(angle);
+    const n = Math.round(half / STEP);
+    let worst = 0;
+    let prev = litterDepth(cx - dx * n * STEP, cz - dz * n * STEP);
+    for (let i = -n + 1; i <= n; i++) {
+      const d = litterDepth(cx + dx * i * STEP, cz + dz * i * STEP);
+      worst = Math.max(worst, Math.abs(d - prev));
+      prev = d;
+    }
+    return worst;
+  };
+
+  it('is continuous across every trunk and rock, straight through the centre', () => {
+    for (const o of round) {
+      for (const angle of [0, Math.PI / 4, Math.atan2(WIND.z, WIND.x), Math.PI / 2 + 0.3]) {
+        expect(worstStep(o.x, o.z, angle, Math.min(o.r, 0.6))).toBeLessThan(0.002);
+      }
+    }
+  });
+
+  it('is continuous across the log, through its axis, and round its end caps', () => {
+    const ax = Math.cos(HERO_LOG.yaw);
+    const az = Math.sin(HERO_LOG.yaw);
+    const half = HERO_LOG.length / 2;
+    // Across the log at several points along it.
+    for (const t of [-half, -half + 0.01, -1.3, 0, 0.9, half - 0.01, half]) {
+      const cx = HERO_LOG.x + ax * t;
+      const cz = HERO_LOG.z + az * t;
+      expect(worstStep(cx, cz, HERO_LOG.yaw + Math.PI / 2, 0.6)).toBeLessThan(0.002);
+    }
+    // Along the axis itself, and straight through an end cap.
+    expect(worstStep(HERO_LOG.x, HERO_LOG.z, HERO_LOG.yaw, 1.2)).toBeLessThan(0.002);
+    expect(worstStep(HERO_LOG.x + ax * half, HERO_LOG.z + az * half, HERO_LOG.yaw, 0.6)).toBeLessThan(0.002);
+  });
+
+  it('the hero log axis is within 2 mm of a point 1 mm beside it', () => {
+    // The known failure: on the axis the drift direction was undefined and the depth jumped by 16 cm.
+    const nx = -Math.sin(HERO_LOG.yaw);
+    const nz = Math.cos(HERO_LOG.yaw);
+    for (const side of [-1, 1]) {
+      const here = litterDepth(HERO_LOG.x, HERO_LOG.z);
+      const near = litterDepth(HERO_LOG.x + nx * side * 0.001, HERO_LOG.z + nz * side * 0.001);
+      expect(Math.abs(here - near)).toBeLessThan(0.002);
+    }
+  });
+});
+
 describe('underAmount and litterMound', () => {
   it('under is 1 on thin litter, 0 on deep, smooth and monotonic between', () => {
     expect(underAmount(0.02)).toBe(1);

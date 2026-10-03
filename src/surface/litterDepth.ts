@@ -57,9 +57,15 @@ const ROUND: readonly { x: number; z: number; r: number; peak: number }[] = [
 const LOG_DX = Math.cos(HERO_LOG.yaw);
 const LOG_DZ = Math.sin(HERO_LOG.yaw);
 
-/** A drift against an obstacle surface `gap` metres away, in direction (nx, nz) from it. */
-function drift(gap: number, nx: number, nz: number, peak: number): number {
-  const downwind = nx * WIND.x + nz * WIND.z;
+/**
+ * A drift against an obstacle of radius `r` whose surface is `gap` metres away, at offset
+ * (dx, dz) (length d) from the obstacle's centre or axis. Outside the radius the direction is
+ * the unit offset, as before. Inside it, the direction shrinks linearly to zero at the centre
+ * (the mean of the upwind and downwind sides), where the unit offset has no direction at all:
+ * so the depth is continuous there instead of jumping between the upwind and downwind values.
+ */
+function drift(gap: number, dx: number, dz: number, d: number, r: number, peak: number): number {
+  const downwind = (dx * WIND.x + dz * WIND.z) / Math.max(d, r);
   const side = 0.55 + 0.45 * downwind;
   const reach = 0.45 + 0.6 * Math.max(0, downwind);
   return peak * side * (1 - smoothstep(0, reach, gap));
@@ -73,8 +79,7 @@ export function driftDepth(x: number, z: number): number {
     const dz = z - o.z;
     const d = Math.hypot(dx, dz);
     if (d > o.r + 1.2) continue;
-    const inv = d > 1e-9 ? 1 / d : 0;
-    best = Math.max(best, drift(d - o.r, dx * inv, dz * inv, o.peak));
+    best = Math.max(best, drift(d - o.r, dx, dz, d, o.r, o.peak));
   }
   const t = Math.max(-HERO_LOG.length / 2, Math.min(HERO_LOG.length / 2,
     (x - HERO_LOG.x) * LOG_DX + (z - HERO_LOG.z) * LOG_DZ));
@@ -82,8 +87,7 @@ export function driftDepth(x: number, z: number): number {
   const lz = z - (HERO_LOG.z + LOG_DZ * t);
   const ld = Math.hypot(lx, lz);
   if (ld < HERO_LOG.radius + 1.2) {
-    const inv = ld > 1e-9 ? 1 / ld : 0;
-    best = Math.max(best, drift(ld - HERO_LOG.radius, lx * inv, lz * inv, 0.2));
+    best = Math.max(best, drift(ld - HERO_LOG.radius, lx, lz, ld, HERO_LOG.radius, 0.2));
   }
   return best;
 }
