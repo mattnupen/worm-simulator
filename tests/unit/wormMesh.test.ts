@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
-  HeroWorm, bodyCoordAt, peristalsisAmplitude, swellRange, wormExtent, type WormExtent, type WormPose,
+  HeroWorm, WORM_HALF_WIDTH, bodyCoordAt, peristalsisAmplitude, swellRange, wormExtent,
+  type WormExtent, type WormPose,
 } from '../../src/worm/wormMesh';
 import { probeReach } from '../../src/worm/wormShape';
 
@@ -91,5 +92,22 @@ describe('wormExtent', () => {
     }
     // A bound, not a loose one: some vertex comes within 5 mm of it.
     expect(slack).toBeLessThan(0.005);
+  });
+});
+
+describe('WORM_HALF_WIDTH', () => {
+  it('bounds how far the drawn body reaches to the side at its fullest swell, and closely', () => {
+    const worm = new HeroWorm(N);
+    const body = (worm.group.children as THREE.Mesh[]).find((o) => o.name === 'worm')!;
+    const pos = body.geometry.getAttribute('position').array as Float32Array;
+    let widest = 0;
+    // Straight along -z, crawling at full speed (the fullest swell, and no probing sway).
+    for (let t = 0; t < 200; t++) {
+      worm.update({ spine: spineOf((i) => [0, 0, -0.22 * i]), phase: t / 200, activity: 1, timeSec: t * 0.137 });
+      for (let v = 0; v < pos.length; v += 3) widest = Math.max(widest, Math.abs(pos[v]));
+    }
+    expect(widest).toBeLessThanOrEqual(WORM_HALF_WIDTH);
+    // Rings swell by the mean stretch around them, a little less than the bound's peak.
+    expect(widest).toBeGreaterThan(WORM_HALF_WIDTH - 0.006);
   });
 });

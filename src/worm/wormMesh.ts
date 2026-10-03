@@ -34,6 +34,28 @@ export function peristalsisAmplitude(activity: number): number {
   return 0.08 + 0.18 * Math.min(1, Math.max(0, activity));
 }
 
+/**
+ * The most the drawn body can reach to either side of its spine (world units): its thickest point
+ * swollen by the fullest peristalsis there (crawling at full speed). A bound: each ring swells by
+ * the mean stretch around it, so the drawn body stays about 5 mm inside it. Solid props keep the
+ * spine this far off (crawl.ts BODY_RADIUS).
+ */
+export const WORM_HALF_WIDTH = maxHalfWidth();
+
+function maxHalfWidth(): number {
+  const amp = peristalsisAmplitude(1);
+  let most = 0;
+  for (let i = 0; i <= 1000; i++) {
+    const m = i / 1000;
+    // Over the wave's phase a the stretch is 1 + amp (c cos a + s sin a): least at 1 - amp hypot(c, s).
+    const c = peristalsisStretch(m, WAVES * m, 1, WAVES) - 1;
+    const s = peristalsisStretch(m, WAVES * m - 0.25, 1, WAVES) - 1;
+    const half = WORM_RADIUS * radiusProfile(m) * lateralScale(m) * swellOf(1 - amp * Math.hypot(c, s));
+    if (half > most) most = half;
+  }
+  return most;
+}
+
 /** A ring's stretch is the mean over its neighbours, which lie at most this far (body coordinate). */
 const RING_GAP = 0.04;
 /** Stretch samples across a span, and the most the stretch can stray between them (x amplitude). */

@@ -7,7 +7,8 @@ import { createBody, followHead } from '../worm/body';
 import { clampToNeck, stepWorm, type WormMotion } from '../worm/locomotion';
 import { advanceWave, type WaveState } from '../worm/wormShape';
 import {
-  WAVES, bodyCoordAt, peristalsisAmplitude, swellRange, wormExtent, wormLength, type WormExtent, type WormPose,
+  WAVES, WORM_HALF_WIDTH, bodyCoordAt, peristalsisAmplitude, swellRange, wormExtent, wormLength,
+  type WormExtent, type WormPose,
 } from '../worm/wormMesh';
 import { probeReach, type HeadProbe } from '../worm/wormShape';
 import { bellyHeight, litterTop, wormSurface, type WormSurface } from '../worm/surfaceHeight';
@@ -23,8 +24,8 @@ import { pushOut, slideMove } from '../surface/obstacles';
 
 export const WORM_SEGMENTS = 16;
 const SPACING = 0.22;
-/** The body's half-width with its swell (wormMesh: 0.128 at most): how far it keeps off solid props. */
-export const BODY_RADIUS = 0.13;
+/** The most the body reaches to its side at its fullest swell (about 0.134): how far the spine keeps off solid props. */
+export const BODY_RADIUS = WORM_HALF_WIDTH;
 /** The camera aims a little ahead of the head, so the worm sits low in frame and the forest looms. */
 const LOOK_AHEAD = 1.0;
 const LOOK_UP = 0.6;
