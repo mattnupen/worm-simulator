@@ -129,6 +129,24 @@ function start(renderer: THREE.WebGLRenderer): void {
     applySpec(PRESETS[graphics.active]);
   }
 
+  /**
+   * Compiles every eagerly built program once, now, while the Start card is up. On Low the
+   * atmosphere (light shafts, motes, falling leaves) is hidden, so without this three would
+   * compile those programs on the first switch up from Low and the game would hitch once. The
+   * lazily built layers (detail leaves, Ultra's near clutter) are deliberately not built here:
+   * their one-time build and compile on first show is accepted (see applySpec).
+   */
+  function warmShaders(): void {
+    const group = world.atmosphere.group;
+    const wasVisible = group.visible;
+    group.visible = true;
+    try {
+      renderer.compile(world.scene, camera);
+    } finally {
+      group.visible = wasVisible;
+    }
+  }
+
   function resize(): void {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -244,6 +262,7 @@ function start(renderer: THREE.WebGLRenderer): void {
 
   applyActive();
   resize();
+  warmShaders();
   window.addEventListener('resize', resize);
   const loop = startLoop(update, render, { maxFps: MAX_FPS });
 
