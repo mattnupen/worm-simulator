@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { DataUtils } from 'three';
 import {
   createDisturbance, recentre, stamp, decay, clearDisturbance, packDisturbance, cellAt, disturbedBox,
   originX, originZ, DIST_N, DIST_SPAN, DIST_CELL, DIST_REACH, ON_TOP_DISTANCE, type DisturbanceMap,
@@ -175,14 +174,16 @@ describe('disturbance map', () => {
     expect(sum(m)).toBe(0);
   });
 
-  it('packs an empty map to zeros and values to half floats, clamped to 0..1', () => {
+  it('packs an empty map to zeros, and full values to 255 (low bytes 0), clamped to 0..1', () => {
     const m = createDisturbance();
-    const out = new Uint16Array(m.data.length);
-    packDisturbance(m, out);
-    expect(Array.from(out.subarray(0, 4))).toEqual([0, 0, 0, 0]);
+    const near = new Uint8Array(DIST_N * DIST_N * 4);
+    const trail = new Uint8Array(DIST_N * DIST_N * 2);
+    packDisturbance(m, near, trail);
+    expect([...near.subarray(0, 4), ...trail.subarray(0, 2)]).toEqual([0, 0, 0, 0, 0, 0]);
     m.data.set([1, 0.7, 1.4, 0.5], 0);
-    packDisturbance(m, out);
-    expect(Array.from(out.subarray(0, 4)).map((v) => DataUtils.fromHalfFloat(v))).toEqual([1, 0, 1, 0.5]);
+    packDisturbance(m, near, trail);
+    // near: path high, low, body high, low; trail: trail, path.
+    expect([...near.subarray(0, 4), ...trail.subarray(0, 2)]).toEqual([255, 0, 255, 0, 128, 255]);
   });
 
   it('disturbedBox bounds every cell holding anything, grown by a cell; empty when clear', () => {

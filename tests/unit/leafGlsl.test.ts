@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { disturbVertex, drapeProfile, DRAPE_FOOT, type MapSampler } from '../../src/render/leafGlsl';
+import { disturbVertex, drapeProfile, packedMapSampler, DRAPE_FOOT, type MapSampler } from '../../src/render/leafGlsl';
 import {
   createDisturbance, recentre, stamp, decay, packDisturbance, disturbedBox, DIST_N, DIST_CELL, DIST_REACH, DIST_SPAN,
 } from '../../src/surface/disturbance';
@@ -15,24 +15,6 @@ import { litterTextureData } from '../../src/render/litterTexture';
 import { groundTextureData } from '../../src/render/groundTexture';
 import { PRESETS } from '../../src/render/graphics';
 
-/** Bilinear lookup of the packed map (half floats), as the GPU filters it (clamped at the edges). */
-function samplerOf(halves: Uint16Array): MapSampler {
-  return (u, v, out) => {
-    const tx = u * DIST_N - 0.5;
-    const tz = v * DIST_N - 0.5;
-    const i = Math.floor(tx);
-    const j = Math.floor(tz);
-    const fx = tx - i;
-    const fz = tz - j;
-    const at = (a: number, b: number, ch: number) =>
-      THREE.DataUtils.fromHalfFloat(halves[(Math.min(DIST_N - 1, Math.max(0, b)) * DIST_N + Math.min(DIST_N - 1, Math.max(0, a))) * 4 + ch]);
-    for (let ch = 0; ch < 4; ch++) {
-      const top = at(i, j, ch) * (1 - fx) + at(i + 1, j, ch) * fx;
-      const bottom = at(i, j + 1, ch) * (1 - fx) + at(i + 1, j + 1, ch) * fx;
-      out[ch] = top * (1 - fz) + bottom * fz;
-    }
-  };
-}
 
 /** Where a leaf triangle near the worm lands, after placement and the drape: three moved points. */
 type Tri = [number[], number[], number[]];
@@ -55,8 +37,9 @@ function clearance(count: number, leaves: (pl: Placement, emit: (t: Tri) => void
   const spine = new Float32Array(n * 3);
   const pts: number[][] = [];
   const m = createDisturbance();
-  const halves = new Uint16Array(m.data.length);
-  const pl: Placement = { pts, sample: samplerOf(halves), ox: 0, oz: 0 };
+  const near = new Uint8Array(DIST_N * DIST_N * 4);
+  const trail = new Uint8Array(DIST_N * DIST_N * 2);
+  const pl: Placement = { pts, sample: packedMapSampler(near, trail), ox: 0, oz: 0 };
   const buckets = new Map<string, number[]>();
   let placements = 0;
   let failed = 0;
@@ -119,7 +102,7 @@ function clearance(count: number, leaves: (pl: Placement, emit: (t: Tri) => void
       const j = Math.min(n - 1, i + (k & 1));
       stamp(m, (pts[i][0] + pts[j][0]) / 2, (pts[i][1] + pts[j][1]) / 2, 1);
     }
-    packDisturbance(m, halves);
+    packDisturbance(m, near, trail);
     pl.ox = m.ci * DIST_CELL;
     pl.oz = m.cj * DIST_CELL;
     // Worm vertices in 10 cm buckets, to find the ones under each leaf triangle.
@@ -254,7 +237,8 @@ describe('disturbedBox (where litter chunks may draw without the drape)', () => 
   it('no leaf anchored outside it moves, whatever its size, rest and dip', () => {
     // A worm crawling a curve, leaving a fading trail; the body re-stamped last, as the crawl does.
     const m = createDisturbance();
-    const halves = new Uint16Array(m.data.length);
+    const near = new Uint8Array(DIST_N * DIST_N * 4);
+    const trail = new Uint8Array(DIST_N * DIST_N * 2);
     for (let s = 0; s < 120; s++) {
       const a = s * 0.02;
       decay(m, 1 / 30);
@@ -266,10 +250,10 @@ describe('disturbedBox (where litter chunks may draw without the drape)', () => 
         stamp(m, Math.sin(b) * 2.2, 2.2 - Math.cos(b) * 2.2, k % 3 === 0 ? 0 : 1);
       }
     }
-    packDisturbance(m, halves);
+    packDisturbance(m, near, trail);
     const box = [0, 0, 0, 0];
     disturbedBox(m, box);
-    const sample = samplerOf(halves);
+    const sample = packedMapSampler(near, trail);
     const ox = m.ci * DIST_CELL;
     const oz = m.cj * DIST_CELL;
     const out = [0, 0, 0];

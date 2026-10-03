@@ -4,7 +4,7 @@ import { occlusion, ign, OCCLUSION_FN_GLSL, IGN_GLSL, OCC_SEGMENTS } from '../..
 import { occluderSegments } from '../../src/render/occluderSegments';
 import { mulberry32 } from '../../src/core/random';
 import { DETAIL_GLSL, detailVertex, type DetailInputs } from '../../src/render/detailGlsl';
-import { DISTURB_GLSL, disturbVertex, type MapSampler } from '../../src/render/leafGlsl';
+import { DISTURB_GLSL, disturbVertex, packedMapSampler } from '../../src/render/leafGlsl';
 import { litterTextureData, LITTER_TEX_N } from '../../src/render/litterTexture';
 import { groundTextureData, GROUND_TEX_N } from '../../src/render/groundTexture';
 import {
@@ -29,7 +29,7 @@ const STRIDE = 16;
 /** Float32 on the GPU, approximate sin/cos: 0.2 mm is far below anything visible. */
 const TOLERANCE = 2e-4;
 
-interface Case { focus: [number, number]; dist: number[]; origin: [number, number] }
+interface Case { focus: [number, number]; dist: number[]; trail: number[]; origin: [number, number] }
 
 function worm(hx: number, hz: number, yaw: number, curve: number): Case {
   const n = 16;
@@ -49,29 +49,13 @@ function worm(hx: number, hz: number, yaw: number, curve: number): Case {
   pass(0.4, -0.3);
   for (let t = 0; t < 120; t++) decay(m, 1 / 60);
   pass(0, 0);
-  const halves = new Uint16Array(DIST_N * DIST_N * 4);
-  packDisturbance(m, halves);
+  const near = new Uint8Array(DIST_N * DIST_N * 4);
+  const trail = new Uint8Array(DIST_N * DIST_N * 2);
+  packDisturbance(m, near, trail);
   // The head a little off the 1 m snap, so the wrap centre and the focus differ.
-  return { focus: [hx + 0.13, hz - 0.27], dist: Array.from(halves), origin: [m.ci * DIST_CELL, m.cj * DIST_CELL] };
+  return { focus: [hx + 0.13, hz - 0.27], dist: Array.from(near), trail: Array.from(trail), origin: [m.ci * DIST_CELL, m.cj * DIST_CELL] };
 }
 
-/** Bilinear lookup of the packed map (half floats), as the GPU filters it. */
-function samplerOf(halves: number[]): MapSampler {
-  return (u, v, out) => {
-    const tx = u * DIST_N - 0.5;
-    const tz = v * DIST_N - 0.5;
-    const i = Math.floor(tx);
-    const j = Math.floor(tz);
-    const fx = tx - i;
-    const fz = tz - j;
-    const at = (a: number, b: number, ch: number) =>
-      THREE.DataUtils.fromHalfFloat(halves[(Math.min(DIST_N - 1, Math.max(0, b)) * DIST_N + Math.min(DIST_N - 1, Math.max(0, a))) * 4 + ch]);
-    for (let ch = 0; ch < 4; ch++) {
-      out[ch] = (at(i, j, ch) * (1 - fx) + at(i + 1, j, ch) * fx) * (1 - fz)
-        + (at(i, j + 1, ch) * (1 - fx) + at(i + 1, j + 1, ch) * fx) * fz;
-    }
-  };
-}
 
 test('detail placement, meshGround and disturb run on the GPU as their TS twins say', async ({ page }) => {
   const litter = litterTextureData();
@@ -146,11 +130,13 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
       return t;
     };
     // As three uploads them: the maps filtered, the ground read texel by texel.
-    const dist = tex(0, gl.RGBA16F, 64, gl.RGBA, gl.HALF_FLOAT, new Uint16Array(64 * 64 * 4), gl.LINEAR);
+    const dist = tex(0, gl.RGBA8, 64, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(64 * 64 * 4), gl.LINEAR);
     tex(1, gl.RGBA8, litterN, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(litter), gl.LINEAR);
     tex(2, gl.R32F, groundN, gl.RED, gl.FLOAT, new Float32Array(ground), gl.NEAREST);
+    const trailTex = tex(3, gl.RG8, 64, gl.RG, gl.UNSIGNED_BYTE, new Uint8Array(64 * 64 * 2), gl.LINEAR);
     const U = (name: string) => gl.getUniformLocation(pr, name);
     gl.uniform1i(U('uDisturb'), 0);
+    gl.uniform1i(U('uDisturbTrail'), 3);
     gl.uniform1i(U('uLitter'), 1);
     gl.uniform1i(U('uGround'), 2);
     gl.uniform1f(U('uLeafReact'), 1);
@@ -169,7 +155,10 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
     return cases.map((c) => {
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, dist);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 64, 64, gl.RGBA, gl.HALF_FLOAT, new Uint16Array(c.dist));
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(c.dist));
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, trailTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 64, 64, gl.RG, gl.UNSIGNED_BYTE, new Uint8Array(c.trail));
       gl.uniform2f(U('uDistOrigin'), c.origin[0], c.origin[1]);
       gl.uniform3f(U('uFocus'), c.focus[0], 0, c.focus[1]);
       gl.uniform2f(U('uWrapCentre'), Math.round(c.focus[0]), Math.round(c.focus[1]));
@@ -202,7 +191,7 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
   const a = [0, 0, 0, 0];
   cases.forEach((c, ci) => {
     const [gw, gp, ga] = gpu[ci];
-    const sample = samplerOf(c.dist);
+    const sample = packedMapSampler(c.dist, c.trail);
     const inp: DetailInputs = {
       focusX: c.focus[0], focusZ: c.focus[1], wrapX: Math.round(c.focus[0]), wrapZ: Math.round(c.focus[1]), litter, ground,
     };

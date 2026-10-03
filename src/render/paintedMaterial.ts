@@ -192,7 +192,7 @@ export function createPaintedMaterial(opts: PaintedOptions): THREE.ShaderMateria
       uColor: { value: new THREE.Color(opts.color) },
       uBrush: { value: opts.brush ?? 0.6 },
       ...(opts.trail ? {
-        uDisturb: groundUniforms.uDisturb,
+        uDisturbTrail: groundUniforms.uDisturbTrail,
         uDistOrigin: groundUniforms.uDistOrigin,
         uLeafReact: groundUniforms.uLeafReact,
       } : {}),

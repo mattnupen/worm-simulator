@@ -6,7 +6,7 @@ import {
 import { overBody } from '../../src/surface/heroClearance';
 import { PUSHER_STRIDE } from '../../src/surface/heroBody';
 import type { Vec3 } from '../../src/core/vec';
-import { disturbVertex, type MapSampler } from '../../src/render/leafGlsl';
+import { disturbVertex, packedMapSampler } from '../../src/render/leafGlsl';
 import { buildLeafLitter } from '../../src/surface/leafLitterMesh';
 import { heroLeafMatrix } from '../../src/surface/heroLeafMesh';
 import { HERO_MAX } from '../../src/surface/heroLeaves';
@@ -70,20 +70,24 @@ describe('the disturbance map reads the body as a smooth tube', () => {
     });
   });
 
-  it('packs to half floats, keeping nearness to within 1/2000 (under 1 mm)', () => {
+  it('packs path and body in two bytes each, to within 1/20000 (a tenth of a mm); the trail in one', () => {
     const m = createDisturbance();
     for (let k = 0; k < m.data.length; k++) m.data[k] = ((k * 7919) % 10007) / 10007;
-    const out = new Uint16Array(m.data.length);
-    packDisturbance(m, out);
+    const near = new Uint8Array(DIST_N * DIST_N * 4);
+    const trail = new Uint8Array(DIST_N * DIST_N * 2);
+    packDisturbance(m, near, trail);
+    const sample = packedMapSampler(near, trail);
+    const out = [0, 0, 0, 0];
     let worst = 0;
-    for (let k = 0; k < m.data.length; k++) {
-      if (k % 4 === 1) {
-        expect(out[k]).toBe(0);
-        continue;
-      }
-      worst = Math.max(worst, Math.abs(THREE.DataUtils.fromHalfFloat(out[k]) - m.data[k]));
+    let worstTrail = 0;
+    for (let c = 0; c < DIST_N * DIST_N; c++) {
+      // At the texel's centre the lookup reads just that texel, as the shader decodes it.
+      sample(((c % DIST_N) + 0.5) / DIST_N, (Math.floor(c / DIST_N) + 0.5) / DIST_N, out);
+      worst = Math.max(worst, Math.abs(out[0] - m.data[c * 4]), Math.abs(out[2] - m.data[c * 4 + 2]));
+      worstTrail = Math.max(worstTrail, Math.abs(out[3] - m.data[c * 4 + 3]));
     }
-    expect(worst).toBeLessThan(1 / 2000);
+    expect(worst).toBeLessThan(1 / 20000);
+    expect(worstTrail).toBeLessThanOrEqual(0.5 / 255 + 1e-9);
   });
 });
 
@@ -163,22 +167,9 @@ describe('leaves over the crawling worm move smoothly (measured frame to frame)'
     const n = D.length;
     const camera = new THREE.PerspectiveCamera(60, 1366 / 768, 0.2, 120);
     const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
-    const halves = new Uint16Array(DIST_N * DIST_N * 4);
-    const values = new Float32Array(halves.length);
-    const sample: MapSampler = (u, v, out) => {
-      const tx = u * DIST_N - 0.5;
-      const tz = v * DIST_N - 0.5;
-      const i = Math.floor(tx);
-      const j = Math.floor(tz);
-      const fx = tx - i;
-      const fz = tz - j;
-      const at = (a: number, b: number, ch: number) =>
-        values[(Math.min(DIST_N - 1, Math.max(0, b)) * DIST_N + Math.min(DIST_N - 1, Math.max(0, a))) * 4 + ch];
-      for (let ch = 0; ch < 4; ch++) {
-        out[ch] = (at(i, j, ch) * (1 - fx) + at(i + 1, j, ch) * fx) * (1 - fz)
-          + (at(i, j + 1, ch) * (1 - fx) + at(i + 1, j + 1, ch) * fx) * fz;
-      }
-    };
+    const near = new Uint8Array(DIST_N * DIST_N * 4);
+    const trail = new Uint8Array(DIST_N * DIST_N * 2);
+    const sample = packedMapSampler(near, trail);
     // Per frame, each vertex's on-screen offset from where it rests (pixels at 1366 x 768): only
     // what the map does to it, not the camera's own motion. NaN: off screen (or out of reach).
     const frames: Float32Array[] = [];
@@ -191,8 +182,7 @@ describe('leaves over the crawling worm move smoothly (measured frame to frame)'
       camera.updateMatrixWorld();
       // As uploadDisturbance packs it, and as the GPU reads it back.
       const m = crawl.disturbance;
-      packDisturbance(m, halves);
-      for (let k = 0; k < halves.length; k++) values[k] = THREE.DataUtils.fromHalfFloat(halves[k]);
+      packDisturbance(m, near, trail);
       const off = new Float32Array(n * 2).fill(NaN);
       for (let v = 0; v < n; v++) {
         if (Math.abs(A[v * 4] - crawl.focus.x) > 4 || Math.abs(A[v * 4 + 1] - crawl.focus.z) > 4) continue;

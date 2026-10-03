@@ -7,10 +7,9 @@
  * - body: nearness to the body as it is now, re-stamped every step (the drape);
  * - trail: how fresh the path is (1 when made, halving every TRAIL_HALF_LIFE).
  * Nearness is linear in distance, so a leaf shader reads back how far a leaf is from the worm,
- * and from the next cells which way. Pure data and math, no WebGL; the renderer packs it into a
- * small texture once per frame.
+ * and from the next cells which way. Pure data and math, no WebGL; the renderer packs it into two
+ * small textures once per frame.
  */
-import { DataUtils } from 'three';
 import type { Vec3 } from '../core/vec';
 
 export const DIST_N = 64;
@@ -176,20 +175,31 @@ export function clearDisturbance(m: DisturbanceMap): void {
   m.data.fill(0);
 }
 
-const half = (v: number): number => DataUtils.toHalfFloat(Math.max(0, Math.min(1, v)));
+const byte = (v: number): number => Math.round(255 * Math.max(0, Math.min(1, v)));
+
+/** Packs v (0..1) as two bytes at out[k] (high) and out[k + 1] (low): v = (hi + lo / 255) / 255. */
+function twoBytes(v: number, out: Uint8Array, k: number): void {
+  const b = 255 * Math.max(0, Math.min(1, v));
+  const hi = Math.floor(b);
+  out[k] = hi;
+  out[k + 1] = Math.round((b - hi) * 255);
+}
 
 /**
- * Packs the map into RGBA half floats for the leaf shaders: R path, G 0, B body, A trail (0..1).
- * Half floats keep nearness to within 1/2048 (under 1 mm of distance); bytes rounded it to 6 mm,
- * and the leaves stepped with it. They filter linearly in WebGL2 core.
+ * Packs the map for the leaf shaders into two byte textures:
+ * - `near` (RGBA, 4 bytes a cell): path and body nearness, two bytes each (R + G / 255 and
+ *   B + A / 255, as 0..1 values), to within 1/65000. One byte each rounded them in 6 mm steps
+ *   that the leaves stepped with. Filtering is linear, so the two bytes filter as one value.
+ * - `trail` (RG, 2 bytes a cell): the trail, and the path again in one byte (for the ground).
+ * (Half floats would hold all three in one texture, but cost 4% fps in the software-rendered gates.)
  */
-export function packDisturbance(m: DisturbanceMap, out: Uint16Array): void {
+export function packDisturbance(m: DisturbanceMap, near: Uint8Array, trail: Uint8Array): void {
   const d = m.data;
-  for (let k = 0; k < d.length; k += K) {
-    out[k] = half(d[k]);
-    out[k + 1] = 0;
-    out[k + 2] = half(d[k + 2]);
-    out[k + 3] = half(d[k + 3]);
+  for (let k = 0, c = 0; k < d.length; k += K, c += 2) {
+    twoBytes(d[k], near, k);
+    twoBytes(d[k + 2], near, k + 2);
+    trail[c] = byte(d[k + 3]);
+    trail[c + 1] = byte(d[k]);
   }
 }
 

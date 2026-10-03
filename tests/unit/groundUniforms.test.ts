@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { DataUtils } from 'three';
 import { groundUniforms, setFocus, uploadDisturbance } from '../../src/render/groundUniforms';
 import { createDisturbance, recentre, stamp, DIST_CELL } from '../../src/surface/disturbance';
 import { createLeafMaterial } from '../../src/render/leafMaterial';
@@ -25,15 +24,15 @@ describe('groundUniforms', () => {
     expect(tex.version).toBeGreaterThan(version);
     expect(groundUniforms.uDistOrigin.value.x).toBeCloseTo(m.ci * DIST_CELL, 12);
     expect(groundUniforms.uDistOrigin.value.y).toBeCloseTo(m.cj * DIST_CELL, 12);
-    expect(Array.from(data as Uint16Array).some((v, k) => k % 4 === 2 && DataUtils.fromHalfFloat(v) > 0.8)).toBe(true);
+    expect(Array.from(data as Uint8Array).some((v, k) => k % 4 === 2 && v > 200)).toBe(true);
   });
 });
 
 describe('createLeafMaterial', () => {
-  it('the floor litter reads the shared disturbance map', () => {
+  it('the floor litter reads the shared disturbance map (both textures)', () => {
     const m = createLeafMaterial();
     expect(m.defines).toHaveProperty('DISTURB');
-    expect(m.uniforms.uDisturb).toBe(groundUniforms.uDisturb);
+    expect(m.uniforms.uDisturbTrail).toBe(groundUniforms.uDisturbTrail);
     expect(m.uniforms.uLightDir).toBe(sharedLighting.uLightDir);
     expect(m.vertexShader).toContain('disturb(wp.xyz, aAnchor');
   });
@@ -85,7 +84,7 @@ describe('the ground', () => {
   it('darkens the soil along a fresh trail from the shared map', () => {
     const m = createPaintedMaterial({ color: '#ffffff', trail: true });
     expect(m.defines).toHaveProperty('TRAIL');
-    expect(m.uniforms.uDisturb).toBe(groundUniforms.uDisturb);
+    expect(m.uniforms.uDisturbTrail).toBe(groundUniforms.uDisturbTrail);
     expect(m.fragmentShader).toContain('trailShade(vPosW.xz)');
     expect(createPaintedMaterial({ color: '#ffffff' }).defines).not.toHaveProperty('TRAIL');
   });

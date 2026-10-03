@@ -1,4 +1,4 @@
-import { DIST_CELL, DIST_REACH, DIST_SPAN } from '../surface/disturbance';
+import { DIST_CELL, DIST_N, DIST_REACH, DIST_SPAN } from '../surface/disturbance';
 import { glslFloat as f } from './glslNumber';
 
 /**
@@ -58,42 +58,51 @@ const C = {
  * of a leaf passes the same one, so the whole leaf moves as one. `dip` is how far this vertex lies
  * below the leaf's rest plane (tilt, curl, uneven ground): a lifted leaf raises those parts to the
  * plane, so every vertex clears the body. Five texture fetches (at the anchor and one cell either
- * side along x and z) give how far the worm's path and body are and which way.
+ * side along x and z) give how far the worm's path and body are and which way, and one more (the
+ * trail texture, at the anchor) how fresh the path is.
  * - Trail: a leaf the worm passed slides out from its path until its near edge clears FURROW_HALF,
  *   easing back as the trail fades.
  * - Drape: a leaf reaching over the body tilts up onto it, its far edge on the litter and its
  *   plane clear of the body (drapeProfile); a leaf centred on the body rests level on top.
  * Skipped (a uniform branch) when leaves do not react (uLeafReact 0), and for leaves outside the
  * 8 m window. `n` (world normal) is tilted to match.
- * Needs uniforms uDisturb (packed by packDisturbance), uDistOrigin and uLeafReact.
+ * Needs uniforms uDisturb and uDisturbTrail (packed by packDisturbance), uDistOrigin and uLeafReact.
  */
 export const DISTURB_GLSL = /* glsl */ `
   uniform sampler2D uDisturb;
+  uniform sampler2D uDisturbTrail;
   uniform vec2 uDistOrigin;
   uniform float uLeafReact;
+  // Path and body nearness at uv, each packed in two bytes (packDisturbance).
+  vec2 nearness(vec2 uv) {
+    vec4 t = texture2D(uDisturb, uv);
+    return t.xz + t.yw * ${f(1 / 255)};
+  }
   vec3 disturb(vec3 p, vec4 anchor, float dip, inout vec3 n) {
     if (uLeafReact < 0.5) return p;
     vec2 uv = (anchor.xy - uDistOrigin) / ${f(C.span)};
     vec2 e = abs(uv - 0.5) * 2.0;
     float edge = 1.0 - smoothstep(0.85, 0.97, max(e.x, e.y));
     if (edge <= 0.0) return p;
-    vec4 c = texture2D(uDisturb, uv);
+    // x: path, y: body nearness; w: the trail.
+    vec2 c = nearness(uv);
+    float w = texture2D(uDisturbTrail, uv).x;
     // Central differences: level on a ridge (the body's or the path's), true slope beside it.
-    vec4 dx = (texture2D(uDisturb, uv + vec2(${f(C.step)}, 0.0)) - texture2D(uDisturb, uv - vec2(${f(C.step)}, 0.0))) * 0.5;
-    vec4 dz = (texture2D(uDisturb, uv + vec2(0.0, ${f(C.step)})) - texture2D(uDisturb, uv - vec2(0.0, ${f(C.step)}))) * 0.5;
+    vec2 dx = (nearness(uv + vec2(${f(C.step)}, 0.0)) - nearness(uv - vec2(${f(C.step)}, 0.0))) * 0.5;
+    vec2 dz = (nearness(uv + vec2(0.0, ${f(C.step)})) - nearness(uv - vec2(0.0, ${f(C.step)}))) * 0.5;
     float r = anchor.z;
 
     vec2 gp = vec2(dx.x, dz.x);
     float lp = length(gp);
     vec2 away = -gp / max(lp, 1e-6);
     float slide = clamp(${f(C.furrow)} + r - (1.0 - c.x) * ${f(C.reach)}, 0.0, ${f(C.slide)})
-      * c.w * smoothstep(0.3, 0.8, lp / ${f(C.even)});
+      * w * smoothstep(0.3, 0.8, lp / ${f(C.even)});
     vec2 move = away * slide;
 
-    vec2 gb = vec2(dx.z, dz.z);
+    vec2 gb = vec2(dx.y, dz.y);
     float lb = length(gb);
     vec2 toBody = gb / max(lb, 1e-6);
-    float db = (1.0 - c.z) * ${f(C.reach)} + max(0.0, -dot(move, toBody));
+    float db = (1.0 - c.y) * ${f(C.reach)} + max(0.0, -dot(move, toBody));
     // The leaf's nearest reach toward the spine (no nearer than the flat top), and the height
     // its plane must clear there, above where the leaf rests.
     float sc = max(${f(C.flat)}, db - r);
@@ -115,8 +124,35 @@ export const DISTURB_GLSL = /* glsl */ `
   }
 `;
 
-/** Bilinear map lookup at texture coordinates (u, v), as the GPU filters it: writes R, G, B, A (0..1). */
+/**
+ * Map lookup at texture coordinates (u, v) as the shader reads it: writes path, 0, body and trail
+ * nearness (0..1), each filtered bilinearly as the GPU filters its texture (packedMapSampler).
+ */
 export type MapSampler = (u: number, v: number, out: number[]) => void;
+
+/**
+ * The MapSampler for the two textures packDisturbance writes (`near` RGBA, `trail` RG, DIST_N
+ * square), clamped at the edges, decoded as DISTURB_GLSL decodes them. For the TS twin and tests.
+ */
+export function packedMapSampler(near: ArrayLike<number>, trail: ArrayLike<number>): MapSampler {
+  return (u, v, out) => {
+    const tx = u * DIST_N - 0.5;
+    const tz = v * DIST_N - 0.5;
+    const i = Math.floor(tx);
+    const j = Math.floor(tz);
+    const fx = tx - i;
+    const fz = tz - j;
+    const cell = (a: number, b: number) => Math.min(DIST_N - 1, Math.max(0, b)) * DIST_N + Math.min(DIST_N - 1, Math.max(0, a));
+    const lerp2 = (at: (c: number) => number) =>
+      (at(cell(i, j)) * (1 - fx) + at(cell(i + 1, j)) * fx) * (1 - fz)
+      + (at(cell(i, j + 1)) * (1 - fx) + at(cell(i + 1, j + 1)) * fx) * fz;
+    const lo = 1 / 255;
+    out[0] = lerp2((c) => near[c * 4] / 255) + lerp2((c) => near[c * 4 + 1] / 255) * lo;
+    out[1] = 0;
+    out[2] = lerp2((c) => near[c * 4 + 2] / 255) + lerp2((c) => near[c * 4 + 3] / 255) * lo;
+    out[3] = lerp2((c) => trail[c * 2] / 255);
+  };
+}
 
 const smooth = (a: number, b: number, v: number): number => {
   const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
@@ -183,18 +219,19 @@ export function disturbVertex(
  * (so its filtering never depends on neighbouring pixels' branches); none when leaves do not react.
  */
 export const TRAIL_GROUND_GLSL = /* glsl */ `
-  uniform sampler2D uDisturb;
+  uniform sampler2D uDisturbTrail;
   uniform vec2 uDistOrigin;
   uniform float uLeafReact;
   float trailShade(vec2 xz) {
     if (uLeafReact < 0.5) return 1.0;
     vec2 uv = (xz - uDistOrigin) / ${f(C.span)};
-    vec4 d = texture2D(uDisturb, uv);
+    // x: the trail, y: the path (one byte is plenty for the band).
+    vec4 d = texture2D(uDisturbTrail, uv);
     vec2 e = abs(uv - 0.5) * 2.0;
     float edge = 1.0 - smoothstep(0.85, 0.97, max(e.x, e.y));
-    float s = (1.0 - d.x) * ${f(C.reach)};
+    float s = (1.0 - d.y) * ${f(C.reach)};
     float band = 1.0 - smoothstep(${f(FURROW_HALF - 0.06)}, ${f(FURROW_HALF + 0.04)}, s);
-    return 1.0 - ${f(TRAIL_DARKEN)} * band * d.w * max(edge, 0.0);
+    return 1.0 - ${f(TRAIL_DARKEN)} * band * d.x * max(edge, 0.0);
   }
 `;
 

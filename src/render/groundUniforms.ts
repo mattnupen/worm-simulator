@@ -4,12 +4,19 @@ import { DIST_N, DIST_CELL, packDisturbance, type DisturbanceMap } from '../surf
 /** Spine points the shaders read: the worm's segments, head first. */
 export const SPINE_POINTS = 16;
 
-// An empty map packs to all zeros (half float 0 is 0).
-const distHalves = new Uint16Array(DIST_N * DIST_N * 4);
-const distTexture = new THREE.DataTexture(distHalves, DIST_N, DIST_N, THREE.RGBAFormat, THREE.HalfFloatType);
-distTexture.magFilter = THREE.LinearFilter;
-distTexture.minFilter = THREE.LinearFilter;
-distTexture.needsUpdate = true;
+function mapTexture(data: Uint8Array, format: THREE.PixelFormat): THREE.DataTexture {
+  const t = new THREE.DataTexture(data, DIST_N, DIST_N, format, THREE.UnsignedByteType);
+  t.magFilter = THREE.LinearFilter;
+  t.minFilter = THREE.LinearFilter;
+  t.needsUpdate = true;
+  return t;
+}
+
+// An empty map packs to all zeros.
+const nearBytes = new Uint8Array(DIST_N * DIST_N * 4);
+const trailBytes = new Uint8Array(DIST_N * DIST_N * 2);
+const nearTexture = mapTexture(nearBytes, THREE.RGBAFormat);
+const trailTexture = mapTexture(trailBytes, THREE.RGFormat);
 
 /**
  * Uniforms shared by reference by every leaf material (and the near clutter): where the worm
@@ -20,8 +27,10 @@ export const groundUniforms = {
   uFocus: { value: new THREE.Vector3() },
   /** uFocus snapped to the 1 m grid: the centre the near-worm layers wrap around. */
   uWrapCentre: { value: new THREE.Vector2() },
-  /** The disturbance map, packed by packDisturbance. */
-  uDisturb: { value: distTexture },
+  /** The disturbance map, packed by packDisturbance: path and body nearness (two bytes each)... */
+  uDisturb: { value: nearTexture },
+  /** ...and the trail, with the path again in one byte. */
+  uDisturbTrail: { value: trailTexture },
   /** World x, z of the disturbance grid's corner. */
   uDistOrigin: { value: new THREE.Vector2(-DIST_N * DIST_CELL / 2, -DIST_N * DIST_CELL / 2) },
   /** The worm's rendered spine (x, y, z per point, head first): the near clutter keeps clear of it. */
@@ -54,9 +63,10 @@ export function setSpine(spine: Float32Array): void {
   groundUniforms.uSpine.value.set(spine);
 }
 
-/** The one per-frame texture upload: 32 KB into the same texture, no reallocation. */
+/** The per-frame upload: 16 KB and 8 KB into the same two textures, no reallocation. */
 export function uploadDisturbance(m: DisturbanceMap): void {
-  packDisturbance(m, distHalves);
-  distTexture.needsUpdate = true;
+  packDisturbance(m, nearBytes, trailBytes);
+  nearTexture.needsUpdate = true;
+  trailTexture.needsUpdate = true;
   groundUniforms.uDistOrigin.value.set(m.ci * DIST_CELL, m.cj * DIST_CELL);
 }
