@@ -4,9 +4,9 @@ import { DIST_N, DIST_CELL, packDisturbance, type DisturbanceMap } from '../surf
 /** Spine points the shaders read: the worm's segments, head first. */
 export const SPINE_POINTS = 16;
 
-// An empty map packs to all zeros.
-const distBytes = new Uint8Array(DIST_N * DIST_N * 4);
-const distTexture = new THREE.DataTexture(distBytes, DIST_N, DIST_N, THREE.RGBAFormat, THREE.UnsignedByteType);
+// An empty map packs to all zeros (half float 0 is 0).
+const distHalves = new Uint16Array(DIST_N * DIST_N * 4);
+const distTexture = new THREE.DataTexture(distHalves, DIST_N, DIST_N, THREE.RGBAFormat, THREE.HalfFloatType);
 distTexture.magFilter = THREE.LinearFilter;
 distTexture.minFilter = THREE.LinearFilter;
 distTexture.needsUpdate = true;
@@ -54,9 +54,9 @@ export function setSpine(spine: Float32Array): void {
   groundUniforms.uSpine.value.set(spine);
 }
 
-/** The one per-frame texture upload: 16 KB into the same texture, no reallocation. */
+/** The one per-frame texture upload: 32 KB into the same texture, no reallocation. */
 export function uploadDisturbance(m: DisturbanceMap): void {
-  packDisturbance(m, distBytes);
+  packDisturbance(m, distHalves);
   distTexture.needsUpdate = true;
   groundUniforms.uDistOrigin.value.set(m.ci * DIST_CELL, m.cj * DIST_CELL);
 }

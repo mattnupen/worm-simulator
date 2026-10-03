@@ -14,7 +14,7 @@ import { buildDetailLeaves } from '../../src/surface/detailLeaves';
 import { buildNearClutter } from '../../src/surface/nearClutter';
 import { wrapAround } from '../../src/render/wrap';
 import {
-  createDisturbance, recentre, stamp, decay, packDisturbance, DIST_N, DIST_CELL,
+  createDisturbance, recentre, stampBody, decay, packDisturbance, DIST_N, DIST_CELL,
 } from '../../src/surface/disturbance';
 
 /**
@@ -42,24 +42,21 @@ function worm(hx: number, hz: number, yaw: number, curve: number): Case {
   }
   const m = createDisturbance();
   recentre(m, pts[7][0], pts[7][1]);
-  const pass = (dx: number, dz: number) => {
-    for (let k = 0; k <= 2 * (n - 1); k++) {
-      const i = k >> 1;
-      const j = Math.min(n - 1, i + (k & 1));
-      stamp(m, (pts[i][0] + pts[j][0]) / 2 + dx, (pts[i][1] + pts[j][1]) / 2 + dz, 1);
-    }
-  };
+  const under = new Float32Array(n).fill(1);
+  // Stamped as the crawl stamps it (the segments joining the body points).
+  const pass = (dx: number, dz: number) => stampBody(m, pts.map(([x, z]) => ({ x: x + dx, y: 0, z: z + dz })), under);
   // An older, fading trail beside the body, so the slide is exercised too.
   pass(0.4, -0.3);
   for (let t = 0; t < 120; t++) decay(m, 1 / 60);
   pass(0, 0);
-  const bytes = new Uint8Array(DIST_N * DIST_N * 4);
-  packDisturbance(m, bytes);
+  const halves = new Uint16Array(DIST_N * DIST_N * 4);
+  packDisturbance(m, halves);
   // The head a little off the 1 m snap, so the wrap centre and the focus differ.
-  return { focus: [hx + 0.13, hz - 0.27], dist: Array.from(bytes), origin: [m.ci * DIST_CELL, m.cj * DIST_CELL] };
+  return { focus: [hx + 0.13, hz - 0.27], dist: Array.from(halves), origin: [m.ci * DIST_CELL, m.cj * DIST_CELL] };
 }
 
-function samplerOf(bytes: number[]): MapSampler {
+/** Bilinear lookup of the packed map (half floats), as the GPU filters it. */
+function samplerOf(halves: number[]): MapSampler {
   return (u, v, out) => {
     const tx = u * DIST_N - 0.5;
     const tz = v * DIST_N - 0.5;
@@ -68,7 +65,7 @@ function samplerOf(bytes: number[]): MapSampler {
     const fx = tx - i;
     const fz = tz - j;
     const at = (a: number, b: number, ch: number) =>
-      bytes[(Math.min(DIST_N - 1, Math.max(0, b)) * DIST_N + Math.min(DIST_N - 1, Math.max(0, a))) * 4 + ch] / 255;
+      THREE.DataUtils.fromHalfFloat(halves[(Math.min(DIST_N - 1, Math.max(0, b)) * DIST_N + Math.min(DIST_N - 1, Math.max(0, a))) * 4 + ch]);
     for (let ch = 0; ch < 4; ch++) {
       out[ch] = (at(i, j, ch) * (1 - fx) + at(i + 1, j, ch) * fx) * (1 - fz)
         + (at(i, j + 1, ch) * (1 - fx) + at(i + 1, j + 1, ch) * fx) * fz;
@@ -149,7 +146,7 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
       return t;
     };
     // As three uploads them: the maps filtered, the ground read texel by texel.
-    const dist = tex(0, gl.RGBA8, 64, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(64 * 64 * 4), gl.LINEAR);
+    const dist = tex(0, gl.RGBA16F, 64, gl.RGBA, gl.HALF_FLOAT, new Uint16Array(64 * 64 * 4), gl.LINEAR);
     tex(1, gl.RGBA8, litterN, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(litter), gl.LINEAR);
     tex(2, gl.R32F, groundN, gl.RED, gl.FLOAT, new Float32Array(ground), gl.NEAREST);
     const U = (name: string) => gl.getUniformLocation(pr, name);
@@ -172,7 +169,7 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
     return cases.map((c) => {
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, dist);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(c.dist));
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 64, 64, gl.RGBA, gl.HALF_FLOAT, new Uint16Array(c.dist));
       gl.uniform2f(U('uDistOrigin'), c.origin[0], c.origin[1]);
       gl.uniform3f(U('uFocus'), c.focus[0], 0, c.focus[1]);
       gl.uniform2f(U('uWrapCentre'), Math.round(c.focus[0]), Math.round(c.focus[1]));

@@ -107,7 +107,7 @@ function reachesStrip(near: number, swing: number, a: number, b: number): boolea
  * body it must not come down into another. `held`: the leaf already lies over the body, so
  * every body point under it keeps it up (a worm climbing out of the litter carries it, rather
  * than rising through it). Returns the tilt direction (radians; the leaf tips down toward
- * (sin, cos) of it, away from the nearest body point), or NaN when the leaf does not go over.
+ * (sin, cos) of it, away from the nearest point of the spine), or NaN when the leaf does not go over.
  */
 export function overBody(
   x: number, z: number, size: number, kind: number, yaw: number, flip: number, surf: number,
@@ -135,6 +135,28 @@ export function overBody(
   }
   lines = 0;
   if (!over) return NaN;
+  // Away from the nearest point of the spine itself (the stretches joining linked body points),
+  // not the nearest body point: as the body glides along under the leaf, the nearest of points
+  // 11 cm apart keeps changing, and the tilt swung with it every step (jitter).
+  for (let k = 0; k + 1 < count; k++) {
+    const o = k * PUSHER_STRIDE;
+    const q = o + PUSHER_STRIDE;
+    if (!linked(pushers, o, q)) continue;
+    const ex = pushers[q] - pushers[o];
+    const ez = pushers[q + 1] - pushers[o + 1];
+    const dx = x - pushers[o];
+    const dz = z - pushers[o + 1];
+    const len2 = ex * ex + ez * ez;
+    const t = len2 > 0 ? Math.min(1, Math.max(0, (dx * ex + dz * ez) / len2)) : 0;
+    const px = dx - ex * t;
+    const pz = dz - ez * t;
+    const d2 = px * px + pz * pz;
+    if (d2 < best) {
+      best = d2;
+      bx = px;
+      bz = pz;
+    }
+  }
   const dir = best > 1e-8 ? Math.atan2(bx, bz) : prevDir;
   const ux = Math.sin(dir);
   const uz = Math.cos(dir);

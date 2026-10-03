@@ -12,7 +12,7 @@ import {
 import { probeReach, type HeadProbe } from '../worm/wormShape';
 import { bellyHeight, litterTop, wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import {
-  createDisturbance, recentre, stamp, decay, clearDisturbance, type DisturbanceMap,
+  createDisturbance, recentre, stampBody, decay, clearDisturbance, type DisturbanceMap,
 } from '../surface/disturbance';
 import {
   clearHeroLeaves, createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
@@ -167,18 +167,13 @@ export class Crawl {
     }
   }
 
-  /** Stamps the body into the disturbance map: every segment and the midpoints between them. */
+  /** Stamps the body into the disturbance map: the segments joining its body points. */
   private disturbLeaves(dt: number): void {
     const m = this.disturbance;
     const b = this.body;
     decay(m, dt);
     recentre(m, b[MAP_CENTRE].x, b[MAP_CENTRE].z);
-    const last = b.length - 1;
-    for (let k = 0; k <= 2 * last; k++) {
-      const i = k >> 1;
-      const j = Math.min(last, i + (k & 1));
-      stamp(m, (b[i].x + b[j].x) / 2, (b[i].z + b[j].z) / 2, (this.under[i] + this.under[j]) / 2);
-    }
+    stampBody(m, b, this.under);
     this.disturbed = true;
   }
 

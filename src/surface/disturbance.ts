@@ -10,6 +10,9 @@
  * and from the next cells which way. Pure data and math, no WebGL; the renderer packs it into a
  * small texture once per frame.
  */
+import { DataUtils } from 'three';
+import type { Vec3 } from '../core/vec';
+
 export const DIST_N = 64;
 export const DIST_SPAN = 8;
 export const DIST_CELL = DIST_SPAN / DIST_N;
@@ -93,26 +96,38 @@ export function recentre(m: DisturbanceMap, x: number, z: number): void {
 }
 
 /**
- * Stamps one body point at (x, z): nearer cells get its body nearness (the drape) and, where it is
- * the nearest path yet, its path nearness and a fresh trail. A cell nearer an older path keeps that
- * path and its fading trail. `under` 1 is a segment under the leaves; on top (0) it reaches less
- * far, as if ON_TOP_DISTANCE away. Values only rise, so stamping twice is the same as once.
+ * Stamps one stretch of body, the segment from (ax, az) to (bx, bz): every cell gets its nearness
+ * to the nearest point of that segment (the drape) and, where it is the nearest path yet, that as
+ * its path nearness and a fresh trail. A cell nearer an older path keeps that path and its fading
+ * trail. `ua`, `ub`: how far under the leaves each end is (1 under, 0 on top), blended along the
+ * segment; on top it reaches less far, as if ON_TOP_DISTANCE away. Measured to the segment, not to
+ * points along it, so a body gliding along its own line leaves the nearness beside it level
+ * (points 11 cm apart scalloped it, and the leaves over it jittered). Values only rise, so
+ * stamping twice is the same as once.
  */
-export function stamp(m: DisturbanceMap, x: number, z: number, under: number): void {
+export function stampSegment(
+  m: DisturbanceMap, ax: number, az: number, bx: number, bz: number, ua: number, ub: number,
+): void {
   const d = m.data;
-  const off = (1 - under) * ON_TOP_DISTANCE;
-  const range = DIST_REACH - off;
+  const range = DIST_REACH - (1 - Math.max(ua, ub)) * ON_TOP_DISTANCE;
   if (range <= 0) return;
-  const reach = Math.ceil(range / DIST_CELL);
-  const i0 = Math.floor(x / DIST_CELL) - m.ci;
-  const j0 = Math.floor(z / DIST_CELL) - m.cj;
-  for (let j = Math.max(0, j0 - reach); j <= Math.min(DIST_N - 1, j0 + reach); j++) {
-    const cz = (m.cj + j + 0.5) * DIST_CELL - z;
-    for (let i = Math.max(0, i0 - reach); i <= Math.min(DIST_N - 1, i0 + reach); i++) {
-      const cx = (m.ci + i + 0.5) * DIST_CELL - x;
-      const d2 = cx * cx + cz * cz;
-      if (d2 >= range * range) continue;
-      const near = 1 - (Math.sqrt(d2) + off) / DIST_REACH;
+  const i0 = Math.max(0, Math.floor((Math.min(ax, bx) - range) / DIST_CELL) - m.ci);
+  const i1 = Math.min(DIST_N - 1, Math.floor((Math.max(ax, bx) + range) / DIST_CELL) - m.ci);
+  const j0 = Math.max(0, Math.floor((Math.min(az, bz) - range) / DIST_CELL) - m.cj);
+  const j1 = Math.min(DIST_N - 1, Math.floor((Math.max(az, bz) + range) / DIST_CELL) - m.cj);
+  const ex = bx - ax;
+  const ez = bz - az;
+  const len2 = ex * ex + ez * ez;
+  for (let j = j0; j <= j1; j++) {
+    const cz = (m.cj + j + 0.5) * DIST_CELL - az;
+    for (let i = i0; i <= i1; i++) {
+      const cx = (m.ci + i + 0.5) * DIST_CELL - ax;
+      const t = len2 > 0 ? Math.min(1, Math.max(0, (cx * ex + cz * ez) / len2)) : 0;
+      const px = cx - ex * t;
+      const pz = cz - ez * t;
+      const off = (1 - (ua + (ub - ua) * t)) * ON_TOP_DISTANCE;
+      const near = 1 - (Math.sqrt(px * px + pz * pz) + off) / DIST_REACH;
+      if (near <= 0) continue;
       const k = (j * DIST_N + i) * K;
       if (near > d[k + 2]) d[k + 2] = near;
       if (near >= d[k]) {
@@ -120,6 +135,21 @@ export function stamp(m: DisturbanceMap, x: number, z: number, under: number): v
         d[k + 3] = 1;
       }
     }
+  }
+}
+
+/** Stamps one body point at (x, z): a segment of no length (see stampSegment). */
+export function stamp(m: DisturbanceMap, x: number, z: number, under: number): void {
+  stampSegment(m, x, z, x, z, under, under);
+}
+
+/**
+ * Stamps the whole body: the segments joining consecutive body points (x, z of each, in order),
+ * each end as far under the leaves as `under` says for that point.
+ */
+export function stampBody(m: DisturbanceMap, body: readonly Vec3[], under: ArrayLike<number>): void {
+  for (let i = 0; i + 1 < body.length; i++) {
+    stampSegment(m, body[i].x, body[i].z, body[i + 1].x, body[i + 1].z, under[i], under[i + 1]);
   }
 }
 
@@ -146,16 +176,20 @@ export function clearDisturbance(m: DisturbanceMap): void {
   m.data.fill(0);
 }
 
-const byte = (v: number): number => Math.round(255 * Math.max(0, Math.min(1, v)));
+const half = (v: number): number => DataUtils.toHalfFloat(Math.max(0, Math.min(1, v)));
 
-/** Packs the map into RGBA bytes for the leaf shaders: R path, G 0, B body, A trail (0..255). */
-export function packDisturbance(m: DisturbanceMap, out: Uint8Array): void {
+/**
+ * Packs the map into RGBA half floats for the leaf shaders: R path, G 0, B body, A trail (0..1).
+ * Half floats keep nearness to within 1/2048 (under 1 mm of distance); bytes rounded it to 6 mm,
+ * and the leaves stepped with it. They filter linearly in WebGL2 core.
+ */
+export function packDisturbance(m: DisturbanceMap, out: Uint16Array): void {
   const d = m.data;
   for (let k = 0; k < d.length; k += K) {
-    out[k] = byte(d[k]);
+    out[k] = half(d[k]);
     out[k + 1] = 0;
-    out[k + 2] = byte(d[k + 2]);
-    out[k + 3] = byte(d[k + 3]);
+    out[k + 2] = half(d[k + 2]);
+    out[k + 3] = half(d[k + 3]);
   }
 }
 

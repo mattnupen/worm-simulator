@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { DataUtils } from 'three';
 import { groundUniforms, setFocus, uploadDisturbance } from '../../src/render/groundUniforms';
 import { createDisturbance, recentre, stamp, DIST_CELL } from '../../src/surface/disturbance';
 import { createLeafMaterial } from '../../src/render/leafMaterial';
@@ -24,7 +25,7 @@ describe('groundUniforms', () => {
     expect(tex.version).toBeGreaterThan(version);
     expect(groundUniforms.uDistOrigin.value.x).toBeCloseTo(m.ci * DIST_CELL, 12);
     expect(groundUniforms.uDistOrigin.value.y).toBeCloseTo(m.cj * DIST_CELL, 12);
-    expect(Array.from(data as Uint8Array).some((v, k) => k % 4 === 2 && v > 200)).toBe(true);
+    expect(Array.from(data as Uint16Array).some((v, k) => k % 4 === 2 && DataUtils.fromHalfFloat(v) > 0.8)).toBe(true);
   });
 });
 
