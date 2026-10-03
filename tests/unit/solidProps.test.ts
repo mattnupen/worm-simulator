@@ -43,24 +43,39 @@ describe.each(SCALE_MODES)('%s: trunks, rocks and the log are solid', (mode) => 
   }, 60_000);
 
   it('slides along an edge instead of stopping dead', () => {
-    // Head for a point just past the log's far side, at a slant: the worm meets the log and slides.
+    // Head for a point just past the log's far side, at a slant: the worm meets the log and slides
+    // along it, staying on its own side.
     const { log } = footprints();
     const c = new Crawl();
     const tx = log.x - log.dz * (log.r + 3) + log.dx * 2;
     const tz = log.z + log.dx * (log.r + 3) + log.dz * 2;
+    /** Where (x, z) lies along the log's axis, and across it (negative: the spawn's side). */
+    const along = (x: number, z: number) => (x - log.x) * log.dx + (z - log.z) * log.dz;
+    const across = (x: number, z: number) => -(x - log.x) * log.dz + (z - log.z) * log.dx;
+    let side = across(c.motion.head.x, c.motion.head.z);
+    expect(side).toBeLessThan(0);
     let touching = 0;
     let slid = 0;
-    let last = { x: c.motion.head.x, z: c.motion.head.z };
+    let lastAlong = along(c.motion.head.x, c.motion.head.z);
     driveTo(c, tx, tz, 1500, (cc) => {
       const h = cc.motion.head;
-      if (obstacleDepth(h.x, h.z, BODY_RADIUS + 0.01, hit) > 0) {
+      const t = along(h.x, h.z);
+      // The head only gets to the log's far side around one of its ends, never across it.
+      const now = across(h.x, h.z);
+      if ((now < 0) !== (side < 0)) expect(Math.abs(t)).toBeGreaterThan(log.half);
+      side = now;
+      const tc = Math.max(-log.half, Math.min(log.half, t));
+      const gap = Math.hypot(h.x - (log.x + log.dx * tc), h.z - (log.z + log.dz * tc)) - log.r - BODY_RADIUS;
+      if (gap < 0.01) {
+        // Against the log: never in it, and still moving along it.
+        expect(obstacleDepth(h.x, h.z, BODY_RADIUS, hit)).toBeLessThanOrEqual(1e-9);
         touching++;
-        slid += Math.hypot(h.x - last.x, h.z - last.z);
+        slid += t - lastAlong;
       }
-      last = { x: h.x, z: h.z };
+      lastAlong = t;
     });
     expect(touching).toBeGreaterThan(10);
-    // While against the log it still moves (it steers into it, so it slides slower than it crawls).
+    // While against the log it still moves along it (it steers into it, so it slides slower than it crawls).
     expect(slid / (touching * DT)).toBeGreaterThan(0.15 * LOCOMOTION.speed);
   });
 
