@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { GraphicsControl } from '../../src/game/graphicsControl';
 import { SETTINGS_KEY, type KeyValueStore } from '../../src/save/settingsStore';
+import { DEFAULT_SCALE } from '../../src/surface/worldScale';
 import type { GraphicsChoice } from '../../src/render/graphics';
 
 function memory(initial?: object): KeyValueStore & { data: Record<string, string> } {
@@ -54,7 +55,7 @@ describe('GraphicsControl', () => {
     g.choose('ultra');
     expect(g.choice).toBe('ultra');
     expect(g.active).toBe('ultra');
-    expect(saved(store)).toEqual({ version: 1, graphics: 'ultra', autoSettled: null });
+    expect(saved(store)).toEqual({ version: 1, graphics: 'ultra', autoSettled: null, scale: DEFAULT_SCALE });
     expect(slow(g, 0, 10_000, 5)).toBeGreaterThan(0);
     expect(g.active).toBe('ultra');
   });
@@ -132,7 +133,7 @@ describe('GraphicsControl', () => {
     const g = new GraphicsControl(store, null);
     g.useRecommended('low');
     expect(g.choice).toBe('low');
-    expect(saved(store)).toEqual({ version: 1, graphics: 'low', autoSettled: null });
+    expect(saved(store)).toEqual({ version: 1, graphics: 'low', autoSettled: null, scale: DEFAULT_SCALE });
   });
 
   it('keeps working for the session when storage throws', () => {

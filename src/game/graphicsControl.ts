@@ -2,7 +2,7 @@ import {
   AutoGraphics, autoSessionStart, isChoice, type GraphicsChoice, type PresetId,
 } from '../render/graphics';
 import { FPS_WINDOW_MS } from '../render/fps';
-import { loadSettings, saveSettings, type KeyValueStore, type Settings } from '../save/settingsStore';
+import { loadSettings, updateSettings, type KeyValueStore, type Settings } from '../save/settingsStore';
 
 /**
  * Which preset is active: a forced `?preset=` (benchmarks, never saved), the player's menu
@@ -40,7 +40,7 @@ export class GraphicsControl {
     this.forced = null;
     this.settings = { ...this.settings, graphics: choice };
     if (choice === 'auto') this.auto = new AutoGraphics(this.settings.autoSettled);
-    saveSettings(this.store, this.settings);
+    updateSettings(this.store, { graphics: choice });
   }
 
   /** The speed test's "Use recommended setting": saves the preset and turns Auto off. */
@@ -57,7 +57,7 @@ export class GraphicsControl {
     if (nowMs < this.feedFrom) return false;
     if (!this.auto.update(nowMs, fps)) return false;
     this.settings = { ...this.settings, autoSettled: this.auto.preset };
-    saveSettings(this.store, this.settings);
+    updateSettings(this.store, { autoSettled: this.auto.preset });
     return true;
   }
 

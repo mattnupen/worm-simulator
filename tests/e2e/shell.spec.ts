@@ -141,7 +141,7 @@ test('a chosen preset (picked with the arrow keys) is still selected after a rel
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
   await expect(radio(page, 'High')).toBeChecked();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
-  expect(saved).toEqual({ version: 1, graphics: 'high', autoSettled: null });
+  expect(saved).toMatchObject({ version: 1, graphics: 'high', autoSettled: null });
 
   await page.reload();
   await page.keyboard.press('Tab');
