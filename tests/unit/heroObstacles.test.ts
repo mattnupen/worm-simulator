@@ -33,6 +33,15 @@ function besideOf(x: number, z: number, r: number): { x: number; z: number } {
   throw new Error(`no free spot beside (${x}, ${z})`);
 }
 
+/** Pairs of active hero leaves (nearly) on one spot: stacked, not spread out. */
+function coincidentPairs(p: { count: number; x: Float32Array; z: Float32Array }): number {
+  let n = 0;
+  for (let i = 0; i < p.count; i++) {
+    for (let j = i + 1; j < p.count; j++) if (Math.hypot(p.x[i] - p.x[j], p.z[i] - p.z[j]) < 0.05) n++;
+  }
+  return n;
+}
+
 afterAll(() => { setScale(DEFAULT_SCALE); });
 
 describe.each(SCALE_MODES)('%s: hero leaves and trunks, rocks and the log', (mode) => {
@@ -85,12 +94,15 @@ describe.each(SCALE_MODES)('%s: hero leaves and trunks, rocks and the log', (mod
     expect(obstacleDepth(p.x[0], p.z[0], pad(p), hit)).toBeLessThanOrEqual(0);
   });
 
-  it('new and recycled leaves land clear of trunks, rocks and the log', () => {
+  it('new and recycled leaves land clear of trunks, rocks and the log, and not on one another', () => {
     const log = heroLog();
     const sites = [
       ...treeSites().map((t) => besideOf(t.x, t.z, trunkFootOf(t))),
       ...rocks().map((k) => besideOf(k.x, k.z, k.size * ROCK_FOOT)),
       besideOf(log.x, log.z, log.radius * LOG_FOOT),
+      // Squeezed between big footprints in True (a rock and a maple's root flare): every spawn
+      // spot tried can be inside one, so the leaves fall back to the ring search.
+      { x: 3.2, z: -7.0 },
     ];
     let checked = 0;
     for (const { x, z } of sites) {
@@ -100,6 +112,7 @@ describe.each(SCALE_MODES)('%s: hero leaves and trunks, rocks and the log', (mod
         const pd = OBSTACLE_PAD * p.size[i] * LEAF_REACH[p.kind[i]];
         expect(obstacleDepth(p.x[i], p.z[i], pd, hit)).toBeLessThanOrEqual(0);
       }
+      expect(coincidentPairs(p), `stacked at (${x}, ${z}) after spawning`).toBe(0);
       // Every leaf left far behind: each is recycled ahead of the head, which faces the obstacle.
       for (let i = 0; i < p.count; i++) p.x[i] = x + 10;
       stepHeroLeaves(p, DT, NONE, 0, x, z, -Math.PI / 2, flat);
@@ -108,6 +121,7 @@ describe.each(SCALE_MODES)('%s: hero leaves and trunks, rocks and the log', (mod
         expect(obstacleDepth(p.x[i], p.z[i], pd, hit)).toBeLessThanOrEqual(0);
         checked++;
       }
+      expect(coincidentPairs(p), `stacked at (${x}, ${z}) after a recycle`).toBe(0);
     }
     expect(checked).toBeGreaterThan(80);
   });

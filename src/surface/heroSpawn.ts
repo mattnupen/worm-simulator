@@ -7,8 +7,10 @@ import {
 
 /** Where hero leaves appear: free spots near the head, clear of each other and of the body. */
 
-/** Two hero leaves start no closer than this. */
+/** Two hero leaves start no closer than this... */
 const SPACING = 0.6;
+/** ...and where they must start closer, nearer than this counts as on top of another leaf. */
+const STACKED = 0.15;
 /** No body: for placing leaves with nothing to keep clear of. */
 const NO_BODY = new Float32Array(0);
 /** A new leaf lands at least this far (m) beyond the body's side and its own reach. */
@@ -39,6 +41,19 @@ function freeSpot(x: number, z: number, clear0: number, pushers: Float32Array, c
   return true;
 }
 
+/** Squared distance from (x, z) to the nearest active leaf other than slot i (Infinity if none). */
+function nearestLeaf2(p: HeroLeaves, i: number, x: number, z: number): number {
+  let best = Infinity;
+  for (let j = 0; j < p.count; j++) {
+    if (j === i) continue;
+    const dx = p.x[j] - x;
+    const dz = p.z[j] - z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < best) best = d2;
+  }
+  return best;
+}
+
 /**
  * Moves slot i to a free spot: around the head (`around`) or ahead of it, inside the playable
  * world, clear of the other leaves, of trunks, rocks and the log, and of the body (`count`
@@ -55,13 +70,15 @@ export function respawn(
   const clear0 = p.size[i] * LEAF_REACH[p.kind[i]];
   let x = hx;
   let z = hz;
-  // A spot clear of the body but crowded by other leaves, if no spot is clear of both.
+  // If no spot is clear of both the body and the other leaves: the spot clear of the body that
+  // is farthest from its nearest leaf (so leaves crowded together still do not stack).
   let fx2 = NaN;
   let fz2 = NaN;
+  let far2 = -1;
   let onBody = false;
   let found = false;
   for (let c = 0; c < 8 && !found; c++) {
-    // Crowded by other leaves only: the last spot ahead will do.
+    // Crowded by other leaves only: the least crowded spot ahead will do.
     if (c === 4 && !onBody) break;
     const n = p.spawned * 4 + (c & 3) + (c >> 2) * 0x10000;
     const h1 = hash01(n, p.seed);
@@ -84,42 +101,52 @@ export function respawn(
       onBody = true;
       continue;
     }
-    if (fx2 !== fx2) {
+    const d2 = nearestLeaf2(p, i, x, z);
+    found = d2 >= SPACING * SPACING;
+    if (!found && d2 > far2) {
+      far2 = d2;
       fx2 = x;
       fz2 = z;
     }
-    found = true;
-    for (let j = 0; j < p.count && found; j++) {
-      if (j === i) continue;
-      const dx = p.x[j] - x;
-      const dz = p.z[j] - z;
-      if (Math.sqrt(dx * dx + dz * dz) < SPACING) found = false;
-    }
   }
-  if (!found && onBody && fx2 === fx2) {
+  if (!found && fx2 === fx2) {
     x = fx2;
     z = fz2;
   }
   // Every spot tried can lie in one big footprint (a True-scale trunk is wider than the spawn
-  // ring): look round the head, ring by ring, for the nearest spot off it and off the body. Only
-  // when there is none (never seen) does the leaf land at the head, which the worm keeps clear of
-  // every footprint.
-  if (obstacleDepth(x, z, OBSTACLE_PAD * clear0, hit) > 0) {
-    let free = false;
-    for (let ring = 1; ring <= RINGS && !free; ring++) {
-      for (let a = 0; a < RING_SPOTS && !free; a++) {
-        const ang = ((a + ring * 0.5) / RING_SPOTS) * Math.PI * 2;
+  // ring), or, where few spots are free (the world's edge, crowded by big props), the best of them
+  // can be on top of another leaf: look round the head, ring by ring, for the nearest spot off
+  // the footprints, off the body and SPACING from the other leaves, else the least crowded such
+  // spot. Each leaf starts the rings at its own angle, so leaves falling back together spread out
+  // instead of stacking. Only when no spot is off the footprints and the body (never seen) does a
+  // leaf in a footprint land at the head, which the worm keeps clear of every footprint.
+  const inProp = obstacleDepth(x, z, OBSTACLE_PAD * clear0, hit) > 0;
+  // How near the spot is to another leaf (Infinity: spaced, or no try was off the body).
+  const crowd2 = found || far2 < 0 ? Infinity : far2;
+  if (inProp || crowd2 < STACKED * STACKED) {
+    const turn = hash01(p.spawned, p.seed + 17) * RING_SPOTS;
+    let rx = hx;
+    let rz = hz;
+    let rfar2 = -1;
+    let spaced = false;
+    for (let ring = 1; ring <= RINGS && !spaced; ring++) {
+      for (let a = 0; a < RING_SPOTS && !spaced; a++) {
+        const ang = ((a + ring * 0.5 + turn) / RING_SPOTS) * Math.PI * 2;
         const sx = clamp(hx + Math.cos(ang) * ring * RING_STEP, PLAY_HALF);
         const sz = clamp(hz + Math.sin(ang) * ring * RING_STEP, PLAY_HALF);
         if (!freeSpot(sx, sz, clear0, pushers, count)) continue;
-        x = sx;
-        z = sz;
-        free = true;
+        const d2 = nearestLeaf2(p, i, sx, sz);
+        spaced = d2 >= SPACING * SPACING;
+        if (d2 > rfar2) {
+          rfar2 = d2;
+          rx = sx;
+          rz = sz;
+        }
       }
     }
-    if (!free) {
-      x = hx;
-      z = hz;
+    if (inProp || rfar2 > crowd2) {
+      x = rx;
+      z = rz;
     }
   }
   const h3 = hash01(p.spawned, p.seed + 13);

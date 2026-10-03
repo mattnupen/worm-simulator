@@ -112,6 +112,20 @@ describe('the bigger modes keep the spawn\'s straight run clear of trunks', () =
       expect(Math.hypot(t.x - nx, t.z - nz)).toBeGreaterThan(trunkFootOf(t) + PATH_CLEARANCE);
     }
   });
+
+  // Classic gets a narrower check: its Step 1a maple at (1.92, 8.27) reaches about 0.28 into the
+  // corridor's far corner, and Classic must stay byte-for-byte Step 1a, so the tree cannot move.
+  // What matters is the line the worm actually runs (x near 0, the whole corridor's length):
+  // no footprint, grown by the body's half-width plus slack, reaches it.
+  it('classic: no footprint reaches the straight line the worm runs', () => {
+    setScale('classic');
+    const BODY_PAD = 0.5;
+    for (let x = -0.5; x <= 0.5; x += 0.1) {
+      for (let z = CORRIDOR.z0; z <= CORRIDOR.z1; z += 0.1) {
+        expect(obstacleDepth(x, z, BODY_PAD, hit)).toBeLessThanOrEqual(0);
+      }
+    }
+  });
 });
 
 describe('placeClutter', () => {
