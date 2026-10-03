@@ -11,7 +11,7 @@ import {
 import { setResolution, setTime } from './render/paintedMaterial';
 import { KeyboardInput } from './input/keyboard';
 import { TouchJoystick } from './input/touchJoystick';
-import { keysToCommands, mergeCommands, NO_COMMANDS } from './input/commands';
+import { keysToCommandsInto, mergeCommandsInto, type Commands } from './input/commands';
 import { parseParams } from './game/params';
 import { initialScreens, transition, type ScreenEvent, type ScreenState } from './game/screens';
 import { GraphicsControl } from './game/graphicsControl';
@@ -227,10 +227,16 @@ function start(renderer: THREE.WebGLRenderer): void {
     dispatch({ type: 'testDone', recommended: recommendedPreset(r.tier, testBase.id) });
   }
 
+  // Preallocated: move() runs every 60 Hz step and must not allocate.
+  const keyCmds: Commands = { move: { x: 0, y: 0 }, action: false, wormView: false, pause: false };
+  const touchCmds: Commands = { move: NO_MOVE, action: false, wormView: false, pause: false };
+  const heldCmds: Commands = { move: { x: 0, y: 0 }, action: false, wormView: false, pause: false };
+
   function move(): Vec2 {
     if (runner.running) return AUTO_DRIVE_MOVE.move;
     if (state.screen !== 'crawl') return NO_MOVE;
-    return mergeCommands(keysToCommands(keyboard.down), { ...NO_COMMANDS, move: joystick.value }).move;
+    touchCmds.move = joystick.value; // the joystick replaces its value object; no copy needed
+    return mergeCommandsInto(keysToCommandsInto(keyboard.down, keyCmds), touchCmds, heldCmds).move;
   }
 
   /** Paused (or the Graphics menu over a pause): the simulation stops, the last frame stays. */
@@ -254,7 +260,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     setTime(clock / 1000);
     world.sync(crawl, alpha, clock / 1000, camera);
     renderer.render(world.scene, camera);
-    shell.setFps(meter.fps, runner.running ? `quality ${runner.quality.tier}` : CHOICE_LABELS[spec.id]);
+    shell.setFps(meter.fps, CHOICE_LABELS[spec.id], runner.running ? runner.quality.tier : undefined);
     // Auto is fed only by frames actually drawn on the crawl screen: never menus, pauses or the
     // speed test (GraphicsControl also skips a meter window after every interruption).
     if (!runner.running && state.screen === 'crawl' && graphics.updateAuto(now, meter.fps)) applyActive();

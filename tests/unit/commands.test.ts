@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { keysToCommands, dragToMove, mergeCommands, NO_COMMANDS } from '../../src/input/commands';
+import {
+  keysToCommands, keysToCommandsInto, dragToMove, mergeCommands, mergeCommandsInto, NO_COMMANDS,
+  type Commands,
+} from '../../src/input/commands';
 
 describe('keysToCommands', () => {
   it('maps arrows and WASD: y = forward, x = turn right', () => {
@@ -51,5 +54,54 @@ describe('mergeCommands', () => {
     expect(m.action).toBe(true);
     expect(m.wormView).toBe(true);
     expect(m.pause).toBe(false);
+  });
+});
+
+const fresh = (): Commands => ({ move: { x: 9, y: 9 }, action: true, wormView: true, pause: true });
+
+describe('keysToCommandsInto', () => {
+  it('matches keysToCommands for every key combination, overwriting what was there', () => {
+    const codes = ['ArrowUp', 'KeyW', 'ArrowDown', 'KeyS', 'ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD', 'Space', 'KeyV', 'Escape', 'KeyP'];
+    const out = fresh();
+    for (let mask = 0; mask < 1 << codes.length; mask += 7) {
+      const down = new Set(codes.filter((_, i) => mask & (1 << i)));
+      expect(keysToCommandsInto(down, out)).toBe(out);
+      expect(out).toEqual(keysToCommands(down));
+    }
+    keysToCommandsInto(new Set(), out);
+    expect(out).toEqual(NO_COMMANDS);
+  });
+  it('writes into the same move object each time', () => {
+    const out = fresh();
+    const move = out.move;
+    keysToCommandsInto(new Set(['ArrowUp']), out);
+    expect(out.move).toBe(move);
+    expect(move).toEqual({ x: 0, y: 1 });
+  });
+});
+
+describe('mergeCommandsInto', () => {
+  it('matches mergeCommands, clamping and ORing', () => {
+    const a = { ...NO_COMMANDS, move: { x: 1, y: -0.5 }, action: true };
+    const b = { ...NO_COMMANDS, move: { x: 0.5, y: -1 }, pause: true };
+    const out = fresh();
+    expect(mergeCommandsInto(a, b, out)).toBe(out);
+    expect(out).toEqual(mergeCommands(a, b));
+    expect(out.move).toEqual({ x: 1, y: -1 });
+    expect(out.wormView).toBe(false);
+  });
+  it('is safe when the output is one of the inputs', () => {
+    const a: Commands = { move: { x: 0.75, y: 0.25 }, action: false, wormView: true, pause: false };
+    const b: Commands = { move: { x: 0.5, y: 1 }, action: true, wormView: false, pause: false };
+    const expected = mergeCommands(a, b);
+    mergeCommandsInto(a, b, a);
+    expect(a).toEqual(expected);
+  });
+  it('does not touch its inputs when the output is separate', () => {
+    const a = { ...NO_COMMANDS, move: { x: 1, y: 0 } };
+    const b = { ...NO_COMMANDS, move: { x: 1, y: 1 } };
+    mergeCommandsInto(a, b, fresh());
+    expect(a.move).toEqual({ x: 1, y: 0 });
+    expect(b.move).toEqual({ x: 1, y: 1 });
   });
 });

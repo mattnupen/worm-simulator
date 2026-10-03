@@ -10,8 +10,12 @@ export interface Shell {
   readonly panel: HTMLDivElement;
   /** Replaces the card's content. `label` names the region for screen readers. */
   show(state: UiState, label: string, children: HTMLElement[]): void;
-  /** Updates the fps tag (at most 4 times a second). Shown with ?fps=1, and always mid-test. */
-  setFps(fps: number, detail: string): void;
+  /**
+   * Updates the fps tag (at most 4 times a second). Shown with ?fps=1, and always mid-test.
+   * Shows `label` (the graphics choice), or "quality N" when a speed-test `tier` is given. The
+   * text is only built when the tag really updates, so calling this every frame costs nothing.
+   */
+  setFps(fps: number, label: string, tier?: number): void;
 }
 
 export function createShell(root: HTMLElement, showFps: boolean, onPause: () => void): Shell {
@@ -36,7 +40,7 @@ export function createShell(root: HTMLElement, showFps: boolean, onPause: () => 
       panel.hidden = false;
       panel.replaceChildren(...children);
     },
-    setFps(fps, detail) {
+    setFps(fps, label, tier) {
       const visible = showFps || root.dataset.ui === 'running';
       if (!visible) {
         if (fpsTag.textContent) fpsTag.textContent = '';
@@ -45,7 +49,7 @@ export function createShell(root: HTMLElement, showFps: boolean, onPause: () => 
       const now = performance.now();
       if (now - lastFps < 250) return;
       lastFps = now;
-      fpsTag.textContent = `${Math.round(fps)} fps, ${detail}`;
+      fpsTag.textContent = `${Math.round(fps)} fps, ${tier === undefined ? label : `quality ${tier}`}`;
     },
   };
 }

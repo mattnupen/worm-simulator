@@ -24,6 +24,23 @@ export function keysToCommands(down: ReadonlySet<string>): Commands {
   };
 }
 
+/**
+ * Same as keysToCommands, but fills `out` (move included) and returns it, allocating nothing:
+ * for the per-step path, where a new object every 60 Hz step would add garbage-collector work.
+ */
+export function keysToCommandsInto(down: ReadonlySet<string>, out: Commands): Commands {
+  const right = down.has('ArrowRight') || down.has('KeyD') ? 1 : 0;
+  const left = down.has('ArrowLeft') || down.has('KeyA') ? 1 : 0;
+  const up = down.has('ArrowUp') || down.has('KeyW') ? 1 : 0;
+  const downward = down.has('ArrowDown') || down.has('KeyS') ? 1 : 0;
+  out.move.x = right - left;
+  out.move.y = up - downward;
+  out.action = down.has('Space');
+  out.wormView = down.has('KeyV');
+  out.pause = down.has('Escape') || down.has('KeyP');
+  return out;
+}
+
 /** Converts a drag offset in screen pixels (y down) into a move vector (y forward). */
 export function dragToMove(dx: number, dy: number, radius: number): Vec2 {
   let x = dx / radius;
@@ -46,4 +63,16 @@ export function mergeCommands(a: Commands, b: Commands): Commands {
     wormView: a.wormView || b.wormView,
     pause: a.pause || b.pause,
   };
+}
+
+/** Same as mergeCommands, but fills `out` (move included) and returns it, allocating nothing. `out` may be `a` or `b`. */
+export function mergeCommandsInto(a: Commands, b: Commands, out: Commands): Commands {
+  const x = clamp1(a.move.x + b.move.x);
+  const y = clamp1(a.move.y + b.move.y);
+  out.move.x = x;
+  out.move.y = y;
+  out.action = a.action || b.action;
+  out.wormView = a.wormView || b.wormView;
+  out.pause = a.pause || b.pause;
+  return out;
 }
