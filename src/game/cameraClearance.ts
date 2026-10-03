@@ -8,6 +8,19 @@ import { pushOutTall, sightReach } from '../surface/obstacles';
 export const CAM_OPTS: Readonly<FollowCamOptions> = {
   distance: 2.6, height: 1.1, yawSmoothTime: 0.5, posRate: 10, maxYawSpeed: 1.8,
 };
+/** The camera aims a little ahead of the head, so the worm sits low in frame and the forest looms. */
+const LOOK_AHEAD = 1.0;
+const LOOK_UP = 0.6;
+/**
+ * As a prop pulls the camera in, it cranes up: its height grows by this share of its full height
+ * at reach 0 (it then stands right over the head), and its aim drops to a point CRANE_LOOK_AHEAD
+ * along its yaw from the head (a little behind it, over the body) and CRANE_LOOK_UP above it. So
+ * it looks down at the worm from above instead of ending level with it: about as much of the
+ * worm stays in frame as at full reach (measured over the camera tests' drives).
+ */
+const CAM_CRANE = 0.25;
+const CRANE_LOOK_AHEAD = -0.3;
+const CRANE_LOOK_UP = -0.3;
 /** The camera stops this far (m) short of a trunk, rock or log in its way (spec 4.4)... */
 const CAM_PROP_MARGIN = 0.35;
 /** Half the angle (rad) of the fan of sight lines the camera checks behind the head. */
@@ -37,13 +50,13 @@ const CAM_OUT_TIME = 1;
 /**
  * Keeps the follow camera out of tall props (spec 4.4): if the line from the head to where the
  * camera wants to be (behind it, along its yaw) runs into a trunk, rock or log taller than the
- * line there, the camera's distance and height shrink so it stops just short, easing in and back
- * out. Allocates nothing.
+ * line there, the camera's distance shrinks so it stops just short, easing in and back out, and
+ * it cranes up to look down at the worm (cameraAim). Allocates nothing.
  */
 export class CameraClearance {
   /** How much of its full distance the camera keeps (1 clear; less when a prop is in its way), and how fast that changes. */
   private readonly spring: Spring = { value: 1, velocity: 0 };
-  /** CAM_OPTS with the distance and height cut to the reach: what the follow camera steps with. */
+  /** CAM_OPTS with the distance cut to the reach and the height craned: what the follow camera steps with. */
   readonly opts: FollowCamOptions = { ...CAM_OPTS };
 
   get reach(): number {
@@ -76,7 +89,7 @@ export class CameraClearance {
       r.velocity = 0;
     }
     this.opts.distance = CAM_OPTS.distance * r.value;
-    this.opts.height = CAM_OPTS.height * r.value;
+    this.opts.height = CAM_OPTS.height * (1 + CAM_CRANE * (1 - r.value));
   }
 
   /**
@@ -99,4 +112,10 @@ function sightAt(h: Vec3, yaw: number): number {
     h.x - Math.sin(yaw) * CAM_OPTS.distance, h.y + CAM_OPTS.height, h.z - Math.cos(yaw) * CAM_OPTS.distance,
     CAM_PROP_MARGIN,
   );
+}
+
+/** Where the camera aims at reach `reach` (0..1): `ahead` of the head along its yaw and `up` above it. */
+export function cameraAim(reach: number, out: { ahead: number; up: number }): void {
+  out.ahead = CRANE_LOOK_AHEAD + (LOOK_AHEAD - CRANE_LOOK_AHEAD) * reach;
+  out.up = CRANE_LOOK_UP + (LOOK_UP - CRANE_LOOK_UP) * reach;
 }

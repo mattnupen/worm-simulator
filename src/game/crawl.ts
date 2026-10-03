@@ -21,15 +21,12 @@ import {
 } from '../surface/heroLeaves';
 import { LOCOMOTION } from './drive';
 import { pushOut, slideMove } from '../surface/obstacles';
-import { CAM_OPTS, CameraClearance } from './cameraClearance';
+import { CAM_OPTS, CameraClearance, cameraAim } from './cameraClearance';
 
 export const WORM_SEGMENTS = 16;
 const SPACING = 0.22;
 /** The most the body reaches to its side at its fullest swell (about 0.134): how far the spine keeps off solid props. */
 export const BODY_RADIUS = WORM_HALF_WIDTH;
-/** The camera aims a little ahead of the head, so the worm sits low in frame and the forest looms. */
-const LOOK_AHEAD = 1.0;
-const LOOK_UP = 0.6;
 const MAX_NECK_BEND = 1.3;
 /** Slow resting "breath" of the contraction wave, in waves per second. */
 const BREATH_HZ = 0.22;
@@ -52,6 +49,8 @@ const BODY_PUSH = 0.5;
 const PUSHER_REACH = PUSHER_SPAN / wormLength(WORM_SEGMENTS, SPACING);
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+/** Scratch for interpolate: where the camera aims (cameraAim). */
+const aim = { ahead: 0, up: 0 };
 
 /** `n` points at the origin. */
 const blank = (n: number): Vec3[] => Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0 }));
@@ -101,6 +100,7 @@ export class Crawl {
   private readonly prevHead: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly prevWave: WaveState = { phase: 0, activity: 0 };
   private prevYaw = 0;
+  private prevReach = 1;
   private readonly move: Vec2 = { x: 0, y: 0 };
   /** Keeps the camera out of trunks, rocks and the log (spec 4.4). */
   private readonly clearance = new CameraClearance();
@@ -142,6 +142,7 @@ export class Crawl {
     copy(this.prevCam, this.cam.pos);
     copy(this.prevHead, head);
     this.prevYaw = this.cam.yaw;
+    this.prevReach = 1;
     copy(this.focus, head);
     this.wave.phase = this.wave.activity = 0;
     this.prevWave.phase = this.prevWave.activity = 0;
@@ -257,6 +258,7 @@ export class Crawl {
     for (let i = 0; i < body.length; i++) copy(prevBody[i], body[i]);
     copy(this.prevCam, this.cam.pos);
     this.prevYaw = this.cam.yaw;
+    this.prevReach = this.clearance.reach;
     copy(this.prevHead, this.motion.head);
     this.prevWave.phase = wave.phase;
     this.prevWave.activity = wave.activity;
@@ -320,6 +322,7 @@ export class Crawl {
     const yaw = lerp(this.prevYaw, this.cam.yaw, alpha);
     const c = this.cam.pos;
     camera.position.set(lerp(this.prevCam.x, c.x, alpha), lerp(this.prevCam.y, c.y, alpha), lerp(this.prevCam.z, c.z, alpha));
-    camera.lookAt(f.x + Math.sin(yaw) * LOOK_AHEAD, f.y + LOOK_UP, f.z + Math.cos(yaw) * LOOK_AHEAD);
+    cameraAim(lerp(this.prevReach, this.clearance.reach, alpha), aim);
+    camera.lookAt(f.x + Math.sin(yaw) * aim.ahead, f.y + aim.up, f.z + Math.cos(yaw) * aim.ahead);
   }
 }

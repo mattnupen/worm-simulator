@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { Crawl } from '../../src/game/crawl';
+import * as THREE from 'three';
+import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
+import { CAM_OPTS } from '../../src/game/cameraClearance';
+import type { WormPose } from '../../src/worm/wormMesh';
 import { footprints, insideTall, pushOutTall } from '../../src/surface/obstacles';
 import { rocks } from '../../src/surface/propPlacement';
 import { terrainHeight } from '../../src/surface/terrain';
@@ -155,5 +158,33 @@ describe('pushOutTall', () => {
       last = push;
     }
     expect(last).toBeCloseTo(full, 9);
+  });
+});
+
+describe('classic: a trunk right behind the worm', () => {
+  beforeAll(() => { setScale('classic'); });
+
+  it('the camera cranes up and looks down at the worm, its head and front half in frame', () => {
+    // Pressed into trunk 12, then turned on the spot until the trunk is right behind the head:
+    // no room behind at all (reach 0).
+    const { round } = footprints();
+    const c = new Crawl();
+    driveTo(c, round[48], round[49], 700, () => {});
+    for (let s = 0; s < 120; s++) c.step(DT, { x: 1, y: 0 });
+    expect(c.cameraReach).toBeLessThan(0.01);
+    const h = c.motion.head;
+    expect(c.cam.pos.y - h.y).toBeGreaterThanOrEqual(CAM_OPTS.height);
+    // What the player sees, on the classroom's 1366 x 768 screen.
+    const camera = new THREE.PerspectiveCamera(60, 1366 / 768, 0.2, 120);
+    const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
+    c.interpolate(1, 0, pose, camera);
+    camera.updateMatrixWorld();
+    const v = new THREE.Vector3();
+    for (let i = 0; i < WORM_SEGMENTS / 2; i++) {
+      v.fromArray(pose.spine, i * 3).project(camera);
+      expect(Math.abs(v.x)).toBeLessThan(1);
+      expect(Math.abs(v.y)).toBeLessThan(1);
+      expect(Math.abs(v.z)).toBeLessThan(1);
+    }
   });
 });
