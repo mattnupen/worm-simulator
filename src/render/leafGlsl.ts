@@ -19,6 +19,13 @@ export const FURROW_HALF = 0.14;
 export const PUSH_SLIDE = 0.2;
 /** The soil the furrow bares reads this much darker (damp, freshly turned) while the trail is fresh. */
 export const TRAIL_DARKEN = 0.35;
+/**
+ * Steepest a draped leaf leans (tan, 45 degrees). A small leaf close beside the body would
+ * otherwise stand nearly upright (its far edge on the litter, its near edge at the body's top);
+ * past this it leans on the body instead, raised so its near reach still clears the same height.
+ * That only raises it, so it still clears the body.
+ */
+export const DRAPE_MAX_SLOPE = 1;
 
 /** Height (above the ground) a leaf must clear `s` m from the spine: TS twin of the GLSL. */
 export function drapeProfile(s: number): number {
@@ -42,6 +49,7 @@ const C = {
   ramp: DRAPE_FOOT - DRAPE_FLAT,
   /** A lifted leaf's dips (parts below its rest plane) are raised by the time it has lifted this much. */
   unsag: 0.02,
+  maxSlope: DRAPE_MAX_SLOPE,
 };
 
 /**
@@ -91,11 +99,14 @@ export const DISTURB_GLSL = /* glsl */ `
     float sc = max(${f(C.flat)}, db - r);
     float lift = max(0.0, ${f(C.height)} * clamp((${f(C.foot)} - sc) / ${f(C.ramp)}, 0.0, 1.0) - anchor.w);
     // Tilted about the far edge so the plane meets that height; level where the direction to the
-    // body is unsure (on its ridge).
-    float slope = lift / max(db - sc + r, 0.05);
+    // body is unsure (on its ridge). No steeper than maxSlope: a steeper leaf leans on the body
+    // with its far edge raised (base) instead of standing upright.
+    float span = max(db - sc + r, 0.05);
+    float slope = min(lift / span, ${f(C.maxSlope)});
+    float base = lift - slope * span;
     float tilt = smoothstep(0.3, 0.8, lb / ${f(C.even)});
     vec2 grad = toBody * (slope * tilt * edge);
-    float y = max((1.0 - tilt) * lift + slope * tilt * (dot(p.xz - anchor.xy, toBody) + r), 0.0)
+    float y = max((1.0 - tilt) * lift + tilt * (base + slope * (dot(p.xz - anchor.xy, toBody) + r)), 0.0)
       + dip * smoothstep(0.0, ${f(C.unsag)}, lift);
     p.xz += move * edge;
     p.y += y * edge;
@@ -155,9 +166,11 @@ export function disturbVertex(
   const db = (1 - s0[2]) * C.reach + Math.max(0, -(mx * tx + mz * tz));
   const sc = Math.max(C.flat, db - r);
   const lift = Math.max(0, C.height * Math.min(1, Math.max(0, (C.foot - sc) / C.ramp)) - anchor[3]);
-  const slope = lift / Math.max(db - sc + r, 0.05);
+  const span = Math.max(db - sc + r, 0.05);
+  const slope = Math.min(lift / span, C.maxSlope);
+  const base = lift - slope * span;
   const tilt = smooth(0.3, 0.8, lb / C.even);
-  const y = Math.max((1 - tilt) * lift + slope * tilt * ((p[0] - anchor[0]) * tx + (p[2] - anchor[1]) * tz + r), 0)
+  const y = Math.max((1 - tilt) * lift + tilt * (base + slope * ((p[0] - anchor[0]) * tx + (p[2] - anchor[1]) * tz + r)), 0)
     + dip * smooth(0, C.unsag, lift);
   out[0] = p[0] + mx * edge;
   out[1] = p[1] + y * edge;

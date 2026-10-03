@@ -189,7 +189,9 @@ Built differently (per-vertex lift tore leaves into tents and clipped through th
   piece. Along a fresh trail a leaf slides out until its near edge is 0.14 m from the path (at
   most 0.2 m), easing back as the trail fades. A leaf reaching over the body tilts up onto it,
   far edge on the litter and its plane clear of the body's top (0.265 m above the ground near the
-  spine, easing to nothing 0.34 m out); one centred on the body rests level on top.
+  spine, easing to nothing 0.34 m out); one centred on the body rests level on top. No leaf leans
+  steeper than 45°: a small leaf close beside the body leans on it, far edge raised, instead of
+  standing upright.
 - Each vertex carries its dip below the leaf's rest plane (tilt, curl, uneven ground). A lifted
   leaf raises those parts to the plane, so no part of it cuts into the body. Checked on the real
   litter: no worm vertex within 5 mm of a leaf over it in 400 placements.
@@ -241,6 +243,21 @@ After approach A is built, close-up screenshots are judged:
 
 If the close-ups look fake, the hero-leaf share grows (larger pool, wider radius) within the
 performance gates.
+
+Checked in Step 1a on High and Ultra (close-ups of each case above, plus a hero leaf flipped by the
+head and a tight turn). The worm reads as under thin litter, climbs piles head first, and hero
+leaves flip at the head and ride over the body (their clearance is unit-tested). The hero pool
+was not grown: the gates have little room, and the weak spots below are not about hero leaves.
+Known limitations:
+- Big litter leaves lifted over the body are rigid, so they hover over it like lids (up to 0.265 m
+  up) instead of bending. A real fix is a soft drape that bends a leaf over the body without
+  tearing it (rejected per vertex in Task 13); not attempted here.
+- In a tight turn, leaves inside the curve lift on both sides of the body and form a ring. The 45°
+  cap keeps small leaves from standing upright, but the ring stays.
+- The trail is subtle from the follow camera: the worm lies on most of its fresh path and the rest
+  is behind the camera; the slide (at most 0.2 m) and the darker soil are hard to see under the
+  detail leaves. A stronger darkening (0.6) was tried and did not read better.
+- The occluder fade's dither shows as a fine stipple at device pixel ratio 1.
 
 ## 6. Performance
 
