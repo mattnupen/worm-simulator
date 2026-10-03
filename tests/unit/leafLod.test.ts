@@ -45,6 +45,18 @@ describe('lodShape', () => {
       expect(lodRadius(kind)).toBeLessThanOrEqual(fullFar + 1e-9);
     }
   });
+  it('keeps a maple\'s lobes: its six main-vein outline points (base, basal and lateral lobes, tip)', () => {
+    const full = leafShape('maple');
+    const lod = lodShape('maple');
+    const veined: number[] = [];
+    for (let i = 0; i < full.outline; i++) if (full.vein[i] >= 1) veined.push(i);
+    expect(veined).toHaveLength(LOD_POINTS);
+    for (let m = 0; m < LOD_POINTS; m++) {
+      const j = veined[m];
+      expect([lod.points[m * 2], lod.points[m * 2 + 1]]).toEqual([full.points[j * 2], full.points[j * 2 + 1]]);
+      expect(lod.vein[m]).toBe(1);
+    }
+  });
   it('is cached', () => {
     expect(lodShape('maple')).toBe(lodShape('maple'));
   });

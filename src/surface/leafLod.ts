@@ -7,14 +7,19 @@ export const LOD_POINTS = 6;
 /**
  * A low-detail silhouette for distant litter: LOD_POINTS outline points, always including the
  * base and the tip, fanned around the shape's centre (the fan centre for fan shapes, the middle
- * of the midrib for oak). At a distance it reads as the same leaf for a quarter of the
- * triangles. Same leaf-local frame as leafShape. Pure.
+ * of the midrib for oak). Where exactly LOD_POINTS outline points lie on the main veins (maple:
+ * the base, the two basal lobes, the two lateral lobes and the tip) those are kept, so the leaf
+ * keeps its lobes; otherwise they are spread evenly along the outline. At a distance it reads as
+ * the same leaf for a quarter of the triangles. Same leaf-local frame as leafShape. Pure.
  */
 function simplified(kind: LeafKind): LeafShape {
   const s = leafShape(kind);
   const n = s.outline;
   const picks: number[] = [];
-  for (let m = 0; m < LOD_POINTS; m++) picks.push((s.base + Math.round((m * n) / LOD_POINTS)) % n);
+  const veined: number[] = [];
+  for (let m = 0; m < n; m++) if (s.vein[(s.base + m) % n] >= 1) veined.push((s.base + m) % n);
+  if (veined.length === LOD_POINTS && veined.includes(s.tip)) picks.push(...veined);
+  else for (let m = 0; m < LOD_POINTS; m++) picks.push((s.base + Math.round((m * n) / LOD_POINTS)) % n);
   // Make sure the tip is one of them: replace the pick nearest to it along the outline.
   if (!picks.includes(s.tip)) {
     let best = 1;
