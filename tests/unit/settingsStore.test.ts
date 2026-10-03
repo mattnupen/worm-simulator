@@ -77,10 +77,35 @@ describe('settings store', () => {
     });
   });
 
+  it('updateSettings never stores a scale the player did not pick (a later DEFAULT_SCALE must reach them)', () => {
+    const fresh = memory();
+    expect(updateSettings(fresh, { graphics: 'low' }).scale).toBe(DEFAULT_SCALE);
+    expect(JSON.parse(fresh.data[SETTINGS_KEY])).toEqual({ version: 1, graphics: 'low', autoSettled: null });
+
+    const step1a = stored({ version: 1, graphics: 'high', autoSettled: 'medium' });
+    updateSettings(step1a, { autoSettled: 'low' });
+    expect(JSON.parse(step1a.data[SETTINGS_KEY])).toEqual({ version: 1, graphics: 'high', autoSettled: 'low' });
+  });
+
+  it('updateSettings keeps a stored scale through other changes, and stores a picked one', () => {
+    const store = stored({ version: 1, graphics: 'auto', autoSettled: null, scale: 'hybrid' });
+    updateSettings(store, { graphics: 'low' });
+    expect(JSON.parse(store.data[SETTINGS_KEY]).scale).toBe('hybrid');
+
+    const picked = memory();
+    expect(updateSettings(picked, { scale: 'true' }).scale).toBe('true');
+    expect(JSON.parse(picked.data[SETTINGS_KEY])).toEqual({ version: 1, graphics: 'auto', autoSettled: null, scale: 'true' });
+  });
+
   it('survives storage that throws, on read and on write', () => {
     expect(loadSettings(throwing)).toEqual(DEFAULT_SETTINGS);
     expect(saveSettings(throwing, { ...DEFAULT_SETTINGS, graphics: 'low' })).toBe(false);
     expect(saveSettings(null, { ...DEFAULT_SETTINGS, graphics: 'low' })).toBe(false);
     expect(updateSettings(throwing, { scale: 'hybrid' }).scale).toBe('hybrid');
+    // Reads fail but writes work: no blind write that could drop a later version's fields.
+    const writes: string[] = [];
+    const unreadable: KeyValueStore = { getItem: () => { throw new Error('blocked'); }, setItem: (_k, v) => { writes.push(v); } };
+    expect(updateSettings(unreadable, { graphics: 'low' }).graphics).toBe('low');
+    expect(writes).toEqual([]);
   });
 });

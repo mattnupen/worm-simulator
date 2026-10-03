@@ -142,6 +142,8 @@ test('a chosen preset (picked with the arrow keys) is still selected after a rel
   await expect(radio(page, 'High')).toBeChecked();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
   expect(saved).toMatchObject({ version: 1, graphics: 'high', autoSettled: null });
+  // A fresh device never chose a world scale, so none is stored (a later default must reach it).
+  expect(saved).not.toHaveProperty('scale');
 
   await page.reload();
   await page.keyboard.press('Tab');

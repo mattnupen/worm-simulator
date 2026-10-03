@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GraphicsControl } from '../../src/game/graphicsControl';
-import { SETTINGS_KEY, type KeyValueStore } from '../../src/save/settingsStore';
-import { DEFAULT_SCALE } from '../../src/surface/worldScale';
+import { SETTINGS_KEY, updateSettings, type KeyValueStore } from '../../src/save/settingsStore';
 import type { GraphicsChoice } from '../../src/render/graphics';
 
 function memory(initial?: object): KeyValueStore & { data: Record<string, string> } {
@@ -55,7 +54,7 @@ describe('GraphicsControl', () => {
     g.choose('ultra');
     expect(g.choice).toBe('ultra');
     expect(g.active).toBe('ultra');
-    expect(saved(store)).toEqual({ version: 1, graphics: 'ultra', autoSettled: null, scale: DEFAULT_SCALE });
+    expect(saved(store)).toEqual({ version: 1, graphics: 'ultra', autoSettled: null });
     expect(slow(g, 0, 10_000, 5)).toBeGreaterThan(0);
     expect(g.active).toBe('ultra');
   });
@@ -133,7 +132,28 @@ describe('GraphicsControl', () => {
     const g = new GraphicsControl(store, null);
     g.useRecommended('low');
     expect(g.choice).toBe('low');
-    expect(saved(store)).toEqual({ version: 1, graphics: 'low', autoSettled: null, scale: DEFAULT_SCALE });
+    expect(saved(store)).toEqual({ version: 1, graphics: 'low', autoSettled: null });
+  });
+
+  it('a Graphics choice on a fresh device stores no world scale', () => {
+    const store = memory();
+    const g = new GraphicsControl(store, null);
+    g.choose('medium');
+    expect(saved(store)).not.toHaveProperty('scale');
+    expect(g.active).toBe('medium');
+  });
+
+  it('never overwrites a world scale picked after it loaded (choice and Auto step-down)', () => {
+    const store = memory();
+    const g = new GraphicsControl(store, null);
+    updateSettings(store, { scale: 'true' }); // the World scale panel, later in the session
+    g.choose('auto');
+    expect(saved(store).scale).toBe('true');
+    expect(slow(g, 0, 10_000, 5)).toBeGreaterThan(0);
+    expect(saved(store).autoSettled).not.toBeNull(); // Auto did step down and save
+    expect(saved(store).scale).toBe('true');
+    g.choose('low');
+    expect(saved(store).scale).toBe('true');
   });
 
   it('keeps working for the session when storage throws', () => {
