@@ -26,7 +26,7 @@ function runUntilDone(r: SpeedTestRunner, t0: number, stepMs: number, fps: (t: n
 describe('SpeedTestRunner', () => {
   it('runs both phases, switching the frame cap, and reports PASS at 30 fps', () => {
     const { host, log } = fakeHost();
-    const r = new SpeedTestRunner(host, true, 5500);
+    const r = new SpeedTestRunner(host, true, () => 5500);
     expect(r.running).toBe(false);
     r.start();
     expect(r.running).toBe(true);
@@ -43,7 +43,7 @@ describe('SpeedTestRunner', () => {
 
   it('steps the quality tier down in the auto phase when slow, and restarts the measurement', () => {
     const { host, log } = fakeHost();
-    const r = new SpeedTestRunner(host, false, 1000);
+    const r = new SpeedTestRunner(host, false, () => 1000);
     r.start();
     runUntilDone(r, 0, 50, () => 20, 120_000);
     expect(log).toContain('tier 1');
@@ -54,7 +54,7 @@ describe('SpeedTestRunner', () => {
 
   it('restarts the measurement when the tab comes back', () => {
     const { host } = fakeHost();
-    const r = new SpeedTestRunner(host, true, 1000);
+    const r = new SpeedTestRunner(host, true, () => 1000);
     r.start();
     r.frame(0, 30);
     r.onHidden();
@@ -63,9 +63,21 @@ describe('SpeedTestRunner', () => {
     expect(r.result?.text).toContain('Measurement restarts: 1');
   });
 
+  it('prints the leaves drawn when the test ends, after any tier drops, not the count it started with', () => {
+    // A fake world: each tier draws fewer leaves, like tierSpec's leafDensity.
+    let drawn = 5500;
+    const { host } = fakeHost();
+    host.applyTier = (t) => { drawn = [5500, 5500, 5500, 2750][t]; };
+    const r = new SpeedTestRunner(host, false, () => drawn);
+    r.start();
+    runUntilDone(r, 0, 50, () => 15, 300_000);
+    expect(r.result!.tier).toBe(3);
+    expect(r.result!.text).toContain('Leaves: 2750\n');
+  });
+
   it('abort() stops without a result, and frames after that do nothing', () => {
     const { host } = fakeHost();
-    const r = new SpeedTestRunner(host, true, 1000);
+    const r = new SpeedTestRunner(host, true, () => 1000);
     r.start();
     r.abort();
     expect(r.running).toBe(false);

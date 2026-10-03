@@ -20,6 +20,8 @@ export interface LeafLitter {
   mesh: THREE.Mesh;
   /** Leaves built: the most it can draw. */
   readonly max: number;
+  /** Leaves the draw range covers right now (what setCount last clamped to). */
+  readonly drawn: number;
   /** Draws the first `n` leaves (the order is random, so any prefix is an even thinning). */
   setCount(n: number): void;
 }
@@ -160,11 +162,16 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   g.computeBoundingSphere();
   const mesh = new THREE.Mesh(g, createLeafMaterial());
   mesh.name = 'leafLitter';
+  let drawn = count;
   return {
     mesh,
     max: count,
+    get drawn() {
+      return drawn;
+    },
     setCount(n: number) {
       const k = Math.max(0, Math.min(count, Math.floor(n)));
+      drawn = k;
       g.setDrawRange(0, k > 0 ? ends[k - 1] : 0);
     },
   };

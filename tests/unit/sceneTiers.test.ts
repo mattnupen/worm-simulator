@@ -28,8 +28,12 @@ describe('leaf litter (merged)', () => {
     expect(g.drawRange.count % 3).toBe(0);
     litter.setCount(0);
     expect(g.drawRange.count).toBe(0);
+    expect(litter.drawn).toBe(0);
     litter.setCount(99_999);
     expect(g.drawRange.count).toBe(full);
+    expect(litter.drawn).toBe(2000);
+    litter.setCount(1234.7);
+    expect(litter.drawn).toBe(1234);
   });
   it('keeps all positions finite', () => {
     for (const v of g.getAttribute('position').array as Float32Array) expect(Number.isFinite(v)).toBe(true);

@@ -12,6 +12,8 @@ export interface DetailLeaves {
   mesh: THREE.Mesh;
   /** Leaves built: the most it can draw. */
   readonly max: number;
+  /** Leaves drawn right now (0 while hidden). */
+  readonly drawn: number;
   /** Draws the first `n` leaves; hides the mesh at 0. */
   setCount(n: number): void;
 }
@@ -98,11 +100,16 @@ export function buildDetailLeaves(count = PRESETS.ultra.detail, seed = 3): Detai
   // Placed around the worm in the shader.
   mesh.frustumCulled = false;
   mesh.name = 'detailLeaves';
+  let drawn = count;
   return {
     mesh,
     max: count,
+    get drawn() {
+      return drawn;
+    },
     setCount(c: number) {
       const k = Math.max(0, Math.min(count, Math.floor(c)));
+      drawn = k;
       g.setDrawRange(0, k > 0 ? ends[k - 1] : 0);
       mesh.visible = k > 0;
     },
@@ -117,6 +124,8 @@ export interface DetailLayer {
   readonly built: DetailLeaves | null;
   /** Leaves it builds: the most it can draw. */
   readonly max: number;
+  /** Leaves drawn right now: 0 until the layer is first built and shown. */
+  readonly drawn: number;
   /** Draws the first `n` leaves, building the layer on the first n > 0; hides it at 0. */
   setCount(n: number): void;
 }
@@ -134,6 +143,9 @@ export function buildDetailLayer(count = PRESETS.ultra.detail, seed = 3): Detail
   return {
     group,
     max: count,
+    get drawn() {
+      return built ? built.drawn : 0;
+    },
     get built() {
       return built;
     },

@@ -29,8 +29,8 @@ export class SpeedTestRunner {
   constructor(
     private readonly host: SpeedTestHost,
     private readonly quick: boolean,
-    /** Leaf count printed in the report. */
-    private readonly leaves: number,
+    /** Leaves drawn right now (litter plus detail), read when the report is written. */
+    private readonly leaves: () => number,
   ) {}
 
   get running(): boolean {
@@ -67,7 +67,7 @@ export class SpeedTestRunner {
     this.host.setMaxFps(30);
     const { full, auto } = test.results;
     this.result = {
-      text: formatResults(full, auto, this.quality.tier, this.leaves, this.host.deviceInfo(), test.restarts),
+      text: formatResults(full, auto, this.quality.tier, this.leaves(), this.host.deviceInfo(), test.restarts),
       pass: verdict(auto) === 'PASS',
       tier: this.quality.tier,
     };

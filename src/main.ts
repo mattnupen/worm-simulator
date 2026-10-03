@@ -100,7 +100,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     showPhase: (p) => showRunning(shell,
       p.id === 'full' ? 'Test 1 of 2: full quality' : 'Test 2 of 2: auto quality', p.id === 'full' ? 1 : 2, 2),
     deviceInfo: () => deviceInfo(renderer),
-  }, params.quick, testBase.litter + testBase.detail);
+    }, params.quick, () => world.litter.drawn + world.detail.drawn);
 
   function updateResolution(): void {
     renderer.getDrawingBufferSize(drawSize);

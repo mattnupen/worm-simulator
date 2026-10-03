@@ -56,8 +56,10 @@ describe('detail leaves', () => {
     expect(g.drawRange.count).toBeLessThan(all * 0.7);
     expect(g.drawRange.count % 3).toBe(0);
     expect(d.mesh.visible).toBe(true);
+    expect(d.drawn).toBe(150);
     d.setCount(0);
     expect(d.mesh.visible).toBe(false);
+    expect(d.drawn).toBe(0);
   });
 
   it('covers the 6 m fade circle with its 13 m tile, and Ultra builds 2,500', () => {
@@ -73,9 +75,11 @@ describe('the lazily built detail layer', () => {
     const d = buildDetailLayer(200);
     expect(d.max).toBe(200);
     d.setCount(0);
+    expect(d.drawn).toBe(0);
     expect(d.built).toBeNull();
     expect(d.group.children).toHaveLength(0);
     d.setCount(100);
+    expect(d.drawn).toBe(100);
     const built = d.built!;
     expect(d.group.children).toEqual([built.mesh]);
     expect(built.mesh.visible).toBe(true);
