@@ -107,19 +107,23 @@ function writeMushroom(
 const HONEY = [new THREE.Color('#c8954a'), new THREE.Color('#6e4422')];
 const RUSSULA = [new THREE.Color('#c0392b'), new THREE.Color('#7a2018')];
 
-/** A cluster of 3-5 mushrooms (honey mushrooms, or a red russula pair). */
+/**
+ * A cluster of 3-5 mushrooms (honey mushrooms, or a red russula pair). `grow` scales the whole
+ * cluster (the world scale mode's mushroom size, worldScale.ts); it draws no random numbers.
+ */
 export function writeMushrooms(
   w: MeshWriter, x: number, z: number, scale: number, rng: () => number, groundAt: GroundAt = terrainHeight,
+  grow = 1,
 ): void {
   const red = rng() < 0.3;
   const n = red ? 2 : 3 + Math.floor(rng() * 3);
   const [cap, centre] = red ? RUSSULA : HONEY;
   for (let k = 0; k < n; k++) {
     const a = rng() * TAU;
-    const d = k === 0 ? 0 : 0.12 + rng() * 0.16 * scale;
+    const d = (k === 0 ? 0 : 0.12 + rng() * 0.16 * scale) * grow;
     const mx = x + Math.cos(a) * d;
     const mz = z + Math.sin(a) * d;
-    const s = scale * (k === 0 ? 1 : 0.55 + rng() * 0.4);
+    const s = scale * (k === 0 ? 1 : 0.55 + rng() * 0.4) * grow;
     writeMushroom(w, mx, mz, groundAt(mx, mz), (red ? 0.3 : 0.24) * s, (red ? 0.24 : 0.26) * s, a, cap, centre);
   }
 }
@@ -149,24 +153,27 @@ function writeBlade(
   w.smoothNormals(first, firstIdx);
 }
 
-/** A tuft of Pennsylvania sedge in fall: fine, arching golden-green blades. */
+/** A tuft of Pennsylvania sedge in fall: fine, arching golden-green blades. `grow` as writeMushrooms. */
 export function writeSedge(
   w: MeshWriter, x: number, z: number, scale: number, rng: () => number, groundAt: GroundAt = terrainHeight,
+  grow = 1,
 ): void {
   const g = groundAt(x, z) - CLUTTER_SINK;
   const base = new THREE.Color('#6f7a2e');
   const tip = new THREE.Color(rng() < 0.5 ? '#c8a860' : '#b8a048');
   const blades = 9;
+  const s = scale * grow;
   for (let k = 0; k < blades; k++) {
     const yaw = (k / blades) * TAU + rng() * 0.6;
-    writeBlade(w, x + Math.cos(yaw) * 0.03, g, z + Math.sin(yaw) * 0.03, yaw, (0.45 + rng() * 0.4) * scale, 0.05 * scale,
+    writeBlade(w, x + Math.cos(yaw) * 0.03 * grow, g, z + Math.sin(yaw) * 0.03 * grow, yaw, (0.45 + rng() * 0.4) * s, 0.05 * s,
       0.45 + rng() * 0.45, 3, base, tip);
   }
 }
 
-/** A fern clump turning golden-bronze: arching fronds with paired leaflets. */
+/** A fern clump turning golden-bronze: arching fronds with paired leaflets. `grow` as writeMushrooms. */
 export function writeFern(
   w: MeshWriter, x: number, z: number, scale: number, rng: () => number, groundAt: GroundAt = terrainHeight,
+  grow = 1,
 ): void {
   const g = groundAt(x, z) - CLUTTER_SINK;
   const green = rng() < 0.3;
@@ -175,12 +182,12 @@ export function writeFern(
   const fronds = 5;
   for (let f = 0; f < fronds; f++) {
     const yaw = (f / fronds) * TAU + rng() * 0.5;
-    const len = (0.9 + rng() * 0.5) * scale;
+    const len = (0.9 + rng() * 0.5) * scale * grow;
     const arch = 0.55 + rng() * 0.3;
     const fx = Math.cos(yaw);
     const fz = Math.sin(yaw);
     // Rachis.
-    writeBlade(w, x, g, z, yaw, len, 0.025 * scale, arch, 4, base, base);
+    writeBlade(w, x, g, z, yaw, len, 0.025 * scale * grow, arch, 4, base, base);
     // Leaflet pairs along it, longest a third of the way up.
     const pairs = 8;
     for (let p = 1; p <= pairs; p++) {
@@ -196,7 +203,7 @@ export function writeFern(
         const sx = -fz * e * 0.85 + fx * 0.5;
         const sz = fx * e * 0.85 + fz * 0.5;
         const a = w.vertex(px, g + up, pz, 0, 1, 0, [col2.r, col2.g, col2.b, code(PROP.plant, t)]);
-        const b = w.vertex(px + fx * pl * 0.22, g + up + 0.005, pz + fz * pl * 0.22, 0, 1, 0, [col2.r, col2.g, col2.b, code(PROP.plant, t)]);
+        const b = w.vertex(px + fx * pl * 0.22, g + up + 0.005 * grow, pz + fz * pl * 0.22, 0, 1, 0, [col2.r, col2.g, col2.b, code(PROP.plant, t)]);
         const c = w.vertex(px + sx * pl, g + up - pl * 0.25, pz + sz * pl, 0, 1, 0, [col2.r, col2.g, col2.b, code(PROP.plant, Math.min(1, t + 0.2))]);
         w.triFacing(a, b, c, 0, 1, 0);
       }

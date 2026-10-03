@@ -15,6 +15,8 @@ export interface TrunkParams {
   /** Number of buttress roots around the base. */
   lobes: number;
   phase: number;
+  /** Height (m) over which the root collar fades; 0.4 when absent (a Classic trunk). */
+  collar?: number;
 }
 
 /**
@@ -29,7 +31,7 @@ export const RING_HEIGHTS: readonly number[] = [
 export function trunkRadius(h: number, a: number, p: TrunkParams): number {
   const hh = Math.max(0, h);
   const taper = 1 - p.taper * Math.min(1, hh / p.height);
-  const collar = Math.exp(-hh / 0.4);
+  const collar = Math.exp(-hh / (p.collar ?? 0.4));
   const lobe = Math.max(0, Math.cos(p.lobes * a + p.phase)) ** 2;
   return p.radius * taper * (1 + p.flare * collar * (1 - p.buttress + 2 * p.buttress * lobe));
 }

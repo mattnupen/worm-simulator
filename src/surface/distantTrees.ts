@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { mulberry32 } from '../core/random';
 import { createPaintedMaterial } from '../render/paintedMaterial';
 import { terrainHeight, WORLD_HALF } from './terrain';
+import { scaleSpec } from './worldScale';
 
 const RING_COUNT = 72;
 
@@ -59,20 +60,23 @@ function treeGeometry(): THREE.BufferGeometry {
 const TINTS = ['#ffffff', '#f2d7a8', '#e6b98a', '#d9d0b8', '#c8a07a'];
 
 /**
- * A ring of simple, fog-softened tree silhouettes on the berm beyond the playable area.
- * One instanced draw call. They exist only for depth; the haze does most of the work.
+ * A ring of simple, fog-softened tree silhouettes on the berm beyond the playable area, sized
+ * and spaced for the active scale mode (bigger trees, fewer of them). One instanced draw call.
+ * They exist only for depth; the haze does most of the work.
  */
 export function buildDistantTrees(): THREE.InstancedMesh {
+  const { distantScale, distantCount } = scaleSpec();
+  const count = Math.min(RING_COUNT, distantCount);
   const mesh = new THREE.InstancedMesh(
     treeGeometry(),
     createPaintedMaterial({ color: '#ffffff', brush: 0.5, vertexColors: true }),
-    RING_COUNT,
+    count,
   );
   const rng = mulberry32(99);
   const tmp = new THREE.Object3D();
   const c = new THREE.Color();
-  for (let i = 0; i < RING_COUNT; i++) {
-    const a = (i / RING_COUNT) * Math.PI * 2 + (rng() - 0.5) * 0.08;
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2 + (rng() - 0.5) * 0.08;
     const r = WORLD_HALF + 5 + rng() * 14;
     // Push out along a rounded square so the ring follows the square world's edge.
     const ca = Math.cos(a);
@@ -82,7 +86,7 @@ export function buildDistantTrees(): THREE.InstancedMesh {
     const z = (sa / sq) * r;
     tmp.position.set(x, terrainHeight(x, z) - 0.4, z);
     tmp.rotation.set(0, rng() * Math.PI * 2, 0);
-    const s = 0.75 + rng() * 0.6;
+    const s = (0.75 + rng() * 0.6) * distantScale;
     tmp.scale.set(s, s * (0.85 + rng() * 0.35), s);
     tmp.updateMatrix();
     mesh.setMatrixAt(i, tmp.matrix);

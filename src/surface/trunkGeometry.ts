@@ -16,6 +16,12 @@ export interface TrunkSpec {
   leanZ: number;
   species: number;
   seed: number;
+  /**
+   * The trunk's size against a Classic one (the world scale mode's): the bark pattern is laid out
+   * in Classic metres (aBark.y divided by this), so a bigger trunk wears the same bark, bigger.
+   * 1 when absent.
+   */
+  grow?: number;
 }
 
 const RADIAL = 14;
@@ -66,7 +72,7 @@ export function writeTrunk(w: MeshWriter, t: TrunkSpec): void {
       const a = (c / RADIAL) * TAU;
       trunkPoint(t, h, a, 0, p);
       trunkNormal(t, h, a, n);
-      w.vertex(p.x, p.y, p.z, n.x, n.y, n.z, [c / RADIAL, h, t.species, t.seed]);
+      w.vertex(p.x, p.y, p.z, n.x, n.y, n.z, [c / RADIAL, h / (t.grow ?? 1), t.species, t.seed]);
     }
   }
   w.grid(first, RING_HEIGHTS.length, RADIAL + 1);
@@ -84,10 +90,13 @@ function frame(d: Vec3): [Vec3, Vec3] {
   return [{ x: ux, y: uy, z: uz }, { x: uy * d.z - uz * d.y, y: uz * d.x - ux * d.z, z: ux * d.y - uy * d.x }];
 }
 
-/** A tapered limb from `start` along unit `dir`; `along0` continues the bark's height coordinate. */
+/**
+ * A tapered limb from `start` along unit `dir`; `along0` continues the bark's height coordinate
+ * (in metres, divided by `grow` as TrunkSpec.grow).
+ */
 export function writeLimb(
   w: MeshWriter, start: Vec3, dir: Vec3, len: number, r0: number, r1: number,
-  species: number, seed: number, along0: number,
+  species: number, seed: number, along0: number, grow = 1,
 ): void {
   const [u, v] = frame(dir);
   const radial = 6;
@@ -105,7 +114,7 @@ export function writeLimb(
       const nz = u.z * Math.cos(a) + v.z * Math.sin(a);
       w.vertex(
         start.x + dir.x * s * len + nx * r, start.y + dir.y * s * len + ny * r + bow, start.z + dir.z * s * len + nz * r,
-        nx, ny, nz, [c / radial, along0 + s * len, species, seed],
+        nx, ny, nz, [c / radial, (along0 + s * len) / grow, species, seed],
       );
     }
   }
@@ -114,9 +123,12 @@ export function writeLimb(
 
 /**
  * A curl of peeling paper-birch bark: a strip hanging from height h0, lifting away from the
- * trunk as it goes down. Two layers: chalky outer bark and the salmon inner face.
+ * trunk as it goes down. Two layers: chalky outer bark and the salmon inner face. `grow` scales
+ * how far it lifts off the bark (the trunk's size against a Classic one).
  */
-export function writeCurl(w: MeshWriter, t: TrunkSpec, a0: number, h0: number, len: number, width: number): void {
+export function writeCurl(
+  w: MeshWriter, t: TrunkSpec, a0: number, h0: number, len: number, width: number, grow = 1,
+): void {
   const rows = 4;
   const p: Vec3 = { x: 0, y: 0, z: 0 };
   for (const layer of [0, 1]) {
@@ -124,7 +136,7 @@ export function writeCurl(w: MeshWriter, t: TrunkSpec, a0: number, h0: number, l
     // Rows from the bottom (most lifted) up to where the strip is still attached.
     for (let i = rows - 1; i >= 0; i--) {
       const s = i / (rows - 1);
-      const off = 0.004 + 0.075 * s * s - layer * 0.004;
+      const off = (0.004 + 0.075 * s * s - layer * 0.004) * grow;
       const h = h0 - len * s + len * 0.25 * s * s * s;
       const tilt = -0.15 * s / len;
       for (let c = 0; c < 2; c++) {
@@ -132,7 +144,7 @@ export function writeCurl(w: MeshWriter, t: TrunkSpec, a0: number, h0: number, l
         trunkPoint(t, h, a, off, p);
         const sgn = layer === 0 ? 1 : -1;
         w.vertex(p.x, p.y, p.z, Math.cos(a) * sgn, tilt * sgn, Math.sin(a) * sgn,
-          [c, h, layer === 0 ? 2 : 3, t.seed]);
+          [c, h / (t.grow ?? 1), layer === 0 ? 2 : 3, t.seed]);
       }
     }
     w.grid(first, rows, 2, layer === 1);
@@ -141,11 +153,11 @@ export function writeCurl(w: MeshWriter, t: TrunkSpec, a0: number, h0: number, l
 
 /**
  * A fallen trunk lying along `yaw`, settled into the ground (`groundAt`), with jagged,
- * rotted broken ends showing pale wood.
+ * rotted broken ends showing pale wood. `grow` as TrunkSpec.grow (the bark pattern's size).
  */
 export function writeLog(
   w: MeshWriter, cx: number, cz: number, yaw: number, length: number, radius: number,
-  species: number, seed: number, groundAt: (x: number, z: number) => number,
+  species: number, seed: number, groundAt: (x: number, z: number) => number, grow = 1,
 ): void {
   const d: Vec3 = { x: Math.cos(yaw), y: 0, z: Math.sin(yaw) };
   const [u, v] = frame(d);
@@ -174,7 +186,7 @@ export function writeLog(
       const nx = u.x * Math.cos(a) + v.x * Math.sin(a);
       const ny = u.y * Math.cos(a) + v.y * Math.sin(a);
       const nz = u.z * Math.cos(a) + v.z * Math.sin(a);
-      const idx = w.vertex(c0.x + nx * r, c0.y + ny * r, c0.z + nz * r, nx, ny, nz, [c / radial, f * length, species, seed]);
+      const idx = w.vertex(c0.x + nx * r, c0.y + ny * r, c0.z + nz * r, nx, ny, nz, [c / radial, (f * length) / grow, species, seed]);
       if (i === 0) ends[0].push(idx);
       if (i === rings - 1) ends[1].push(idx);
     }

@@ -2,22 +2,25 @@ import { mulberry32 } from '../core/random';
 import * as THREE from 'three';
 import { createPropMaterial } from '../render/propMaterial';
 import { MeshWriter } from './meshWriter';
-import { heroLog, rocks, placeClutter, type ClutterItem } from './propPlacement';
+import { clutterGrow, heroLog, rocks, placeClutter, type ClutterItem } from './propPlacement';
 import { writeFern, writeMushrooms, writeRock, writeSedge } from './propGeometry';
 import { meshGroundHeight } from './terrainMesh';
 import { terrainHeight } from './terrain';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
 import { BARK, writeLog } from './trunkGeometry';
+import { scaleSpec } from './worldScale';
 
 /**
- * One clutter item. Clutter rests on the terrain mesh exactly as drawn (soil plus litter mound), so
- * the mound under deep piles never buries it; rocks and the log stay on the soil.
+ * One clutter item, at the active scale mode's size. Clutter rests on the terrain mesh exactly as
+ * drawn (soil plus litter mound), so the mound under deep piles never buries it; rocks and the log
+ * stay on the soil.
  */
 export function writeClutterItem(w: MeshWriter, c: ClutterItem, rng: () => number): void {
-  if (c.kind === 'mushrooms') writeMushrooms(w, c.x, c.z, c.scale, rng, meshGroundHeight);
-  else if (c.kind === 'sedge') writeSedge(w, c.x, c.z, c.scale, rng, meshGroundHeight);
-  else writeFern(w, c.x, c.z, c.scale, rng, meshGroundHeight);
+  const grow = clutterGrow(c.kind);
+  if (c.kind === 'mushrooms') writeMushrooms(w, c.x, c.z, c.scale, rng, meshGroundHeight, grow);
+  else if (c.kind === 'sedge') writeSedge(w, c.x, c.z, c.scale, rng, meshGroundHeight, grow);
+  else writeFern(w, c.x, c.z, c.scale, rng, meshGroundHeight, grow);
 }
 
 export interface GroundProps {
@@ -61,5 +64,5 @@ export function buildGroundProps(): GroundProps {
 /** The hero fallen birch log of the active mode, written into the shared bark mesh (no extra draw). */
 export function writeHeroLog(w: MeshWriter): void {
   const log = heroLog();
-  writeLog(w, log.x, log.z, log.yaw, log.length, log.radius, BARK.birch, 1.62, terrainHeight);
+  writeLog(w, log.x, log.z, log.yaw, log.length, log.radius, BARK.birch, 1.62, terrainHeight, scaleSpec().log);
 }
