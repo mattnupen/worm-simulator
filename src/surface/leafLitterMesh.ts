@@ -1,85 +1,87 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../core/random';
-import type { Vec3 } from '../core/vec';
 import { createLeafMaterial } from '../render/leafMaterial';
-import { placeLeaves, wetnessLayer, type LeafKind } from './leafLitter';
+import { placeLeaves, wetnessLayer, type LeafPlacement } from './leafLitter';
 import { leafShape } from './leafShapes';
-import { leafLift, leafNormal, type LeafForm } from './leafForm';
+import { lodShape } from './leafLod';
 import { leafTint, LEAF_SIZE, LATERAL_VEINS } from './leafPalette';
 import { WORLD_HALF } from './terrain';
 import { groundNormal, litterDepth } from './litterDepth';
 import { meshGroundHeight } from './terrainMesh';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
+import { LeafBuffers, type LeafLook } from './leafWriter';
+import {
+  ACTIVE_MARGIN, DRAPE_MARGIN, boxesMeet, chunkCentreX, chunkCentreZ, chunkDistance, countBelow,
+  groupByChunk, hullBox, nextLod,
+} from './litterChunks';
 
-/** Petiole: two extra vertices per leaf (one thin triangle off the blade's base). */
-const PETIOLE_VERTS = 2;
-const PETIOLE: Record<LeafKind, number> = { maple: 0.32, oak: 0.08, aspen: 0.3, basswood: 0.22, ash: 0.07 };
+/** Draw order: after the hero and detail leaves that lie on top, before the ground. */
+export const LITTER_RENDER_ORDER = 3;
+
+export interface LitterChunk {
+  /** Full leaves, shown when the camera is near (and always while the chunk is active). */
+  readonly near: THREE.Mesh;
+  /** Low-detail leaves (6 triangles, no petiole), shown when it is far. */
+  readonly far: THREE.Mesh;
+  /** Global indices (placement order) of this chunk's leaves, ascending. */
+  readonly leaves: Uint32Array;
+  readonly nearEnds: Uint32Array;
+  readonly farEnds: Uint32Array;
+  /** World x, z box (min x, min z, max x, max z) of every full-leaf vertex at rest. */
+  readonly box: Float32Array;
+  /** Leaves drawn now (the preset's prefix). */
+  count: number;
+  /** Showing full leaves. */
+  isNear: boolean;
+  /** Drawn with the reacting material (disturbance map and occluder fade). */
+  active: boolean;
+}
 
 export interface LeafLitter {
-  mesh: THREE.Mesh;
+  /** Every chunk's two meshes. */
+  readonly group: THREE.Group;
+  readonly chunks: readonly LitterChunk[];
+  /** The three programs, built once: reacting full leaves, plain full leaves, low-detail leaves. */
+  readonly materials: { readonly active: THREE.ShaderMaterial; readonly plain: THREE.ShaderMaterial; readonly far: THREE.ShaderMaterial };
   /** Leaves built: the most it can draw. */
   readonly max: number;
-  /** Leaves the draw range covers right now (what setCount last clamped to). */
+  /** Leaves drawn right now (what setCount last clamped to). */
   readonly drawn: number;
-  /** Draws the first `n` leaves (the order is random, so any prefix is an even thinning). */
+  /** Draws the first `n` leaves overall (placement order is random: an even thinning). */
   setCount(n: number): void;
+  /**
+   * Once per rendered frame: per chunk, the reacting material where its leaves can be moved by the
+   * map (`disturbed`, disturbedBox) or faded (the hull of the camera and the rendered `spine`),
+   * the plain one elsewhere; full leaves near the camera (and on every reacting chunk), low-detail
+   * ones far away. Swaps materials only (all compiled up front). Allocates nothing.
+   */
+  update(camX: number, camZ: number, spine: ArrayLike<number>, disturbed: ArrayLike<number>): void;
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
 
-/**
- * The whole leaf litter as ONE merged, static mesh (one draw, no per-instance cost):
- * species silhouettes with a midrib fold, cup and curl, tinted per leaf and lying on the
- * terrain in loose overlapping layers. Presets trim it with a draw range (no rebuild).
- */
-export function buildLeafLitter(count: number, seed = 1): LeafLitter {
-  const leaves = placeLeaves(count, WORLD_HALF, seed, litterDepth);
-  let verts = 0;
-  let idxCount = 0;
-  for (const l of leaves) {
-    const s = leafShape(l.kind);
-    verts += s.points.length / 2 + PETIOLE_VERTS;
-    idxCount += s.indices.length + 3;
-  }
-  const pos = new Float32Array(verts * 3);
-  const nor = new Float32Array(verts * 3);
-  const colr = new Float32Array(verts * 4);
-  const leafAttr = new Float32Array(verts * 4);
-  const leaf2 = new Float32Array(verts * 2);
-  const anchor = new Float32Array(verts * 4);
-  const dip = new Float32Array(verts);
-  const index = verts > 65535 ? new Uint32Array(idxCount) : new Uint16Array(idxCount);
-  const ends = new Uint32Array(count);
-
-  // Extra per-leaf variety from a second stream, so placeLeaves' layout stays as seeded.
+/** Size, curl, colour and pose of every leaf, from a second seeded stream (placement stays as seeded). */
+function looks(leaves: readonly LeafPlacement[], seed: number): LeafLook[] {
   const rng = mulberry32(seed * 7919 + 13);
-  const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion();
   const slope = new THREE.Quaternion();
   const euler = new THREE.Euler();
   const nrm = new THREE.Vector3();
-  const tmp = new THREE.Vector3();
+  const pos = new THREE.Vector3();
   const scl = new THREE.Vector3();
-  const n: Vec3 = { x: 0, y: 0, z: 0 };
-  const form: LeafForm = { fold: 0, cup: 0, curl: 0 };
-  const inner = new THREE.Color();
-  const edge = new THREE.Color();
-  const petiole = new THREE.Color();
   const shadeAt = makeShadeAt(sharedLighting.uLightDir.value);
-
-  let v0 = 0;
-  let ii = 0;
-  leaves.forEach((l, li) => {
-    const shape = leafShape(l.kind);
-    const pts = shape.points;
-    const np = pts.length / 2;
+  return leaves.map((l) => {
     const size = l.scale * LEAF_SIZE[l.kind];
     // Dry oak curls hardest; big leaves lie flatter, so no edge rises much over ~0.12.
     const flat = Math.min(1, 0.9 / size);
-    form.fold = (0.04 + rng() * 0.2) * flat;
-    form.cup = rng() * (l.kind === 'oak' ? 0.6 : 0.3) * flat;
-    form.curl = rng() * (l.kind === 'oak' ? 0.45 : 0.25) * flat;
+    const form = {
+      fold: (0.04 + rng() * 0.2) * flat,
+      cup: rng() * (l.kind === 'oak' ? 0.6 : 0.3) * flat,
+      curl: rng() * (l.kind === 'oak' ? 0.45 : 0.25) * flat,
+    };
+    const inner = new THREE.Color();
+    const edge = new THREE.Color();
+    const petiole = new THREE.Color();
     const wet = leafTint(l.kind, wetnessLayer(l), rng, inner, edge, petiole);
     // Long trunk shadows, baked.
     const shade = shadeAt(l.x, l.z);
@@ -87,84 +89,92 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
     edge.multiplyScalar(shade);
     petiole.multiplyScalar(shade);
     const lateral = LATERAL_VEINS[l.kind];
-    const leafSeed = rng();
-
+    const seedValue = rng();
     // Lie along the ground, including the slopes of leaf piles.
     const tn = groundNormal(l.x, l.z);
     slope.setFromUnitVectors(UP, nrm.set(tn.x, tn.y, tn.z));
-    q.setFromEuler(euler.set(l.tilt * 0.3, l.rotY, 0)).premultiply(slope);
+    const q = new THREE.Quaternion().setFromEuler(euler.set(l.tilt * 0.3, l.rotY, 0)).premultiply(slope);
     // On the ground as the terrain mesh draws it (soil plus mound, at the mesh's own resolution), in
     // loose layers: each leaf at its own height, so overlaps never z-fight.
     const rest = 0.006 + l.y;
-    tmp.set(l.x, meshGroundHeight(l.x, l.z) + rest, l.z);
-    m.compose(tmp, q, scl.setScalar(size));
+    pos.set(l.x, meshGroundHeight(l.x, l.z) + rest, l.z);
+    const m = new THREE.Matrix4().compose(pos, q, scl.setScalar(size));
+    return { kind: l.kind, x: l.x, z: l.z, rest, m, q, form, inner, edge, petiole, wet, lateral, seed: seedValue };
+  });
+}
 
-    const put = (k: number, u: number, v: number, h: number, nx: number, ny: number, nz: number) => {
-      tmp.set(u, h, -v).applyMatrix4(m);
-      pos.set([tmp.x, tmp.y, tmp.z], k * 3);
-      nrm.set(nx, ny, nz).applyQuaternion(q);
-      nor.set([nrm.x, nrm.y, nrm.z], k * 3);
-      leaf2[k * 2] = lateral;
-      leaf2[k * 2 + 1] = leafSeed;
+function chunkMesh(b: LeafBuffers, material: THREE.Material, cx: number, cz: number, name: string): THREE.Mesh {
+  const g = b.toGeometry();
+  g.computeBoundingSphere();
+  // Room for leaves the disturbance map lifts or slides (only reacting chunks move, but cheap).
+  if (g.boundingSphere) g.boundingSphere.radius += DRAPE_MARGIN;
+  const mesh = new THREE.Mesh(g, material);
+  // At the chunk's centre, so three culls whole chunks and sorts them near-first.
+  mesh.position.set(cx, 0, cz);
+  mesh.renderOrder = LITTER_RENDER_ORDER;
+  mesh.name = name;
+  return mesh;
+}
+
+/**
+ * The leaf litter in square chunks (see litterChunks.ts), each with a full-leaf and a low-detail
+ * mesh: species silhouettes with a midrib fold, cup and curl, tinted per leaf and lying on the
+ * rendered ground in loose layers. Presets trim every chunk with a draw range (no rebuild).
+ */
+export function buildLeafLitter(count: number, seed = 1): LeafLitter {
+  const placed = placeLeaves(count, WORLD_HALF, seed, litterDepth);
+  const all = looks(placed, seed);
+  // Created in this order: three sorts opaque draws by material before depth, so the reacting
+  // chunks (round the worm, nearest the camera) draw first.
+  const active = createLeafMaterial('litter');
+  const plain = createLeafMaterial('plain');
+  const lowDetail = createLeafMaterial('far');
+  const group = new THREE.Group();
+  group.name = 'leafLitter';
+
+  const chunks: LitterChunk[] = groupByChunk(placed).map((ids, c) => {
+    let nv = 0; let ni = 0; let fv = 0; let fi = 0;
+    for (const i of ids) {
+      const a = LeafBuffers.size(leafShape(all[i].kind), true);
+      const b = LeafBuffers.size(lodShape(all[i].kind), false);
+      nv += a.verts; ni += a.indices; fv += b.verts; fi += b.indices;
+    }
+    const near = new LeafBuffers(nv, ni, ids.length);
+    const far = new LeafBuffers(fv, fi, ids.length);
+    const cx = chunkCentreX(c);
+    const cz = chunkCentreZ(c);
+    for (const i of ids) {
+      near.write(all[i], leafShape(all[i].kind), true, cx, cz);
+      far.write(all[i], lodShape(all[i].kind), false, cx, cz);
+    }
+    const chunk: LitterChunk = {
+      near: chunkMesh(near, plain, cx, cz, `litterNear${c}`),
+      far: chunkMesh(far, lowDetail, cx, cz, `litterFar${c}`),
+      leaves: Uint32Array.from(ids),
+      nearEnds: near.ends,
+      farEnds: far.ends,
+      box: Float32Array.from(near.box),
+      count: ids.length,
+      isNear: false,
+      active: false,
     };
-    for (let p = 0; p < np; p++) {
-      const u = pts[p * 2];
-      const v = pts[p * 2 + 1];
-      leafNormal(u, v, form, n);
-      const k = v0 + p;
-      put(k, u, v, leafLift(u, v, form), n.x, n.y, n.z);
-      const onEdge = p < shape.outline ? 1 : 0;
-      const c = onEdge ? edge : inner;
-      colr.set([c.r, c.g, c.b, wet], k * 4);
-      leafAttr.set([u, v, onEdge, shape.vein[p]], k * 4);
-    }
-    // Petiole: a thin sliver from the blade's base, curving a touch up off the ground.
-    const bu = pts[shape.base * 2];
-    const bv = pts[shape.base * 2 + 1];
-    const len = PETIOLE[l.kind];
-    const half = 0.012 + len * 0.03;
-    const bh = leafLift(bu, bv, form);
-    for (let e = 0; e < PETIOLE_VERTS; e++) {
-      const k = v0 + np + e;
-      const u = e === 0 ? bu + half : bu + 0.004;
-      const v = e === 0 ? bv - 0.02 : bv - len;
-      put(k, u, v, bh + (e === 0 ? 0.005 : 0.03 + len * 0.1), 0, 1, 0);
-      colr.set([petiole.r, petiole.g, petiole.b, wet], k * 4);
-      leafAttr.set([u, v, 0.5, 1], k * 4);
-    }
-    // The disturbance moves each leaf as one piece about its centre, as far out as its farthest vertex.
-    let radius = 0;
-    for (let k = v0; k < v0 + np + PETIOLE_VERTS; k++) {
-      radius = Math.max(radius, Math.hypot(pos[k * 3] - l.x, pos[k * 3 + 2] - l.z));
-    }
-    for (let k = v0; k < v0 + np + PETIOLE_VERTS; k++) {
-      anchor.set([l.x, l.z, radius, rest], k * 4);
-      // How far this vertex lies below the leaf's rest plane over its own ground (tilt, curl, slope).
-      dip[k] = Math.max(0, rest - (pos[k * 3 + 1] - meshGroundHeight(pos[k * 3], pos[k * 3 + 2])));
-    }
-    for (let t = 0; t < shape.indices.length; t++) index[ii++] = v0 + shape.indices[t];
-    index[ii++] = v0 + shape.base;
-    index[ii++] = v0 + np;
-    index[ii++] = v0 + np + 1;
-    v0 += np + PETIOLE_VERTS;
-    ends[li] = ii;
+    chunk.near.visible = false;
+    chunk.far.visible = ids.length > 0;
+    group.add(chunk.near, chunk.far);
+    return chunk;
   });
 
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
-  g.setAttribute('aColor', new THREE.BufferAttribute(colr, 4));
-  g.setAttribute('aLeaf', new THREE.BufferAttribute(leafAttr, 4));
-  g.setAttribute('aLeaf2', new THREE.BufferAttribute(leaf2, 2));
-  g.setAttribute('aAnchor', new THREE.BufferAttribute(anchor, 4));
-  g.setAttribute('aDip', new THREE.BufferAttribute(dip, 1));
-  g.setIndex(new THREE.BufferAttribute(index, 1));
-  g.computeBoundingSphere();
-  const mesh = new THREE.Mesh(g, createLeafMaterial());
-  mesh.name = 'leafLitter';
+  const show = (ch: LitterChunk) => {
+    ch.near.visible = ch.isNear && ch.count > 0;
+    ch.far.visible = !ch.isNear && ch.count > 0;
+  };
+  const hull = new Float32Array(4);
   let drawn = count;
+
   return {
-    mesh,
+    group,
+    chunks,
+    materials: { active, plain, far: lowDetail },
     max: count,
     get drawn() {
       return drawn;
@@ -172,7 +182,24 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
     setCount(n: number) {
       const k = Math.max(0, Math.min(count, Math.floor(n)));
       drawn = k;
-      g.setDrawRange(0, k > 0 ? ends[k - 1] : 0);
+      for (const ch of chunks) {
+        ch.count = countBelow(ch.leaves, k);
+        ch.near.geometry.setDrawRange(0, ch.count > 0 ? ch.nearEnds[ch.count - 1] : 0);
+        ch.far.geometry.setDrawRange(0, ch.count > 0 ? ch.farEnds[ch.count - 1] : 0);
+        show(ch);
+      }
+    },
+    update(camX, camZ, spine, disturbed) {
+      hullBox(camX, camZ, spine, hull);
+      for (let c = 0; c < chunks.length; c++) {
+        const ch = chunks[c];
+        // Conservative: a chunk any of whose leaves could move or fade reacts, so nothing snaps.
+        ch.active = boxesMeet(ch.box, hull, ACTIVE_MARGIN) || boxesMeet(ch.box, disturbed, ACTIVE_MARGIN);
+        // Only the full-leaf program reacts, so a reacting chunk always shows full leaves.
+        ch.isNear = nextLod(ch.isNear, chunkDistance(c, camX, camZ)) || ch.active;
+        ch.near.material = ch.active ? active : plain;
+        show(ch);
+      }
     },
   };
 }

@@ -55,6 +55,17 @@ describe('leaf occluder fade', () => {
     expect(createLeafMaterial('falling').defines).not.toHaveProperty('OCCLUDE');
     expect(createPropMaterial().defines).not.toHaveProperty('OCCLUDE');
   });
+  it('the plain and low-detail litter neither react nor fade (no fetches, no discard)', () => {
+    for (const v of ['plain', 'far'] as const) {
+      const m = createLeafMaterial(v);
+      expect(m.defines).not.toHaveProperty('DISTURB');
+      expect(m.defines).not.toHaveProperty('OCCLUDE');
+      // Same shared uniforms, so a chunk can swap between the variants with nothing to copy.
+      expect(m.uniforms.uLightDir).toBe(sharedLighting.uLightDir);
+    }
+    expect(createLeafMaterial('far').defines).toHaveProperty('LOD');
+    expect(createLeafMaterial('far').fragmentShader).toContain('#ifdef LOD');
+  });
 });
 
 describe('the ground', () => {

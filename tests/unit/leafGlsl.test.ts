@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { disturbVertex, drapeProfile, DRAPE_FOOT, type MapSampler } from '../../src/render/leafGlsl';
 import {
-  createDisturbance, recentre, stamp, packDisturbance, DIST_N, DIST_CELL, DIST_REACH, DIST_SPAN,
+  createDisturbance, recentre, stamp, decay, packDisturbance, disturbedBox, DIST_N, DIST_CELL, DIST_REACH, DIST_SPAN,
 } from '../../src/surface/disturbance';
 import { HeroWorm, type WormPose } from '../../src/worm/wormMesh';
 import { bellyHeight, wormSurface, type WormSurface } from '../../src/worm/surfaceHeight';
@@ -137,31 +137,36 @@ function clearance(count: number, leaves: (pl: Placement, emit: (t: Tri) => void
 
 describe('the drape on the real litter and the real worm', () => {
   it('every leaf over the worm clears its body by 5 mm (shipped maths, 400 placements)', () => {
+    // The chunked litter's full leaves (the only ones drawn with the drape), as the chunk writer
+    // wrote them: positions relative to each chunk's mesh, anchors in world space.
     const litter = buildLeafLitter(6000);
-    const g = litter.mesh.geometry;
-    const pos = g.getAttribute('position');
-    const anc = g.getAttribute('aAnchor');
-    const dipA = g.getAttribute('aDip');
-    const idx = g.getIndex()!;
     const tri: Tri = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
     const p = [0, 0, 0];
     const a4 = [0, 0, 0, 0];
     const r = clearance(400, ({ pts, sample, ox, oz }, emit) => {
-      for (let t = 0; t < idx.count; t += 3) {
-        const a = idx.getX(t);
-        if (Math.hypot(anc.getX(a) - pts[7][0], anc.getY(a) - pts[7][1]) > 3.5) continue;
-        for (let c = 0; c < 3; c++) {
-          const v = idx.getX(t + c);
-          p[0] = pos.getX(v);
-          p[1] = pos.getY(v);
-          p[2] = pos.getZ(v);
-          a4[0] = anc.getX(v);
-          a4[1] = anc.getY(v);
-          a4[2] = anc.getZ(v);
-          a4[3] = anc.getW(v);
-          disturbVertex(sample, ox, oz, true, p, a4, dipA.getX(v), tri[c]);
+      for (const ch of litter.chunks) {
+        const g = ch.near.geometry;
+        const pos = g.getAttribute('position');
+        const anc = g.getAttribute('aAnchor');
+        const dipA = g.getAttribute('aDip');
+        const idx = g.getIndex()!;
+        const { x: mx, y: my, z: mz } = ch.near.position;
+        for (let t = 0; t < idx.count; t += 3) {
+          const a = idx.getX(t);
+          if (Math.hypot(anc.getX(a) - pts[7][0], anc.getY(a) - pts[7][1]) > 3.5) continue;
+          for (let c = 0; c < 3; c++) {
+            const v = idx.getX(t + c);
+            p[0] = pos.getX(v) + mx;
+            p[1] = pos.getY(v) + my;
+            p[2] = pos.getZ(v) + mz;
+            a4[0] = anc.getX(v);
+            a4[1] = anc.getY(v);
+            a4[2] = anc.getZ(v);
+            a4[3] = anc.getW(v);
+            disturbVertex(sample, ox, oz, true, p, a4, dipA.getX(v), tri[c]);
+          }
+          emit(tri);
         }
-        emit(tri);
       }
     });
     expect(r.placements).toBe(400);
@@ -243,6 +248,52 @@ describe('the drape on the real litter and the real worm', () => {
   }, 180000);
 });
 
+describe('disturbedBox (where litter chunks may draw without the drape)', () => {
+  it('no leaf anchored outside it moves, whatever its size, rest and dip', () => {
+    // A worm crawling a curve, leaving a fading trail; the body re-stamped last, as the crawl does.
+    const m = createDisturbance();
+    const bytes = new Uint8Array(m.data.length);
+    for (let s = 0; s < 120; s++) {
+      const a = s * 0.02;
+      decay(m, 1 / 30);
+      const hx = Math.sin(a) * 2.2;
+      const hz = 2.2 - Math.cos(a) * 2.2;
+      recentre(m, hx, hz);
+      for (let k = 0; k < 31; k++) {
+        const b = a - k * 0.05;
+        stamp(m, Math.sin(b) * 2.2, 2.2 - Math.cos(b) * 2.2, k % 3 === 0 ? 0 : 1);
+      }
+    }
+    packDisturbance(m, bytes);
+    const box = [0, 0, 0, 0];
+    disturbedBox(m, box);
+    const sample = samplerOf(bytes);
+    const ox = m.ci * DIST_CELL;
+    const oz = m.cj * DIST_CELL;
+    const out = [0, 0, 0];
+    let outside = 0;
+    let moved = 0;
+    for (let x = ox; x <= ox + DIST_SPAN; x += 0.05) {
+      for (let z = oz; z <= oz + DIST_SPAN; z += 0.05) {
+        const inside = x >= box[0] && x <= box[2] && z >= box[1] && z <= box[3];
+        for (const r of [0.05, 0.5, 1.2]) {
+          for (const rest of [0.006, 0.12]) {
+            const p = [x + r * 0.7, 0.3, z - r * 0.7];
+            disturbVertex(sample, ox, oz, true, p, [x, z, r, rest], 0.05, out);
+            const still = out[0] === p[0] && out[1] === p[1] && out[2] === p[2];
+            if (!inside) {
+              outside++;
+              expect(still).toBe(true);
+            } else if (!still) moved++;
+          }
+        }
+      }
+    }
+    expect(outside).toBeGreaterThan(10000);
+    expect(moved).toBeGreaterThan(1000);
+  });
+});
+
 describe('drapeProfile', () => {
   it('falls to nothing at its foot', () => {
     expect(drapeProfile(DRAPE_FOOT)).toBe(0);
@@ -252,18 +303,37 @@ describe('drapeProfile', () => {
 });
 
 describe('litter leaf anchors', () => {
-  it('every vertex lies within its leaf radius, and the map reaches the biggest leaf', () => {
+  it('every vertex of both chunk shapes lies within its leaf radius, which a vertex reaches, and the map reaches the biggest leaf', () => {
     const litter = buildLeafLitter(1500);
-    const g = litter.mesh.geometry;
-    const pos = g.getAttribute('position');
-    const a = g.getAttribute('aAnchor');
     let biggest = 0;
-    for (let v = 0; v < pos.count; v++) {
-      const r = a.getZ(v);
-      biggest = Math.max(biggest, r);
-      expect(Math.hypot(pos.getX(v) - a.getX(v), pos.getZ(v) - a.getY(v))).toBeLessThanOrEqual(r + 1e-4);
-      expect(a.getW(v)).toBeGreaterThan(0);
+    let leaves = 0;
+    for (const ch of litter.chunks) {
+      for (const mesh of [ch.near, ch.far]) {
+        const g = mesh.geometry;
+        const pos = g.getAttribute('position');
+        const a = g.getAttribute('aAnchor');
+        const dip = g.getAttribute('aDip');
+        let reach = 0;
+        for (let v = 0; v < pos.count; v++) {
+          const r = a.getZ(v);
+          biggest = Math.max(biggest, r);
+          // World x, z (the anchor) against the vertex, which is relative to the chunk's mesh.
+          const d = Math.hypot(pos.getX(v) + mesh.position.x - a.getX(v), pos.getZ(v) + mesh.position.z - a.getY(v));
+          expect(d).toBeLessThanOrEqual(r + 1e-4);
+          expect(a.getW(v)).toBeGreaterThan(0);
+          expect(dip.getX(v)).toBeGreaterThanOrEqual(0);
+          reach = Math.max(reach, d);
+          // Each leaf's radius is its own shape's farthest written vertex (the far shape's own).
+          const last = v === pos.count - 1 || a.getX(v + 1) !== a.getX(v) || a.getY(v + 1) !== a.getY(v);
+          if (last) {
+            expect(reach).toBeGreaterThan(r - 1e-4);
+            reach = 0;
+            leaves++;
+          }
+        }
+      }
     }
+    expect(leaves).toBe(3000);
     // A leaf whose edge reaches the drape's foot is still on the map, so it never pops.
     expect(biggest + DRAPE_FOOT).toBeLessThan(DIST_REACH);
   });

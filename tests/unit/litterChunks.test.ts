@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   CHUNKS, CHUNK_SIZE, LOD_NEAR, LOD_GAP, chunkIndex, chunkCentreX, chunkCentreZ, chunkDistance,
-  groupByChunk, countBelow, nextLod,
+  groupByChunk, countBelow, nextLod, DRAPE_MARGIN, ACTIVE_MARGIN, boxesMeet, hullBox,
 } from '../../src/surface/litterChunks';
+import { OCC_OUTER } from '../../src/render/occlusion';
+import { PUSH_SLIDE, DRAPE_HEIGHT } from '../../src/render/leafGlsl';
 import { WORLD_HALF } from '../../src/surface/terrain';
 import { placeLeaves } from '../../src/surface/leafLitter';
 
@@ -59,5 +61,30 @@ describe('litter chunks', () => {
     expect(nextLod(true, LOD_NEAR + 1)).toBe(true);
     expect(nextLod(false, LOD_NEAR + 1)).toBe(false);
     expect(nextLod(true, LOD_NEAR + LOD_GAP + 0.1)).toBe(false);
+  });
+
+  it('pads chunks for the drape and the fade', () => {
+    // A lifted leaf rises up to ~0.5 and slides up to PUSH_SLIDE: the bounding spheres need both.
+    expect(DRAPE_MARGIN).toBeGreaterThanOrEqual(0.6);
+    expect(DRAPE_MARGIN).toBeGreaterThanOrEqual(Math.hypot(2 * DRAPE_HEIGHT, PUSH_SLIDE));
+    expect(ACTIVE_MARGIN).toBe(DRAPE_MARGIN + OCC_OUTER);
+  });
+
+  it('boxesMeet grows the first box by pad, and an empty box meets nothing', () => {
+    const a = [0, 0, 1, 1];
+    expect(boxesMeet(a, [0.5, 0.5, 0.6, 0.6], 0)).toBe(true);
+    expect(boxesMeet(a, [1.4, 0, 2, 1], 0.5)).toBe(true);
+    expect(boxesMeet(a, [1.6, 0, 2, 1], 0.5)).toBe(false);
+    expect(boxesMeet(a, [0, -2, 1, -0.6], 0.5)).toBe(false);
+    expect(boxesMeet(a, [-3, -3, 3, 3], 0)).toBe(true);
+    expect(boxesMeet(a, [Infinity, Infinity, -Infinity, -Infinity], 100)).toBe(false);
+  });
+
+  it('hullBox spans the camera and every spine point, with no allocation', () => {
+    const out = new Float32Array(4);
+    hullBox(1, -2, [0, 5, 0, 3, 0, 4, -1, 2, 1], out);
+    expect(Array.from(out)).toEqual([-1, -2, 3, 4]);
+    hullBox(0, 0, [], out);
+    expect(Array.from(out)).toEqual([0, 0, 0, 0]);
   });
 });

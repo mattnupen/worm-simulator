@@ -58,14 +58,17 @@ describe('litter and ground on a pile', () => {
 
   it('leaves near a pile centre lie on top of it', () => {
     const litter = buildLeafLitter(6000);
-    const pos = litter.mesh.geometry.getAttribute('position').array as Float32Array;
     let near = 0;
-    for (let v = 0; v < pos.length; v += 3) {
-      const x = pos[v];
-      const z = pos[v + 2];
-      if (Math.hypot(x - pile.x, z - pile.z) > pile.r * 0.2) continue;
-      near++;
-      expect(pos[v + 1] - terrainHeight(x, z)).toBeGreaterThan(0.12);
+    for (const c of litter.chunks) {
+      // Chunk geometry is relative to the chunk's centre (the mesh position).
+      const pos = c.near.geometry.getAttribute('position').array as Float32Array;
+      for (let v = 0; v < pos.length; v += 3) {
+        const x = pos[v] + c.near.position.x;
+        const z = pos[v + 2] + c.near.position.z;
+        if (Math.hypot(x - pile.x, z - pile.z) > pile.r * 0.2) continue;
+        near++;
+        expect(pos[v + 1] - terrainHeight(x, z)).toBeGreaterThan(0.12);
+      }
     }
     expect(near).toBeGreaterThan(20);
   });

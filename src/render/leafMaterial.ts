@@ -27,6 +27,8 @@ import { OCCLUDE_GLSL } from './occlusion';
  * With HERO defined it is the instanced hero-leaf mesh (instanceMatrix, instanceColor tint).
  * With OCCLUDE defined, leaf pixels between the camera and the worm's body drop out in a fixed
  * screen-space dither (occlusion.ts), so the worm stays readable without a transparent pass.
+ * With LOD defined (distant low-detail litter) the fragment shader skips the veins and the wet
+ * sheen.
  */
 const vertexShader = /* glsl */ `
   uniform vec3 uLightDir;
@@ -175,6 +177,15 @@ const fragmentShader = /* glsl */ `
     float b = (nz.g * 0.6 + nz.b * 0.4 - 0.5) * 0.5 * detail;
     float dapple = dappleLight(mix(0.5, nz.r, detail), b, 0.9);
 
+    #ifdef LOD
+    // Distant litter: too small on screen for veins or the wet sheen, so skip them. The margins
+    // and the mottle stay, so the blade's tone matches the full leaf's across the switch.
+    vec3 col = vColor.rgb * (1.0 - smoothstep(0.78, 1.0, vLeaf.z) * 0.32) * (1.0 + (nz.r - 0.5) * 0.25 * detail)
+      * (1.0 + b * 0.4);
+    vec3 lit = paintedLight(col, n, v, b, dapple);
+    float ndl = dot(n, uLightDir);
+    lit += col * uLightColor * max(-ndl, 0.0) * smoothstep(0.0, 0.3, dot(n, v)) * 0.9 * dapple;
+    #else
     // Main veins: vLeaf.w is 1 along the vein edges of the leaf mesh, so a band near 1 is
     // a line of even width that tapers toward the margin. Fades out before it can alias.
     float lc = (vLeaf.y - abs(vLeaf.x) * 0.85) * 11.0;
@@ -213,6 +224,7 @@ const fragmentShader = /* glsl */ `
     spec *= spec;
     spec *= spec * smoothstep(-0.05, 0.25, ndl) * dapple;
     lit += uLightColor * spec * (0.04 + vColor.a * 0.4);
+    #endif
 
     lit = mix(lit, vFog.rgb, vFog.a);
     gl_FragColor = vec4(paintedGrade(lit), 1.0);
@@ -221,13 +233,17 @@ const fragmentShader = /* glsl */ `
 `;
 
 /**
- * Which leaves: the floor litter and the close-up detail layer (both react to the worm), the
- * falling leaves (animated), or the hero leaves (instanced, moved by their own physics).
+ * Which leaves: litter chunks that can react to the worm (disturbance map, occluder fade), other
+ * full-leaf litter chunks ('plain', neither), distant low-detail litter ('far'), the close-up
+ * detail layer (reacts), the falling leaves (animated), or the hero leaves (instanced, moved by
+ * their own physics). The litter swaps between the first three per chunk, never recompiling.
  */
-export type LeafVariant = 'litter' | 'falling' | 'detail' | 'hero';
+export type LeafVariant = 'litter' | 'plain' | 'far' | 'falling' | 'detail' | 'hero';
 
 const DEFINES: Record<LeafVariant, Record<string, string>> = {
   litter: { DISTURB: '', OCCLUDE: '' },
+  plain: {},
+  far: { LOD: '' },
   falling: { FALLING: '' },
   detail: { DETAIL: '', DISTURB: '', OCCLUDE: '' },
   hero: { HERO: '', OCCLUDE: '' },

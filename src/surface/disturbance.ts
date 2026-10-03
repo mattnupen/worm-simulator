@@ -158,3 +158,39 @@ export function packDisturbance(m: DisturbanceMap, out: Uint8Array): void {
     out[k + 3] = byte(d[k + 3]);
   }
 }
+
+/**
+ * The world x, z box (min x, min z, max x, max z) outside which the map moves no leaf: every cell
+ * holding anything, grown by one cell. A leaf moves only where the lookup at its anchor reads a
+ * fresh trail (A) or the body (B), and a bilinear lookup reads only cells whose centres are within
+ * a cell of it. Empty (Infinity, Infinity, -Infinity, -Infinity) when the map is clear. Allocates
+ * nothing.
+ */
+export function disturbedBox(m: DisturbanceMap, out: number[] | Float32Array): void {
+  const d = m.data;
+  let i0 = DIST_N;
+  let j0 = DIST_N;
+  let i1 = -1;
+  let j1 = -1;
+  for (let j = 0; j < DIST_N; j++) {
+    for (let i = 0; i < DIST_N; i++) {
+      const k = (j * DIST_N + i) * K;
+      if (d[k] === 0 && d[k + 2] === 0 && d[k + 3] === 0) continue;
+      if (i < i0) i0 = i;
+      if (i > i1) i1 = i;
+      if (j < j0) j0 = j;
+      if (j > j1) j1 = j;
+    }
+  }
+  if (i1 < 0) {
+    out[0] = Infinity;
+    out[1] = Infinity;
+    out[2] = -Infinity;
+    out[3] = -Infinity;
+    return;
+  }
+  out[0] = (m.ci + i0 - 1) * DIST_CELL;
+  out[1] = (m.cj + j0 - 1) * DIST_CELL;
+  out[2] = (m.ci + i1 + 2) * DIST_CELL;
+  out[3] = (m.cj + j1 + 2) * DIST_CELL;
+}

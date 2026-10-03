@@ -6,6 +6,7 @@ import {
   groundUniforms, setFocus, setLeafReaction, setSpine, uploadDisturbance,
 } from '../render/groundUniforms';
 import { occluderSegments } from '../render/occluderSegments';
+import { disturbedBox } from '../surface/disturbance';
 import { PRESETS, type PresetSpec } from '../render/graphics';
 import { buildTerrain } from '../surface/terrainMesh';
 import { buildForestTrees } from '../surface/forestTrees';
@@ -21,7 +22,7 @@ import { WORM_SEGMENTS, type Crawl } from './crawl';
 
 export interface World {
   scene: THREE.Scene;
-  /** One merged mesh, built with Ultra's leaf count. */
+  /** The base litter in chunks (full and low-detail meshes), built with Ultra's leaf count. */
   litter: LeafLitter;
   /** The close-up leaf layer around the worm (built when a preset first draws it). */
   detail: DetailLayer;
@@ -63,13 +64,15 @@ export function buildWorld(crawl: Crawl): World {
   const worm = new HeroWorm(WORM_SEGMENTS, (x, z) => wormSurface(x, z, reaction, surf).y);
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
   const occBox = new Float32Array(5);
+  // Where the uploaded map can move a leaf (disturbedBox); empty until the first upload.
+  const distBox = new Float32Array([Infinity, Infinity, -Infinity, -Infinity]);
 
   // The ground fills most of the screen: draw it after everything that sits on it, so the
   // depth test skips ground pixels already covered by leaves, props and trunks.
   const terrain = buildTerrain();
   terrain.renderOrder = 5;
   scene.add(
-    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.mesh, detail.group, hero.mesh, props.mesh, nearClutter.group, worm.group,
+    terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.group, detail.group, hero.mesh, props.mesh, nearClutter.group, worm.group,
     buildSky(), atmosphere.group,
   );
   return {
@@ -101,8 +104,11 @@ export function buildWorld(crawl: Crawl): World {
       g.uOccTan.value.set(1 / pe[0], 1 / pe[5]);
       if (crawl.disturbed) {
         uploadDisturbance(crawl.disturbance);
+        disturbedBox(crawl.disturbance, distBox);
         crawl.disturbed = false;
       }
+      // Per litter chunk: full or low-detail leaves, and whether it may react (as uploaded now).
+      litter.update(camera.position.x, camera.position.z, pose.spine, distBox);
     },
   };
 }

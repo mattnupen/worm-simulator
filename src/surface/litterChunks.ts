@@ -1,4 +1,5 @@
 import { WORLD_HALF } from './terrain';
+import { OCC_OUTER } from '../render/occlusion';
 
 /**
  * The base litter is cut into CHUNKS x CHUNKS square chunks over the world, so that the
@@ -12,8 +13,19 @@ export const CHUNK_SIZE = (2 * WORLD_HALF) / CHUNKS;
 export const LOD_NEAR = 9;
 /** ...and switches back to low-detail leaves only beyond LOD_NEAR + LOD_GAP (no flicker at the line). */
 export const LOD_GAP = 2;
-/** Chunks this close to the worm's head react to it (disturbance map, occluder fade). */
-export const ACTIVE_RANGE = 5;
+/**
+ * Slack (m) round a chunk's leaves for the disturbance map: a lifted leaf rises up to about 0.5
+ * and slides up to PUSH_SLIDE (0.2) sideways. Pads the bounding spheres and the active test.
+ */
+export const DRAPE_MARGIN = 0.6;
+/**
+ * A chunk reacts to the worm (the material with the disturbance map and the occluder fade) when
+ * the x, z box of its leaves, grown by this, meets the disturbed part of the map or the fade's
+ * hull (the camera and the body, see hullBox): the drape's slack plus the fade's reach round the
+ * body's axis (OCC_OUTER). Elsewhere its leaves cannot move or fade, so the plain material draws
+ * them identically, without the texture fetches or the discard.
+ */
+export const ACTIVE_MARGIN = DRAPE_MARGIN + OCC_OUTER;
 
 /** Which chunk (x, z) falls in; points outside the world clamp to the edge chunks. */
 export function chunkIndex(x: number, z: number): number {
@@ -67,4 +79,32 @@ export function nextLod(near: boolean, dist: number): boolean {
   if (dist < LOD_NEAR) return true;
   if (dist > LOD_NEAR + LOD_GAP) return false;
   return near;
+}
+
+/**
+ * True if box a (min x, min z, max x, max z) grown by pad on every side meets box b. An empty b
+ * (min > max, e.g. Infinity, Infinity, -Infinity, -Infinity) meets nothing.
+ */
+export function boxesMeet(a: ArrayLike<number>, b: ArrayLike<number>, pad: number): boolean {
+  return a[0] - pad <= b[2] && b[0] <= a[2] + pad && a[1] - pad <= b[3] && b[1] <= a[3] + pad;
+}
+
+/**
+ * The x, z box of the leaf fade's hull: the camera and every point of the rendered spine (x, y, z
+ * per point). Every pixel the fade can drop lies within OCC_OUTER of the hull of the camera and
+ * the body's axis (occlusion.ts), so within OCC_OUTER of this box seen from above. Allocates nothing.
+ */
+export function hullBox(camX: number, camZ: number, spine: ArrayLike<number>, out: number[] | Float32Array): void {
+  out[0] = camX;
+  out[1] = camZ;
+  out[2] = camX;
+  out[3] = camZ;
+  for (let i = 0; i + 2 < spine.length; i += 3) {
+    const x = spine[i];
+    const z = spine[i + 2];
+    if (x < out[0]) out[0] = x;
+    if (x > out[2]) out[2] = x;
+    if (z < out[1]) out[1] = z;
+    if (z > out[3]) out[3] = z;
+  }
 }
