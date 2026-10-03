@@ -1,5 +1,5 @@
 import { treeSites, trunkFootOf } from './treeSites';
-import { heroLog, rocks } from './propPlacement';
+import { heroLog, LOG_END, LOG_FOOT, rocks, ROCK_FOOT } from './propPlacement';
 import { scaleSpec, type ScaleSpec } from './worldScale';
 
 /**
@@ -9,12 +9,8 @@ import { scaleSpec, type ScaleSpec } from './worldScale';
  * them (heroObstacles.ts), and the camera stops short of the tall ones (followCamera.ts).
  */
 
-/** A drawn rock reaches about this much past its size at ground level (its lumpy, wide flank). */
-export const ROCK_FOOT = 1.2;
-/** The drawn log is this much wider than its radius (bark lumps), at the height of the worm... */
-export const LOG_FOOT = 1.15;
-/** ...and its jagged broken ends reach this far (m) past its length (writeLog). */
-export const LOG_END = 0.18;
+/** How far the drawn rocks and log reach past their size (propPlacement.ts, beside the props). */
+export { LOG_END, LOG_FOOT, ROCK_FOOT };
 /** A rock's top above the ground, per unit of its size; the log's, per unit of its radius. */
 const ROCK_TOP = 0.6;
 const LOG_TOP = 1.7;

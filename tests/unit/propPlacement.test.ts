@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
-  placeClutter, keepsClear, heroLog, rocks, CLUTTER_KINDS, logSegmentDistance, clutterRadius,
+  placeClutter, keepsClear, heroLog, rocks, CLUTTER_KINDS, logSegmentDistance, clutterRadius, clutterBase,
+  clutterBaseClear,
 } from '../../src/surface/propPlacement';
 import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
 import { obstacleDepth, footprints, LOG_FOOT, ROCK_FOOT } from '../../src/surface/obstacles';
 import { CORRIDOR } from '../../src/surface/wormPaths';
 import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
-import { PLAY_HALF } from '../../src/surface/terrain';
+import { PLAY_HALF, WORLD_HALF } from '../../src/surface/terrain';
 import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
 import { DEFAULT_SCALE, SCALE_MODES, SCALE_SPECS, setScale } from '../../src/surface/worldScale';
 import { litterDepth } from '../../src/surface/litterDepth';
@@ -92,14 +93,36 @@ describe.each(SCALE_MODES)('%s layout', (mode) => {
       expect(logSegmentDistance(c.x, c.z)).toBeGreaterThan(log.radius);
       for (const k of rocks()) expect(Math.hypot(c.x - k.x, c.z - k.z)).toBeGreaterThan(k.size);
     }
-    // Mushrooms grow right beside the log.
+    // Mushrooms grow right beside the log (grown, the whole cluster stands just off the drawn log).
+    const mushroom = SCALE_SPECS[mode].mushroom;
     expect(items.slice(0, 4).every((c) => c.kind === 'mushrooms'
-      && logSegmentDistance(c.x, c.z) > log.radius && logSegmentDistance(c.x, c.z) < log.radius + 0.6 * SCALE_SPECS[mode].mushroom)).toBe(true);
+      && logSegmentDistance(c.x, c.z) > log.radius
+      && logSegmentDistance(c.x, c.z) < (mode === 'classic'
+        ? log.radius + 0.6 * mushroom
+        : log.radius * LOG_FOOT + clutterBase(c.kind, c.scale) + 0.1 * mushroom + 1e-9))).toBe(true);
     for (const k of CLUTTER_KINDS) expect(items.some((c) => c.kind === k)).toBe(true);
   });
 
   it('has as many footprints as trunks and rocks', () => {
     expect(footprints().round.length).toBe((treeSites().length + rocks().length) * 4);
+  });
+});
+
+describe('grown clutter: fronds may lean over a prop, the base may not', () => {
+  it.each(['hybrid', 'true'] as const)('%s: every clutter item\'s base stays off the drawn rocks and log, inside the world', (mode) => {
+    setScale(mode);
+    const items = placeClutter();
+    for (const c of items) {
+      expect(clutterBaseClear(c), `${c.kind} at ${c.x}, ${c.z}`).toBe(true);
+      expect(Math.abs(c.x)).toBeLessThan(PLAY_HALF);
+      expect(Math.abs(c.z)).toBeLessThan(PLAY_HALF);
+      expect(Math.max(Math.abs(c.x), Math.abs(c.z)) + clutterBase(c.kind, c.scale)).toBeLessThan(WORLD_HALF);
+      for (const k of rocks()) {
+        expect(Math.hypot(c.x - k.x, c.z - k.z)).toBeGreaterThan(k.size * ROCK_FOOT + clutterBase(c.kind, c.scale));
+      }
+      expect(logSegmentDistance(c.x, c.z)).toBeGreaterThan(heroLog().radius * LOG_FOOT + clutterBase(c.kind, c.scale));
+    }
+    for (const k of CLUTTER_KINDS) expect(items.some((c) => c.kind === k)).toBe(true);
   });
 });
 

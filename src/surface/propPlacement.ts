@@ -19,6 +19,13 @@ export function keepsClear(x: number, z: number, radius: number): boolean {
   return treeSites().every((t) => Math.hypot(x - t.x, z - t.z) > Math.max(TRUNK_CLEAR, trunkFootOf(t)) + radius);
 }
 
+/** A drawn rock reaches about this much past its size at ground level (its lumpy, wide flank). */
+export const ROCK_FOOT = 1.2;
+/** The drawn log is this much wider than its radius (bark lumps), at the height of the worm... */
+export const LOG_FOOT = 1.15;
+/** ...and its jagged broken ends reach this far (m) past its length (writeLog). */
+export const LOG_END = 0.18;
+
 /** The hero prop, a mossy fallen paper birch, in `spec`'s mode: its radius and length scaled. */
 export function heroLog(spec: ScaleSpec = scaleSpec()): LogSite {
   const s = spec.logSite;
@@ -60,9 +67,49 @@ export function clutterRadius(kind: ClutterKind, scale: number, spec: ScaleSpec 
   return (kind === 'fern' ? 0.6 : 0.3) * scale * clutterGrow(kind, spec);
 }
 
-function freeOfProps(x: number, z: number, r: number): boolean {
+/**
+ * How far a grown clutter item's base reaches from its centre, per unit of scale times grow: all
+ * it draws below a tenth of its height, measured from propGeometry's writers over many seeds (a
+ * fern's frond roots and drooping tips 0.47, a sedge tuft's blade roots 0.05). A mushroom cluster
+ * is low, so it counts whole (0.65). Fronds and blades above the base may lean over a prop.
+ */
+export const CLUTTER_BASE: Readonly<Record<ClutterKind, number>> = { fern: 0.5, sedge: 0.1, mushrooms: 0.7 };
+
+/** How far a clutter item's base reaches in `spec`'s mode (CLUTTER_BASE). */
+export function clutterBase(kind: ClutterKind, scale: number, spec: ScaleSpec = scaleSpec()): number {
+  return CLUTTER_BASE[kind] * scale * clutterGrow(kind, spec);
+}
+
+/** Distance from (x, z) to the log's centre line, its broken ends included (as obstacles.ts). */
+function logEndsDistance(x: number, z: number): number {
+  const log = heroLog();
+  const dx = Math.cos(log.yaw);
+  const dz = Math.sin(log.yaw);
+  const half = log.length / 2 + LOG_END;
+  const t = Math.max(-half, Math.min(half, (x - log.x) * dx + (z - log.z) * dz));
+  return Math.hypot(x - (log.x + dx * t), z - (log.z + dz * t));
+}
+
+/** True when `c`'s base, as drawn in the active mode, stands off every rock and the log (their drawn footprints). */
+export function clutterBaseClear(c: ClutterItem): boolean {
+  const r = clutterBase(c.kind, c.scale);
+  return logEndsDistance(c.x, c.z) > heroLog().radius * LOG_FOOT + r
+    && rocks().every((k) => Math.hypot(c.x - k.x, c.z - k.z) > k.size * ROCK_FOOT + r);
+}
+
+/**
+ * True when a clutter item at (x, z) keeps off the log and the rocks. Classic keeps Step 1a's rule
+ * (its spacing radius against the log's radius and the rocks' size; its layout is pinned). Grown
+ * clutter keeps its base off the drawn footprints (clutterBaseClear).
+ */
+function freeOfProps(x: number, z: number, kind: ClutterKind, scale: number, grown: boolean): boolean {
+  if (grown) return clutterBaseClear({ x, z, rot: 0, scale, kind });
+  const r = clutterRadius(kind, scale);
   return logSegmentDistance(x, z) > heroLog().radius + r && rocks().every((k) => Math.hypot(x - k.x, z - k.z) > k.size + r);
 }
+
+/** A grown mushroom cluster beside the log gets this many seeded tries (alternating sides) to fit. */
+const LOG_MUSHROOM_TRIES = 40;
 
 /** Every kind of clutter gets at least this many items, where they fit. */
 const MIN_EACH = 3;
@@ -83,15 +130,28 @@ export function placeClutter(count = scaleSpec().clutter, seed = scaleSpec().clu
   const dz = Math.sin(log.yaw);
   // Along the log's middle stretch: a log longer than Classic's runs off into the distance.
   const stretch = Math.min(log.length, 8);
+  // The big modes grow their clutter and keep its base off the drawn props (Classic: Step 1a).
+  const grown = CLUTTER_KINDS.some((k) => clutterGrow(k, spec) > 1);
   for (let k = 0; k < Math.min(4, count); k++) {
-    const along = (k / 3 - 0.5) * stretch * 0.7 + (rng() - 0.5) * 0.3;
-    const side = k % 2 === 0 ? 1 : -1;
-    const off = log.radius + (0.12 + rng() * 0.1) * spec.mushroom;
-    out.push({
-      x: log.x + dx * along - dz * off * side,
-      z: log.z + dz * along + dx * off * side,
-      rot: rng() * Math.PI * 2, scale: 0.8 + rng() * 0.4, kind: 'mushrooms',
-    });
+    for (let tries = 0; tries < (grown ? LOG_MUSHROOM_TRIES : 1); tries++) {
+      const along = (k / 3 - 0.5) * stretch * 0.7 + (rng() - 0.5) * 0.3;
+      const side = (k + tries) % 2 === 0 ? 1 : -1;
+      const gap = rng() * 0.1;
+      const rot = rng() * Math.PI * 2;
+      const scale = 0.8 + rng() * 0.4;
+      // Grown, the whole cluster stands just off the drawn log, inside the world and off the rocks.
+      const off = grown
+        ? log.radius * LOG_FOOT + clutterBase('mushrooms', scale, spec) + gap * spec.mushroom
+        : log.radius + (0.12 + gap) * spec.mushroom;
+      const c: ClutterItem = {
+        x: log.x + dx * along - dz * off * side,
+        z: log.z + dz * along + dx * off * side,
+        rot, scale, kind: 'mushrooms',
+      };
+      if (grown && !(keepsClear(c.x, c.z, clutterBase('mushrooms', scale, spec)) && clutterBaseClear(c))) continue;
+      out.push(c);
+      break;
+    }
   }
   let guard = 0;
   while (out.length < count && guard++ < count * 200) {
@@ -102,7 +162,7 @@ export function placeClutter(count = scaleSpec().clutter, seed = scaleSpec().clu
     const rot = rng() * Math.PI * 2;
     const scale = 0.7 + rng() * 0.6;
     const r = clutterRadius(kind, scale, spec);
-    if (keepsClear(x, z, r) && freeOfProps(x, z, r)) out.push({ x, z, rot, scale, kind });
+    if (keepsClear(x, z, r) && freeOfProps(x, z, kind, scale, grown)) out.push({ x, z, rot, scale, kind });
   }
   for (const kind of CLUTTER_KINDS) {
     for (let tries = 0; tries < 4000 && out.filter((c) => c.kind === kind).length < MIN_EACH; tries++) {
@@ -111,7 +171,7 @@ export function placeClutter(count = scaleSpec().clutter, seed = scaleSpec().clu
       const rot = rng() * Math.PI * 2;
       const scale = 0.7 + rng() * 0.6;
       const r = clutterRadius(kind, scale, spec);
-      if (!keepsClear(x, z, r) || !freeOfProps(x, z, r)) continue;
+      if (!keepsClear(x, z, r) || !freeOfProps(x, z, kind, scale, grown)) continue;
       if (out.some((c) => c.kind === kind && Math.hypot(c.x - x, c.z - z) < r + clutterRadius(kind, c.scale, spec))) continue;
       const most = CLUTTER_KINDS.reduce((a, b) => (out.filter((c) => c.kind === b).length > out.filter((c) => c.kind === a).length ? b : a));
       let last = out.length - 1;
