@@ -2,7 +2,7 @@ import type { Vec3 } from '../core/vec';
 import {
   smoothDampInto, type FollowCamOptions, type FollowCamState, type Spring,
 } from '../surface/followCamera';
-import { sightReach } from '../surface/obstacles';
+import { pushOutTall, sightReach } from '../surface/obstacles';
 
 /** The follow camera's settings at full reach: distance behind and height above the head. */
 export const CAM_OPTS: Readonly<FollowCamOptions> = {
@@ -16,14 +16,16 @@ const CAM_FAN = 0.5;
  * A side line only looks ahead: a prop on it pulls the camera in at most to this share of what
  * the middle line (its real line to the head) allows, unless the camera is swinging toward it
  * (CAM_LOOK). Only the middle line, or a side line the camera is about to reach, pulls it all the
- * way in. 0.4 is the highest floor that never fires the line clamp (keepOut) when the worm
- * slides round a big trunk: the trunk can cut the middle line near its middle within a fifth of a
- * second, with no earlier warning than a side line meeting it, so the camera must already be in.
+ * way in. 0.4 keeps a brush-past gentle while still pulling the camera most of the way in early
+ * when the worm slides round a big trunk: the trunk can cut the middle line near its middle within
+ * a fifth of a second, with no earlier warning than a side line meeting it. (Measured with a
+ * line-of-sight clamp, 0.4 was the highest floor that clamp never fired at; the clamp now pushes
+ * the camera clear instead, so a higher floor costs a brief look through a trunk's edge, not a snap.)
  */
 export const CAM_SIDE_FLOOR = 0.4;
 /** A side line counts in full when the camera's yaw would reach it within this time (s). */
 const CAM_LOOK = 0.5;
-/** It never gets nearer than this to one, even while easing (keepOut). */
+/** The camera itself never comes nearer than this (m) to a prop taller than it (keepOut). */
 const CAM_HARD_MARGIN = 0.15;
 /**
  * ...on a critically damped spring, so it starts and stops gently: settling times (s) pulling in,
@@ -68,23 +70,25 @@ export class CameraClearance {
       reach = Math.min(reach, Math.max(sightAt(head, cam.yaw + k * CAM_FAN), mid * CAM_SIDE_FLOOR * (1 - toward)));
     }
     const r = this.spring;
-    // The spring never overshoots its target, so the reach stays within 0..1.
     smoothDampInto(r, reach, reach < r.value ? CAM_IN_TIME : CAM_OUT_TIME, dt);
+    if (r.value < 0 || r.value > 1) {
+      r.value = Math.max(0, Math.min(1, r.value));
+      r.velocity = 0;
+    }
     this.opts.distance = CAM_OPTS.distance * r.value;
     this.opts.height = CAM_OPTS.height * r.value;
   }
 
   /**
-   * The eased target can trail a hard turn by a step or two: never let the camera at `pos` itself
-   * into a prop (it stops on its line to the head, a little short).
+   * The eased camera can trail a hard turn, or a prop that swings in beside the head: never let the
+   * camera at `pos` itself into a prop. It is pushed sideways, straight out of any trunk (or rock or
+   * log taller than it) it has come within CAM_HARD_MARGIN of, so it slides along the prop's edge.
+   * Its line to the head may cross a prop's edge for a few frames while the reach eases in; it is
+   * never moved along that line, which jumped (and shook, step to step) when the line's first
+   * blocked point jumped.
    */
-  keepOut(head: Vec3, pos: Vec3): void {
-    const r = sightReach(head.x, head.y, head.z, pos.x, pos.y, pos.z, CAM_HARD_MARGIN);
-    if (r < 1) {
-      pos.x = head.x + (pos.x - head.x) * r;
-      pos.y = head.y + (pos.y - head.y) * r;
-      pos.z = head.z + (pos.z - head.z) * r;
-    }
+  keepOut(pos: Vec3): void {
+    pushOutTall(pos, CAM_HARD_MARGIN);
   }
 }
 

@@ -35,6 +35,8 @@ const MAX_NECK_BEND = 1.3;
 const BREATH_HZ = 0.22;
 /** The camera never dips closer than this to the litter top beneath it. */
 export const CAM_GROUND_MARGIN = 0.5;
+/** The camera eases onto that floor over its last this many metres above it. */
+const GROUND_EASE = 0.1;
 const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
 /**
  * The disturbance map centres on this segment (1.5 m behind the head), so the head and the tail,
@@ -287,9 +289,11 @@ export class Crawl {
     this.clearance.update(head, this.cam, dt);
     this.cam = stepFollowCam(this.cam, head, this.motion.heading, dt, this.clearance.opts);
     const c = this.cam.pos;
-    this.clearance.keepOut(head, c);
-    const floor = litterTop(c.x, c.z) + CAM_GROUND_MARGIN;
-    if (c.y < floor) c.y = floor;
+    this.clearance.keepOut(c);
+    // The camera never dips nearer the litter than CAM_GROUND_MARGIN, easing onto that floor over
+    // its last GROUND_EASE (a smooth curve, so its rise and fall never turn sharply).
+    const u = c.y - litterTop(c.x, c.z) - CAM_GROUND_MARGIN;
+    if (u < GROUND_EASE) c.y += (u < -GROUND_EASE ? 0 : ((u + GROUND_EASE) * (u + GROUND_EASE)) / (4 * GROUND_EASE)) - u;
     if (this.reaction) this.disturbLeaves(dt);
     this.pushLeaves(dt);
   }

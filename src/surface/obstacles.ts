@@ -224,13 +224,17 @@ export function slideMove(from: { x: number; z: number }, to: { x: number; z: nu
   }
 }
 
-/** Whether ground point (x, z) at height y lies inside a footprint that stands taller than y there. */
-export function insideTall(x: number, z: number, y: number): boolean {
+/**
+ * Whether ground point (x, z) at height y lies inside a footprint (grown by `pad`) that stands
+ * taller than y there. A rock or the log counts as a prism its footprint's full width all the way
+ * up to its top (the drawn prop narrows toward the top), which errs on the side of "inside".
+ */
+export function insideTall(x: number, z: number, y: number, pad = 0): boolean {
   const { round, log } = footprints();
   for (let o = 0; o < round.length; o += 4) {
     const dx = x - round[o];
     const dz = z - round[o + 1];
-    const r = round[o + 2];
+    const r = round[o + 2] + pad;
     if (dx * dx + dz * dz < r * r && terrainHeight(round[o], round[o + 1]) + round[o + 3] > y) return true;
   }
   const t = Math.max(-log.half, Math.min(log.half, (x - log.x) * log.dx + (z - log.z) * log.dz));
@@ -238,7 +242,8 @@ export function insideTall(x: number, z: number, y: number): boolean {
   const cz = log.z + log.dz * t;
   const dx = x - cx;
   const dz = z - cz;
-  return dx * dx + dz * dz < log.r * log.r && terrainHeight(cx, cz) + log.top > y;
+  const lr = log.r + pad;
+  return dx * dx + dz * dz < lr * lr && terrainHeight(cx, cz) + log.top > y;
 }
 
 /** Samples along the sight line, then halvings of the first blocked stretch. */
@@ -272,4 +277,65 @@ export function sightReach(
     return Math.max(0, lo - margin / len);
   }
   return 1;
+}
+
+/**
+ * Over a rock or the log, the footprint pushOutTall keeps a point out of shrinks from its full
+ * size at the prop's top to nothing this far (m) above it, so a point sinking past the top is
+ * eased out instead of jumping sideways.
+ */
+const TOP_FADE = 0.5;
+
+/** How much of its footprint a prop whose top is at `top` (m, absolute) keeps a point at height y out of. */
+function pushShare(top: number, y: number): number {
+  return Math.max(0, Math.min(1, (top + TOP_FADE - y) / TOP_FADE));
+}
+
+/**
+ * Moves the point `p` (the camera) sideways, straight out of any footprint grown by `pad` that
+ * stands taller than p.y there (insideTall), the deepest first: a camera that has come within
+ * `pad` of a trunk, or of a rock or the log it is lower than, slides along its edge. Over a rock or
+ * the log the footprint shrinks away within TOP_FADE above its top, so one the camera is well above
+ * does not push it, and sinking past a top never makes it jump. Returns how far it moved in all.
+ * Allocates nothing.
+ */
+export function pushOutTall(p: { x: number; y: number; z: number }, pad: number): number {
+  const { round, log } = footprints();
+  let moved = 0;
+  for (let k = 0; k < 3; k++) {
+    let best = 0;
+    let nx = 0;
+    let nz = 0;
+    for (let o = 0; o < round.length; o += 4) {
+      const dx = p.x - round[o];
+      const dz = p.z - round[o + 1];
+      const lim = round[o + 2] + pad;
+      if (Math.abs(dx) >= lim || Math.abs(dz) >= lim) continue;
+      const d = Math.sqrt(dx * dx + dz * dz);
+      if (!(lim - d > best)) continue;
+      const push = lim * pushShare(terrainHeight(round[o], round[o + 1]) + round[o + 3], p.y) - d;
+      if (push > best) {
+        best = push;
+        nx = d > 1e-9 ? dx / d : 1;
+        nz = d > 1e-9 ? dz / d : 0;
+      }
+    }
+    const t = Math.max(-log.half, Math.min(log.half, (p.x - log.x) * log.dx + (p.z - log.z) * log.dz));
+    const cx = log.x + log.dx * t;
+    const cz = log.z + log.dz * t;
+    const dx = p.x - cx;
+    const dz = p.z - cz;
+    const d = Math.sqrt(dx * dx + dz * dz);
+    const push = (log.r + pad) * pushShare(terrainHeight(cx, cz) + log.top, p.y) - d;
+    if (push > best) {
+      best = push;
+      nx = d > 1e-9 ? dx / d : -log.dz;
+      nz = d > 1e-9 ? dz / d : log.dx;
+    }
+    if (!(best > 0)) break;
+    p.x += nx * best;
+    p.z += nz * best;
+    moved += best;
+  }
+  return moved;
 }
