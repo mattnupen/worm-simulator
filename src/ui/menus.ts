@@ -4,16 +4,19 @@ import type { Shell } from './shell';
 
 export interface StartActions { onCrawl(): void; onGraphics(): void; onSpeedTest(): void }
 
-/** Start: the parchment title card over the live forest. */
-export function showStart(shell: Shell, a: StartActions): void {
+/**
+ * Start: the parchment title card over the live forest. `fromGraphics`: back from the Graphics
+ * screen, so focus returns to the Graphics button that opened it.
+ */
+export function showStart(shell: Shell, a: StartActions, fromGraphics = false): void {
   const crawl = button('Crawl', 'play', 'primary', a.onCrawl);
+  const graphics = button('Graphics', 'sliders', 'secondary', a.onGraphics);
   shell.show('start', 'Start', [
     cardHead('A forest floor in fall'),
     el('p', 'You are an earthworm under the leaves of a northern forest.', 'lead'),
-    menu(crawl, button('Graphics', 'sliders', 'secondary', a.onGraphics),
-      button('Speed test', 'gauge', 'secondary', a.onSpeedTest)),
+    menu(crawl, graphics, button('Speed test', 'gauge', 'secondary', a.onSpeedTest)),
   ]);
-  crawl.el.focus();
+  (fromGraphics ? graphics : crawl).el.focus();
 }
 
 /** Crawl: a small hint card; focus rests on it so Space and arrows press no button. */
@@ -29,14 +32,15 @@ export function showCrawl(shell: Shell): void {
 
 export interface PauseActions { onResume(): void; onGraphics(): void; onStart(): void }
 
-export function showPause(shell: Shell, a: PauseActions): void {
+/** Paused. `fromGraphics`: back from the Graphics screen, so focus returns to its button. */
+export function showPause(shell: Shell, a: PauseActions, fromGraphics = false): void {
   const resume = button('Resume', 'play', 'primary', a.onResume);
+  const graphics = button('Graphics', 'sliders', 'secondary', a.onGraphics);
   shell.show('pause', 'Paused', [
     el('h1', 'Paused', 'screen-title'),
-    menu(resume, button('Graphics', 'sliders', 'secondary', a.onGraphics),
-      button('Back to start', 'home', 'secondary', a.onStart)),
+    menu(resume, graphics, button('Back to start', 'home', 'secondary', a.onStart)),
   ]);
-  resume.el.focus();
+  (fromGraphics ? graphics : resume).el.focus();
 }
 
 /**

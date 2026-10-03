@@ -174,10 +174,12 @@ function start(renderer: THREE.WebGLRenderer): void {
     // otherwise its uncapped frame rate and quality tier would stay on, and its result would
     // later land on another screen. The running card offers no such button today.
     if (runner.running && next.screen !== 'speedTest') stopTest();
+    // Back from Graphics: focus returns to the Graphics button that opened it.
+    const fromGraphics = e.type === 'back' && state.screen === 'graphics';
     state = next;
     // A slow streak from before (or a menu over the scene) must not count against Auto.
     graphics.interruptAuto(performance.now());
-    draw();
+    draw(fromGraphics);
   }
 
   /** Abandons a running speed test without a result and restores the player's own settings. */
@@ -187,14 +189,14 @@ function start(renderer: THREE.WebGLRenderer): void {
     applyActive();
   }
 
-  function draw(): void {
+  function draw(fromGraphics = false): void {
     switch (state.screen) {
       case 'start':
         return showStart(shell, {
           onCrawl: () => dispatch({ type: 'crawl' }),
           onGraphics: () => dispatch({ type: 'graphics' }),
           onSpeedTest: () => dispatch({ type: 'speedTest' }),
-        });
+        }, fromGraphics);
       case 'crawl':
         return showCrawl(shell);
       case 'pause':
@@ -202,7 +204,7 @@ function start(renderer: THREE.WebGLRenderer): void {
           onResume: () => dispatch({ type: 'resume' }),
           onGraphics: () => dispatch({ type: 'graphics' }),
           onStart: () => dispatch({ type: 'toStart' }),
-        });
+        }, fromGraphics);
       case 'graphics':
         return showGraphics(shell, graphics.choice, (c) => {
           graphics.choose(c);

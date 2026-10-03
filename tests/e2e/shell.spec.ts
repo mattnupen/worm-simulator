@@ -49,8 +49,8 @@ test('keyboard only: crawl, pause with Esc, resume, reach Graphics and back to s
   await page.keyboard.press('Enter');
   await expect(radio(page, 'Auto')).toBeFocused();
   await page.keyboard.press('Escape');
-  await expect(button(page, 'Resume')).toBeFocused();
-  await page.keyboard.press('Tab');
+  // Focus returns to the button that opened Graphics.
+  await expect(button(page, 'Graphics')).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(button(page, 'Back to start')).toBeFocused();
   await page.keyboard.press('Enter');
@@ -70,9 +70,8 @@ test('keyboard only: from Start reach Graphics, Speed test and Crawl; Esc leaves
   await expect(radio(page, 'Low')).toBeChecked();
   await expect(radio(page, 'Low')).toBeFocused();
   await page.keyboard.press('Escape');
-  await expect(button(page, 'Crawl')).toBeFocused();
+  await expect(button(page, 'Graphics')).toBeFocused();
 
-  await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await expect(button(page, 'Speed test')).toBeFocused();
   await page.keyboard.press('Enter');
@@ -230,4 +229,17 @@ test('a crash while crawling shows the Something went wrong card with a Reload b
   });
   await expect(page.getByRole('heading', { name: 'Something went wrong' })).toBeVisible();
   await expect(button(page, 'Reload the page')).toBeFocused();
+});
+
+test('the Graphics screen\'s Back button returns focus to the Graphics button that opened it', async ({ page }) => {
+  await page.goto(PAGE);
+  await button(page, 'Graphics').click();
+  await button(page, 'Back').click();
+  await expect(button(page, 'Graphics')).toBeFocused();
+  await startCrawling(page);
+  await button(page, 'Pause').click();
+  await expect(button(page, 'Resume')).toBeFocused();
+  await button(page, 'Graphics').click();
+  await button(page, 'Back').click();
+  await expect(button(page, 'Graphics')).toBeFocused();
 });
