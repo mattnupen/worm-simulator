@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { WEDGE_TIME } from '../../src/surface/heroObstacles';
 import { obstacleDepth, ROCK_FOOT, LOG_FOOT } from '../../src/surface/obstacles';
-import { createHeroLeaves, setHeroCount, stepHeroLeaves, HERO_MAX } from '../../src/surface/heroLeaves';
+import { createHeroLeaves, setHeroCount, stepHeroLeaves, HERO_MAX, HERO_RECYCLE } from '../../src/surface/heroLeaves';
 import { LEAF_REACH } from '../../src/surface/heroClearance';
 import { OBSTACLE_PAD } from '../../src/surface/heroSpawn';
 import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
@@ -33,11 +33,11 @@ function besideOf(x: number, z: number, r: number): { x: number; z: number } {
   throw new Error(`no free spot beside (${x}, ${z})`);
 }
 
-/** Pairs of active hero leaves (nearly) on one spot: stacked, not spread out. */
+/** Pairs of active hero leaves nearer than STACKED (heroSpawn.ts): stacked, not spread out. */
 function coincidentPairs(p: { count: number; x: Float32Array; z: Float32Array }): number {
   let n = 0;
   for (let i = 0; i < p.count; i++) {
-    for (let j = i + 1; j < p.count; j++) if (Math.hypot(p.x[i] - p.x[j], p.z[i] - p.z[j]) < 0.05) n++;
+    for (let j = i + 1; j < p.count; j++) if (Math.hypot(p.x[i] - p.x[j], p.z[i] - p.z[j]) < 0.15) n++;
   }
   return n;
 }
@@ -101,8 +101,12 @@ describe.each(SCALE_MODES)('%s: hero leaves and trunks, rocks and the log', (mod
       ...rocks().map((k) => besideOf(k.x, k.z, k.size * ROCK_FOOT)),
       besideOf(log.x, log.z, log.radius * LOG_FOOT),
       // Squeezed between big footprints in True (a rock and a maple's root flare): every spawn
-      // spot tried can be inside one, so the leaves fall back to the ring search.
+      // spot tried can be inside one, so the leaves fall back to the ring search. Outside True
+      // it is a deliberately bad head position (in Hybrid the head is 1.75 inside a rock, where
+      // the worm cannot go): a stress test of the fallback.
       { x: 3.2, z: -7.0 },
+      // At the world's edge: spots are clamped onto it, so few are free.
+      { x: -18.8, z: 0 },
     ];
     let checked = 0;
     for (const { x, z } of sites) {
@@ -122,6 +126,13 @@ describe.each(SCALE_MODES)('%s: hero leaves and trunks, rocks and the log', (mod
         checked++;
       }
       expect(coincidentPairs(p), `stacked at (${x}, ${z}) after a recycle`).toBe(0);
+      // Every leaf lands inside the recycle distance, so none is recycled again on the next step.
+      for (let i = 0; i < p.count; i++) {
+        expect(Math.hypot(p.x[i] - x, p.z[i] - z), `leaf ${i} at (${x}, ${z})`).toBeLessThanOrEqual(HERO_RECYCLE);
+      }
+      const spawned = p.spawned;
+      stepHeroLeaves(p, DT, NONE, 0, x, z, -Math.PI / 2, flat);
+      expect(p.spawned - spawned, `respawned again at (${x}, ${z})`).toBe(0);
     }
     expect(checked).toBeGreaterThan(80);
   });

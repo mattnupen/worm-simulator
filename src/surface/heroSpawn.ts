@@ -2,14 +2,14 @@ import { PLAY_HALF } from './terrain';
 import { LEAF_REACH, PUSHER_STRIDE } from './heroClearance';
 import { obstacleDepth, type ObstacleHit } from './obstacles';
 import {
-  HERO_RADIUS, HERO_Y_BIAS, clamp, hash01, surfaceOr, type HeroLeaves, type SurfaceFn,
+  HERO_RADIUS, HERO_RECYCLE, HERO_Y_BIAS, clamp, hash01, surfaceOr, type HeroLeaves, type SurfaceFn,
 } from './heroPool';
 
 /** Where hero leaves appear: free spots near the head, clear of each other and of the body. */
 
 /** Two hero leaves start no closer than this... */
 const SPACING = 0.6;
-/** ...and where they must start closer, nearer than this counts as on top of another leaf. */
+/** ...and a best spot nearer than this to another leaf sends it to the ring search (no stacking). */
 const STACKED = 0.15;
 /** No body: for placing leaves with nothing to keep clear of. */
 const NO_BODY = new Float32Array(0);
@@ -19,10 +19,15 @@ const BODY_GAP = 0.1;
 export const OBSTACLE_PAD = 0.5;
 const hit: ObstacleHit = { nx: 0, nz: 0 };
 
-/** The fallback search: RINGS rings of RING_SPOTS spots, RING_STEP (m) apart, round the head. */
-const RINGS = 6;
+/**
+ * The fallback search: RINGS rings of RING_SPOTS spots, RING_STEP (m) apart, round the head. The
+ * outer ring stays RECYCLE_MARGIN inside HERO_RECYCLE, or a leaf placed on it would be recycled
+ * again on the next step (5 rings, out to 3.5).
+ */
 const RING_SPOTS = 12;
 const RING_STEP = 0.7;
+const RECYCLE_MARGIN = 0.3;
+const RINGS = Math.floor((HERO_RECYCLE - RECYCLE_MARGIN) / RING_STEP);
 
 /**
  * Whether a leaf reaching `clear0` from its centre at (x, z) is off every trunk, rock and the log

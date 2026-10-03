@@ -103,8 +103,8 @@ describe.each(SCALE_MODES)('%s layout', (mode) => {
   });
 });
 
-describe('the bigger modes keep the spawn\'s straight run clear of trunks', () => {
-  it.each(['hybrid', 'true'] as const)('%s', (mode) => {
+describe('the spawn\'s straight run stays clear of trunks and other footprints', () => {
+  it.each(['hybrid', 'true'] as const)('%s: the whole corridor clears every trunk', (mode) => {
     setScale(mode);
     for (const t of treeSites()) {
       const nx = Math.max(CORRIDOR.x0, Math.min(CORRIDOR.x1, t.x));
