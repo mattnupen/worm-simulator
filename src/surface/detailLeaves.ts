@@ -61,8 +61,10 @@ export function buildDetailLeaves(count = PRESETS.ultra.detail, seed = 3): Detai
   kinds.forEach((kind, li) => {
     const s = detailShape(kind);
     const np = s.points.length / 2;
-    // Small (0.6x the first cut, 0.21 to 0.62 of a litter leaf's 0.6 to 1.9): they are many and
-    // near the camera, and a leaf's cost is its area on screen (the layer is fill-bound).
+    // Small (0.6x the first cut): they are many and near the camera, and a leaf's cost is its
+    // area on screen (the layer is fill-bound). `size` is the leaf's scale, 0.21 to 0.39 of its
+    // species' LEAF_SIZE (0.21 to 0.62 m, against the litter's 0.6 to 1.9); its radius
+    // (aDetail.w, size times the shape's reach) is 0.11 to 0.385 m.
     const size = LEAF_SIZE[kind] * (0.21 + rng() * 0.18);
     form.fold = 0.1 + rng() * 0.2;
     form.cup = 0.2 + rng() * (kind === 'oak' ? 0.5 : 0.3);

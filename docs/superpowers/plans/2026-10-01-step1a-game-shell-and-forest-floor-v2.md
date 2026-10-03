@@ -67,7 +67,6 @@
 | `src/render/groundUniforms.ts` | Create | Shared `uFocus`, `uWrapCentre`, disturbance texture and origin; `setFocus`, `uploadDisturbance` |
 | `src/render/leafGlsl.ts` | Create | Leaf GLSL chunks: disturbance, detail placement, hero instancing; their constants |
 | `src/render/leafMaterial.ts` | Modify | Variants `litter`, `plain`, `far`, `falling`, `detail`, `hero` with fixed defines; occluder fade; low-detail fragment path; noise sampled per vertex |
-| `src/render/paintedMaterial.ts` | Modify (Task 22) | Vertices nearer than the fog skip the haze colour |
 | `src/render/wrap.ts` | Create | World-anchored wrapping (TS and GLSL twins) |
 | `src/surface/detailShape.ts` | Create | Higher-vertex leaf silhouettes (inner ring) |
 | `src/render/litterTexture.ts` | Create | Baked litter texture (mound, depth, trunk shade) for GPU-placed layers |
@@ -77,7 +76,7 @@
 | `src/surface/nearClutter.ts` | Create | Ultra's extra clutter near the worm |
 | `src/render/propMaterial.ts` | Modify | `WRAP` variant for the near clutter |
 | `src/render/occlusion.ts` | Create | Camera-to-head sight-line fade (TS and GLSL twins) |
-| `src/surface/litterChunks.ts` | Create | Litter chunk grid: chunk of a point, distances, per-chunk prefix counts, LOD hysteresis |
+| `src/surface/litterChunks.ts` | Create (Task 20), modify (Task 22 follow-up) | Litter chunk grid: chunk of a point, distances, per-chunk prefix counts, LOD hysteresis; `DRAPE_MARGIN` (0.75) and the fade-hull test that picks each chunk's program |
 | `src/surface/leafLod.ts` | Create | 6-triangle leaf silhouettes for distant litter |
 | `src/surface/leafWriter.ts` | Create | Writes litter leaves into typed buffers (for the full and low-detail chunk meshes) |
 | `tests/unit/*.test.ts` | Create/Modify | One test file per pure module, plus scene tests |
@@ -5867,7 +5866,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 >      - `aDip` is computed from the world vertex position.
 >      - Only the `litter` material reads them; `plain` and `far` ignore them.
 > 2. The map's channels are now R path nearness (1 on the path, linear to 0 at `DIST_REACH` = 1.6 m), G unused, B body nearness (re-stamped every step), A trail freshness (halving every 6 s). The signature is now `stamp(m, x, z, under)`; `BODY_R`, `PUSH_R`, `LIFT_HALF_LIFE`, `FURROW_DEPTH` and `PUSH_TILT` are gone, and `DIST_REACH`, `ON_TOP_DISTANCE`, `DRAPE_FLAT`, `DRAPE_FOOT`, `FURROW_HALF`, `TRAIL_DARKEN`, `drapeProfile`, `disturbVertex`, `groundUniforms.uLeafReact` and `setLeafReaction` (called from `world.apply`) are new. The map centres on body segment 7, not the head.
-> 3. Lifted leaves now rise up to about 0.5 m and slide up to 0.2 m, so Task 21's `DRAPE_MARGIN` must be at least 0.6.
+> 3. Lifted leaves now rise up to about 0.5 m and slide up to 0.2 m, so Task 21's `DRAPE_MARGIN` must be at least 0.6. (Landed as 0.75 in `litterChunks.ts`: extreme probes moved a leaf vertex 0.71 m.)
 > 4. Task 23's tuning ranges are out of date: `DRAPE_HEIGHT` must stay at 0.265 or more (tests/unit/leafGlsl.test.ts checks clearance over the worm), and `PUSH_SLIDE` is now the furrow's largest slide (0.2).
 > 5. `createPaintedMaterial({ trail: true })` (the terrain) darkens the soil along a fresh trail from the same map.
 
@@ -9065,7 +9064,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 > So the chunked litter MUST keep two precompiled programs per litter LOD, one with `OCCLUDE` and
 > one plain, and select per chunk each frame by swapping the material (no recompile). A chunk may
 > use the plain program when its bounds cannot intersect the fade hull: the camera plus the body
-> points, inflated by `OCC_OUTER` (0.24) plus the drape/slide margin (`DRAPE_MARGIN` >= 0.6). The
+> points, inflated by `OCC_OUTER` (0.24) plus the drape/slide margin (`DRAPE_MARGIN`, 0.75 in `litterChunks.ts`). The
 > test is conservative, so nothing pops. Detail, hero and Ultra's props stay `OCCLUDE` (they are
 > near the worm only). This path also gives Low a runtime switch, which it does not have today.
 
@@ -9503,7 +9502,7 @@ import {
 /** Draw order: after the hero and detail leaves that lie on top, before the ground. */
 export const LITTER_RENDER_ORDER = 3;
 /** Bounding-sphere slack for leaves the disturbance map lifts or slides. */
-const DRAPE_MARGIN = 0.35;
+const DRAPE_MARGIN = 0.35; // Landed as DRAPE_MARGIN = 0.75, exported from litterChunks.ts (it also sets ACTIVE_MARGIN).
 
 export interface LitterChunk {
   /** Full leaves, shown when the camera is near. */
@@ -9869,14 +9868,20 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 > clearance test in leafGlsl.test.ts and the GPU parity test (tests/e2e/glslParity.spec.ts) must
 > still pass.
 
-Three cuts, each measured with the frame profiler:
-- The painted-noise sample is fetched once per vertex instead of once per pixel, for every leaf variant: about −3 ms on High. Leaves are small next to the noise's dapple features, so the look holds.
-- Detail leaves are 0.6 times their old size (0.21 to 0.62 m; the base litter is 0.6 to 1.9). A leaf's cost is its area on screen, and the spec calls for smaller detail leaves. This is about −7 ms on High at the same count; with the per-vertex noise, about −9 ms together. Task 23 spends the saving on more detail leaves.
-- Vertices nearer than the fog skip the haze colour (`pow`) in the shared painted vertex shader. This is a small saving for every material.
+Each lever was measured with interleaved A/B runs of the speed test. Two cuts were kept:
+- The painted-noise sample is fetched once per vertex instead of once per pixel, for every leaf variant. Leaves are small next to the noise's dapple features, so the look holds.
+- Detail leaves are 0.6 times their old size (`size` 0.21 to 0.62 m, 0.21 to 0.39 of the species' leaf size, against the litter's 0.6 to 1.9; a radius of 0.11 to 0.385 m). A leaf's cost is its area on screen, and the spec calls for smaller detail leaves. Task 23 spends the saving on more detail leaves.
+
+Together, at the spec's first counts, they took High from about 17 to about 21 fps and Medium from about 33 to about 36 fps (three interleaved rounds each, on a loaded machine).
+
+Dropped, because they gave no measurable gain or a visible loss: a lighter detail fragment path, a smaller detail fade radius on High, a haze early-out in the shared painted vertex shader (`paintedMaterial.ts` is unchanged), and thinning the base litter under the detail circle (it bared the ground round the worm).
+
+A follow-up (from the Task 21/22 reviews) raised `DRAPE_MARGIN` in `litterChunks.ts` from 0.6 to 0.75 (extreme probes moved a leaf vertex 0.71 m) and added a property test for the fade hull (`hullBox`) in `tests/unit/litterChunks.test.ts`.
 
 **Files:**
 - Create: `tests/unit/leafShading.test.ts`
-- Modify: `src/render/leafMaterial.ts`, `src/render/paintedMaterial.ts`, `src/surface/detailLeaves.ts`, `tests/unit/detailLeaves.test.ts`
+- Modify: `src/render/leafMaterial.ts`, `src/surface/detailLeaves.ts`, `tests/unit/detailLeaves.test.ts`
+- Modify (follow-up): `src/surface/litterChunks.ts`, `tests/unit/litterChunks.test.ts`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -9885,7 +9890,6 @@ Create `tests/unit/leafShading.test.ts`:
 ```ts
 import { describe, it, expect } from 'vitest';
 import { createLeafMaterial, type LeafVariant } from '../../src/render/leafMaterial';
-import { PAINTED_VERTEX_GLSL } from '../../src/render/paintedMaterial';
 
 describe('cheaper leaf shading', () => {
   const variants: LeafVariant[] = ['litter', 'plain', 'far', 'falling', 'detail', 'hero'];
@@ -9902,10 +9906,6 @@ describe('cheaper leaf shading', () => {
   it('distant litter skips the veins and the wet sheen', () => {
     expect(createLeafMaterial('far').defines).toEqual({ LOD: '' });
     expect(createLeafMaterial('far').fragmentShader).toContain('#ifdef LOD');
-  });
-
-  it('vertices nearer than the fog skip the haze colour', () => {
-    expect(PAINTED_VERTEX_GLSL).toContain('if (f <= 0.0) return vec4(0.0);');
   });
 });
 ```
@@ -9928,9 +9928,10 @@ with:
 ```ts
       expect(a[k + 1]).toBeGreaterThanOrEqual(0);
       expect(a[k + 1]).toBeLessThan(1);
-      // Smaller than litter leaves (0.6 to 1.9): 0.21 to 0.62.
-      expect(a[k + 3]).toBeGreaterThan(0.2);
-      expect(a[k + 3]).toBeLessThan(0.65);
+      // The leaf's radius (m): well under the litter's leaves (0.21 to 0.39 of a species' size,
+      // against the litter's 0.6 to 1.2), as a leaf's cost is its area on screen.
+      expect(a[k + 3]).toBeGreaterThan(0.1);
+      expect(a[k + 3]).toBeLessThan(0.42);
     }
   });
 ```
@@ -9938,7 +9939,7 @@ with:
 - [ ] **Step 2: Run them and see them fail**
 
 Run: `npx vitest run tests/unit/leafShading.test.ts tests/unit/detailLeaves.test.ts`
-Expected: FAIL: 2 of the 3 shading tests (the noise is still fetched per pixel; no haze early-out) and the detail size test (sizes up to 1.04).
+Expected: FAIL: the per-vertex noise test (the noise is still fetched per pixel) and the detail size test (sizes up to 1.04).
 
 - [ ] **Step 3: Noise per vertex**
 
@@ -10044,31 +10045,7 @@ with:
     float dapple = dappleLight(mix(0.5, nz.r, detail), b, 0.9);
 ```
 
-- [ ] **Step 4: Haze early-out**
-
-In `src/render/paintedMaterial.ts`:
-
-Replace:
-
-```ts
-  vec4 distanceHaze(vec3 toCam, float dist) {
-    float f = smoothstep(uFogNear, uFogFar, dist);
-    return vec4(hazeColor(-toCam), f * f * (3.0 - 2.0 * f) * 0.92);
-  }
-```
-
-with:
-
-```ts
-  vec4 distanceHaze(vec3 toCam, float dist) {
-    float f = smoothstep(uFogNear, uFogFar, dist);
-    // Nearer than the fog: no haze, and skip the costly sun-glow colour (pow) per vertex.
-    if (f <= 0.0) return vec4(0.0);
-    return vec4(hazeColor(-toCam), f * f * (3.0 - 2.0 * f) * 0.92);
-  }
-```
-
-- [ ] **Step 5: Smaller detail leaves**
+- [ ] **Step 4: Smaller detail leaves**
 
 In `src/surface/detailLeaves.ts`:
 
@@ -10087,22 +10064,25 @@ with:
 ```ts
     const s = detailShape(kind);
     const np = s.points.length / 2;
-    // Small: they are many and close to the camera, and a leaf's cost is its area on screen.
+    // Small (0.6x the first cut): they are many and near the camera, and a leaf's cost is its
+    // area on screen (the layer is fill-bound). `size` is the leaf's scale, 0.21 to 0.39 of its
+    // species' LEAF_SIZE (0.21 to 0.62 m, against the litter's 0.6 to 1.9); its radius
+    // (aDetail.w, size times the shape's reach) is 0.11 to 0.385 m.
     const size = LEAF_SIZE[kind] * (0.21 + rng() * 0.18);
     form.fold = 0.1 + rng() * 0.2;
     form.cup = 0.2 + rng() * (kind === 'oak' ? 0.5 : 0.3);
 ```
 
-- [ ] **Step 6: Run and see it pass**
+- [ ] **Step 5: Run and see it pass**
 
 Run: `npx tsc --noEmit && npx vitest run && npm run build && npx playwright test tests/e2e/speedTest.spec.ts`
 Expected: unit PASS, 45 files, 409 tests; browser 5 passed.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/render/leafMaterial.ts src/render/paintedMaterial.ts src/surface/detailLeaves.ts tests/unit/leafShading.test.ts tests/unit/detailLeaves.test.ts
-git commit -m "perf(leaves): per-vertex noise, smaller detail leaves, haze early-out
+git add src/render/leafMaterial.ts src/surface/detailLeaves.ts tests/unit/leafShading.test.ts tests/unit/detailLeaves.test.ts
+git commit -m "perf(leaves): per-vertex leaf noise and smaller detail leaves
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -10124,6 +10104,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 > (post-Task 18) The occluder fade's dither stipple is visible at DPR 1 (the High render is
 > 819 x 460 scaled up): mention it in the realism check. Non-WRAP props (High's mushrooms, plants
 > and rocks) intentionally do not fade; only leaves and Ultra's near clutter do.
+>
+> (outcome) The controller approved relative gates: Step 0 built from `main` in a scratch worktree
+> and benchmarked interleaved with each preset (Step 0, X, X, Step 0, ...), gate = old gate / 45.9
+> on the median of at least 4 pair ratios. With the counts below, High failed (0.71×) and Ultra
+> failed (0.57×). Tuned counts: litter 1,500 on every preset, detail 0 / 900 / 1,000 / 1,600, hero
+> 0 / 12 / 24 / 32. Medians 1.60 / 1.17 / 0.80 / 0.65 (gates 1.09 / 0.87 / 0.74 / 0.61); High at
+> 1,100 detail was borderline (0.75, then 0.73) and Ultra at 1,800 failed (0.60). The spec and "Spec deviations" carry the final numbers.
 
 Spec section 6: the fps gates are the hard requirement. Draw calls may now be up to 40 per frame on every preset; the controller authorized this so the litter could be chunked. Triangle gates are unchanged. Each preset must use the highest counts that pass its gate and be strictly richer than the preset below: `litter`, `detail` and `hero` must never decrease from Low to Ultra, and `litter + detail` must increase. The `PRESETS` cost test enforces both.
 
@@ -10396,17 +10383,23 @@ If Step 6 changed `src/surface/heroLeaves.ts` or `src/render/leafGlsl.ts`, add t
 
 ## Spec deviations
 
-These change the approved spec. Task 23 writes them into it.
+These change the approved spec. Task 23 wrote them into it.
 
-| What | Spec | This plan | Why |
+| What | Spec | Built | Why |
 |---|---|---|---|
-| Draw calls per frame | Low ≤ 14, Medium ≤ 16, High ≤ 16, Ultra ≤ 18 | ≤ 40 on every preset | Authorized by the controller so the litter can be chunked (culling, near-first order, LOD, shader only near the worm). Measured 24 to 31. |
-| Base litter | 1,000 / 2,500 / 4,000 / 6,000 | 2,000 / 2,000 / 2,000 / 2,500 (starting point; Task 23 tunes) | The fps gates are hard. Leaf pixels are the main cost on the benchmark, so leaves near the worm (where the camera looks) earn more than far coverage. |
-| Detail leaves | 0 / 800 / 1,500 / 2,500 | 0 / 800 / 1,000 / 1,500 (starting point; Task 23 tunes) | Same; they are now 0.6× the size, which roughly halves each one's cost. |
-| Detail leaf size | "smaller" than the litter (no number) | 0.21 to 0.62 m (litter 0.6 to 1.9 m) | Within the spec's wording; recorded because it is what makes the higher near-worm density affordable. |
-| Leaf shading | (not specified) | Noise sampled per vertex; distant litter skips veins and sheen | Measured cost cuts that keep the near look. |
-| Disturbance map (5.3) | Each cell holds a push direction (x, z), a lift and a weight; all decay with a ~6 s half-life; leaves lift into a soft drape under the body and tilt and slide beside it | Each cell holds path nearness (linear in distance, to 1.6 m), body nearness (re-stamped every step) and trail freshness (6 s half-life); G is unused. A leaf shader reads back distance and direction (5 fetches) and moves each leaf as one rigid piece: it slides off the path until its near edge clears 0.14 m (at most 0.2 m, easing back as the trail fades), and tilts up onto the body, far edge on the litter, clear of the body's top. The ground darkens the bared soil along a fresh trail. | Per-vertex lift tore leaves into tents and clipped through the worm (Task 13 review). Rigid pieces need the distance to the worm, not a push. Verified: no worm vertex within 5 mm of a leaf over it in 400 placements on the real litter. |
-| Auto's starting preset | Starts at the saved autoSettled (or High) | A new session starts one step above autoSettled (Low → Medium, Medium → High, High stays High, never Ultra), then steps down within seconds if still slow; re-choosing Auto mid-session starts at autoSettled itself | One slow session (battery saver, a busy machine) would otherwise pin a Chromebook at Low for good, since Auto never steps up. From code review (Task 7). |
+| fps gates (6) | Absolute: Low ≥ 50, Medium ≥ 40, High ≥ 34, Ultra ≥ 28 | Relative to Step 0 benchmarked in the same session (old gate / 45.9): ≥ 1.09×, 0.87×, 0.74×, 0.61×; median of ≥ 4 interleaved pair ratios | Approved by the controller: the machine was loaded and drifting (Step 0 measured 33 to 42 fps), so absolute numbers were unreliable. |
+| Draw calls per frame (6) | Low ≤ 14, Medium ≤ 16, High ≤ 16, Ultra ≤ 18 | ≤ 40 on every preset | Authorized by the controller so the litter can be chunked (culling, near-first order, LOD, shader only near the worm). Measured 25 to 33. |
+| Base litter (4.1) | 1,000 / 2,500 / 4,000 / 6,000 | 1,500 / 1,500 / 1,500 / 1,500 | The fps gates are hard. Litter past 1,500 cost more than it showed; leaves near the worm (where the camera looks) earn more than far coverage. |
+| Detail leaves (4.1) | 0 / 800 / 1,500 / 2,500 | 0 / 900 / 1,000 / 1,600 | Highest that pass reliably (High at 1,100 was borderline, 0.75 then 0.73; Ultra at 1,800 failed, 0.60). Within 6 m of the worm: 107 / 718 / 798 / 1,207 leaves (Step 0: 144). Measured pair-ratio medians: 1.60 (60 fps cap) / 1.17 / 0.80 / 0.65. |
+| Detail leaf size (5.5) | "smaller" than the litter (no number) | Radius 0.11 to 0.385 m (scale 0.21 to 0.62; litter 0.6 to 1.9) | Within the spec's wording; recorded because it is what makes the near-worm density affordable (the layer is fill-bound). |
+| Detail leaf placement (5.5) | Re-placed from a seed around a 1 m-snapped centre | Fixed homes in a 13 m world tile, the copy nearest the worm drawn; laid on the rendered ground (baked ground-height texture) in the loose litter above the mound (baked litter texture) | Nothing jumps while visible, and the leaves sit exactly on the surface the worm rests on. |
+| Leaf shading (6) | (not specified) | Noise sampled per vertex; distant litter skips veins and sheen; each litter chunk picks one of three programs made once (reacting, plain, far) by swapping its material | Measured cost cuts that keep the near look; the occluder fade's `discard` costs early depth rejection, so only chunks that may need it get it. |
+| Disturbance map (5.3) | Each cell holds a push direction (x, z), a lift and a weight; all decay with a ~6 s half-life; leaves lift into a soft drape under the body and tilt and slide beside it | Each cell holds path nearness (linear in distance, to 1.6 m), body nearness (re-stamped every step) and trail freshness (6 s half-life); G is unused. A leaf shader reads back distance and direction (5 fetches) and moves each leaf as one rigid piece: it slides off the path until its near edge clears 0.14 m (at most 0.2 m, easing back as the trail fades), and tilts up onto the body, far edge on the litter, clear of the body's top; each vertex's dip below the rest plane is raised when lifted. The ground darkens the bared soil along a fresh trail. | Per-vertex lift tore leaves into tents and clipped through the worm (Task 13 review). Rigid pieces need the distance to the worm, not a push. Verified: no worm vertex within 5 mm of a leaf over it in 400 placements on the real litter. |
+| Hero leaves (5.4) | The head or body pushes a leaf it overlaps | Body as pushers (position, radius, strength, top, under, belly, fall): a pusher under the litter does not shove, a leaf rides over it as a tilted plate clear of its top; a pusher above a leaf presses it flat; a leaf the head turns over swings clear of the body; trunks (with root flare), rocks and the log keep leaves out | A shoved leaf cut through a worm crawling under the litter, and leaves wedged against trunks (Task 16 fixes). |
+| Occluder fade (5.2) | Leaves between the camera and the head fade to 40% | A screen-space fade along the whole visible body: 60% of a clear-standing leaf's pixels dropped, 40% of one lying on the body; litter, detail, hero leaves and Ultra's near clutter fade, High's other props do not | The head alone left the body hidden; a fixed dither keeps one opaque pass. The stipple shows at device pixel ratio 1. |
+| Ultra's near clutter (4.1) | "Extra near the worm" | 40 sedge tufts and mushroom clusters in a 10 m wrapped tile (one draw), fading 3.5 to 4.5 m, shrunk near the rendered spine so nothing comes within 0.2 m of it | A tuft standing on the worm's path would poke through the body; the clearance is checked against the real tube (Task 17). |
+| Auto's starting preset (4.3) | Starts at the saved autoSettled (or High) | A new session starts one step above autoSettled (Low → Medium, Medium → High, High stays High, never Ultra), then steps down within seconds if still slow; re-choosing Auto mid-session starts at autoSettled itself | One slow session (battery saver, a busy machine) would otherwise pin a Chromebook at Low for good, since Auto never steps up. From code review (Task 7). |
+| Use recommended setting (4.3) | Tier 0 → High, 1–2 → Medium, 3 → Low | The same, but never above the preset the test measured (High unless forced with `?preset=`) | A test forced to Low must not recommend High (Task 19 follow-up). |
 
 ## Self-review
 
