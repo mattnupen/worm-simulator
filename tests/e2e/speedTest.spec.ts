@@ -73,7 +73,7 @@ test('the report\'s Leaves line is the litter plus detail leaves actually drawn 
   const report = (await page.getByTestId('result').textContent()) ?? '';
   const tier = Number(/Quality level used: (\d) of 3/.exec(report)?.[1]);
   const leaves = Number(/^Leaves: (\d+)$/m.exec(report)?.[1]);
-  // Medium draws 2,500 litter + 800 detail leaves; quality tier 3 halves both (rounded).
+  // Medium draws 1,500 litter + 900 detail leaves; quality tier 3 halves both (rounded).
   const density = tier === 3 ? 0.5 : 1;
-  expect(leaves).toBe(Math.round(2500 * density) + Math.round(800 * density));
+  expect(leaves).toBe(Math.round(1500 * density) + Math.round(900 * density));
 });

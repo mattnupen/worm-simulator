@@ -39,19 +39,19 @@ export const CHOICES: readonly GraphicsChoice[] = ['auto', ...PRESET_IDS];
 
 export const PRESETS: Readonly<Record<PresetId, PresetSpec>> = {
   low: {
-    id: 'low', resolution: 0.6, maxDpr: 1, litter: 1000, detail: 0, hero: 0, reaction: false,
+    id: 'low', resolution: 0.6, maxDpr: 1, litter: 1500, detail: 0, hero: 0, reaction: false,
     effects: false, extraEffects: false, clutter: 0.5, nearClutter: false, rim: false,
   },
   medium: {
-    id: 'medium', resolution: 0.75, maxDpr: 1, litter: 2500, detail: 800, hero: 12, reaction: true,
+    id: 'medium', resolution: 0.75, maxDpr: 1, litter: 1500, detail: 900, hero: 12, reaction: true,
     effects: true, extraEffects: false, clutter: 1, nearClutter: false, rim: true,
   },
   high: {
-    id: 'high', resolution: 1, maxDpr: 1, litter: 4000, detail: 1500, hero: 24, reaction: true,
+    id: 'high', resolution: 1, maxDpr: 1, litter: 1500, detail: 1000, hero: 24, reaction: true,
     effects: true, extraEffects: false, clutter: 1, nearClutter: false, rim: true,
   },
   ultra: {
-    id: 'ultra', resolution: 1, maxDpr: 1.5, litter: 6000, detail: 2500, hero: 32, reaction: true,
+    id: 'ultra', resolution: 1, maxDpr: 1.5, litter: 1500, detail: 1600, hero: 32, reaction: true,
     effects: true, extraEffects: true, clutter: 1, nearClutter: true, rim: true,
   },
 };

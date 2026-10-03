@@ -18,11 +18,11 @@ describe('PRESETS', () => {
     }
   });
 
-  it('matches the spec table', () => {
-    expect(PRESETS.low).toMatchObject({ resolution: 0.6, litter: 1000, detail: 0, hero: 0, reaction: false, effects: false, clutter: 0.5, rim: false });
-    expect(PRESETS.medium).toMatchObject({ resolution: 0.75, litter: 2500, detail: 800, hero: 12, reaction: true, effects: true, clutter: 1, rim: true });
-    expect(PRESETS.high).toMatchObject({ resolution: 1, maxDpr: 1, litter: 4000, detail: 1500, hero: 24, extraEffects: false, nearClutter: false });
-    expect(PRESETS.ultra).toMatchObject({ resolution: 1, maxDpr: 1.5, litter: 6000, detail: 2500, hero: 32, extraEffects: true, nearClutter: true });
+  it('matches the spec table (counts tuned to the section 6 gates)', () => {
+    expect(PRESETS.low).toMatchObject({ resolution: 0.6, litter: 1500, detail: 0, hero: 0, reaction: false, effects: false, clutter: 0.5, rim: false });
+    expect(PRESETS.medium).toMatchObject({ resolution: 0.75, litter: 1500, detail: 900, hero: 12, reaction: true, effects: true, clutter: 1, rim: true });
+    expect(PRESETS.high).toMatchObject({ resolution: 1, maxDpr: 1, litter: 1500, detail: 1000, hero: 24, extraEffects: false, nearClutter: false });
+    expect(PRESETS.ultra).toMatchObject({ resolution: 1, maxDpr: 1.5, litter: 1500, detail: 1600, hero: 32, extraEffects: true, nearClutter: true });
   });
 
   it('never costs less going from Low up to Ultra, and costs more at every step', () => {

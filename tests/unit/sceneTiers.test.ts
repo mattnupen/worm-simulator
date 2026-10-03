@@ -208,7 +208,9 @@ describe('world.apply', () => {
     expect(sharedLighting.uRim.value).toBe(1);
 
     world.apply(PRESETS.high);
-    expect(drawn(world.litter)).toBeLessThan(ultraLeaves);
+    // High and Ultra share the litter count (Task 23): Ultra's extra leaves are detail leaves.
+    expect(drawn(world.litter)).toBeLessThanOrEqual(ultraLeaves);
+    expect(detail.mesh.geometry.drawRange.count).toBeLessThan(detail.mesh.geometry.index!.count);
     expect(motes.geometry.drawRange.count).toBe(MOTE_COUNT);
     expect(falling.geometry.drawRange.count).toBeLessThan(ultraFalling);
 
@@ -219,13 +221,13 @@ describe('world.apply', () => {
     expect(drawn(world.litter)).toBeLessThan(ultraLeaves * (PRESETS.low.litter / PRESETS.ultra.litter) * 1.2);
   });
 
-  it('reports the leaves it draws for each preset (Low: 1000 litter, no detail)', () => {
+  it('reports the leaves it draws for each preset (Low: litter only, no detail)', () => {
     for (const id of ['low', 'medium', 'high', 'ultra', 'low'] as const) {
       world.apply(PRESETS[id]);
       expect(world.litter.drawn, `${id} litter`).toBe(PRESETS[id].litter);
       expect(world.detail.drawn, `${id} detail`).toBe(PRESETS[id].detail);
     }
-    expect(PRESETS.low).toMatchObject({ litter: 1000, detail: 0 });
+    expect(PRESETS.low).toMatchObject({ litter: 1500, detail: 0 });
   });
 
   it('draws each preset\'s hero leaves as the instance count, live (Low none)', () => {

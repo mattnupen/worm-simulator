@@ -93,13 +93,22 @@ All presets are capped at 30 fps.
 | | Low | Medium | High | Ultra |
 |---|---|---|---|---|
 | Render resolution | 60% | 75% | 100% | 100% × device pixel ratio, max 1.5 |
-| Base leaf litter | 1,000 | 2,500 | 4,000 | 6,000 |
-| Detail leaves around the worm | 0 | 800 | 1,500 | 2,500 |
+| Base leaf litter | 1,500 | 1,500 | 1,500 | 1,500 |
+| Detail leaves around the worm | 0 | 900 | 1,000 | 1,600 |
 | Hero physics leaves | 0 | 12 | 24 | 32 |
 | Leaves react to the worm (drape, trail, under/over) | off: the worm rides on top | on | on | on |
 | Light shafts, dust, falling leaves | off | on | on | on, with 1.5× dust and falling leaves |
 | Ground clutter | 50% | 100% | 100% | 100% plus extra near the worm |
 | Rim light | off | on | on | on |
+
+The leaf counts were tuned to the section 6 gates in Step 1a (first targets: litter 1,000 /
+2,500 / 4,000 / 6,000, detail 0 / 800 / 1,500 / 2,500). Base litter past 1,500 cost more than it
+showed, so the presets share it and differ in the detail leaves near the worm, where the camera
+looks. Within 6 m of the worm there are about 107 / 718 / 798 / 1,207 leaves (Step 0: 144).
+
+Ultra's extra clutter is 40 sedge tufts and mushroom clusters wrapped round the worm in a 10 m
+tile (one draw), fading out from 3.5 to 4.5 m. Each item shrinks near the rendered spine so no
+part of it comes within 0.2 m of it.
 
 Menu descriptions, one line each:
 - Low: "Fewest leaves, simple light. For slow computers."
@@ -114,7 +123,10 @@ draw ranges or `mesh.count`. Effects use visibility. Resolution uses `setPixelRa
 are built at Ultra size once, at startup, so switching up never allocates during play.
 
 ### 4.3 Auto
-- Auto starts at `autoSettled` if saved, otherwise High.
+- Auto starts at `autoSettled` if saved, otherwise High. Built: a new session starts one step
+  above `autoSettled` (Low → Medium, Medium → High, High stays High, never Ultra) and steps down
+  within seconds if it is still slow, so one slow session (battery saver, a busy machine) cannot
+  pin a Chromebook at Low for good. Re-choosing Auto in the menu starts at `autoSettled` itself.
 - It uses the existing `QualityController` timing: under 29 fps for 2 s steps down one preset, with
   a 3 s cooldown. Order: High → Medium → Low. It never steps up within a session.
 - Auto never chooses Ultra.
@@ -122,7 +134,9 @@ are built at Ultra size once, at startup, so switching up never allocates during
 - Picking a preset in the menu sets `graphics` to it, which turns Auto off. Picking Auto turns it
   back on and starts from `autoSettled`.
 - Speed test mapping for **Use recommended setting**: the auto phase's final tier maps tier 0 →
-  High, 1 → Medium, 2 → Medium, 3 → Low.
+  High, 1 → Medium, 2 → Medium, 3 → Low. Built: never above the preset the test measured (High,
+  unless forced with `?preset=`), so a test forced to Low never recommends High. A test of Ultra
+  keeps the tier mapping, since Auto never picks Ultra either.
 
 ## 5. Leaves and the worm under and over
 
@@ -144,7 +158,13 @@ are built at Ultra size once, at startup, so switching up never allocates during
 - The contact shadow follows the same surface. The camera stays above the litter top plus its
   existing margin.
 - Leaves between the camera and the worm's head fade to 40% opacity (a dithered fade, so no extra
-  transparent pass) so the worm stays readable.
+  transparent pass) so the worm stays readable. Built as a screen-space fade along the whole
+  visible body, not just the head: each frame the body's axis is projected once, and a leaf pixel
+  near it on screen and in front of it is dropped by a fixed dither (60% of its pixels where the
+  leaf stands clear of the body, 40% where it lies on it, so a worm under thin litter still reads
+  as under). The litter, detail and hero leaves and Ultra's near clutter fade; High's other
+  props (mushrooms, plants, rocks) do not. Known limitation: at device pixel ratio 1 the dither
+  shows as a stipple.
 
 ### 5.3 Disturbance map (approach A)
 `src/surface/disturbance.ts`: a 64×64 grid covering 8×8 m, centred on the worm and scrolled in
@@ -158,6 +178,22 @@ whole cells as it moves. Each cell holds a push direction (x, z), a lift amount 
   near the worm: under the body, leaves lift into a soft drape about one body-width high; beside
   it, they tilt and slide outward; behind it, they show the settling furrow.
 - When the preset turns leaf reaction off (Low), stamping stops and the texture is cleared.
+
+Built differently (per-vertex lift tore leaves into tents and clipped through the worm):
+- Each cell holds path nearness (1 on the path, falling linearly to 0 at 1.6 m, kept until the
+  trail there settles), body nearness (cleared and re-stamped from the body every step, so the
+  drape follows the body exactly) and trail freshness (halving every 6 s; the cell is cleared
+  once it drops below 0.01). A segment riding on top of the litter stamps as if 1.4 m farther
+  away, so the leaves under it stay put.
+- Leaf shaders read back distance and direction (5 fetches) and move each leaf as one rigid
+  piece. Along a fresh trail a leaf slides out until its near edge is 0.14 m from the path (at
+  most 0.2 m), easing back as the trail fades. A leaf reaching over the body tilts up onto it,
+  far edge on the litter and its plane clear of the body's top (0.265 m above the ground near the
+  spine, easing to nothing 0.34 m out); one centred on the body rests level on top.
+- Each vertex carries its dip below the leaf's rest plane (tilt, curl, uneven ground). A lifted
+  leaf raises those parts to the plane, so no part of it cuts into the body. Checked on the real
+  litter: no worm vertex within 5 mm of a leaf over it in 400 placements.
+- The ground darkens the bared soil along a fresh trail (35% darker), fading with the trail.
 
 ### 5.4 Hero leaves (approach B, up close)
 `src/surface/heroLeaves.ts`: a pool of physics leaves lying loose on top of the litter within 3 m
@@ -173,11 +209,28 @@ of the worm's head. The pool size comes from the preset.
 - All hero leaves are drawn as one instanced mesh with the same leaf material (species shapes,
   veins).
 
+Built: the body is a row of pushers, each with a position, radius, strength (the head hardest),
+top height, `under` amount, belly height and `fall` (how far the top drops to its side).
+- A pusher crawling under the litter does not shove. A leaf that reaches it rides over it as a
+  rigid plate, tilted down away from the body (at most 35°) with its far edge on the litter and
+  clear of the body's top by 1 cm, and settles back once the worm has passed.
+- A pusher whose belly is above a leaf passes over it and presses it flat; it springs back after.
+- A leaf the head turns over swings up clear of the body.
+- Leaves are kept out of the trunks (with their root flare), rocks and the log, and are recycled
+  if wedged there or pinned against the body in a tight coil for too long.
+
 ### 5.5 Detail leaves
 A second leaf layer of smaller, more curled, higher-vertex leaves covers a 6 m radius around the
 worm. It reuses the Step 0 species shapes. It is built once, and its centre snaps to a 1 m grid as
 the worm moves (re-placed in the shader from a seed, so the CPU does no work). It fades out from
 5 to 6 m into the base litter. It also reads the disturbance map.
+
+Built: each leaf has a fixed home in a repeating 13 m world tile, and the shader draws the copy
+nearest the worm's 1 m-snapped position, so a leaf only jumps once it has faded out. Leaves lie on
+the rendered ground (a baked ground-height texture, the surface the worm rests on), in the loose
+litter above the mound (a baked litter texture), and move as rigid pieces like the litter. They
+are small: radius 0.11 to 0.385 m (scale 0.21 to 0.62, against the litter's 0.6 to 1.9), because
+the layer's cost is its area on screen.
 
 ### 5.6 Realism check
 After approach A is built, close-up screenshots are judged:
@@ -194,13 +247,36 @@ performance gates.
 Gates are measured with the Step 0 headless benchmark (SwiftShader, 1366×768, uncapped "full"
 phase) after forcing each preset with `?preset=`:
 
-| Preset | Uncapped fps (gate) | Draw calls per frame | Triangles per frame |
-|---|---|---|---|
-| Low | ≥ 50 | ≤ 14 | ≤ 90k |
-| Medium | ≥ 40 | ≤ 16 | ≤ 170k |
-| High | ≥ 34 | ≤ 16 | ≤ 240k |
-| Ultra | ≥ 28 | ≤ 18 | ≤ 350k |
+| Preset | Uncapped fps (gate) | Relative gate (× Step 0) | Draw calls per frame | Triangles per frame |
+|---|---|---|---|---|
+| Low | ≥ 50 | ≥ 1.09 | ≤ 40 | ≤ 90k |
+| Medium | ≥ 40 | ≥ 0.87 | ≤ 40 | ≤ 170k |
+| High | ≥ 34 | ≥ 0.74 | ≤ 40 | ≤ 240k |
+| Ultra | ≥ 28 | ≥ 0.61 | ≤ 40 | ≤ 350k |
 
+- **Relative gates (approved in Step 1a).** The absolute gates were set against Step 0's 45.9 fps
+  on a quiet machine. On a loaded machine absolute numbers drift, so each preset is compared with
+  Step 0 built from `main` and benchmarked in the same session: runs are interleaved (Step 0,
+  preset, preset, Step 0, ...), each preset run is divided by the Step 0 run next to it, and the
+  median of at least 4 such pair ratios must reach the old gate divided by 45.9.
+- **Draw calls ≤ 40 on every preset (authorized in Step 1a).** The base litter is drawn in 6 × 6
+  chunks, so the old 14 to 18 budget no longer fits; 40 is Step 0's limit.
+- Measured with the final counts (4 pairs each, Step 0 at 33 to 40 fps on a loaded machine):
+
+| Preset | Pair-ratio median | Draw calls | Triangles |
+|---|---|---|---|
+| Low | 1.60 (Low hits the 60 fps display cap) | 25 | 66k |
+| Medium | 1.17 | 31 | 109k |
+| High | 0.80 | 33 | 113k |
+| Ultra | 0.65 (at device pixel ratio 1) | 32 | 140k |
+
+- How the litter got cheap enough: 6 × 6 chunks with frustum culling and near-first order, a
+  6-triangle leaf for chunks more than 9 m from the camera (11 m to switch back), the painted noise
+  sampled per vertex, and smaller detail leaves. Each chunk picks one of three programs made once
+  at startup, by swapping its material (never a recompile): chunks whose bounds may meet the
+  occluder fade's hull or the disturbed part of the map use the reacting program (disturbance map
+  and fade); other near chunks use a plain one; distant chunks use the 6-triangle leaf with no
+  veins or sheen.
 - The fps gates are the hard requirement.
 - The leaf counts in 4.1 are tuning targets. If a gate fails, counts are lowered (and this spec's
   table updated) before anything else is cut.
