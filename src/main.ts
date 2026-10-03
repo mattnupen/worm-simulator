@@ -264,7 +264,15 @@ function start(renderer: THREE.WebGLRenderer): void {
   resize();
   warmShaders();
   window.addEventListener('resize', resize);
-  const loop = startLoop(update, render, { maxFps: MAX_FPS });
+  const loop = startLoop(update, render, {
+    maxFps: MAX_FPS,
+    // update() or render() threw: the loop has stopped (and logged it). Say so, do not freeze silently.
+    onError: () => {
+      if (runner.running) runner.abort();
+      lost = true;
+      showLost(shell, 'Something went wrong. Reload the page to try again.');
+    },
+  });
 
   renderer.domElement.addEventListener('webglcontextlost', (e) => {
     // Without preventDefault the browser never offers to restore the context; we do not restore
