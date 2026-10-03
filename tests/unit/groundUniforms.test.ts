@@ -55,6 +55,18 @@ describe('leaf occluder fade', () => {
     expect(createLeafMaterial('falling').defines).not.toHaveProperty('OCCLUDE');
     expect(createPropMaterial().defines).not.toHaveProperty('OCCLUDE');
   });
+  it('takes every derivative before the fade\'s discard (after a discard they are undefined on some drivers)', () => {
+    const faded = [...(['litter', 'detail', 'hero'] as const).map((v) => createLeafMaterial(v)), createPropMaterial(true)];
+    for (const m of faded) {
+      const fs = m.fragmentShader;
+      const main = fs.indexOf('void main()');
+      const cut = fs.indexOf('if (fadedOut()) discard;', main);
+      expect(cut).toBeGreaterThan(main);
+      expect(fs.slice(cut)).not.toMatch(/\b(fwidth|dFdx|dFdy)\s*\(/);
+    }
+    // The vein bands still get theirs (the leaves use them; the props have none).
+    expect(createLeafMaterial('litter').fragmentShader).toMatch(/fwidth\s*\(/);
+  });
   it('the plain and low-detail litter neither react nor fade (no fetches, no discard)', () => {
     for (const v of ['plain', 'far'] as const) {
       const m = createLeafMaterial(v);

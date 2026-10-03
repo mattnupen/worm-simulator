@@ -173,6 +173,13 @@ const fragmentShader = /* glsl */ `
   #endif
 
   void main() {
+    #ifndef LOD
+    // The vein bands' derivatives come first: after a discard that only some pixels of a 2 x 2
+    // quad take, derivatives are undefined on some drivers, and the veins of a fading leaf
+    // would sparkle.
+    float lc = (vLeaf.y - abs(vLeaf.x) * 0.85) * 11.0;
+    vec2 fws = fwidth(vec2(vLeaf.w, lc));
+    #endif
     #ifdef OCCLUDE
       if (fadedOut()) discard;
     #endif
@@ -195,8 +202,7 @@ const fragmentShader = /* glsl */ `
     #else
     // Main veins: vLeaf.w is 1 along the vein edges of the leaf mesh, so a band near 1 is
     // a line of even width that tapers toward the margin. Fades out before it can alias.
-    float lc = (vLeaf.y - abs(vLeaf.x) * 0.85) * 11.0;
-    vec2 fws = fwidth(vec2(vLeaf.w, lc));
+    // (lc and its fwidth, fws, are taken at the top of main, before the discard.)
     // Guard against equal smoothstep edges (undefined in GLSL) where a triangle has a
     // constant vein weight (fwidth 0, e.g. the petiole). w > 0 always, and lw >= 0 keeps the
     // lateral-vein edges below apart.
