@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { cameraTarget, smoothToward, smoothDamp, createFollowCam, stepFollowCam } from '../../src/surface/followCamera';
+import {
+  cameraTarget, smoothToward, smoothDamp, smoothDampInto, createFollowCam, stepFollowCam,
+} from '../../src/surface/followCamera';
 
 describe('cameraTarget', () => {
   it('sits behind and above the head', () => {
@@ -63,6 +65,19 @@ describe('smoothDamp', () => {
     const state = smoothDamp(0, 1, 0, 0.5, 1 / 60);
     const firstOrderVel = (1 - Math.exp(-4 / 60)) * 1 * 60;
     expect(Math.abs(state.velocity)).toBeLessThan(0.25 * firstOrderVel);
+  });
+
+  it('smoothDampInto moves a spring in place exactly as smoothDamp does', () => {
+    const s = { value: 0, velocity: 0 };
+    let ref = { value: 0, velocity: 0 };
+    for (let i = 0; i < 120; i++) {
+      const target = i < 60 ? 1 : 0.2;
+      smoothDampInto(s, target, 0.3, 1 / 60, 4);
+      ref = smoothDamp(ref.value, target, ref.velocity, 0.3, 1 / 60, 4);
+      expect(s).toEqual(ref);
+    }
+    smoothDampInto(s, 10, 0.3, 0);
+    expect(s).toEqual(ref);
   });
 
   it('ignores bad dt', () => {

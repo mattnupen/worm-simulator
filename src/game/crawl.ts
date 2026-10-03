@@ -1,7 +1,7 @@
 import type * as THREE from 'three';
 import type { Vec2, Vec3 } from '../core/vec';
 import {
-  createFollowCam, stepFollowCam, type FollowCamOptions, type FollowCamState,
+  createFollowCam, smoothDampInto, stepFollowCam, type FollowCamOptions, type FollowCamState, type Spring,
 } from '../surface/followCamera';
 import { createBody, followHead } from '../worm/body';
 import { clampToNeck, stepWorm, type WormMotion } from '../worm/locomotion';
@@ -34,18 +34,32 @@ const MAX_NECK_BEND = 1.3;
 const BREATH_HZ = 0.22;
 /** The camera never dips closer than this to the litter top beneath it. */
 export const CAM_GROUND_MARGIN = 0.5;
-const CAM_OPTS: Readonly<FollowCamOptions> = {
+export const CAM_OPTS: Readonly<FollowCamOptions> = {
   distance: 2.6, height: 1.1, yawSmoothTime: 0.5, posRate: 10, maxYawSpeed: 1.8,
 };
 /** The camera stops this far (m) short of a trunk, rock or log in its way (spec 4.4)... */
 const CAM_PROP_MARGIN = 0.35;
 /** Half the angle (rad) of the fan of sight lines the camera checks behind the head. */
 const CAM_FAN = 0.5;
+/**
+ * A side line only looks ahead: a prop on it pulls the camera in at most to this share of what
+ * the middle line (its real line to the head) allows, unless the camera is swinging toward it
+ * (CAM_LOOK). Only the middle line, or a side line the camera is about to reach, pulls it all the
+ * way in. 0.4 is the highest floor that never fires the line clamp (crawl.step) when the worm
+ * slides round a big trunk: the trunk can cut the middle line near its middle within a fifth of a
+ * second, with no earlier warning than a side line meeting it, so the camera must already be in.
+ */
+export const CAM_SIDE_FLOOR = 0.4;
+/** A side line counts in full when the camera's yaw would reach it within this time (s). */
+const CAM_LOOK = 0.5;
 /** It never gets nearer than this to one, even while easing (crawl.step). */
 const CAM_HARD_MARGIN = 0.15;
-/** ...pulling in (1/s) faster than it eases back out, on top of its own position smoothing. */
-const CAM_IN_RATE = 5;
-const CAM_OUT_RATE = 2.5;
+/**
+ * ...on a critically damped spring, so it starts and stops gently: settling times (s) pulling in,
+ * faster than easing back out. On top of the camera's own position smoothing.
+ */
+const CAM_IN_TIME = 0.25;
+const CAM_OUT_TIME = 1;
 const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
 /**
  * The disturbance map centres on this segment (1.5 m behind the head), so the head and the tail,
@@ -111,10 +125,10 @@ export class Crawl {
   private readonly prevWave: WaveState = { phase: 0, activity: 0 };
   private prevYaw = 0;
   private readonly move: Vec2 = { x: 0, y: 0 };
-  /** How much of its full distance the camera keeps (1 clear; less when a prop is in its way). */
-  private camReach = 1;
+  /** How much of its full distance the camera keeps (1 clear; less when a prop is in its way), and how fast that changes. */
+  private readonly camReach: Spring = { value: 1, velocity: 0 };
   get cameraReach(): number {
-    return this.camReach;
+    return this.camReach.value;
   }
   /** CAM_OPTS with the distance and height cut to camReach. */
   private readonly camOpts: FollowCamOptions = { ...CAM_OPTS };
@@ -147,7 +161,8 @@ export class Crawl {
       this.body[i] = body[i];
       copy(this.prevBody[i], body[i]);
     }
-    this.camReach = 1;
+    this.camReach.value = 1;
+    this.camReach.velocity = 0;
     this.camOpts.distance = CAM_OPTS.distance;
     this.camOpts.height = CAM_OPTS.height;
     this.cam = createFollowCam(head, 0, CAM_OPTS);
@@ -321,22 +336,31 @@ export class Crawl {
    * there, the camera's distance and height shrink so it stops just short, easing in and back out.
    */
   private keepCameraClear(dt: number): void {
-    const h = this.motion.head;
-    // Three sight lines fanning out behind the head: a prop sweeping toward the middle one meets a
-    // side one first, so the camera starts to ease in before it would have to jump.
-    let reach = 1;
-    for (let k = -1; k <= 1; k++) {
-      const yaw = this.cam.yaw + k * CAM_FAN;
-      reach = Math.min(reach, sightReach(
-        h.x, h.y, h.z,
-        h.x - Math.sin(yaw) * CAM_OPTS.distance, h.y + CAM_OPTS.height, h.z - Math.cos(yaw) * CAM_OPTS.distance,
-        CAM_PROP_MARGIN,
-      ));
+    // Three sight lines fanning out behind the head. The middle one is the camera's own line: a
+    // prop on it pulls the camera in short of it. A prop on a side line is one the camera may meet
+    // soon: it starts the pull-in early, in full only when the camera is swinging toward it.
+    const mid = this.sightAt(0);
+    let reach = mid;
+    for (let k = -1; k <= 1; k += 2) {
+      const toward = Math.max(0, Math.min(1, (k * this.cam.yawVel * CAM_LOOK) / CAM_FAN));
+      reach = Math.min(reach, Math.max(this.sightAt(k * CAM_FAN), mid * CAM_SIDE_FLOOR * (1 - toward)));
     }
-    const rate = reach < this.camReach ? CAM_IN_RATE : CAM_OUT_RATE;
-    this.camReach += (reach - this.camReach) * (1 - Math.exp(-rate * dt));
-    this.camOpts.distance = CAM_OPTS.distance * this.camReach;
-    this.camOpts.height = CAM_OPTS.height * this.camReach;
+    const r = this.camReach;
+    // The spring never overshoots its target, so the reach stays within 0..1.
+    smoothDampInto(r, reach, reach < r.value ? CAM_IN_TIME : CAM_OUT_TIME, dt);
+    this.camOpts.distance = CAM_OPTS.distance * r.value;
+    this.camOpts.height = CAM_OPTS.height * r.value;
+  }
+
+  /** sightReach of the line from the head to the camera's full-distance spot, turned `turn` (rad) off its yaw. */
+  private sightAt(turn: number): number {
+    const h = this.motion.head;
+    const yaw = this.cam.yaw + turn;
+    return sightReach(
+      h.x, h.y, h.z,
+      h.x - Math.sin(yaw) * CAM_OPTS.distance, h.y + CAM_OPTS.height, h.z - Math.cos(yaw) * CAM_OPTS.distance,
+      CAM_PROP_MARGIN,
+    );
   }
 
   /** Writes the render pose, the camera and `focus`, between the last two steps by `alpha`. */

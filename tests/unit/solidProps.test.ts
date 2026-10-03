@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { Crawl, BODY_RADIUS } from '../../src/game/crawl';
+import { Crawl, BODY_RADIUS, CAM_OPTS, CAM_SIDE_FLOOR } from '../../src/game/crawl';
 import { obstacleDepth, footprints, insideTall, sightReach, ROCK_FOOT } from '../../src/surface/obstacles';
 import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
 import { rocks } from '../../src/surface/propPlacement';
@@ -207,4 +207,74 @@ describe.each(SCALE_MODES)('%s: the camera stays out of props', (mode) => {
       expect(c.cameraReach).toBe(1);
     }
   });
+});
+
+describe('classic: the camera eases in gently and pulls in less for props beside it', () => {
+  beforeAll(() => { setScale('classic'); });
+
+  /** Its full distance from the head, and whether its own line to the head (at its yaw) is clear. */
+  const FREE = Math.hypot(CAM_OPTS.distance, CAM_OPTS.height);
+  const midClear = (c: Crawl) => {
+    const h = c.motion.head;
+    const y = c.cam.yaw;
+    return sightReach(
+      h.x, h.y, h.z, h.x - Math.sin(y) * CAM_OPTS.distance, h.y + CAM_OPTS.height, h.z - Math.cos(y) * CAM_OPTS.distance, 0.35,
+    ) === 1;
+  };
+  /** A slanted pass by trunk `n`: aimed 3 m past it, half its footprint to one side. */
+  const pastTrunk = (n: number) => {
+    const { round } = footprints();
+    const [x, z, r] = [round[4 * n], round[4 * n + 1], round[4 * n + 2]];
+    const a = Math.atan2(x, z);
+    return { x: x + Math.sin(a) * 3 + Math.cos(a) * r * 0.5, z: z + Math.cos(a) * 3 - Math.sin(a) * r * 0.5 };
+  };
+
+  it('brushing past a trunk with its own line clear, it eases in only partway', () => {
+    // Trunk 12 slides past the head's side (steps 236 to 305): a side line meets it, the middle one does not.
+    const t = pastTrunk(12);
+    const c = new Crawl();
+    let step = 0;
+    let blocked = false;
+    let nearest = Infinity;
+    let pulled = 0;
+    driveTo(c, t.x, t.z, 400, (cc) => {
+      step++;
+      if (!midClear(cc)) blocked = true;
+      if (step >= 236 && step <= 305) expect(blocked).toBe(false);
+      if (blocked) return;
+      const h = cc.motion.head;
+      const p = cc.cam.pos;
+      nearest = Math.min(nearest, Math.hypot(p.x - h.x, p.y - h.y, p.z - h.z) / FREE);
+      if (cc.cameraReach < 0.99) pulled++;
+    });
+    expect(pulled).toBeGreaterThan(30);
+    expect(nearest).toBeGreaterThan(CAM_SIDE_FLOOR);
+  });
+
+  it('a pull-in starts gently, and never snaps', () => {
+    // Slanted passes by trunks 6 and 12 (6 is where its line does get cut), and straight at 1, 4 and 10.
+    let onset = 0;
+    let fastest = 0;
+    for (const n of [6, 12, 1, 4, 10]) {
+      const t = pastTrunk(n);
+      const c = new Crawl();
+      let last = { ...c.cam.pos };
+      let lastStep = { x: 0, y: 0, z: 0 };
+      let lastReach = 1;
+      let since = Infinity;
+      driveTo(c, t.x, t.z, 1200, (cc) => {
+        const p = cc.cam.pos;
+        const step = { x: p.x - last.x, y: p.y - last.y, z: p.z - last.z };
+        const jerk = Math.hypot(step.x - lastStep.x, step.y - lastStep.y, step.z - lastStep.z);
+        since = lastReach >= 0.999 && cc.cameraReach < 0.999 ? 0 : since + 1;
+        if (since < 10) onset = Math.max(onset, jerk);
+        fastest = Math.max(fastest, jerk);
+        last = { ...p };
+        lastStep = step;
+        lastReach = cc.cameraReach;
+      });
+    }
+    expect(onset).toBeLessThan(0.012);
+    expect(fastest).toBeLessThan(0.03);
+  }, 60_000);
 });

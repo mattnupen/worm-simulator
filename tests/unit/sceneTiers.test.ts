@@ -262,7 +262,7 @@ describe('world.apply', () => {
     expect([PRESETS.low.hero, PRESETS.medium.hero, PRESETS.high.hero, PRESETS.ultra.hero]).toEqual([0, 12, 24, 32]);
   });
 
-  it('through a long crawl, every reacting litter chunk shows full leaves and is within LOD_NEAR anyway', () => {
+  it('through a long crawl, every reacting litter chunk shows full leaves and is within LOD_NEAR + LOD_GAP anyway', () => {
     world.apply(PRESETS.high);
     const camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.2, 200);
     // Straight, gentle and tight turns both ways, a U-turn: the trail curls round the map.

@@ -20,16 +20,25 @@ export function smoothToward(current: Vec3, target: Vec3, rate: number, dtSec: n
   };
 }
 
-/** Critically damped spring (Game Programming Gems 4 "SmoothDamp"). Eases in and out; never overshoots. */
-export function smoothDamp(
-  current: number,
+/** A value and its velocity, moved by smoothDampInto. */
+export interface Spring {
+  value: number;
+  velocity: number;
+}
+
+/**
+ * Critically damped spring (Game Programming Gems 4 "SmoothDamp"), in place: moves `s` toward
+ * `target`. Eases in and out (it starts from its current velocity); never overshoots. Allocates nothing.
+ */
+export function smoothDampInto(
+  s: Spring,
   target: number,
-  velocity: number,
   smoothTimeSec: number,
   dtSec: number,
   maxSpeed = Infinity,
-): { value: number; velocity: number } {
-  if (!(dtSec > 0)) return { value: current, velocity };
+): void {
+  if (!(dtSec > 0)) return;
+  const current = s.value;
   const omega = 2 / Math.max(1e-4, smoothTimeSec);
   const x = omega * dtSec;
   const decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
@@ -38,15 +47,31 @@ export function smoothDamp(
   const change = Math.max(-maxChange, Math.min(maxChange, current - target));
   const clampedTarget = current - change;
 
-  const temp = (velocity + omega * change) * dtSec;
+  const temp = (s.velocity + omega * change) * dtSec;
   const value = clampedTarget + (change + temp) * decay;
 
   // Overshoot guard: if we passed the target, clamp to it
   if ((target - current > 0) === (value > target)) {
-    return { value: target, velocity: 0 };
+    s.value = target;
+    s.velocity = 0;
+    return;
   }
+  s.value = value;
+  s.velocity = (s.velocity - omega * temp) * decay;
+}
 
-  return { value, velocity: (velocity - omega * temp) * decay };
+/** Critically damped spring (smoothDampInto), returning the new value and velocity. */
+export function smoothDamp(
+  current: number,
+  target: number,
+  velocity: number,
+  smoothTimeSec: number,
+  dtSec: number,
+  maxSpeed = Infinity,
+): { value: number; velocity: number } {
+  const s = { value: current, velocity };
+  smoothDampInto(s, target, smoothTimeSec, dtSec, maxSpeed);
+  return s;
 }
 
 export interface FollowCamState {
