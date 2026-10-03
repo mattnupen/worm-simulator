@@ -139,7 +139,9 @@ describe('the drape on the real litter and the real worm', () => {
   it('every leaf over the worm clears its body by 5 mm (shipped maths, 400 placements)', () => {
     // The chunked litter's full leaves (the only ones drawn with the drape), as the chunk writer
     // wrote them: positions relative to each chunk's mesh, anchors in world space.
-    const litter = buildLeafLitter(6000);
+    // The shipped litter (every preset draws the same count). About 100,000 worm vertices end
+    // up under a leaf triangle, so the coverage floor below is far from vacuous.
+    const litter = buildLeafLitter(PRESETS.ultra.litter);
     const tri: Tri = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
     const p = [0, 0, 0];
     const a4 = [0, 0, 0, 0];

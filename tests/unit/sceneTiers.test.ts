@@ -208,8 +208,9 @@ describe('world.apply', () => {
     expect(sharedLighting.uRim.value).toBe(1);
 
     world.apply(PRESETS.high);
-    // High and Ultra share the litter count (Task 23): Ultra's extra leaves are detail leaves.
-    expect(drawn(world.litter)).toBeLessThanOrEqual(ultraLeaves);
+    // Every preset draws the same litter (Task 23): they differ in their detail leaves.
+    expect(world.litter.drawn).toBe(PRESETS.high.litter);
+    expect(drawn(world.litter)).toBe(ultraLeaves);
     expect(detail.mesh.geometry.drawRange.count).toBeLessThan(detail.mesh.geometry.index!.count);
     expect(motes.geometry.drawRange.count).toBe(MOTE_COUNT);
     expect(falling.geometry.drawRange.count).toBeLessThan(ultraFalling);
@@ -218,7 +219,22 @@ describe('world.apply', () => {
     expect(detail.mesh.visible).toBe(false);
     expect(world.atmosphere.group.visible).toBe(false);
     expect(sharedLighting.uRim.value).toBe(0);
-    expect(drawn(world.litter)).toBeLessThan(ultraLeaves * (PRESETS.low.litter / PRESETS.ultra.litter) * 1.2);
+    expect(world.litter.drawn).toBe(PRESETS.low.litter);
+    expect(drawn(world.litter)).toBe(ultraLeaves);
+  });
+
+  it('draws more detail leaves at each step up from Medium (Low none)', () => {
+    world.apply(PRESETS.ultra); // builds the detail layer, if no test has yet
+    const counts = (['low', 'medium', 'high', 'ultra'] as const).map((id) => {
+      world.apply(PRESETS[id]);
+      const mesh = world.detail.built!.mesh;
+      return { drawn: world.detail.drawn, indices: mesh.visible ? mesh.geometry.drawRange.count : 0 };
+    });
+    expect(counts[0]).toEqual({ drawn: 0, indices: 0 });
+    for (let k = 1; k < counts.length; k++) {
+      expect(counts[k].drawn).toBeGreaterThan(counts[k - 1].drawn);
+      expect(counts[k].indices).toBeGreaterThan(counts[k - 1].indices);
+    }
   });
 
   it('reports the leaves it draws for each preset (Low: litter only, no detail)', () => {
