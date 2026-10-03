@@ -115,55 +115,110 @@ export function pushOut(p: { x: number; z: number }, radius: number): number {
 }
 
 const contact: ObstacleHit = { nx: 0, nz: 0 };
-/** The footprints a slideMove has met so far, and the way out of each. */
-const metIds = new Int32Array(3);
-const metN = new Float64Array(6);
+
+/** How far (x, z) lies inside the one footprint `id` (as deepestId) grown by `pad`, and the way out in `out`. */
+function depthIn(id: number, x: number, z: number, pad: number, out: ObstacleHit): number {
+  const { round, log } = footprints();
+  let cx: number;
+  let cz: number;
+  let r: number;
+  if (id >= 0) {
+    cx = round[id];
+    cz = round[id + 1];
+    r = round[id + 2];
+  } else {
+    const t = Math.max(-log.half, Math.min(log.half, (x - log.x) * log.dx + (z - log.z) * log.dz));
+    cx = log.x + log.dx * t;
+    cz = log.z + log.dz * t;
+    r = log.r;
+  }
+  const dx = x - cx;
+  const dz = z - cz;
+  const d = Math.sqrt(dx * dx + dz * dz);
+  if (d > 1e-9) {
+    out.nx = dx / d;
+    out.nz = dz / d;
+  } else if (id >= 0) {
+    out.nx = 1;
+    out.nz = 0;
+  } else {
+    out.nx = -log.dz;
+    out.nz = log.dx;
+  }
+  return r + pad - d;
+}
 
 /**
- * Collide and slide: `to` is where a point clear of the footprints (grown by `radius`) at `from`
- * would move this step. If the move ends in a footprint, the part of it that points into one
- * is taken away, so the point slides along the edge; the move must keep out of every footprint
- * met on the way, and in a notch where two meet nothing is left, so the point stays put instead
- * of rattling between them. Writes the result into `to`, and leaves `to` exactly as it was when
- * the move is clear. A hair may still lie inside a curved edge: pushOut afterwards. Allocates nothing.
+ * The footprints a slideMove has met: which, the way out of each, and how far along it the move
+ * must reach to stay out (the move m keeps out of footprint i while m . n_i >= b_i).
+ */
+const metIds = new Int32Array(3);
+const metN = new Float64Array(6);
+const metB = new Float64Array(3);
+let met = 0;
+/** The wanted move, and the nearest move to it found so far that keeps out of all of them. */
+let wantX = 0;
+let wantZ = 0;
+let bestX = 0;
+let bestZ = 0;
+let bestD2 = Infinity;
+
+/** Takes the move (ax, az) as the best so far if it keeps out of every footprint met and is nearer the wanted move. */
+function consider(ax: number, az: number): void {
+  for (let j = 0; j < met; j++) {
+    if (ax * metN[2 * j] + az * metN[2 * j + 1] < metB[j] - 1e-12) return;
+  }
+  const d2 = (ax - wantX) * (ax - wantX) + (az - wantZ) * (az - wantZ);
+  if (d2 < bestD2) {
+    bestD2 = d2;
+    bestX = ax;
+    bestZ = az;
+  }
+}
+
+/**
+ * Collide and slide: `to` is where a point at `from` would move this step. Each footprint (grown
+ * by `radius`) the move ends in becomes an edge to keep behind (the line touching it nearest
+ * `from`), and the move becomes the nearest one that keeps behind them all: against one footprint
+ * the point slides along its edge, and in a notch where two meet it stops in the notch and stays
+ * there, instead of being pushed from one side to the other. Writes the result into `to`, and
+ * leaves `to` exactly as it was when the move is clear. Allocates nothing.
  */
 export function slideMove(from: { x: number; z: number }, to: { x: number; z: number }, radius: number): void {
-  const mx = to.x - from.x;
-  const mz = to.z - from.z;
-  let met = 0;
+  wantX = to.x - from.x;
+  wantZ = to.z - from.z;
+  met = 0;
   for (let k = 0; k < 3; k++) {
     if (!(obstacleDepth(to.x, to.z, radius, contact) > 0)) return;
-    // Remember the way out of this footprint (one met again keeps its newest).
     let i = 0;
     while (i < met && metIds[i] !== deepestId) i++;
+    // Still a hair inside an edge already met (by rounding): pushOut sees to it.
+    if (i < met) return;
+    // Its edge as seen from where the point was: the line touching it at its point nearest there.
     metIds[i] = deepestId;
+    metB[i] = depthIn(deepestId, from.x, from.z, radius, contact);
     metN[2 * i] = contact.nx;
     metN[2 * i + 1] = contact.nz;
-    if (i === met) met++;
-    // The whole move, or the move with the part into one footprint taken away: the first that
-    // points into none of them. If none does, the point is wedged.
-    let dx = 0;
-    let dz = 0;
-    for (let c = -1; c < met; c++) {
-      let ax = mx;
-      let az = mz;
-      if (c >= 0) {
-        const into = ax * metN[2 * c] + az * metN[2 * c + 1];
-        if (!(into < 0)) continue;
-        ax -= metN[2 * c] * into;
-        az -= metN[2 * c + 1] * into;
-      }
-      let clear = true;
-      for (let j = 0; j < met && clear; j++) {
-        if (j !== c && ax * metN[2 * j] + az * metN[2 * j + 1] < 0) clear = false;
-      }
-      if (clear) {
-        dx = ax;
-        dz = az;
-        break;
+    met++;
+    // The nearest allowed move is the wanted one, or on one edge, or where two edges cross.
+    bestD2 = Infinity;
+    consider(wantX, wantZ);
+    for (let c = 0; c < met; c++) {
+      const cx = metN[2 * c];
+      const cz = metN[2 * c + 1];
+      const short = metB[c] - (wantX * cx + wantZ * cz);
+      consider(wantX + cx * short, wantZ + cz * short);
+      for (let e = c + 1; e < met; e++) {
+        const ex = metN[2 * e];
+        const ez = metN[2 * e + 1];
+        const det = cx * ez - cz * ex;
+        if (Math.abs(det) < 1e-9) continue;
+        consider((metB[c] * ez - metB[e] * cz) / det, (cx * metB[e] - ex * metB[c]) / det);
       }
     }
-    to.x = from.x + dx;
-    to.z = from.z + dz;
+    // Three edges with no way between them: pushOut sees to it.
+    if (bestD2 === Infinity) return;
+    to.x = from.x + bestX;
+    to.z = from.z + bestZ;
   }
 }

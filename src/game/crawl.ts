@@ -260,7 +260,7 @@ export class Crawl {
     this.motion = stepWorm(this.motion, this.move, dt, LOCOMOTION);
     const head = this.motion.head;
     // Trunks, rocks and the log are solid: the head slides along their edge (spec 4.4), and stops
-    // in a notch where two meet. pushOut takes it off a curved edge it slid a hair into.
+    // in a notch where two meet. pushOut is the safety net (a hair inside by rounding).
     slideMove(this.prevHead, head, BODY_RADIUS);
     pushOut(head, BODY_RADIUS);
     // stepWorm stays flat and pure; the litter decides the height here.

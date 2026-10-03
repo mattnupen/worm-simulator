@@ -103,11 +103,10 @@ describe('classic: a notch between two props', () => {
     driveTo(c, (ax + bx) / 2, (az + bz) / 2, 1200, () => {});
     const forward = { x: 0, y: 1 };
     for (let s = 0; s < 300; s++) c.step(DT, forward);
-    // Wedged in the notch: within a step of both trunks (it stops where its next step would meet them).
+    // Wedged in the notch, against both trunks.
     const h = c.motion.head;
-    const stride = LOCOMOTION.speed * DT;
-    expect(Math.hypot(h.x - ax, h.z - az) - ar - BODY_RADIUS).toBeLessThan(stride);
-    expect(Math.hypot(h.x - bx, h.z - bz) - br - BODY_RADIUS).toBeLessThan(stride);
+    expect(Math.hypot(h.x - ax, h.z - az) - ar - BODY_RADIUS).toBeLessThan(1e-3);
+    expect(Math.hypot(h.x - bx, h.z - bz) - br - BODY_RADIUS).toBeLessThan(1e-3);
 
     // Pushing on into it moves the head nowhere, and the wave advances as it does standing still.
     const still = new Crawl();
