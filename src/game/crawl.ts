@@ -21,7 +21,7 @@ import {
 } from '../surface/heroLeaves';
 import { LOCOMOTION } from './drive';
 import { pushOut, slideMove } from '../surface/obstacles';
-import { CAM_OPTS, CameraClearance, cameraAim } from './cameraClearance';
+import { CAM_OPTS, CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
 
 export const WORM_SEGMENTS = 16;
 const SPACING = 0.22;
@@ -30,10 +30,6 @@ export const BODY_RADIUS = WORM_HALF_WIDTH;
 const MAX_NECK_BEND = 1.3;
 /** Slow resting "breath" of the contraction wave, in waves per second. */
 const BREATH_HZ = 0.22;
-/** The camera never dips closer than this to the litter top beneath it. */
-export const CAM_GROUND_MARGIN = 0.5;
-/** The camera eases onto that floor over its last this many metres above it. */
-const GROUND_EASE = 0.1;
 const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
 /**
  * The disturbance map centres on this segment (1.5 m behind the head), so the head and the tail,
@@ -50,7 +46,7 @@ const PUSHER_REACH = PUSHER_SPAN / wormLength(WORM_SEGMENTS, SPACING);
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 /** Scratch for interpolate: where the camera aims (cameraAim). */
-const aim = { ahead: 0, up: 0 };
+const aim: CameraAim = { ahead: 0, above: 0, upX: 0, upY: 1, upZ: 0 };
 
 /** `n` points at the origin. */
 const blank = (n: number): Vec3[] => Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0 }));
@@ -291,11 +287,8 @@ export class Crawl {
     this.clearance.update(head, this.cam, dt);
     this.cam = stepFollowCam(this.cam, head, this.motion.heading, dt, this.clearance.opts);
     const c = this.cam.pos;
+    // Out of trunks, rocks and the log, and off the litter.
     this.clearance.keepOut(c);
-    // The camera never dips nearer the litter than CAM_GROUND_MARGIN, easing onto that floor over
-    // its last GROUND_EASE (a smooth curve, so its rise and fall never turn sharply).
-    const u = c.y - litterTop(c.x, c.z) - CAM_GROUND_MARGIN;
-    if (u < GROUND_EASE) c.y += (u < -GROUND_EASE ? 0 : ((u + GROUND_EASE) * (u + GROUND_EASE)) / (4 * GROUND_EASE)) - u;
     if (this.reaction) this.disturbLeaves(dt);
     this.pushLeaves(dt);
   }
@@ -322,7 +315,8 @@ export class Crawl {
     const yaw = lerp(this.prevYaw, this.cam.yaw, alpha);
     const c = this.cam.pos;
     camera.position.set(lerp(this.prevCam.x, c.x, alpha), lerp(this.prevCam.y, c.y, alpha), lerp(this.prevCam.z, c.z, alpha));
-    cameraAim(lerp(this.prevReach, this.clearance.reach, alpha), aim);
-    camera.lookAt(f.x + Math.sin(yaw) * aim.ahead, f.y + aim.up, f.z + Math.cos(yaw) * aim.ahead);
+    cameraAim(lerp(this.prevReach, this.clearance.reach, alpha), yaw, aim);
+    camera.up.set(aim.upX, aim.upY, aim.upZ);
+    camera.lookAt(f.x + Math.sin(yaw) * aim.ahead, f.y + aim.above, f.z + Math.cos(yaw) * aim.ahead);
   }
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { Crawl, WORM_SEGMENTS, CAM_GROUND_MARGIN } from '../../src/game/crawl';
+import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
+import { CAM_GROUND_MARGIN } from '../../src/game/cameraClearance';
 import { bellyHeight, litterTop, wormSurface } from '../../src/worm/surfaceHeight';
 import type { WormPose } from '../../src/worm/wormMesh';
 

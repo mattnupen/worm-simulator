@@ -3,6 +3,7 @@ import {
   smoothDampInto, type FollowCamOptions, type FollowCamState, type Spring,
 } from '../surface/followCamera';
 import { pushOutTall, sightReach } from '../surface/obstacles';
+import { litterTop } from '../worm/surfaceHeight';
 
 /** The follow camera's settings at full reach: distance behind and height above the head. */
 export const CAM_OPTS: Readonly<FollowCamOptions> = {
@@ -21,6 +22,17 @@ const LOOK_UP = 0.6;
 const CAM_CRANE = 0.25;
 const CRANE_LOOK_AHEAD = -0.3;
 const CRANE_LOOK_UP = -0.3;
+/**
+ * Below this reach the camera's "up" tilts from the sky toward the worm's forward (along its yaw),
+ * fully at reach 0. Craned right over the head, the camera looks almost straight down, where
+ * aiming with the sky as "up" is undefined and a small sideways move would spin the picture; with
+ * forward as "up", the worm's forward stays at the top of the screen.
+ */
+const UP_TILT_REACH = 0.3;
+/** The camera never dips closer than this (m) to the litter top beneath it... */
+export const CAM_GROUND_MARGIN = 0.5;
+/** ...easing onto that floor over its last this many metres above it. */
+const GROUND_EASE = 0.1;
 /** The camera stops this far (m) short of a trunk, rock or log in its way (spec 4.4)... */
 const CAM_PROP_MARGIN = 0.35;
 /** Half the angle (rad) of the fan of sight lines the camera checks behind the head. */
@@ -97,16 +109,24 @@ export class CameraClearance {
    * The eased camera can trail a hard turn, or a prop that swings in beside the head: never let the
    * camera at `pos` itself into a prop. It is pushed sideways, straight out of any trunk (or rock or
    * log taller than it) it has come within CAM_HARD_MARGIN of, so it slides along the prop's edge.
-   * Its line to the head may cross a prop's edge for a few frames while the reach eases in; it is
-   * never moved along that line, which jumped (and shook, step to step) when the line's first
-   * blocked point jumped.
+   * Its line to the head may briefly cross a prop's edge while the reach eases in; it is never
+   * moved along that line, which jumped (and shook, step to step) when the line's first blocked
+   * point jumped. Then it is kept CAM_GROUND_MARGIN above the litter.
    */
   keepOut(pos: Vec3): void {
     pushOutTall(pos, CAM_HARD_MARGIN);
+    // Never nearer the litter than CAM_GROUND_MARGIN, easing onto that floor over its last
+    // GROUND_EASE (a smooth curve, so its rise and fall never turn sharply).
+    const u = pos.y - litterTop(pos.x, pos.z) - CAM_GROUND_MARGIN;
+    if (u < GROUND_EASE) pos.y += (u < -GROUND_EASE ? 0 : ((u + GROUND_EASE) * (u + GROUND_EASE)) / (4 * GROUND_EASE)) - u;
   }
 }
 
-/** sightReach of the line from the head to the camera's full-distance spot along `yaw`. */
+/**
+ * sightReach of the line from the head to the camera's full-distance spot along `yaw`. It checks
+ * at the full, uncraned height on purpose: the craned camera stands higher, so a prop this line
+ * clears, it clears too (conservative).
+ */
 function sightAt(h: Vec3, yaw: number): number {
   return sightReach(
     h.x, h.y, h.z,
@@ -115,8 +135,26 @@ function sightAt(h: Vec3, yaw: number): number {
   );
 }
 
-/** Where the camera aims at reach `reach` (0..1): `ahead` of the head along its yaw and `up` above it. */
-export function cameraAim(reach: number, out: { ahead: number; up: number }): void {
+/** Where the camera aims, and which way is up on screen: see cameraAim. */
+export interface CameraAim {
+  /** The point it looks at: this far ahead of the head along its yaw, and this far above it. */
+  ahead: number;
+  above: number;
+  /** The screen's "up", a unit vector: the sky at full reach, tilting toward forward when craned. */
+  upX: number;
+  upY: number;
+  upZ: number;
+}
+
+/** Where the camera aims at reach `reach` (0..1) and yaw `yaw`, into `out`. Allocates nothing. */
+export function cameraAim(reach: number, yaw: number, out: CameraAim): void {
   out.ahead = CRANE_LOOK_AHEAD + (LOOK_AHEAD - CRANE_LOOK_AHEAD) * reach;
-  out.up = CRANE_LOOK_UP + (LOOK_UP - CRANE_LOOK_UP) * reach;
+  out.above = CRANE_LOOK_UP + (LOOK_UP - CRANE_LOOK_UP) * reach;
+  const b = Math.max(0, Math.min(1, (UP_TILT_REACH - reach) / UP_TILT_REACH));
+  const t = b * b * (3 - 2 * b);
+  // (sin yaw * t, 1 - t, cos yaw * t), made unit length: exactly the sky at t = 0.
+  const n = 1 / Math.sqrt(t * t + (1 - t) * (1 - t));
+  out.upX = Math.sin(yaw) * t * n;
+  out.upY = (1 - t) * n;
+  out.upZ = Math.cos(yaw) * t * n;
 }
