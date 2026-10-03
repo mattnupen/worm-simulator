@@ -37,7 +37,7 @@ The round has three parts, built in this order, each with its own plan:
 
 ## 3. Part 0: leaf jitter (done)
 
-Committed as `02b5a7a` on branch `step1b`, measured before fixing.
+Committed as `02b5a7a` and `92f1c61` on branch `step1b`, measured before fixing.
 
 - **How it was measured:** the real crawl was replayed with realistic frame timing (a 60 Hz display
   with uneven frames, 60 Hz steps, the 30 fps cap). Real litter vertices and the hero leaves were
@@ -53,7 +53,11 @@ Committed as `02b5a7a` on branch `step1b`, measured before fixing.
     difference, and step-versus-render timing was not a cause.
 - **Fix:**
   - The map stamps the segments joining the body points, so it holds the true distance to them.
-  - The map is packed to half floats (RGBA16F, which filters linearly in WebGL2 core).
+  - Path and body nearness are packed in two bytes each, in one RGBA8 texture. Linear filtering
+    keeps high + low / 255 exact. The trail, plus the path again in one byte for the ground,
+    goes in a small RG8 texture, so each reacting leaf makes one more texture fetch.
+  - Measured per channel: path and body each need about 10 bits or more, and the trail is fine at
+    6 bits. Half floats were tried first, but cost 4% fps on High in the software-rendered gates.
   - A hero leaf tilts away from the nearest point on the spine itself.
 - **Result:**
 
@@ -66,9 +70,9 @@ Committed as `02b5a7a` on branch `step1b`, measured before fixing.
 
 - Regression tests: `tests/unit/leafJitter.test.ts`. The clearance tests stay at 0 violations, and
   all 529 unit and 22 e2e tests pass.
-- **Performance:** in the first gate run High measured 0.725 against its 0.741 gate (Low, Medium
-  and Ultra passed). An A/B benchmark against the pre-fix build is running to separate cost from
-  noise; this section is updated with the result, and the fix is changed if it costs real fps.
+- **Performance:** an A/B benchmark on High, interleaved with the pre-fix build, shows no cost:
+  median 32.3 fps against 32.2. The full gates were re-run on the final build (results in the
+  round's report).
 - **Known limit:** hero leaves resting over the body still change their tilt *amount* slightly
   between steps (about 0.5% of samples turn back by more than 5 mm). The best-tilt search steps
   between nearby solutions. Leaf sizes change in Part A, so this gets re-measured there.
