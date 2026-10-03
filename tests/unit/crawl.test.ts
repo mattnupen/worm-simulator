@@ -120,3 +120,47 @@ describe('Crawl hero leaves', () => {
     expect(c.hero.count).toBe(0);
   });
 });
+
+describe('Crawl reset', () => {
+  it('puts everything back exactly as a freshly built crawl with the same settings', () => {
+    const c = new Crawl();
+    c.setHeroCount(24);
+    // Wander: turns, crawls through piles, shoves and recycles leaves, leaves a trail.
+    for (let i = 0; i < 900; i++) c.step(DT, { x: Math.sin(i / 90), y: i % 300 < 250 ? 1 : 0 });
+    c.interpolate(0.5, 3, pose(), new THREE.PerspectiveCamera());
+    expect(c.hero.spawned).toBeGreaterThan(24);
+    c.reset();
+
+    const fresh = new Crawl();
+    fresh.setHeroCount(24);
+    expect(c).toEqual(fresh);
+  });
+
+  it('keeps the hero count and the leaf reaction it had', () => {
+    const c = new Crawl();
+    c.setHeroCount(8);
+    c.setReaction(false);
+    for (let i = 0; i < 120; i++) c.step(DT, { x: 0.4, y: 1 });
+    c.reset();
+    expect(c.hero.count).toBe(8);
+    expect(c.reaction).toBe(false);
+    expect(c.motion.head.x).toBe(0);
+    expect(c.motion.head.z).toBe(0);
+    expect(c.motion.head.y).toBeCloseTo(bellyHeight(wormSurface(0, 0, false)), 9);
+    expect(c.disturbed).toBe(true);
+  });
+
+  it('then crawls exactly as a fresh crawl does', () => {
+    const c = new Crawl();
+    c.setHeroCount(16);
+    for (let i = 0; i < 300; i++) c.step(DT, { x: -0.5, y: 1 });
+    c.reset();
+    const fresh = new Crawl();
+    fresh.setHeroCount(16);
+    for (let i = 0; i < 120; i++) {
+      c.step(DT, { x: 0.3, y: 1 });
+      fresh.step(DT, { x: 0.3, y: 1 });
+    }
+    expect(c).toEqual(fresh);
+  });
+});

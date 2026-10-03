@@ -77,3 +77,24 @@ test('the report\'s Leaves line is the litter plus detail leaves actually drawn 
   const density = tier === 3 ? 0.5 : 1;
   expect(leaves).toBe(Math.round(1500 * density) + Math.round(900 * density));
 });
+
+test('a speed test opened after crawling runs (it starts from the spawn, see Crawl.reset)', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('GPU stall')) errors.push(m.text()); });
+  await page.goto(PAGE);
+  await page.getByRole('button', { name: 'Crawl', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Crawling' })).toBeVisible();
+  await page.keyboard.down('ArrowUp');
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(2000);
+  await page.keyboard.up('ArrowRight');
+  await page.keyboard.up('ArrowUp');
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await page.getByRole('button', { name: 'Back to start', exact: true }).click();
+  await page.getByRole('button', { name: 'Speed test', exact: true }).click();
+  await page.getByRole('button', { name: 'Start speed test' }).click();
+  await expect(page.getByTestId('running')).toBeVisible();
+  await expect(page.getByTestId('result')).toContainText('fps average', { timeout: 30_000 });
+  expect(errors).toEqual([]);
+});

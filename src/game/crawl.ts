@@ -15,7 +15,7 @@ import {
   createDisturbance, recentre, stamp, decay, clearDisturbance, type DisturbanceMap,
 } from '../surface/disturbance';
 import {
-  createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
+  clearHeroLeaves, createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
   HERO_MAX, PUSHER_SPAN, PUSHER_STRIDE, type HeroLeaves,
 } from '../surface/heroLeaves';
 import { LOCOMOTION } from './drive';
@@ -49,6 +49,9 @@ const PUSHER_REACH = PUSHER_SPAN / wormLength(WORM_SEGMENTS, SPACING);
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
+/** `n` points at the origin. */
+const blank = (n: number): Vec3[] => Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0 }));
+
 function copy(dst: Vec3, src: Vec3): void {
   dst.x = src.x;
   dst.y = src.y;
@@ -61,9 +64,9 @@ function copy(dst: Vec3, src: Vec3): void {
  * climbs onto piles head first. Keeps the previous step so rendering can interpolate by alpha.
  */
 export class Crawl {
-  motion: WormMotion;
-  readonly body: Vec3[];
-  cam: FollowCamState;
+  motion: WormMotion = { head: { x: 0, y: 0, z: 0 }, heading: 0 };
+  readonly body: Vec3[] = blank(WORM_SEGMENTS);
+  cam: FollowCamState = { yaw: 0, yawVel: 0, pos: { x: 0, y: 0, z: 0 } };
   readonly wave: WaveState = { phase: 0, activity: 0 };
   /** The head as last rendered (interpolated): leaf shaders and the detail layer centre on it. */
   readonly focus: Vec3 = { x: 0, y: 0, z: 0 };
@@ -89,23 +92,15 @@ export class Crawl {
   private readonly swell = { min: 1, max: 1 };
   private readonly probe: HeadProbe = { lift: 0, sway: 0 };
   private readonly surf: WormSurface = { y: 0, under: 0 };
-  private readonly prevBody: Vec3[];
-  private readonly prevCam: Vec3;
-  private readonly prevHead: Vec3;
+  private readonly prevBody: Vec3[] = blank(WORM_SEGMENTS);
+  private readonly prevCam: Vec3 = { x: 0, y: 0, z: 0 };
+  private readonly prevHead: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly prevWave: WaveState = { phase: 0, activity: 0 };
-  private prevYaw: number;
+  private prevYaw = 0;
   private readonly move: Vec2 = { x: 0, y: 0 };
 
   constructor() {
-    this.motion = { head: { x: 0, y: 0, z: 0 }, heading: 0 };
-    this.motion.head.y = this.rest(0, 0, 0);
-    this.body = createBody(WORM_SEGMENTS, SPACING, this.motion.head, this.motion.heading);
-    this.cam = createFollowCam(this.motion.head, this.motion.heading, CAM_OPTS);
-    this.prevBody = this.body.map((s) => ({ ...s }));
-    this.prevCam = { ...this.cam.pos };
-    this.prevHead = { ...this.motion.head };
-    this.prevYaw = this.cam.yaw;
-    copy(this.focus, this.motion.head);
+    this.placeAtSpawn();
     const ext: WormExtent = { top: 0, half: 0, fall: 0, probe: 0 };
     for (let k = 0; k < PUSHERS; k++) {
       this.pushM[k] = bodyCoordAt((k * SPACING) / 2, WORM_SEGMENTS, SPACING);
@@ -115,6 +110,51 @@ export class Crawl {
       this.pushFall[k] = ext.fall;
       this.pushProbe[k] = ext.probe;
     }
+  }
+
+  /**
+   * The worm at the spawn, straight and still, heading +z, with its camera settled behind it
+   * and the previous step the same (nothing to interpolate). Rests on the surface for the
+   * current leaf reaction.
+   */
+  private placeAtSpawn(): void {
+    this.under.fill(0);
+    const head = { x: 0, y: 0, z: 0 };
+    this.motion = { head, heading: 0 };
+    head.y = this.rest(0, 0, 0);
+    const body = createBody(WORM_SEGMENTS, SPACING, head, 0);
+    for (let i = 0; i < WORM_SEGMENTS; i++) {
+      this.body[i] = body[i];
+      copy(this.prevBody[i], body[i]);
+    }
+    this.cam = createFollowCam(head, 0, CAM_OPTS);
+    copy(this.prevCam, this.cam.pos);
+    copy(this.prevHead, head);
+    this.prevYaw = this.cam.yaw;
+    copy(this.focus, head);
+    this.wave.phase = this.wave.activity = 0;
+    this.prevWave.phase = this.prevWave.activity = 0;
+    this.swell.min = this.swell.max = 1;
+    this.probe.lift = this.probe.sway = 0;
+    this.move.x = this.move.y = 0;
+  }
+
+  /**
+   * Back to the start, exactly as a freshly built crawl given the same leaf reaction and hero
+   * count: the worm and its camera at the spawn (see placeAtSpawn), the disturbance map empty
+   * and back on the spawn, and the hero leaves scattered around the spawn again, in the same
+   * deterministic order as at the start. The speed test starts here, so its numbers never
+   * depend on where the worm had been.
+   */
+  reset(): void {
+    const heroes = this.hero.count;
+    this.placeAtSpawn();
+    clearDisturbance(this.disturbance);
+    recentre(this.disturbance, 0, 0);
+    this.disturbed = true;
+    clearHeroLeaves(this.hero);
+    this.pushers.fill(0);
+    this.setHeroCount(heroes);
   }
 
   /** Switches leaf reaction (from the preset). Off clears the map, and stamping stops. */

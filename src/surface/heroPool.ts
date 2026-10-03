@@ -80,6 +80,21 @@ export function createHeroLeaves(max = HERO_MAX, seed = 1): HeroLeaves {
 }
 
 /**
+ * Empties the pool back to exactly how createHeroLeaves made it: no live leaves, no respawns
+ * yet, every slot's state zeroed (its size and species are fixed per slot and stay).
+ */
+export function clearHeroLeaves(p: HeroLeaves): void {
+  p.count = 0;
+  p.spawned = 0;
+  p.headX = NaN;
+  p.headZ = NaN;
+  for (const a of [
+    p.x, p.y, p.z, p.yaw, p.flip, p.vx, p.vy, p.vz, p.spin, p.flipRate, p.pitch, p.pitchDir, p.lift,
+    p.pinned, p.wedged, p.flat, p.px, p.py, p.pz, p.pyaw, p.pflip, p.ppitch, p.ppitchDir, p.pflat,
+  ]) a.fill(0);
+}
+
+/**
  * Copies the current state to the previous-step arrays (call at the start of each step).
  * Plain loop: no per-call allocation.
  */

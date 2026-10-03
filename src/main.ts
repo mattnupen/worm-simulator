@@ -95,6 +95,11 @@ function start(renderer: THREE.WebGLRenderer): void {
   let dirty = true;
 
   const runner = new SpeedTestRunner({
+    // Every run starts at the spawn, whatever the player did before opening the test.
+    resetWorld: () => {
+      crawl.reset();
+      dirty = true;
+    },
     setMaxFps: (fps) => loop.setMaxFps(fps),
     applyTier: (tier) => applySpec(tierSpec(testBase, TIERS[tier])),
     showPhase: (p) => showRunning(shell,

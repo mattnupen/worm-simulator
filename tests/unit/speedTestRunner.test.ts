@@ -5,6 +5,7 @@ import type { PhaseSpec } from '../../src/perf/speedTest';
 function fakeHost() {
   const log: string[] = [];
   const host: SpeedTestHost = {
+    resetWorld: () => log.push('reset'),
     setMaxFps: (fps) => log.push(`cap ${fps}`),
     applyTier: (t) => log.push(`tier ${t}`),
     showPhase: (p: PhaseSpec) => log.push(`phase ${p.id}`),
@@ -30,10 +31,10 @@ describe('SpeedTestRunner', () => {
     expect(r.running).toBe(false);
     r.start();
     expect(r.running).toBe(true);
-    expect(log).toEqual(['tier 0', 'cap Infinity', 'phase full']);
+    expect(log).toEqual(['reset', 'tier 0', 'cap Infinity', 'phase full']);
     runUntilDone(r, 0, 1000 / 30, () => 30);
     expect(r.running).toBe(false);
-    expect(log).toEqual(['tier 0', 'cap Infinity', 'phase full', 'cap 30', 'phase auto', 'cap 30']);
+    expect(log).toEqual(['reset', 'tier 0', 'cap Infinity', 'phase full', 'cap 30', 'phase auto', 'cap 30']);
     expect(r.result?.pass).toBe(true);
     expect(r.result?.tier).toBe(0);
     expect(r.result?.text.split('\n')[0]).toBe('Result: PASS');
@@ -83,5 +84,16 @@ describe('SpeedTestRunner', () => {
     expect(r.running).toBe(false);
     expect(r.frame(5000, 30)).toBe(false);
     expect(r.result).toBeNull();
+  });
+
+  it('every run, including a second one, starts from a reset world', () => {
+    const { host, log } = fakeHost();
+    const r = new SpeedTestRunner(host, true, () => 1000);
+    r.start();
+    runUntilDone(r, 0, 1000 / 30, () => 30);
+    log.length = 0;
+    r.start();
+    expect(log[0]).toBe('reset');
+    expect(log.filter((l) => l === 'reset')).toHaveLength(1);
   });
 });

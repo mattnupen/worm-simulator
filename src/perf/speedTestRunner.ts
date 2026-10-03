@@ -3,8 +3,16 @@ import {
   SpeedTest, PHASES, quickPhases, formatResults, verdict, type DeviceInfo, type PhaseSpec,
 } from './speedTest';
 
-/** What the runner needs from the game: frame cap, quality tiers, the running card, device info. */
+/**
+ * What the runner needs from the game: a fresh start, frame cap, quality tiers, the running
+ * card, device info.
+ */
 export interface SpeedTestHost {
+  /**
+   * Put the worm, its camera and the leaves it moved back at the spawn, as on a fresh load,
+   * so the numbers never depend on where the player had crawled.
+   */
+  resetWorld(): void;
   /** Use Infinity for no cap. */
   setMaxFps(fps: number): void;
   /** Render at speed-test quality tier `tier` (0 = best). */
@@ -38,6 +46,7 @@ export class SpeedTestRunner {
   }
 
   start(): void {
+    this.host.resetWorld();
     this.test = new SpeedTest(this.quick ? quickPhases() : PHASES);
     this.result = null;
     this.quality.reset();

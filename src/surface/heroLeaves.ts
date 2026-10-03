@@ -12,7 +12,7 @@ import { unwedge } from './heroObstacles';
 
 export { PUSHER_SPAN, PUSHER_STRIDE } from './heroClearance';
 export {
-  HERO_MAX, HERO_RADIUS, HERO_RECYCLE, HERO_Y_BIAS, createHeroLeaves, snapshotHeroLeaves,
+  HERO_MAX, HERO_RADIUS, HERO_RECYCLE, HERO_Y_BIAS, clearHeroLeaves, createHeroLeaves, snapshotHeroLeaves,
   type HeroLeaves, type SurfaceFn,
 } from './heroPool';
 export { setHeroCount } from './heroSpawn';

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
+  clearHeroLeaves, createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
   HERO_MAX, HERO_RADIUS, HERO_RECYCLE, HERO_Y_BIAS, PUSHER_STRIDE,
   type HeroLeaves, type SurfaceFn,
 } from '../../src/surface/heroLeaves';
@@ -372,5 +372,20 @@ describe('hero leaves', () => {
         expect(p.y[i]).toBeCloseTo(0.05 + bias(i), 6);
       }
     }
+  });
+});
+
+describe('clearHeroLeaves', () => {
+  it('empties the pool back to exactly how createHeroLeaves made it', () => {
+    const p = pool(HERO_MAX, bumpy);
+    const body = new Float32Array(PUSHER_STRIDE);
+    push(body, 0, 0.3, 0.3, 1, 0);
+    for (let i = 0; i < 240; i++) {
+      push(body, 0, 0.3 + i * 0.02, 0.3, 1, 0);
+      stepHeroLeaves(p, DT, body, 1, 0.3 + i * 0.02, 0.3, Math.PI / 2, bumpy);
+    }
+    expect(p.spawned).toBeGreaterThan(0);
+    clearHeroLeaves(p);
+    expect(p).toEqual(createHeroLeaves(HERO_MAX, 5));
   });
 });
