@@ -65,3 +65,15 @@ test('Use recommended setting saves a preset, then Back to start returns to the 
   await page.keyboard.press('Enter');
   await expect(page.getByRole('button', { name: 'Crawl' })).toBeFocused();
 });
+
+test('the report\'s Leaves line is the litter plus detail leaves actually drawn at the tested preset', async ({ page }) => {
+  await page.goto(PAGE + '&speedtest=1&preset=medium');
+  await page.getByRole('button', { name: 'Start speed test' }).click();
+  await expect(page.getByTestId('result')).toContainText('fps average', { timeout: 30_000 });
+  const report = (await page.getByTestId('result').textContent()) ?? '';
+  const tier = Number(/Quality level used: (\d) of 3/.exec(report)?.[1]);
+  const leaves = Number(/^Leaves: (\d+)$/m.exec(report)?.[1]);
+  // Medium draws 2,500 litter + 800 detail leaves; quality tier 3 halves both (rounded).
+  const density = tier === 3 ? 0.5 : 1;
+  expect(leaves).toBe(Math.round(2500 * density) + Math.round(800 * density));
+});

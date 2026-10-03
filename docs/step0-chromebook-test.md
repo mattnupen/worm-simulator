@@ -1,44 +1,71 @@
-# Step 0: Chromebook speed test
+# Chromebook speed test
 
-This checks whether the 3D forest floor runs at 30 fps on a student Chromebook.
-It takes about 30 seconds.
+This checks whether the 3D forest floor runs at 30 fps on a student Chromebook, and which
+graphics setting suits it. It takes about 30 seconds.
 
-## Get the file onto the Chromebook
+## Get the game onto the Chromebook
 
-1. On the Mac, run `npm run verify:build`. This makes `dist/index.html`, one file.
-2. Copy that file to the Chromebook in either of these ways:
-   - **USB stick:** copy `index.html` onto it, plug it in, then open it from the Files app.
-   - **Google Drive:** upload `index.html`. On the Chromebook, open the Files app, then
-     Google Drive, then right-click the file and choose **Open with Chrome**.
-     (Opening it on the drive.google.com website shows a preview instead of running it.)
+- **Website:** open wormsimulator.com.
+- **As a file:** on the Mac, run `npm run verify:build`. This makes `dist/index.html`, one file.
+  Copy it to the Chromebook in either of these ways:
+  - **USB stick:** copy `index.html` onto it, plug it in, then open it from the Files app.
+  - **Google Drive:** upload `index.html`. On the Chromebook, open the Files app, then
+    Google Drive, then right-click the file and choose **Open with Chrome**.
+    (Opening it on the drive.google.com website shows a preview instead of running it.)
+
+## Open the speed test
+
+Either way works:
+
+- **From the menu:** on the start screen, choose **Speed test**.
+- **With a link:** add `?speedtest=1` to the end of the address (for example
+  `wormsimulator.com/?speedtest=1`) and press Enter. The game opens straight on the speed test.
 
 ## Run it
 
 1. Plug the Chromebook in. Battery saver can slow it down.
 2. Close other tabs.
-3. Click **Start speed test** and don't touch anything for about 30 seconds.
+3. Click **Start speed test**. Don't touch anything for about 30 seconds, and keep the tab open
+   and visible.
 4. Read the big **PASS** or **FAIL**.
    - The report also lists the longest pause during the automatic test, and, if it
      happened, how many times the measurement restarted. If it says the restart limit
      was reached, the tab kept losing focus. Keep the tab open and visible, then run
      it again.
+   - The **Leaves** line is how many leaves were drawn at the end of the test (the base litter
+     plus the close-up detail leaves). It is lower than the graphics setting's full count if the
+     test had to drop to the simplest quality level.
 5. Click **Copy results** and paste them into the Claude session.
-6. Optional: click **Try driving the worm**. A small card in the top left says how to
-   steer. Use the arrow keys, or the round joystick pad in the bottom left (it only
-   shows up while driving). Drag the pad with the trackpad, or with a finger if the
-   screen is a touchscreen. Note how steering feels. Click **Back to results** (or
-   press Esc) to return to the report.
+6. Click **Use recommended setting** to save the graphics setting the test suggests for this
+   Chromebook. It stays saved on this Chromebook, and the screen then says which setting it saved.
+7. Click **Back to start**, then **Crawl** to try the worm. Steer with the arrow keys, W A S D,
+   or the round joystick pad in the bottom left. Press **Esc** or **P**, or the **Pause**
+   button in the top right, to pause.
 
-## Extra runs (optional)
+## Graphics settings
 
-Add these to the end of the file's address in Chrome's address bar:
-- `?leaves=4000`: twice the leaves, to see how much room there is. This draws more
-  than the game's planned detail budget, so a lower score here is expected and is
-  not a FAIL for the real game.
-- `?leaves=1000`: half the leaves
+**Graphics** (on the start screen and in the pause menu) has five choices. A change shows at
+once and is remembered on this computer. Press **Esc** or choose **Back** to leave the screen.
 
-## What happens next
+- **Auto** (the default): starts on High and lowers detail if the game slows down.
+- **Low:** fewest leaves, simple light. For slow computers.
+- **Medium:** more leaves and soft light effects.
+- **High:** lots of leaves and full effects. Best for most school Chromebooks.
+- **Ultra:** the most leaves and the sharpest picture. For fast computers.
 
-- **PASS at quality 0 or 1:** build the 3D forest floor as planned.
-- **PASS at quality 2 or 3:** build it in 3D, but plan for the simpler look on these Chromebooks.
-- **FAIL:** the forest floor uses the side view too. The art and code carry over.
+## Extra checks (optional)
+
+Add these to the end of the address:
+- `?fps=1`: show the frame rate while crawling.
+- `?preset=low` (or `medium`, `high`, `ultra`): use that setting for this visit only, without
+  saving it. The speed test then measures that setting. (Without it, the speed test measures High.)
+
+To use more than one, join them with `&`, for example `?speedtest=1&preset=medium`.
+
+## What the quality level means
+
+The report's "Quality level used" is what **Use recommended setting** saves:
+- **0:** High.
+- **1 or 2:** Medium.
+- **3:** Low.
+- **FAIL:** please send the copied results to Matt; this Chromebook may need a simpler forest.
