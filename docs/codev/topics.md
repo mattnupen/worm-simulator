@@ -11,7 +11,7 @@ Sources are the parent spec's list (`docs/superpowers/specs/2026-09-30-worm-simu
 section 5). Re-check each source before it's used on slides.
 
 Status values: `pool` (can go on a ballot) · `needs source` · `blocked` (prerequisite missing) ·
-`on ballot` · `chosen (Round N)` · `done (Round N)`.
+`on ballot` · `chosen (VN)` · `done (VN)`.
 
 | Topic (student wording) | The idea | Game part | Needs first | Sources | Status |
 |---|---|---|---|---|---|
@@ -25,7 +25,7 @@ Status values: `pool` (can go on a ballot) · `needs source` · `blocked` (prere
 | Cocoons | Cocoons carry the next generation and are the score | Leave cocoons with Action | Growing up | UMN Extension | pool |
 | Racing the frost | Adults die when frozen, but cocoons survive | Frost line moving down | Cocoons | UMN Extension | needs source (marked in spec 5) |
 | Worms change the forest | Less leaf litter; fewer trillium, ferns and ground-nesting birds; more sedge | Forest change screen and neighbours | Cocoons | UMN global invasion; Great Lakes Now; Lawrence et al. 2003 | needs source (sedge increase) |
-| Three kinds of worms | Litter, topsoil and deep-burrowing groups | Chapter 2 underground (big; spans several rounds) | Forest change | Great Lakes Worm Watch | pool |
+| Three kinds of worms | Litter, topsoil and deep-burrowing groups | Chapter 2 underground (big; spans several versions) | Forest change | Great Lakes Worm Watch | pool |
 | Jumping worms | The newest invader | Chapter 4 (later) | Three kinds of worms | UMN Jumping Worm handbook | blocked |
 
-Add vetted student topic ideas here as new rows, and credit the class period in the round doc.
+Add vetted student topic ideas here as new rows, and credit the class period in the version doc.

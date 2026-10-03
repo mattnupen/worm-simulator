@@ -5,3 +5,6 @@ dist/
 test-results/
 playwright-report/
 .cache/
+
+# Raw Google Form exports (student data). Never commit.
+codev-raw/

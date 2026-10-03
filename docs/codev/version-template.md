@@ -1,8 +1,10 @@
-# Round N: <student-friendly title>
+# VN · <Name>
+
+The name is 2 to 4 plain words, such as "First Bite". The file is `vNN-<name-slug>.md`.
 
 - **Live:** YYYY-MM-DD (Mon). **Form closes:** YYYY-MM-DD (Thu night).
-- **Build:** https://wormsimulator.com/round-N/ (commit `<sha>`)
-- **Topic chosen by:** Matt / students in Round N−2 (X%)
+- **Build:** https://wormsimulator.com/vN/ (commit `<sha>`)
+- **Topic chosen by:** Matt / students in VN−2 (X%)
 
 ## Topic
 The big idea in one sentence, at a 6th-grade reading level.
@@ -14,8 +16,9 @@ The big idea in one sentence, at a 6th-grade reading level.
 **While you play, notice…** one prompt tied to the topic.
 
 ## What's new in this build
-- What changed because of last round's votes ("You said, we did").
-- The new feature for this round's topic.
+This matches the version's `CHANGELOG.md` entry.
+- What changed because of last version's votes ("You said, we did").
+- The new feature for this version's topic.
 - Bugs fixed.
 - New settings or toggles, and where to find them.
 
@@ -29,8 +32,8 @@ The big idea in one sentence, at a 6th-grade reading level.
 ### Next topic (Q7)
 Three topics from `topics.md`, each with sources and prerequisites checked.
 
-### Ideas from last round (Q8)
-Themes from Round N−1's write-ins, each vetted.
+### Ideas from last version (Q8)
+Themes from VN−1's write-ins, each vetted.
 
 ## Paste-ready form
 Write out Q1–Q10, following `README.md`, with the exact wording and options.
@@ -53,12 +56,12 @@ A short paste-ready post with the slides, build link and form link, plus the due
 - **How well the game showed the topic:** average …
 - **Design vote:** A x%, B y%, Other z%. Close call? …
 - **Next topic:** …
-- **Ideas from last round:** …
+- **Ideas from last version:** …
 - **Write-in themes (new):** theme (count), …
 - **Bugs and confusion:** …
 - **Fun:** average …
 
 ## Decisions
-- Ships in Round N+1: …
-- Topic for Round N+2: …
+- Ships in VN+1: …
+- Topic for VN+2: …
 - Runoffs, vetoes and reasons: …
