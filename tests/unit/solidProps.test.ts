@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { Crawl, BODY_RADIUS, CAM_OPTS, CAM_SIDE_FLOOR } from '../../src/game/crawl';
+import { Crawl, BODY_RADIUS } from '../../src/game/crawl';
+import { CAM_OPTS, CAM_SIDE_FLOOR } from '../../src/game/cameraClearance';
 import { obstacleDepth, footprints, insideTall, sightReach, ROCK_FOOT } from '../../src/surface/obstacles';
 import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
 import { rocks } from '../../src/surface/propPlacement';
