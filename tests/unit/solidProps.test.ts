@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Crawl, BODY_RADIUS } from '../../src/game/crawl';
-import { CAM_OPTS, CAM_SIDE_FLOOR } from '../../src/game/cameraClearance';
+import { CAM_OPTS } from '../../src/game/cameraClearance';
 import { obstacleDepth, footprints, insideTall, sightReach, ROCK_FOOT } from '../../src/surface/obstacles';
 import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
 import { rocks } from '../../src/surface/propPlacement';
@@ -230,7 +230,7 @@ describe('classic: the camera eases in gently and pulls in less for props beside
     return { x: x + Math.sin(a) * 3 + Math.cos(a) * r * 0.5, z: z + Math.cos(a) * 3 - Math.sin(a) * r * 0.5 };
   };
 
-  it('brushing past a trunk with its own line clear, it eases in only partway', () => {
+  it('brushing past a trunk with its own line clear, it barely pulls in', () => {
     // Trunk 12 slides past the head's side (steps 236 to 305): a side line meets it, the middle one does not.
     const t = pastTrunk(12);
     const c = new Crawl();
@@ -249,7 +249,9 @@ describe('classic: the camera eases in gently and pulls in less for props beside
       if (cc.cameraReach < 0.99) pulled++;
     });
     expect(pulled).toBeGreaterThan(30);
-    expect(nearest).toBeGreaterThan(CAM_SIDE_FLOOR);
+    // At least three quarters of its full distance (it fell to about a third before side lines
+    // were held to a floor).
+    expect(nearest).toBeGreaterThanOrEqual(0.75);
   });
 
   it('a pull-in starts gently, and never snaps', () => {

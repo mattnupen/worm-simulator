@@ -7,83 +7,10 @@ import { footprints, insideTall, pushOutTall } from '../../src/surface/obstacles
 import { rocks } from '../../src/surface/propPlacement';
 import { terrainHeight } from '../../src/surface/terrain';
 import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
-import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
-
-const DT = 1 / 60;
-const wrap = (a: number) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
-
-/** Steers toward (tx, tz) for `steps` steps; `each` sees the crawl after every step. */
-function driveTo(c: Crawl, tx: number, tz: number, steps: number, each: (c: Crawl) => void): void {
-  const move = { x: 0, y: 1 };
-  for (let s = 0; s < steps; s++) {
-    const h = c.motion.head;
-    const err = wrap(Math.atan2(tx - h.x, tz - h.z) - c.motion.heading);
-    move.x = Math.max(-1, Math.min(1, -err * 3));
-    c.step(DT, move);
-    each(c);
-  }
-}
-
-/** Watches the camera step by step: the largest change in its step (a snap or shake shows here). */
-function watcher(c: Crawl) {
-  const last = { ...c.cam.pos };
-  const step = { x: 0, y: 0, z: 0 };
-  const w = {
-    jerk: 0,
-    inside: 0,
-    see(cc: Crawl) {
-      const p = cc.cam.pos;
-      const sx = p.x - last.x;
-      const sy = p.y - last.y;
-      const sz = p.z - last.z;
-      w.jerk = Math.max(w.jerk, Math.hypot(sx - step.x, sy - step.y, sz - step.z));
-      if (insideTall(p.x, p.z, p.y)) w.inside++;
-      step.x = sx;
-      step.y = sy;
-      step.z = sz;
-      last.x = p.x;
-      last.y = p.y;
-      last.z = p.z;
-    },
-  };
-  return w;
-}
+import { DEFAULT_SCALE, setScale } from '../../src/surface/worldScale';
+import { DT, driveTo } from './cameraPress';
 
 afterAll(() => { setScale(DEFAULT_SCALE); });
-
-describe.each(SCALE_MODES)('%s: the camera never snaps or shakes against a prop', (mode) => {
-  beforeAll(() => { setScale(mode); });
-
-  it('pressing into every prop (straight or off-centre) and then turning on the spot', () => {
-    const { round, log } = footprints();
-    const targets = [];
-    for (let o = 0; o < round.length; o += 4) targets.push({ x: round[o], z: round[o + 1] });
-    targets.push({ x: log.x + log.dx * log.half * 0.3, z: log.z + log.dz * log.half * 0.3 });
-    let jerk = 0;
-    let inside = 0;
-    for (const t of targets) {
-      for (const off of [0, -0.6, -0.3, 0.3, 0.6]) {
-        for (const turn of [1, -1]) {
-          const c = new Crawl();
-          const w = watcher(c);
-          driveTo(c, t.x + off, t.z - off, 700, w.see);
-          // Only left or right held: the worm turns where it is, against the prop.
-          const move = { x: turn, y: 0 };
-          for (let s = 0; s < 300; s++) {
-            c.step(DT, move);
-            w.see(c);
-          }
-          jerk = Math.max(jerk, w.jerk);
-          inside += w.inside;
-        }
-      }
-    }
-    // A hard turn alone changes the camera's step by about 0.004; easing in past a trunk, a few
-    // hundredths. Snapping along its line to the head reached 1.9 here.
-    expect(jerk).toBeLessThan(0.06);
-    expect(inside).toBe(0);
-  }, 180_000);
-});
 
 describe('classic: sliding round trunk 4 at a slant', () => {
   beforeAll(() => { setScale('classic'); });

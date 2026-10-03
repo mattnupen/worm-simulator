@@ -29,13 +29,14 @@ const CAM_FAN = 0.5;
  * A side line only looks ahead: a prop on it pulls the camera in at most to this share of what
  * the middle line (its real line to the head) allows, unless the camera is swinging toward it
  * (CAM_LOOK). Only the middle line, or a side line the camera is about to reach, pulls it all the
- * way in. 0.4 keeps a brush-past gentle while still pulling the camera most of the way in early
- * when the worm slides round a big trunk: the trunk can cut the middle line near its middle within
- * a fifth of a second, with no earlier warning than a side line meeting it. (Measured with a
- * line-of-sight clamp, 0.4 was the highest floor that clamp never fired at; the clamp now pushes
- * the camera clear instead, so a higher floor costs a brief look through a trunk's edge, not a snap.)
+ * way in. The trade-off: brushing past a trunk barely pulls the camera in, but when the worm slides
+ * round a big trunk, the trunk can cut the middle line near its middle within a fifth of a second
+ * (no earlier warning than a side line meeting it), and while the reach eases in, the camera sees
+ * the worm partly through the trunk's edge: rarely, and for at most about half a second over the
+ * camera tests' drives (0.4, the old floor, did the same a little less often). keepOut still keeps
+ * the camera itself out of the trunk, without a snap.
  */
-export const CAM_SIDE_FLOOR = 0.4;
+export const CAM_SIDE_FLOOR = 0.8;
 /** A side line counts in full when the camera's yaw would reach it within this time (s). */
 const CAM_LOOK = 0.5;
 /** The camera itself never comes nearer than this (m) to a prop taller than it (keepOut). */
