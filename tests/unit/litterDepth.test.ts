@@ -3,8 +3,11 @@ import {
   litterDepth, driftDepth, pileDepth, hollowAmount, underAmount, litterMound,
   LITTER_MIN, LITTER_MAX, LITTER_OPEN, UNDER_THIN, UNDER_DEEP, WIND, PILES,
 } from '../../src/surface/litterDepth';
-import { treeSites } from '../../src/surface/treeSites';
-import { HERO_LOG, ROCKS } from '../../src/surface/propPlacement';
+import { treeSites, trunkRadiusOf } from '../../src/surface/treeSites';
+import { heroLog, rocks } from '../../src/surface/propPlacement';
+
+const HERO_LOG = heroLog();
+const ROCKS = rocks();
 import { PLAY_HALF, WORLD_HALF } from '../../src/surface/terrain';
 import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
 import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
@@ -62,7 +65,7 @@ describe('litterDepth', () => {
 
   it('drifts against every trunk and rock, deeper downwind than upwind', () => {
     const round = [
-      ...treeSites().map((t) => ({ x: t.x, z: t.z, r: (t.birch ? 0.32 : 0.48) * 1.3 })),
+      ...treeSites().map((t) => ({ x: t.x, z: t.z, r: trunkRadiusOf(t) * 1.3 })),
       ...ROCKS.map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05 })),
     ];
     for (const o of round) {
@@ -92,7 +95,7 @@ describe('litterDepth', () => {
 
 describe('litterDepth at obstacle centres', () => {
   const round = [
-    ...treeSites().map((t) => ({ x: t.x, z: t.z, r: (t.birch ? 0.32 : 0.48) * 1.3 })),
+    ...treeSites().map((t) => ({ x: t.x, z: t.z, r: trunkRadiusOf(t) * 1.3 })),
     ...ROCKS.map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05 })),
   ];
   const STEP = 0.001;

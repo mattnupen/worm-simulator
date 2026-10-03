@@ -1,69 +1,10 @@
-import { treeSites } from './treeSites';
-import { HERO_LOG, ROCKS } from './propPlacement';
+import { obstacleDepth, type ObstacleHit } from './obstacles';
 import type { HeroLeaves } from './heroPool';
 
 /**
- * The rigid things a hero leaf cannot lie inside (pure): the near tree trunks (with their root
- * flare), the rocks and the hero log, as footprints on the ground. A leaf whose centre comes
- * within `pad` of one is pushed back out (heroLeaves.ts), so it never wedges up a trunk.
+ * Hero leaves and the solid props (pure): a leaf whose centre comes within `pad` of a trunk, rock
+ * or the log (their footprints, obstacles.ts) is pushed back out, so it never wedges up a trunk.
  */
-
-/** Trunk footprint: its radius (as treeShadows) widened by the root flare. */
-const FLARE = 1.15;
-/** Round footprints, [x, z, radius] each: trunks, then rocks. */
-const ROUND = Float64Array.from([
-  ...treeSites().flatMap((t) => [t.x, t.z, (t.birch ? 0.32 : 0.48) * FLARE]),
-  ...ROCKS.flatMap((k) => [k.x, k.z, k.size]),
-]);
-const LOG_DX = Math.cos(HERO_LOG.yaw);
-const LOG_DZ = Math.sin(HERO_LOG.yaw);
-
-/** The way out of the deepest obstacle (unit ground vector), written by obstacleDepth. */
-export interface ObstacleHit { nx: number; nz: number }
-
-/**
- * How far (m) the point (x, z) lies inside the deepest obstacle footprint grown by `pad`
- * (0 or less: clear of them all), and in `out` the direction straight out of it. Allocates
- * nothing.
- */
-export function obstacleDepth(x: number, z: number, pad: number, out: ObstacleHit): number {
-  let best = -Infinity;
-  for (let o = 0; o < ROUND.length; o += 3) {
-    const dx = x - ROUND[o];
-    const dz = z - ROUND[o + 1];
-    const lim = ROUND[o + 2] + pad;
-    if (Math.abs(dx) >= lim || Math.abs(dz) >= lim) continue;
-    const d = Math.sqrt(dx * dx + dz * dz);
-    if (lim - d > best) {
-      best = lim - d;
-      if (d > 1e-9) {
-        out.nx = dx / d;
-        out.nz = dz / d;
-      } else {
-        out.nx = 1;
-        out.nz = 0;
-      }
-    }
-  }
-  // The log: a capsule along its axis.
-  const half = HERO_LOG.length / 2;
-  const t = Math.max(-half, Math.min(half, (x - HERO_LOG.x) * LOG_DX + (z - HERO_LOG.z) * LOG_DZ));
-  const dx = x - (HERO_LOG.x + LOG_DX * t);
-  const dz = z - (HERO_LOG.z + LOG_DZ * t);
-  const d = Math.sqrt(dx * dx + dz * dz);
-  const into = HERO_LOG.radius + pad - d;
-  if (into > best) {
-    best = into;
-    if (d > 1e-9) {
-      out.nx = dx / d;
-      out.nz = dz / d;
-    } else {
-      out.nx = -LOG_DZ;
-      out.nz = LOG_DX;
-    }
-  }
-  return best;
-}
 
 /** Pushed back out of an obstacle this long (s): the leaf is recycled. */
 export const WEDGE_TIME = 0.5;

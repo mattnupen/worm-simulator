@@ -2,16 +2,13 @@ import { mulberry32 } from '../core/random';
 import * as THREE from 'three';
 import { createPropMaterial } from '../render/propMaterial';
 import { MeshWriter } from './meshWriter';
-import { HERO_LOG, ROCKS, placeClutter, type ClutterItem } from './propPlacement';
+import { heroLog, rocks, placeClutter, type ClutterItem } from './propPlacement';
 import { writeFern, writeMushrooms, writeRock, writeSedge } from './propGeometry';
 import { meshGroundHeight } from './terrainMesh';
 import { terrainHeight } from './terrain';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
 import { BARK, writeLog } from './trunkGeometry';
-
-/** Ground clutter items at full density. */
-export const CLUTTER_COUNT = 64;
 
 /**
  * One clutter item. Clutter rests on the terrain mesh exactly as drawn (soil plus litter mound), so
@@ -30,16 +27,16 @@ export interface GroundProps {
 }
 
 /**
- * Rocks, mushroom clusters, sedge tufts and fern clumps merged into one mesh (one draw).
- * Rocks come first and always stay; density tiers trim the clutter after them.
+ * Rocks, mushroom clusters, sedge tufts and fern clumps merged into one mesh (one draw), for the
+ * active scale mode. Rocks come first and always stay; density tiers trim the clutter after them.
  */
 export function buildGroundProps(): GroundProps {
   const w = new MeshWriter('aProp', 4);
   const rng = mulberry32(31);
-  ROCKS.forEach((r, i) => writeRock(w, r.x, r.z, r.size, (i * 0.37 + 0.11) % 1));
+  rocks().forEach((r, i) => writeRock(w, r.x, r.z, r.size, (i * 0.37 + 0.11) % 1));
   const rockIndices = w.idx.length;
   const ends: number[] = [];
-  for (const c of placeClutter(CLUTTER_COUNT)) {
+  for (const c of placeClutter()) {
     writeClutterItem(w, c, rng);
     ends.push(w.idx.length);
   }
@@ -61,7 +58,8 @@ export function buildGroundProps(): GroundProps {
   };
 }
 
-/** The hero fallen birch log, written into the shared bark mesh (no extra draw). */
+/** The hero fallen birch log of the active mode, written into the shared bark mesh (no extra draw). */
 export function writeHeroLog(w: MeshWriter): void {
-  writeLog(w, HERO_LOG.x, HERO_LOG.z, HERO_LOG.yaw, HERO_LOG.length, HERO_LOG.radius, BARK.birch, 1.62, terrainHeight);
+  const log = heroLog();
+  writeLog(w, log.x, log.z, log.yaw, log.length, log.radius, BARK.birch, 1.62, terrainHeight);
 }

@@ -8,7 +8,7 @@ import {
 import { meshGroundHeight } from '../../src/surface/terrainMesh';
 import { terrainHeight, PLAY_HALF, WORLD_HALF } from '../../src/surface/terrain';
 import { treeSites } from '../../src/surface/treeSites';
-import { ROCKS, HERO_LOG } from '../../src/surface/propPlacement';
+import { rocks, heroLog } from '../../src/surface/propPlacement';
 
 describe('wormSurface', () => {
   it('is under the leaves on thin litter: on the soil', () => {
@@ -83,7 +83,7 @@ describe('wormSurface rests on the rendered ground', () => {
     for (const p of PILES) {
       for (let a = 0; a < 2 * Math.PI; a += 0.05) for (let r = 0; r < 2.5 * p.r; r += 0.05) yield [p.x + r * Math.cos(a), p.z + r * Math.sin(a)];
     }
-    const round = [...treeSites(), ...ROCKS, HERO_LOG];
+    const round = [...treeSites(), ...rocks(), heroLog()];
     for (const o of round) {
       for (let a = 0; a < 2 * Math.PI; a += 0.1) for (let r = 0.1; r < 2; r += 0.1) yield [o.x + r * Math.cos(a), o.z + r * Math.sin(a)];
     }

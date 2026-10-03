@@ -1,8 +1,9 @@
 import { valueNoise2 } from '../core/noise';
 import type { Vec3 } from '../core/vec';
 import { terrainHeight } from './terrain';
-import { treeSites } from './treeSites';
-import { HERO_LOG, ROCKS } from './propPlacement';
+import { treeSites, trunkRadiusOf } from './treeSites';
+import { heroLog, rocks } from './propPlacement';
+import { scaleSpec, type LogSite, type ScaleSpec } from './worldScale';
 
 /**
  * How deep the leaf litter lies at (x, z), in metres (world units), from LITTER_MIN to
@@ -48,14 +49,33 @@ const TRUNK_DRIFT = 0.17;
  */
 const rockDrift = (size: number): number => Math.min(TRUNK_DRIFT, Math.max(0.1, 0.22 * size));
 
-/** Round obstacles that leaves drift against: trunks (with their root flare) and rocks. */
-const ROUND: readonly { x: number; z: number; r: number; peak: number }[] = [
-  ...treeSites().map((t) => ({ x: t.x, z: t.z, r: (t.birch ? 0.32 : 0.48) * 1.3, peak: TRUNK_DRIFT })),
-  ...ROCKS.map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05, peak: rockDrift(k.size) })),
-];
+interface Drifts {
+  spec: ScaleSpec;
+  /** Round obstacles that leaves drift against: trunks (with their root flare) and rocks. */
+  round: readonly { x: number; z: number; r: number; peak: number }[];
+  log: LogSite;
+  logDx: number;
+  logDz: number;
+}
+let drifts: Drifts | null = null;
 
-const LOG_DX = Math.cos(HERO_LOG.yaw);
-const LOG_DZ = Math.sin(HERO_LOG.yaw);
+/** What the leaves drift against in the active mode (built once per mode). */
+function driftSources(): Drifts {
+  const spec = scaleSpec();
+  if (drifts?.spec === spec) return drifts;
+  const log = heroLog(spec);
+  drifts = {
+    spec,
+    round: [
+      ...treeSites().map((t) => ({ x: t.x, z: t.z, r: trunkRadiusOf(t, spec) * 1.3, peak: TRUNK_DRIFT })),
+      ...rocks().map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05, peak: rockDrift(k.size) })),
+    ],
+    log,
+    logDx: Math.cos(log.yaw),
+    logDz: Math.sin(log.yaw),
+  };
+  return drifts;
+}
 
 /**
  * A drift against an obstacle of radius `r` whose surface is `gap` metres away, at offset
@@ -73,21 +93,21 @@ function drift(gap: number, dx: number, dz: number, d: number, r: number, peak: 
 
 /** The deepest drift at (x, z) from trunks, rocks and the log. */
 export function driftDepth(x: number, z: number): number {
+  const { round, log, logDx: LOG_DX, logDz: LOG_DZ } = driftSources();
   let best = 0;
-  for (const o of ROUND) {
+  for (const o of round) {
     const dx = x - o.x;
     const dz = z - o.z;
     const d = Math.hypot(dx, dz);
     if (d > o.r + 1.2) continue;
     best = Math.max(best, drift(d - o.r, dx, dz, d, o.r, o.peak));
   }
-  const t = Math.max(-HERO_LOG.length / 2, Math.min(HERO_LOG.length / 2,
-    (x - HERO_LOG.x) * LOG_DX + (z - HERO_LOG.z) * LOG_DZ));
-  const lx = x - (HERO_LOG.x + LOG_DX * t);
-  const lz = z - (HERO_LOG.z + LOG_DZ * t);
+  const t = Math.max(-log.length / 2, Math.min(log.length / 2, (x - log.x) * LOG_DX + (z - log.z) * LOG_DZ));
+  const lx = x - (log.x + LOG_DX * t);
+  const lz = z - (log.z + LOG_DZ * t);
   const ld = Math.hypot(lx, lz);
-  if (ld < HERO_LOG.radius + 1.2) {
-    best = Math.max(best, drift(ld - HERO_LOG.radius, lx, lz, ld, HERO_LOG.radius, 0.2));
+  if (ld < log.radius + 1.2) {
+    best = Math.max(best, drift(ld - log.radius, lx, lz, ld, log.radius, 0.2));
   }
   return best;
 }

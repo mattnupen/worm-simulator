@@ -1,5 +1,5 @@
 import type { Vec3 } from '../core/vec';
-import { treeSites } from './treeSites';
+import { treeSites, trunkRadiusOf } from './treeSites';
 
 /** A vertical trunk that throws a long, soft shadow across the floor. */
 export interface ShadowCaster { x: number; z: number; radius: number }
@@ -9,9 +9,9 @@ const smoothstep = (a: number, b: number, v: number): number => {
   return t * t * (3 - 2 * t);
 };
 
-/** The near trees as shadow casters (approximate trunk radii by species). */
+/** The active mode's near trees as shadow casters (approximate trunk radii by species). */
 export function shadowCasters(): ShadowCaster[] {
-  return treeSites().map((t) => ({ x: t.x, z: t.z, radius: t.birch ? 0.32 : 0.48 }));
+  return treeSites().map((t) => ({ x: t.x, z: t.z, radius: trunkRadiusOf(t) }));
 }
 
 /**

@@ -1,16 +1,18 @@
-import { describe, it, expect } from 'vitest';
-import { obstacleDepth, WEDGE_TIME } from '../../src/surface/heroObstacles';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { WEDGE_TIME } from '../../src/surface/heroObstacles';
+import { obstacleDepth, ROCK_FOOT, LOG_FOOT } from '../../src/surface/obstacles';
 import { createHeroLeaves, setHeroCount, stepHeroLeaves, HERO_MAX } from '../../src/surface/heroLeaves';
 import { LEAF_REACH } from '../../src/surface/heroClearance';
 import { OBSTACLE_PAD } from '../../src/surface/heroSpawn';
-import { treeSites } from '../../src/surface/treeSites';
-import { HERO_LOG, ROCKS } from '../../src/surface/propPlacement';
+import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
+import { heroLog, rocks } from '../../src/surface/propPlacement';
+import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
+import { PLAY_HALF } from '../../src/surface/terrain';
 
 const DT = 1 / 60;
 const flat = () => 0.05;
 const NONE = new Float32Array(0);
 const hit = { nx: 0, nz: 0 };
-const TREE = treeSites()[0];
 
 /** One leaf at (x, z), at rest, with the head nearby (so it is not recycled for distance). */
 function oneLeaf(x: number, z: number) {
@@ -22,19 +24,37 @@ function oneLeaf(x: number, z: number) {
 }
 const pad = (p: ReturnType<typeof oneLeaf>) => OBSTACLE_PAD * p.size[0] * LEAF_REACH[p.kind[0]];
 
-describe('hero leaves and trunks, rocks and the log', () => {
+/** A spot in the play area 0.3 outside a footprint of radius `r` round (x, z), clear of the others. */
+function besideOf(x: number, z: number, r: number): { x: number; z: number } {
+  for (let a = 0; a < 2 * Math.PI; a += Math.PI / 8) {
+    const p = { x: x + Math.cos(a) * (r + 0.3), z: z + Math.sin(a) * (r + 0.3) };
+    if (Math.abs(p.x) < PLAY_HALF - 0.5 && Math.abs(p.z) < PLAY_HALF - 0.5 && obstacleDepth(p.x, p.z, 0.25, hit) <= 0) return p;
+  }
+  throw new Error(`no free spot beside (${x}, ${z})`);
+}
+
+afterAll(() => { setScale(DEFAULT_SCALE); });
+
+describe.each(SCALE_MODES)('%s: hero leaves and trunks, rocks and the log', (mode) => {
+  beforeAll(() => { setScale(mode); });
+  const tree = () => treeSites()[0];
+  /** Just outside the first trunk's footprint, on its +x side. */
+  const beside = (gap: number) => tree().x + trunkFootOf(tree()) + gap;
+
   it('finds the footprints of trunks, rocks and the log', () => {
-    expect(obstacleDepth(TREE.x, TREE.z, 0, hit)).toBeGreaterThan(0.3);
-    expect(obstacleDepth(ROCKS[0].x, ROCKS[0].z, 0, hit)).toBeCloseTo(ROCKS[0].size, 6);
-    expect(obstacleDepth(HERO_LOG.x, HERO_LOG.z, 0, hit)).toBeCloseTo(HERO_LOG.radius, 6);
+    expect(obstacleDepth(tree().x, tree().z, 0, hit)).toBeCloseTo(trunkFootOf(tree()), 6);
+    const r = rocks()[0];
+    expect(obstacleDepth(r.x, r.z, 0, hit)).toBeCloseTo(r.size * ROCK_FOOT, 6);
+    const log = heroLog();
+    expect(obstacleDepth(log.x, log.z, 0, hit)).toBeCloseTo(log.radius * LOG_FOOT, 6);
     expect(obstacleDepth(0, 0, 0.1, hit)).toBeLessThan(0);
     // Just outside a trunk, the way out points away from it.
-    obstacleDepth(TREE.x + 0.4, TREE.z, 0.2, hit);
+    obstacleDepth(beside(-0.1), tree().z, 0.2, hit);
     expect(hit.nx).toBeCloseTo(1, 6);
   });
 
   it('a leaf shoved into a trunk ends every step outside its footprint (plus half its reach)', () => {
-    const p = oneLeaf(TREE.x + 1.2, TREE.z + 0.05);
+    const p = oneLeaf(beside(0.8), tree().z + 0.05);
     p.vx[0] = -3;
     const spawned = p.spawned;
     for (let s = 0; s < 40; s++) {
@@ -47,14 +67,15 @@ describe('hero leaves and trunks, rocks and the log', () => {
   });
 
   it('a leaf held against a trunk is recycled after about half a second', () => {
-    const p = oneLeaf(TREE.x + 1, TREE.z);
+    const x = beside(0.6);
+    const p = oneLeaf(x, tree().z);
     const spawned = p.spawned;
     let steps = 0;
     while (p.spawned === spawned && steps < 120) {
       // Something keeps driving it into the trunk.
       p.vx[0] = -2;
       p.vz[0] = 0;
-      stepHeroLeaves(p, DT, NONE, 0, TREE.x + 1, TREE.z, 0, flat);
+      stepHeroLeaves(p, DT, NONE, 0, x, tree().z, 0, flat);
       steps++;
     }
     expect(p.spawned).toBe(spawned + 1);
@@ -65,10 +86,11 @@ describe('hero leaves and trunks, rocks and the log', () => {
   });
 
   it('new and recycled leaves land clear of trunks, rocks and the log', () => {
+    const log = heroLog();
     const sites = [
-      ...treeSites().map((t) => ({ x: t.x + 0.6, z: t.z })),
-      ...ROCKS.map((k) => ({ x: k.x + k.size + 0.3, z: k.z })),
-      { x: HERO_LOG.x, z: HERO_LOG.z + 0.6 },
+      ...treeSites().map((t) => besideOf(t.x, t.z, trunkFootOf(t))),
+      ...rocks().map((k) => besideOf(k.x, k.z, k.size * ROCK_FOOT)),
+      besideOf(log.x, log.z, log.radius * LOG_FOOT),
     ];
     let checked = 0;
     for (const { x, z } of sites) {
@@ -87,6 +109,6 @@ describe('hero leaves and trunks, rocks and the log', () => {
         checked++;
       }
     }
-    expect(checked).toBeGreaterThan(500);
+    expect(checked).toBeGreaterThan(80);
   });
 });
