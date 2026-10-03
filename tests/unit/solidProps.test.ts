@@ -90,3 +90,40 @@ describe.each(SCALE_MODES)('%s: trunks, rocks and the log are solid', (mode) => 
     }
   });
 });
+describe('classic: a notch between two props', () => {
+  beforeAll(() => { setScale('classic'); });
+
+  it('the worm stops cleanly in it: the head stays put and the wave settles to its breath', () => {
+    // Trunks 3 and 12 overlap: their grown footprints meet in a V-shaped notch facing the spawn.
+    const { round } = footprints();
+    const [ax, az, ar] = [round[12], round[13], round[14]];
+    const [bx, bz, br] = [round[48], round[49], round[50]];
+    expect(Math.hypot(ax - bx, az - bz)).toBeLessThan(ar + br);
+    const c = new Crawl();
+    driveTo(c, (ax + bx) / 2, (az + bz) / 2, 1200, () => {});
+    const forward = { x: 0, y: 1 };
+    for (let s = 0; s < 300; s++) c.step(DT, forward);
+    // Wedged in the notch: within a step of both trunks (it stops where its next step would meet them).
+    const h = c.motion.head;
+    const stride = LOCOMOTION.speed * DT;
+    expect(Math.hypot(h.x - ax, h.z - az) - ar - BODY_RADIUS).toBeLessThan(stride);
+    expect(Math.hypot(h.x - bx, h.z - bz) - br - BODY_RADIUS).toBeLessThan(stride);
+
+    // Pushing on into it moves the head nowhere, and the wave advances as it does standing still.
+    const still = new Crawl();
+    const rest = { x: 0, y: 0 };
+    for (let s = 0; s < 300; s++) still.step(DT, rest);
+    const phase0 = c.wave.phase;
+    const stillPhase0 = still.wave.phase;
+    let last = { x: h.x, z: h.z };
+    for (let s = 0; s < 300; s++) {
+      c.step(DT, forward);
+      still.step(DT, rest);
+      const p = c.motion.head;
+      expect(Math.hypot(p.x - last.x, p.z - last.z)).toBeLessThan(1e-4);
+      expect(obstacleDepth(p.x, p.z, BODY_RADIUS, hit)).toBeLessThanOrEqual(1e-9);
+      last = { x: p.x, z: p.z };
+    }
+    expect(c.wave.phase - phase0).toBeCloseTo(still.wave.phase - stillPhase0, 3);
+  });
+});

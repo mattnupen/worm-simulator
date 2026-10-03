@@ -19,7 +19,7 @@ import {
   HERO_MAX, PUSHER_SPAN, PUSHER_STRIDE, type HeroLeaves,
 } from '../surface/heroLeaves';
 import { LOCOMOTION } from './drive';
-import { pushOut } from '../surface/obstacles';
+import { pushOut, slideMove } from '../surface/obstacles';
 
 export const WORM_SEGMENTS = 16;
 const SPACING = 0.22;
@@ -259,7 +259,9 @@ export class Crawl {
     this.motion.heading = clampToNeck(this.motion.heading, body[0], body[1], MAX_NECK_BEND);
     this.motion = stepWorm(this.motion, this.move, dt, LOCOMOTION);
     const head = this.motion.head;
-    // Trunks, rocks and the log are solid: the head slides along their edge (spec 4.4).
+    // Trunks, rocks and the log are solid: the head slides along their edge (spec 4.4), and stops
+    // in a notch where two meet. pushOut takes it off a curved edge it slid a hair into.
+    slideMove(this.prevHead, head, BODY_RADIUS);
     pushOut(head, BODY_RADIUS);
     // stepWorm stays flat and pure; the litter decides the height here.
     head.y = this.rest(0, head.x, head.z);

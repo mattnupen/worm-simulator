@@ -46,6 +46,9 @@ export function footprints(): Footprints {
 /** The way out of the deepest obstacle (unit ground vector), written by obstacleDepth. */
 export interface ObstacleHit { nx: number; nz: number }
 
+/** Which footprint the last obstacleDepth call found deepest (its offset in `round`, or -1 for the log). */
+let deepestId = -1;
+
 /**
  * How far (m) the point (x, z) lies inside the deepest footprint grown by `pad` (0 or less: clear
  * of them all), and in `out` the direction straight out of it. Allocates nothing.
@@ -53,6 +56,7 @@ export interface ObstacleHit { nx: number; nz: number }
 export function obstacleDepth(x: number, z: number, pad: number, out: ObstacleHit): number {
   const { round, log } = footprints();
   let best = -Infinity;
+  deepestId = -1;
   for (let o = 0; o < round.length; o += 4) {
     const dx = x - round[o];
     const dz = z - round[o + 1];
@@ -61,6 +65,7 @@ export function obstacleDepth(x: number, z: number, pad: number, out: ObstacleHi
     const d = Math.sqrt(dx * dx + dz * dz);
     if (lim - d > best) {
       best = lim - d;
+      deepestId = o;
       if (d > 1e-9) {
         out.nx = dx / d;
         out.nz = dz / d;
@@ -78,6 +83,7 @@ export function obstacleDepth(x: number, z: number, pad: number, out: ObstacleHi
   const into = log.r + pad - d;
   if (into > best) {
     best = into;
+    deepestId = -1;
     if (d > 1e-9) {
       out.nx = dx / d;
       out.nz = dz / d;
@@ -106,4 +112,58 @@ export function pushOut(p: { x: number; z: number }, radius: number): number {
     moved += into;
   }
   return moved;
+}
+
+const contact: ObstacleHit = { nx: 0, nz: 0 };
+/** The footprints a slideMove has met so far, and the way out of each. */
+const metIds = new Int32Array(3);
+const metN = new Float64Array(6);
+
+/**
+ * Collide and slide: `to` is where a point clear of the footprints (grown by `radius`) at `from`
+ * would move this step. If the move ends in a footprint, the part of it that points into one
+ * is taken away, so the point slides along the edge; the move must keep out of every footprint
+ * met on the way, and in a notch where two meet nothing is left, so the point stays put instead
+ * of rattling between them. Writes the result into `to`, and leaves `to` exactly as it was when
+ * the move is clear. A hair may still lie inside a curved edge: pushOut afterwards. Allocates nothing.
+ */
+export function slideMove(from: { x: number; z: number }, to: { x: number; z: number }, radius: number): void {
+  const mx = to.x - from.x;
+  const mz = to.z - from.z;
+  let met = 0;
+  for (let k = 0; k < 3; k++) {
+    if (!(obstacleDepth(to.x, to.z, radius, contact) > 0)) return;
+    // Remember the way out of this footprint (one met again keeps its newest).
+    let i = 0;
+    while (i < met && metIds[i] !== deepestId) i++;
+    metIds[i] = deepestId;
+    metN[2 * i] = contact.nx;
+    metN[2 * i + 1] = contact.nz;
+    if (i === met) met++;
+    // The whole move, or the move with the part into one footprint taken away: the first that
+    // points into none of them. If none does, the point is wedged.
+    let dx = 0;
+    let dz = 0;
+    for (let c = -1; c < met; c++) {
+      let ax = mx;
+      let az = mz;
+      if (c >= 0) {
+        const into = ax * metN[2 * c] + az * metN[2 * c + 1];
+        if (!(into < 0)) continue;
+        ax -= metN[2 * c] * into;
+        az -= metN[2 * c + 1] * into;
+      }
+      let clear = true;
+      for (let j = 0; j < met && clear; j++) {
+        if (j !== c && ax * metN[2 * j] + az * metN[2 * j + 1] < 0) clear = false;
+      }
+      if (clear) {
+        dx = ax;
+        dz = az;
+        break;
+      }
+    }
+    to.x = from.x + dx;
+    to.z = from.z + dz;
+  }
 }
