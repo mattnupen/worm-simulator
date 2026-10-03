@@ -29,6 +29,8 @@ import { showResult, showRunning, showTestIntro } from './ui/speedTestUi';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
+const CRASH_AFTER_TEST_NOTE = 'Something went wrong after the test. These results are still valid. '
+  + 'Reload the page to keep playing.';
 const NO_MOVE: Vec2 = Object.freeze({ x: 0, y: 0 });
 /** The game's frame cap; the speed test lifts it for its uncapped phase. */
 const MAX_FPS = 30;
@@ -280,8 +282,16 @@ function start(renderer: THREE.WebGLRenderer): void {
     // update() or render() threw: the loop has stopped (and logged it). Say so, do not freeze silently.
     onError: () => {
       if (runner.running) runner.abort();
+      const finished = state.screen === 'results' && !lost ? report : null;
       lost = true;
-      showLost(shell, 'Something went wrong. Reload the page to try again.');
+      if (finished) {
+        // As after a context loss: the finished report matters more than the crash. Shown
+        // again with a note and without the buttons that need a running game.
+        report = { ...finished, summary: CRASH_AFTER_TEST_NOTE };
+        showReport();
+      } else {
+        showLost(shell, 'Something went wrong. Reload the page to try again.');
+      }
     },
   });
 

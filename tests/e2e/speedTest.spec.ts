@@ -98,3 +98,27 @@ test('a speed test opened after crawling runs (it starts from the spawn, see Cra
   await expect(page.getByTestId('result')).toContainText('fps average', { timeout: 30_000 });
   expect(errors).toEqual([]);
 });
+
+test('a crash on the results screen keeps the finished report, with a note and no game buttons', async ({ page }) => {
+  await page.goto(PAGE + '&speedtest=1');
+  await page.getByRole('button', { name: 'Start speed test' }).click();
+  const result = page.getByTestId('result');
+  await expect(result).toContainText('fps average', { timeout: 30_000 });
+  const report = await result.textContent();
+  // Break every draw call, so the next rendered frame throws and the game loop stops.
+  await page.evaluate(() => {
+    const fail = () => { throw new Error('test: draw failed'); };
+    for (const proto of [WebGL2RenderingContext.prototype, WebGLRenderingContext.prototype] as unknown as Record<string, unknown>[]) {
+      proto.drawElements = fail;
+      proto.drawArrays = fail;
+      proto.drawElementsInstanced = fail;
+      proto.drawArraysInstanced = fail;
+    }
+  });
+  await expect(page.getByText(/^Something went wrong after the test\. These results are still valid\./)).toBeVisible();
+  await expect(result).toHaveText(report ?? '');
+  await expect(page.getByRole('button', { name: 'Copy results' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Back to start' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Use recommended setting/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Reload the page' })).toHaveCount(0);
+});
