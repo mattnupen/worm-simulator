@@ -88,3 +88,22 @@ export function obstacleDepth(x: number, z: number, pad: number, out: ObstacleHi
   }
   return best;
 }
+
+const slideHit: ObstacleHit = { nx: 0, nz: 0 };
+
+/**
+ * Moves the ground point `p` (x, z) straight out of any footprint grown by `radius`, the deepest
+ * first, a few times over for footprints that touch: a body point pushed into a trunk, rock or
+ * the log slides along its edge. Returns how far it moved in all. Allocates nothing.
+ */
+export function pushOut(p: { x: number; z: number }, radius: number): number {
+  let moved = 0;
+  for (let k = 0; k < 3; k++) {
+    const into = obstacleDepth(p.x, p.z, radius, slideHit);
+    if (!(into > 0)) break;
+    p.x += slideHit.nx * into;
+    p.z += slideHit.nz * into;
+    moved += into;
+  }
+  return moved;
+}

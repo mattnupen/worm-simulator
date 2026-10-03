@@ -19,9 +19,12 @@ import {
   HERO_MAX, PUSHER_SPAN, PUSHER_STRIDE, type HeroLeaves,
 } from '../surface/heroLeaves';
 import { LOCOMOTION } from './drive';
+import { pushOut } from '../surface/obstacles';
 
 export const WORM_SEGMENTS = 16;
 const SPACING = 0.22;
+/** The body's half-width with its swell (wormMesh: 0.128 at most): how far it keeps off solid props. */
+export const BODY_RADIUS = 0.13;
 /** The camera aims a little ahead of the head, so the worm sits low in frame and the forest looms. */
 const LOOK_AHEAD = 1.0;
 const LOOK_UP = 0.6;
@@ -256,6 +259,8 @@ export class Crawl {
     this.motion.heading = clampToNeck(this.motion.heading, body[0], body[1], MAX_NECK_BEND);
     this.motion = stepWorm(this.motion, this.move, dt, LOCOMOTION);
     const head = this.motion.head;
+    // Trunks, rocks and the log are solid: the head slides along their edge (spec 4.4).
+    pushOut(head, BODY_RADIUS);
     // stepWorm stays flat and pure; the litter decides the height here.
     head.y = this.rest(0, head.x, head.z);
     advanceWave(
@@ -267,6 +272,8 @@ export class Crawl {
     // On these gentle slopes (< ~20 degrees) this changes the 3D spacing by a few percent.
     for (let i = 1; i < body.length; i++) {
       const s = body[i];
+      // The body never cuts through a solid prop either.
+      pushOut(s, BODY_RADIUS);
       s.y = this.rest(i, s.x, s.z);
     }
     this.cam = stepFollowCam(this.cam, head, this.motion.heading, dt, CAM_OPTS);
