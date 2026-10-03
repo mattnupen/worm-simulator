@@ -180,6 +180,10 @@ export function writeFern(
   const base = new THREE.Color(green ? '#5f6e28' : '#8a5a22');
   const tip = new THREE.Color(green ? '#a0a040' : '#d09a3a');
   const fronds = 5;
+  // A grown fern (the big scale modes) gets denser, broader leaflets: at Classic's 8 slim pairs a
+  // frond seen against the sky reads as a sparse comb. The leaflets draw no random numbers.
+  const pairs = grow > 1 ? 14 : 8;
+  const leafletBase = grow > 1 ? 0.4 : 0.22;
   for (let f = 0; f < fronds; f++) {
     const yaw = (f / fronds) * TAU + rng() * 0.5;
     const len = (0.9 + rng() * 0.5) * scale * grow;
@@ -189,7 +193,6 @@ export function writeFern(
     // Rachis.
     writeBlade(w, x, g, z, yaw, len, 0.025 * scale * grow, arch, 4, base, base);
     // Leaflet pairs along it, longest a third of the way up.
-    const pairs = 8;
     for (let p = 1; p <= pairs; p++) {
       const t = p / (pairs + 1);
       const out = len * t * (0.35 + 0.65 * arch);
@@ -203,7 +206,7 @@ export function writeFern(
         const sx = -fz * e * 0.85 + fx * 0.5;
         const sz = fx * e * 0.85 + fz * 0.5;
         const a = w.vertex(px, g + up, pz, 0, 1, 0, [col2.r, col2.g, col2.b, code(PROP.plant, t)]);
-        const b = w.vertex(px + fx * pl * 0.22, g + up + 0.005 * grow, pz + fz * pl * 0.22, 0, 1, 0, [col2.r, col2.g, col2.b, code(PROP.plant, t)]);
+        const b = w.vertex(px + fx * pl * leafletBase, g + up + 0.005 * grow, pz + fz * pl * leafletBase, 0, 1, 0, [col2.r, col2.g, col2.b, code(PROP.plant, t)]);
         const c = w.vertex(px + sx * pl, g + up - pl * 0.25, pz + sz * pl, 0, 1, 0, [col2.r, col2.g, col2.b, code(PROP.plant, Math.min(1, t + 0.2))]);
         w.triFacing(a, b, c, 0, 1, 0);
       }

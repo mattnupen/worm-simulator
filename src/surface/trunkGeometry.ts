@@ -138,7 +138,7 @@ export function writeCurl(
       const s = i / (rows - 1);
       const off = (0.004 + 0.075 * s * s - layer * 0.004) * grow;
       const h = h0 - len * s + len * 0.25 * s * s * s;
-      const tilt = -0.15 * s / len;
+      const tilt = -0.15 * s * grow / len;
       for (let c = 0; c < 2; c++) {
         const a = a0 + (c - 0.5) * width * (1 - 0.35 * s);
         trunkPoint(t, h, a, off, p);

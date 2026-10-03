@@ -102,6 +102,16 @@ describe('clutter and trees grow with the table', () => {
     }
   });
 
+  it('a grown fern has denser leaflets (14 pairs a frond, Classic 8), so it does not read as a comb', () => {
+    const verts = (grow: number) => {
+      const w = new MeshWriter('aProp', 4);
+      writeFern(w, 0, 0, 1, mulberry32(9), () => 0, grow);
+      return w.vertexCount;
+    };
+    // 5 fronds, 6 more pairs each, two leaflets a pair, three vertices a leaflet.
+    expect(verts(7) - verts(1)).toBe(5 * 6 * 2 * 3);
+  });
+
   it('the distant ring has the mode\'s count, each tree its size', () => {
     for (const mode of SCALE_MODES) {
       setScale(mode);
