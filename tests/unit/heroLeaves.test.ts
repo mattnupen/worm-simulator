@@ -1,15 +1,15 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import {
   clearHeroLeaves, createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
   HERO_MAX, HERO_RADIUS, HERO_RECYCLE, HERO_Y_BIAS, PUSHER_STRIDE,
   type HeroLeaves, type SurfaceFn,
 } from '../../src/surface/heroLeaves';
 import { PLAY_HALF } from '../../src/surface/terrain';
-import { DEFAULT_SCALE, setScale } from '../../src/surface/worldScale';
+import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
+import { obstacleDepth, footprints } from '../../src/surface/obstacles';
+import { OBSTACLE_PAD } from '../../src/surface/heroSpawn';
+import { LEAF_REACH } from '../../src/surface/heroClearance';
 
-// Hero-leaf physics at Classic's layout: the spots below are chosen clear of its props.
-// (Set at load: some describe blocks build meshes as they are collected.)
-setScale('classic');
 afterAll(() => { setScale(DEFAULT_SCALE); });
 
 const DT = 1 / 60;
@@ -47,7 +47,53 @@ function planeAt(p: HeroLeaves, i: number, x: number, z: number): number {
   return p.y[i] - d * Math.tan(p.pitch[i]);
 }
 
-describe('hero leaves', () => {
+/** A worm body lying straight behind a head at (hx, hz) heading `heading`: 16 riding points 0.11 apart. */
+function bodyBehind(hx: number, hz: number, heading: number): Float32Array {
+  const buf = new Float32Array(16 * PUSHER_STRIDE);
+  for (let k = 0; k < 16; k++) {
+    push(buf, k, hx - Math.sin(heading) * 0.11 * k, hz - Math.cos(heading) * 0.11 * k, k === 0 ? 1 : 0.5, 1);
+  }
+  return buf;
+}
+
+const hit = { nx: 0, nz: 0 };
+
+/**
+ * Recycles every leaf (each moved 10 m off) with the head at (hx, hz) heading `heading` and the
+ * body behind it, and checks where they land: within HERO_RECYCLE, off every footprint (by the
+ * spawn's pad), off the body; returns the share that landed ahead of the head.
+ */
+function recycleAt(hx: number, hz: number, heading: number): number {
+  const p = createHeroLeaves(HERO_MAX, 5);
+  const body = bodyBehind(hx, hz, heading);
+  setHeroCount(p, HERO_MAX, hx, hz, heading, flat, body, 16);
+  for (let i = 0; i < p.count; i++) p.x[i] = hx + 10;
+  const spawned = p.spawned;
+  stepHeroLeaves(p, DT, body, 16, hx, hz, heading, flat);
+  expect(p.spawned - spawned).toBe(p.count);
+  let ahead = 0;
+  for (let i = 0; i < p.count; i++) {
+    const dx = p.x[i] - hx;
+    const dz = p.z[i] - hz;
+    expect(Math.hypot(dx, dz)).toBeLessThanOrEqual(HERO_RECYCLE);
+    const reach = p.size[i] * LEAF_REACH[p.kind[i]];
+    expect(obstacleDepth(p.x[i], p.z[i], OBSTACLE_PAD * reach, hit), `leaf ${i} in a footprint`).toBeLessThanOrEqual(0);
+    for (let k = 0; k < 16; k++) {
+      const d = Math.hypot(p.x[i] - body[k * PUSHER_STRIDE], p.z[i] - body[k * PUSHER_STRIDE + 1]);
+      expect(d, `leaf ${i} on the body`).toBeGreaterThan(0.14 + reach);
+    }
+    if (dx * Math.sin(heading) + dz * Math.cos(heading) > 0) ahead++;
+    // Recycled leaves do not streak across the screen: the previous step is the new spot.
+    expect(p.px[i]).toBe(p.x[i]);
+    expect(p.vx[i]).toBe(0);
+  }
+  return ahead / p.count;
+}
+
+describe.each(SCALE_MODES)('%s: hero leaves', (mode) => {
+  beforeAll(() => { setScale(mode); });
+  afterAll(() => { setScale(DEFAULT_SCALE); });
+
   it('scatters the active leaves within 3 m of the head, on the litter', () => {
     const p = pool();
     expect(p.count).toBe(HERO_MAX);
@@ -150,34 +196,19 @@ describe('hero leaves', () => {
     expect(p.z[0]).toBeGreaterThan(1);
   });
 
-  it('recycles a leaf more than 4 m away to a free spot ahead of the worm', () => {
-    const p = pool();
-    // The worm is now 10 m away, heading +x.
-    stepHeroLeaves(p, DT, NONE, 0, 10, 0, Math.PI / 2, flat);
-    for (let i = 0; i < p.count; i++) {
-      const dx = p.x[i] - 10;
-      const dz = p.z[i];
-      expect(Math.hypot(dx, dz)).toBeLessThanOrEqual(HERO_RECYCLE);
-      expect(dx).toBeGreaterThan(0);
-      expect(p.vx[i]).toBe(0);
-      // Recycled leaves do not streak across the screen: the previous step is the new spot.
-      expect(p.px[i]).toBe(p.x[i]);
-    }
+  // A head position at least 1 m from every footprint (in Hybrid a big rock comes within 0.6 m of (-10, 0)).
+  const open = mode === 'hybrid' ? { x: -6, z: 0 } : { x: -10, z: 0 };
+
+  it('recycles a leaf more than 4 m away to a free spot ahead of the worm, off the props and the body', () => {
+    expect(obstacleDepth(open.x, open.z, 1, hit)).toBeLessThan(0);
+    expect(recycleAt(open.x, open.z, -Math.PI / 2)).toBeGreaterThanOrEqual(0.9);
   });
 
   it('at the world\'s edge, a recycled leaf lands clear of the body (not on it, where the spots ahead are clamped)', () => {
-    const p = pool();
-    // The worm crawls along the edge (z = PLAY_HALF) heading +z, into it: every spot ahead clamps
-    // back onto the body. 16 body points trail behind the head along the edge.
-    const pushers = new Float32Array(16 * PUSHER_STRIDE);
-    for (let k = 0; k < 16; k++) push(pushers, k, 0, PLAY_HALF - 0.11 * k, k === 0 ? 1 : 0.5, 1);
-    stepHeroLeaves(p, DT, pushers, 16, 0, PLAY_HALF, 0, flat);
-    for (let i = 0; i < p.count; i++) {
-      for (let k = 0; k < 16; k++) {
-        const d = Math.hypot(p.x[i] - pushers[k * PUSHER_STRIDE], p.z[i] - pushers[k * PUSHER_STRIDE + 1]);
-        expect(d).toBeGreaterThan(0.14 + p.size[i] * 0.3);
-      }
-    }
+    // The worm crawls into the edge (z = -PLAY_HALF) heading -z: every spot ahead clamps back
+    // onto the body.
+    expect(obstacleDepth(0, -PLAY_HALF, 1, hit)).toBeLessThan(0);
+    recycleAt(0, -PLAY_HALF, Math.PI);
   });
 
   it('snapshot copies the current state for interpolation', () => {
@@ -241,12 +272,15 @@ describe('hero leaves', () => {
     p.x[0] = 0;
     p.z[0] = 1;
     p.flip[0] = 0;
+    const spawned = p.spawned;
     const pushers = new Float32Array(PUSHER_STRIDE);
-    for (let t = 0; t < 400; t++) {
+    // Short of TRAP_TIME (2 s) pressed against the body, which would recycle it.
+    for (let t = 0; t < 180; t++) {
       push(pushers, 0, 0, -0.5 + 0.5 * t * DT, 0.5, 0);
       stepHeroLeaves(p, DT, pushers, 1, 0, 0, 0, flat);
       expect(p.y[0]).toBeCloseTo(0.05, 6);
     }
+    expect(p.spawned).toBe(spawned);
     expect(p.z[0]).toBeGreaterThan(1.2);
     expect(Math.cos(p.flip[0])).toBeCloseTo(1, 6);
   });
@@ -377,6 +411,37 @@ describe('hero leaves', () => {
         expect(Math.abs(Math.cos(p.flip[i]))).toBeCloseTo(1, 9);
         expect(p.y[i]).toBeCloseTo(0.05 + bias(i), 6);
       }
+    }
+  });
+});
+
+describe('true: hero leaves beside the big props', () => {
+  beforeAll(() => { setScale('true'); });
+  afterAll(() => { setScale(DEFAULT_SCALE); });
+
+  it('crawling along the log, recycled leaves land in front, off the log and off the body', () => {
+    const { log } = footprints();
+    // Heading along the log (+x), its side 0.2 m off the head.
+    const hz = log.z - log.dz * 0 - (log.r + 0.2);
+    expect(log.dz).toBeCloseTo(0, 6);
+    expect(recycleAt(0, hz, Math.PI / 2)).toBeGreaterThanOrEqual(0.9);
+    expect(recycleAt(4, hz, -Math.PI / 2)).toBeGreaterThanOrEqual(0.9);
+  });
+
+  it('crawling round the maple, recycled leaves land in front, off its root flare and off the body', () => {
+    const { round } = footprints();
+    // The widest trunk (the maple), from its west side (inside the play area), heading round it.
+    let m = 0;
+    for (let o = 0; o < round.length; o += 4) if (round[o + 2] > round[m + 2]) m = o;
+    const [mx, mz, mr] = [round[m], round[m + 1], round[m + 2]];
+    expect(mr).toBeGreaterThan(10);
+    for (const a of [Math.PI * 0.85, Math.PI, Math.PI * 1.1]) {
+      const hx = mx + Math.cos(a) * (mr + 0.2);
+      const hz = mz + Math.sin(a) * (mr + 0.2);
+      // Along the tangent, both ways round.
+      const tangent = Math.atan2(-Math.sin(a), Math.cos(a));
+      expect(recycleAt(hx, hz, tangent)).toBeGreaterThanOrEqual(0.9);
+      expect(recycleAt(hx, hz, tangent + Math.PI)).toBeGreaterThanOrEqual(0.9);
     }
   });
 });
