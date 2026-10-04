@@ -35,6 +35,9 @@ function minDistToPath(x: number, z: number): number {
 
 afterAll(() => { setScale(DEFAULT_SCALE); });
 
+/** How many mushroom clusters grow beside the log: grown ones are wide, so fewer fit apart. */
+const BY_LOG = { classic: 4, hybrid: 3, true: 2 } as const;
+
 describe.each(SCALE_MODES)('%s layout', (mode) => {
   beforeAll(() => { setScale(mode); });
 
@@ -86,20 +89,29 @@ describe.each(SCALE_MODES)('%s layout', (mode) => {
     for (const c of items) {
       expect(CLUTTER_KINDS).toContain(c.kind);
       expect(Number.isFinite(c.x) && Number.isFinite(c.z) && Number.isFinite(c.rot)).toBe(true);
-      if (items.indexOf(c) < 4) continue; // the mushrooms by the log, checked below
+      if (items.indexOf(c) < BY_LOG[mode]) continue; // the mushrooms by the log, checked below
       const r = clutterRadius(c.kind, c.scale);
       expect(keepsClear(c.x, c.z, r)).toBe(true);
       expect(minDistToPath(c.x, c.z)).toBeGreaterThan(PATH_CLEARANCE);
       expect(logSegmentDistance(c.x, c.z)).toBeGreaterThan(log.radius);
       for (const k of rocks()) expect(Math.hypot(c.x - k.x, c.z - k.z)).toBeGreaterThan(k.size);
     }
-    // Mushrooms grow right beside the log (grown, the whole cluster stands just off the drawn log).
+    // Mushrooms grow right beside the log (grown, the whole cluster stands just off the drawn log,
+    // and only as many as fit apart: the rest are skipped).
     const mushroom = SCALE_SPECS[mode].mushroom;
-    expect(items.slice(0, 4).every((c) => c.kind === 'mushrooms'
+    expect(items.slice(0, BY_LOG[mode]).every((c) => c.kind === 'mushrooms'
       && logSegmentDistance(c.x, c.z) > log.radius
       && logSegmentDistance(c.x, c.z) < (mode === 'classic'
         ? log.radius + 0.6 * mushroom
-        : log.radius * LOG_FOOT + clutterBase(c.kind, c.scale) + 0.1 * mushroom + 1e-9))).toBe(true);
+        : log.radius * LOG_FOOT + clutterBase(c.kind, c.scale) + 0.6 * mushroom + 1e-9))).toBe(true);
+    if (mode !== 'classic') {
+      const byLog = items.slice(0, BY_LOG[mode]);
+      for (const a of byLog) {
+        for (const b of byLog) {
+          if (a !== b) expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThan(clutterBase(a.kind, a.scale) + clutterBase(b.kind, b.scale));
+        }
+      }
+    }
     for (const k of CLUTTER_KINDS) expect(items.some((c) => c.kind === k)).toBe(true);
   });
 

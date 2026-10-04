@@ -108,7 +108,10 @@ function freeOfProps(x: number, z: number, kind: ClutterKind, scale: number, gro
   return logSegmentDistance(x, z) > heroLog().radius + r && rocks().every((k) => Math.hypot(x - k.x, z - k.z) > k.size + r);
 }
 
-/** A grown mushroom cluster beside the log gets this many seeded tries (alternating sides) to fit. */
+/**
+ * A grown mushroom cluster beside the log gets this many seeded tries (alternating sides) to fit;
+ * if none fits it is skipped, and the scatter fills its place.
+ */
 const LOG_MUSHROOM_TRIES = 40;
 
 /** Every kind of clutter gets at least this many items, where they fit. */
@@ -116,8 +119,10 @@ const MIN_EACH = 3;
 
 /**
  * Ground clutter: mushroom clusters, sedge tufts and fern clumps (the mode's count and seed by
- * default). The first four are mushrooms growing beside the log; the rest are scattered in
- * random order, so any prefix (the density tiers draw a prefix) is an even thinning. In the big
+ * default). The first four are mushrooms growing beside the log (grown, only those that fit
+ * apart: a wide cluster that cannot find a spot in LOG_MUSHROOM_TRIES is skipped, so True has two
+ * and Hybrid three); the rest are scattered in random order, so any prefix (the density tiers
+ * draw a prefix) is an even thinning. In the big
  * modes a fern needs so much room that random spots rarely fit one, so a kind with fewer than
  * MIN_EACH items then takes over the last items of the commonest kind (Classic never needs this).
  */
@@ -134,9 +139,11 @@ export function placeClutter(count = scaleSpec().clutter, seed = scaleSpec().clu
   const grown = CLUTTER_KINDS.some((k) => clutterGrow(k, spec) > 1);
   for (let k = 0; k < Math.min(4, count); k++) {
     for (let tries = 0; tries < (grown ? LOG_MUSHROOM_TRIES : 1); tries++) {
-      const along = (k / 3 - 0.5) * stretch * 0.7 + (rng() - 0.5) * 0.3;
+      // Grown, the clusters wander along the log and stand off it by varied gaps, so they do not
+      // read as a staged row (the same draws as Classic, so Classic is unchanged).
+      const along = (k / 3 - 0.5) * stretch * 0.7 + (rng() - 0.5) * (grown ? stretch * 0.3 : 0.3);
       const side = (k + tries) % 2 === 0 ? 1 : -1;
-      const gap = rng() * 0.1;
+      const gap = rng() * (grown ? 0.6 : 0.1);
       const rot = rng() * Math.PI * 2;
       const scale = 0.8 + rng() * 0.4;
       // Grown, the whole cluster stands just off the drawn log, inside the world and off the rocks.
@@ -149,10 +156,16 @@ export function placeClutter(count = scaleSpec().clutter, seed = scaleSpec().clu
         rot, scale, kind: 'mushrooms',
       };
       if (grown && !(keepsClear(c.x, c.z, clutterBase('mushrooms', scale, spec)) && clutterBaseClear(c))) continue;
+      // Grown clusters are wide: one that would merge into an earlier one tries another spot.
+      if (grown && out.some((o) => Math.hypot(o.x - c.x, o.z - c.z) < clutterBase('mushrooms', o.scale, spec) + clutterBase('mushrooms', scale, spec))) continue;
       out.push(c);
       break;
     }
   }
+  const byLog = out.length;
+  // A grown item's base must also stay inside the world (WORLD_HALF). keepsClear only holds its
+  // spacing radius inside PLAY_HALF, and a mushroom's base is wider than that, so the world-edge
+  // limit on bases is enforced by test only (propPlacement.test.ts, "inside the world").
   let guard = 0;
   while (out.length < count && guard++ < count * 200) {
     const x = (rng() * 2 - 1) * PLAY_HALF;
@@ -175,8 +188,8 @@ export function placeClutter(count = scaleSpec().clutter, seed = scaleSpec().clu
       if (out.some((c) => c.kind === kind && Math.hypot(c.x - x, c.z - z) < r + clutterRadius(kind, c.scale, spec))) continue;
       const most = CLUTTER_KINDS.reduce((a, b) => (out.filter((c) => c.kind === b).length > out.filter((c) => c.kind === a).length ? b : a));
       let last = out.length - 1;
-      while (last >= 4 && out[last].kind !== most) last--;
-      if (last < 4) break;
+      while (last >= byLog && out[last].kind !== most) last--;
+      if (last < byLog) break;
       out[last] = { x, z, rot, scale, kind };
     }
   }
