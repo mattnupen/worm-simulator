@@ -51,6 +51,10 @@ describe('world scale table', () => {
     }
   });
 
+  it('starts a fresh device on True (spec 2)', () => {
+    expect(DEFAULT_SCALE).toBe('true');
+  });
+
   it('switches the active spec', () => {
     expect(scaleSpec()).toBe(SCALE_SPECS[DEFAULT_SCALE]);
     expect(setScale('true')).toBe(SCALE_SPECS.true);

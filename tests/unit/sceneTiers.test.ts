@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import * as THREE from 'three';
 import { buildLeafLitter, type LeafLitter } from '../../src/surface/leafLitterMesh';
 import {
@@ -12,6 +12,12 @@ import { buildWorld } from '../../src/game/world';
 import { Crawl } from '../../src/game/crawl';
 import { PRESETS } from '../../src/render/graphics';
 import { sharedLighting } from '../../src/render/paintedMaterial';
+import { DEFAULT_SCALE, setScale } from '../../src/surface/worldScale';
+
+// Step 1a's preset counts are Classic's; tests/unit/worldRebuild.test.ts covers the other modes.
+// (Set at load: some describe blocks build meshes as they are collected.)
+setScale('classic');
+afterAll(() => { setScale(DEFAULT_SCALE); });
 
 /** Index counts drawn by every chunk's full-leaf mesh, and their totals. */
 const drawn = (l: LeafLitter) => l.chunks.reduce((a, c) => a + c.near.geometry.drawRange.count, 0);

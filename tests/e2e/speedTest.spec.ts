@@ -68,7 +68,8 @@ test('Use recommended setting saves a preset, then Back to start returns to the 
 });
 
 test('the report\'s Leaves line is the litter plus detail leaves actually drawn at the tested preset', async ({ page }) => {
-  await page.goto(PAGE + '&speedtest=1&preset=medium');
+  // Classic draws the preset table's counts (the other scales derive theirs: leafScale.ts).
+  await page.goto(PAGE + '&speedtest=1&preset=medium&scale=classic');
   await page.getByRole('button', { name: 'Start speed test' }).click();
   await expect(page.getByTestId('result')).toContainText('fps average', { timeout: 30_000 });
   const report = (await page.getByTestId('result').textContent()) ?? '';

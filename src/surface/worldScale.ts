@@ -12,7 +12,7 @@ import type { LeafKind } from './leafLitter';
 export type ScaleMode = 'classic' | 'hybrid' | 'true';
 export const SCALE_MODES: readonly ScaleMode[] = ['classic', 'hybrid', 'true'];
 /** What a fresh device gets (Matt's pick; the class vote may change it). */
-export const DEFAULT_SCALE: ScaleMode = 'classic';
+export const DEFAULT_SCALE: ScaleMode = 'true';
 
 /** World units per real centimetre: the 3.5-unit worm is a 15 cm earthworm. */
 export const UNITS_PER_CM = 3.5 / 15;

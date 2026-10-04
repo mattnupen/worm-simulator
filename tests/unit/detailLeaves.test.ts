@@ -1,7 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { buildDetailLeaves, buildDetailLayer } from '../../src/surface/detailLeaves';
 import { DETAIL_BOX, DETAIL_FADE_OUT } from '../../src/render/detailGlsl';
 import { PRESETS } from '../../src/render/graphics';
+import { DEFAULT_SCALE, setScale } from '../../src/surface/worldScale';
+
+// Classic's detail leaf sizes (the other modes scale them: tests/unit/leafGlsl.test.ts).
+// (Set at load: some describe blocks build meshes as they are collected.)
+setScale('classic');
+afterAll(() => { setScale(DEFAULT_SCALE); });
 
 describe('detail leaves', () => {
   const d = buildDetailLeaves(300);

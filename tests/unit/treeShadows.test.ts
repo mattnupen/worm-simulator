@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { trunkShadow, shadowCasters, type ShadowCaster } from '../../src/surface/treeShadows';
+import { DEFAULT_SCALE, setScale } from '../../src/surface/worldScale';
+
+// Classic's 14 trees (True has 2).
+// (Set at load: some describe blocks build meshes as they are collected.)
+setScale('classic');
+afterAll(() => { setScale(DEFAULT_SCALE); });
 
 const SUN = { x: 0.5, y: 0.5, z: 0.7 };
 const one: ShadowCaster[] = [{ x: 0, z: 0, radius: 0.4 }];

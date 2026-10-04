@@ -1,10 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import {
   clearHeroLeaves, createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
   HERO_MAX, HERO_RADIUS, HERO_RECYCLE, HERO_Y_BIAS, PUSHER_STRIDE,
   type HeroLeaves, type SurfaceFn,
 } from '../../src/surface/heroLeaves';
 import { PLAY_HALF } from '../../src/surface/terrain';
+import { DEFAULT_SCALE, setScale } from '../../src/surface/worldScale';
+
+// Hero-leaf physics at Classic's layout: the spots below are chosen clear of its props.
+// (Set at load: some describe blocks build meshes as they are collected.)
+setScale('classic');
+afterAll(() => { setScale(DEFAULT_SCALE); });
 
 const DT = 1 / 60;
 const flat = () => 0.05;
