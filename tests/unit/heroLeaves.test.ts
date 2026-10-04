@@ -61,7 +61,8 @@ const hit = { nx: 0, nz: 0 };
 /**
  * Recycles every leaf (each moved 10 m off) with the head at (hx, hz) heading `heading` and the
  * body behind it, and checks where they land: within HERO_RECYCLE, off every footprint (by the
- * spawn's pad), off the body; returns the share that landed ahead of the head.
+ * spawn's pad), off the body, not stacked on one another; returns the share that landed ahead of
+ * the head.
  */
 function recycleAt(hx: number, hz: number, heading: number): number {
   const p = createHeroLeaves(HERO_MAX, 5);
@@ -81,6 +82,10 @@ function recycleAt(hx: number, hz: number, heading: number): number {
     for (let k = 0; k < 16; k++) {
       const d = Math.hypot(p.x[i] - body[k * PUSHER_STRIDE], p.z[i] - body[k * PUSHER_STRIDE + 1]);
       expect(d, `leaf ${i} on the body`).toBeGreaterThan(0.14 + reach);
+    }
+    // Not stacked on another leaf (STACKED, heroSpawn.ts).
+    for (let j = 0; j < i; j++) {
+      expect(Math.hypot(p.x[i] - p.x[j], p.z[i] - p.z[j]), `leaves ${j} and ${i} stacked`).toBeGreaterThanOrEqual(0.15);
     }
     if (dx * Math.sin(heading) + dz * Math.cos(heading) > 0) ahead++;
     // Recycled leaves do not streak across the screen: the previous step is the new spot.
@@ -415,34 +420,70 @@ describe.each(SCALE_MODES)('%s: hero leaves', (mode) => {
   });
 });
 
-describe('true: hero leaves beside the big props', () => {
-  beforeAll(() => { setScale('true'); });
+describe.each(['hybrid', 'true'] as const)('%s: hero leaves beside the big props', (mode) => {
+  beforeAll(() => { setScale(mode); });
   afterAll(() => { setScale(DEFAULT_SCALE); });
 
-  it('crawling along the log, recycled leaves land in front, off the log and off the body', () => {
-    const { log } = footprints();
-    // Heading along the log (+x), its side 0.2 m off the head.
-    const hz = log.z - log.dz * 0 - (log.r + 0.2);
-    expect(log.dz).toBeCloseTo(0, 6);
-    expect(recycleAt(0, hz, Math.PI / 2)).toBeGreaterThanOrEqual(0.9);
-    expect(recycleAt(4, hz, -Math.PI / 2)).toBeGreaterThanOrEqual(0.9);
-  });
-
-  it('crawling round the maple, recycled leaves land in front, off its root flare and off the body', () => {
+  /** Head spots `gap` outside the widest trunk's root flare, in the play area and off the props. */
+  const mapleSpots = (gap: number) => {
     const { round } = footprints();
-    // The widest trunk (the maple), from its west side (inside the play area), heading round it.
     let m = 0;
     for (let o = 0; o < round.length; o += 4) if (round[o + 2] > round[m + 2]) m = o;
     const [mx, mz, mr] = [round[m], round[m + 1], round[m + 2]];
-    expect(mr).toBeGreaterThan(10);
-    for (const a of [Math.PI * 0.85, Math.PI, Math.PI * 1.1]) {
-      const hx = mx + Math.cos(a) * (mr + 0.2);
-      const hz = mz + Math.sin(a) * (mr + 0.2);
-      // Along the tangent, both ways round.
-      const tangent = Math.atan2(-Math.sin(a), Math.cos(a));
-      expect(recycleAt(hx, hz, tangent)).toBeGreaterThanOrEqual(0.9);
-      expect(recycleAt(hx, hz, tangent + Math.PI)).toBeGreaterThanOrEqual(0.9);
+    expect(mr).toBeGreaterThan(4);
+    const spots: { x: number; z: number; a: number; cx: number; cz: number }[] = [];
+    for (let k = 0; k < 24; k++) {
+      const a = (k / 24) * Math.PI * 2;
+      const x = mx + Math.cos(a) * (mr + gap);
+      const z = mz + Math.sin(a) * (mr + gap);
+      if (Math.abs(x) > PLAY_HALF - 1 || Math.abs(z) > PLAY_HALF - 1) continue;
+      if (obstacleDepth(x, z, 0.1, hit) > 0) continue;
+      spots.push({ x, z, a, cx: mx, cz: mz });
     }
+    expect(spots.length).toBeGreaterThan(2);
+    return spots;
+  };
+  /** Head spots `gap` off the log's side, along it, in the play area and off the other props. */
+  const logSpots = (gap: number) => {
+    const { log } = footprints();
+    // The side facing the world's centre.
+    const side = -Math.sign(-log.dz * log.x + log.dx * log.z) || 1;
+    const nx = -log.dz * side;
+    const nz = log.dx * side;
+    const spots: { x: number; z: number; nx: number; nz: number }[] = [];
+    for (const t of [-0.6, -0.3, 0, 0.3, 0.6]) {
+      const x = log.x + log.dx * t * log.half + nx * (log.r + gap);
+      const z = log.z + log.dz * t * log.half + nz * (log.r + gap);
+      if (Math.abs(x) > PLAY_HALF - 1 || Math.abs(z) > PLAY_HALF - 1) continue;
+      if (obstacleDepth(x, z, 0.1, hit) > 0) continue;
+      spots.push({ x, z, nx, nz });
+    }
+    expect(spots.length).toBeGreaterThan(1);
+    return spots;
+  };
+
+  it('crawling along the log, recycled leaves land in front, off the log, off the body, unstacked', () => {
+    const { log } = footprints();
+    const along = Math.atan2(log.dx, log.dz);
+    for (const s of logSpots(0.2)) {
+      expect(recycleAt(s.x, s.z, along)).toBeGreaterThanOrEqual(0.9);
+      expect(recycleAt(s.x, s.z, along + Math.PI)).toBeGreaterThanOrEqual(0.9);
+    }
+  });
+
+  it('crawling round the maple, recycled leaves land in front, off its root flare, off the body, unstacked', () => {
+    for (const s of mapleSpots(0.2)) {
+      // Along the tangent, both ways round.
+      const tangent = Math.atan2(-Math.sin(s.a), Math.cos(s.a));
+      expect(recycleAt(s.x, s.z, tangent)).toBeGreaterThanOrEqual(0.9);
+      expect(recycleAt(s.x, s.z, tangent + Math.PI)).toBeGreaterThanOrEqual(0.9);
+    }
+  });
+
+  it('facing the log or the maple head-on, recycled leaves still land off them, off the body, unstacked', () => {
+    // Everything in front is inside the prop: they land beside or behind, never on one another.
+    for (const s of logSpots(0.2)) recycleAt(s.x, s.z, Math.atan2(-s.nx, -s.nz));
+    for (const s of mapleSpots(0.2)) recycleAt(s.x, s.z, Math.atan2(s.cx - s.x, s.cz - s.z));
   });
 });
 

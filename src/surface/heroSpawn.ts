@@ -29,23 +29,25 @@ const RING_STEP = 0.7;
 const RECYCLE_MARGIN = 0.3;
 const RINGS = Math.floor((HERO_RECYCLE - RECYCLE_MARGIN) / RING_STEP);
 /**
- * The ring search's order, as (ring, spot) pairs: spot 0 straight ahead, +k and -k to its left and
- * right. First the front half (up to a quarter turn either side), nearest ring first, then the back
- * half: a leaf lands behind the head only when nothing ahead of it or beside it is free.
+ * The ring search's order, as (ring in half rings, spot) pairs: spot 0 straight ahead, +k and -k
+ * to its left and right. First the front half (up to a quarter turn either side), every half ring
+ * from the nearest out, then the back half, ring by ring: a leaf lands behind the head only when
+ * nothing ahead of it or beside it is free.
  */
 const RING_ORDER: Int8Array = (() => {
   const half = RING_SPOTS / 2;
   const side = (k: number) => (k === 0 ? [0] : k === half ? [k] : [k, -k]);
   const pairs: number[] = [];
-  for (const [from, to] of [[0, half / 2], [half / 2 + 1, half]]) {
-    for (let ring = 1; ring <= RINGS; ring++) {
-      for (let k = from; k <= to; k++) for (const a of side(k)) pairs.push(ring, a);
-    }
+  for (let ring = 2; ring <= 2 * RINGS; ring++) {
+    for (let k = 0; k <= half / 2; k++) for (const a of side(k)) pairs.push(ring, a);
+  }
+  for (let ring = 2; ring <= 2 * RINGS; ring += 2) {
+    for (let k = half / 2 + 1; k <= half; k++) for (const a of side(k)) pairs.push(ring, a);
   }
   return Int8Array.from(pairs);
 })();
 /** Where the back half starts in RING_ORDER (an index into it). */
-const RING_FRONT = 2 * RINGS * (RING_SPOTS / 2 + 1);
+const RING_FRONT = 2 * (2 * RINGS - 1) * (RING_SPOTS / 2 + 1);
 
 /**
  * Whether a leaf reaching `clear0` from its centre at (x, z) is off every trunk, rock and the log
@@ -139,31 +141,39 @@ export function respawn(
     z = fz2;
   }
   // Every spot tried can lie in one big footprint (a True-scale trunk is wider than the spawn
-  // ring), or, where few spots are free (the world's edge, crowded by big props), the best of them
-  // can be on top of another leaf: look round the head, in front of it first (RING_ORDER), for the
-  // nearest spot off the footprints, off the body and SPACING from the other leaves, else the least
-  // crowded such spot (in front, if one there does not stack). Each leaf turns the spots its own
-  // amount, and each takes the next spot along once one is used, so leaves falling back together
-  // spread out instead of stacking. Only when no spot is off the footprints and the body (never seen) does a
-  // leaf in a footprint land at the head, which the worm keeps clear of every footprint.
+  // ring) or on the body, or, where few spots are free (the world's edge, crowded by big props),
+  // the best of them can be on top of another leaf: look round the head, in front of it first
+  // (RING_ORDER), for the nearest spot off the footprints, off the body and SPACING from the other
+  // leaves, else the least crowded such spot (in front, if one there does not stack). Leaves
+  // falling back together spread out: the spacing test sends each past the spots the ones before
+  // it took, and each leaf shifts every spot its own amount, so their candidates differ. Only when
+  // no spot is off the footprints and the body (never seen) does a leaf in a footprint land at the
+  // head, which the worm keeps clear of every footprint.
   const inProp = obstacleDepth(x, z, OBSTACLE_PAD * clear0, hit) > 0;
-  // How near the spot is to another leaf (Infinity: spaced, or no try was off the body).
-  const crowd2 = found || far2 < 0 ? Infinity : far2;
+  // How near the spot is to another leaf (Infinity: spaced; -1: no try was off the body and props).
+  const crowd2 = found ? Infinity : far2;
   if (inProp || crowd2 < STACKED * STACKED) {
-    // Straight ahead, then alternately left and right of it, each spot turned toward the heading
-    // by a per-leaf share of half a spot (so the side spots stay in front).
+    // Straight ahead, then alternately left and right of it. Each leaf moves every spot its own
+    // amount: inward by up to half a ring, and turned by up to half a spot toward the heading in
+    // the front half (so the side spots stay in front), a whole spot in the back half.
     const forward = Math.atan2(fz, fx);
-    const turn = hash01(p.spawned, p.seed + 17) * 0.5;
+    const turn = hash01(p.spawned, p.seed + 17);
+    const inward = 0.5 * hash01(p.spawned, p.seed + 19);
     let rx = hx;
     let rz = hz;
     let rfar2 = -1;
     let spaced = false;
     for (let s = 0; s < RING_ORDER.length && !spaced; s += 2) {
-      // Past the front half: a spot there that does not stack on another leaf beats a spaced one behind.
+      // Past the front half: a spot there that does not stack beats a spaced one behind.
       if (s === RING_FRONT && rfar2 >= STACKED * STACKED) break;
-      const r = RING_ORDER[s] * RING_STEP;
+      const r = (RING_ORDER[s] * 0.5 - inward) * RING_STEP;
       const k = RING_ORDER[s + 1];
-      const ang = forward + (k === 0 ? turn - 0.25 : k - Math.sign(k) * turn) * ((Math.PI * 2) / RING_SPOTS);
+      const w = s < RING_FRONT ? 0.5 : 1;
+      // Straight ahead and straight behind turn either way; the others toward the heading.
+      const off = k === 0 || k === RING_SPOTS / 2
+        ? k + (turn - 0.5) * w
+        : k - Math.sign(k) * turn * w;
+      const ang = forward + off * ((Math.PI * 2) / RING_SPOTS);
       const sx = clamp(hx + Math.cos(ang) * r, PLAY_HALF);
       const sz = clamp(hz + Math.sin(ang) * r, PLAY_HALF);
       if (!freeSpot(sx, sz, clear0, pushers, count)) continue;
