@@ -231,6 +231,8 @@ canvas { display: block; }
   .title { font-size: 36px; }
   .menu { margin-top: 16px; gap: 10px; }
   .btn, .choice { min-height: 56px; }
+  .choices legend { margin-bottom: 8px; }
+  .scale-status { margin-top: 8px !important; }
   .verdict-icon { width: 52px; height: 52px; }
   .verdict-title { font-size: 38px; }
   .report { margin: 12px 0 !important; }
