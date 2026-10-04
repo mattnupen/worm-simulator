@@ -1,5 +1,5 @@
 import { treeSites, trunkFootOf } from './treeSites';
-import { heroLog, LOG_END, LOG_FOOT, rocks, ROCK_FOOT } from './propPlacement';
+import { heroLog, LOG_END, LOG_FOOT, logEnd, rocks, ROCK_FOOT } from './propPlacement';
 import { scaleSpec, type ScaleSpec } from './worldScale';
 import { terrainHeight } from './terrain';
 
@@ -36,7 +36,7 @@ export function footprints(): Footprints {
       ...rocks().flatMap((k) => [k.x, k.z, k.size * ROCK_FOOT, k.size * ROCK_TOP]),
     ]),
     log: {
-      x: log.x, z: log.z, dx: Math.cos(log.yaw), dz: Math.sin(log.yaw), half: log.length / 2 + LOG_END,
+      x: log.x, z: log.z, dx: Math.cos(log.yaw), dz: Math.sin(log.yaw), half: log.length / 2 + logEnd(spec),
       r: log.radius * LOG_FOOT, top: log.radius * LOG_TOP,
     },
   };

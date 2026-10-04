@@ -6,7 +6,8 @@ import { buildDistantTrees } from '../../src/surface/distantTrees';
 import { writeFern, writeMushrooms, writeSedge } from '../../src/surface/propGeometry';
 import { MeshWriter } from '../../src/surface/meshWriter';
 import { mulberry32 } from '../../src/core/random';
-import { obstacleDepth } from '../../src/surface/obstacles';
+import { footprints, obstacleDepth } from '../../src/surface/obstacles';
+import { heroLog, logEnd } from '../../src/surface/propPlacement';
 import { terrainHeight } from '../../src/surface/terrain';
 import { DEFAULT_SCALE, SCALE_MODES, SCALE_SPECS, setScale } from '../../src/surface/worldScale';
 
@@ -63,6 +64,23 @@ describe.each(SCALE_MODES)('%s: the solid footprints hold what is drawn, up to t
       checked++;
     }
     expect(checked).toBeGreaterThan(10);
+  });
+
+  it('the log\'s jagged ends reach out to, and not past, its footprint\'s ends', () => {
+    setScale(mode);
+    const w = new MeshWriter('aBark', 4);
+    writeHeroLog(w);
+    const log = heroLog();
+    const dx = Math.cos(log.yaw);
+    const dz = Math.sin(log.yaw);
+    let reach = 0;
+    for (let v = 0; v < w.pos.length; v += 3) {
+      reach = Math.max(reach, Math.abs((w.pos[v] - log.x) * dx + (w.pos[v + 2] - log.z) * dz));
+    }
+    // The splinters grow with the log, so a big log's ends are not sawn off.
+    expect(reach).toBeLessThanOrEqual(log.length / 2 + logEnd() + 1e-9);
+    expect(reach).toBeGreaterThan(log.length / 2 + 0.9 * logEnd());
+    expect(footprints().log.half).toBeCloseTo(log.length / 2 + logEnd(), 9);
   });
 
   it('rocks', () => {

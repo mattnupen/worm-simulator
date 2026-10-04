@@ -1,6 +1,7 @@
 import type { Vec3 } from '../core/vec';
 import type { MeshWriter } from './meshWriter';
 import { trunkAxis, trunkRadius, RING_HEIGHTS, type TrunkParams } from './trunkShape';
+import { LOG_END } from './propPlacement';
 
 /** Bark surface kinds, read by the bark shader from aBark.z. */
 export const BARK = { birch: 0, maple: 1, curlOuter: 2, curlInner: 3, wood: 4 } as const;
@@ -180,8 +181,12 @@ export function writeLog(
     const r = radius * (1.06 - 0.12 * f) * (1 + 0.08 * Math.sin(f * 9 + seed * 5));
     for (let c = 0; c <= radial; c++) {
       const a = (c / radial) * TAU;
-      // Broken ends are jagged.
-      const jag = i === 0 || i === rings - 1 ? (Math.sin(c * 2.7 + seed * 11) * 0.5 + 0.5) * 0.18 * (i === 0 ? -1 : 1) : 0;
+      // Broken ends are jagged, up to LOG_END past the length per unit of grow (a big log's
+      // splinters are as big as it is, so its ends do not look sawn off). A grown log's seam
+      // vertex (c = radial) repeats c = 0's jag so the end closes; Classic (grow 1) keeps Step 1a's
+      // hairline open seam, as its geometry is pinned.
+      const cj = grow === 1 ? c : c % radial;
+      const jag = i === 0 || i === rings - 1 ? (Math.sin(cj * 2.7 + seed * 11) * 0.5 + 0.5) * LOG_END * grow * (i === 0 ? -1 : 1) : 0;
       centre(sMid + jag, c0);
       const nx = u.x * Math.cos(a) + v.x * Math.sin(a);
       const ny = u.y * Math.cos(a) + v.y * Math.sin(a);

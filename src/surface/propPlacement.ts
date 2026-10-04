@@ -23,8 +23,13 @@ export function keepsClear(x: number, z: number, radius: number): boolean {
 export const ROCK_FOOT = 1.2;
 /** The drawn log is this much wider than its radius (bark lumps), at the height of the worm... */
 export const LOG_FOOT = 1.15;
-/** ...and its jagged broken ends reach this far (m) past its length (writeLog). */
+/** ...and its jagged broken ends reach this far past its length, per unit of its grow (writeLog). */
 export const LOG_END = 0.18;
+
+/** How far the log's broken ends reach past its length in `spec`'s mode (LOG_END times its grow). */
+export function logEnd(spec: ScaleSpec = scaleSpec()): number {
+  return LOG_END * spec.log;
+}
 
 /** The hero prop, a mossy fallen paper birch, in `spec`'s mode: its radius and length scaled. */
 export function heroLog(spec: ScaleSpec = scaleSpec()): LogSite {
@@ -85,7 +90,7 @@ function logEndsDistance(x: number, z: number): number {
   const log = heroLog();
   const dx = Math.cos(log.yaw);
   const dz = Math.sin(log.yaw);
-  const half = log.length / 2 + LOG_END;
+  const half = log.length / 2 + logEnd();
   const t = Math.max(-half, Math.min(half, (x - log.x) * dx + (z - log.z) * dz));
   return Math.hypot(x - (log.x + dx * t), z - (log.z + dz * t));
 }
