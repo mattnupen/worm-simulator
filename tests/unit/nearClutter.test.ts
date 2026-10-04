@@ -247,6 +247,17 @@ describe('near clutter placement (TS twin of nearClutterPosition)', () => {
     setScale(mode);
     inp.litter = litterTextureData();
     inp.ground = groundTextureData();
+    try {
+      keepsClear();
+    } finally {
+      setScale(DEFAULT_SCALE);
+      inp.litter = litterTextureData();
+      inp.ground = groundTextureData();
+    }
+  });
+
+  /** Seeded crawls in the active mode: no near-clutter vertex comes within CLEAR of the spine. */
+  function keepsClear(): void {
     const rng = mulberry32(17);
     const crawl = new Crawl();
     const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
@@ -283,10 +294,7 @@ describe('near clutter placement (TS twin of nearClutterPosition)', () => {
     // The sample is real: items near the worm, some of them shrunk by it.
     expect(checked).toBeGreaterThan(5000);
     expect(shrunk).toBeGreaterThan(50);
-    setScale(DEFAULT_SCALE);
-    inp.litter = litterTextureData();
-    inp.ground = groundTextureData();
-  });
+  }
 
   it('CLEAR covers the real body: no vertex of the worm tube lies farther than CLEAR from its spine', () => {
     // clearScale measures from the 16-point spine polyline, but the body is a tube around it, wider

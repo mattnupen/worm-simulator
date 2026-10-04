@@ -1,8 +1,9 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeAll, afterAll } from 'vitest';
 import { Crawl } from '../../src/game/crawl';
 import { HERO_MAX, type HeroLeaves } from '../../src/surface/heroLeaves';
 import { heroShortcuts } from '../../src/surface/heroClearance';
 import { mulberry32 } from '../../src/core/random';
+import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
 
 const DT = 1 / 60;
 
@@ -11,7 +12,9 @@ function arrays(p: HeroLeaves): ArrayLike<number>[] {
   return Object.values(p).filter((v) => ArrayBuffer.isView(v)) as unknown as ArrayLike<number>[];
 }
 
-describe('hero leaf shortcuts (sleeping far leaves, skipped strips)', () => {
+describe.each(SCALE_MODES)('%s: hero leaf shortcuts (sleeping far leaves, skipped strips)', (mode) => {
+  beforeAll(() => { setScale(mode); });
+  afterAll(() => { setScale(DEFAULT_SCALE); });
   afterEach(() => { heroShortcuts.on = true; });
 
   it('change nothing: the same seeded crawls with and without them give the same leaves', () => {

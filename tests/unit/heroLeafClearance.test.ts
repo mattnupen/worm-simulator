@@ -155,11 +155,11 @@ describe.each(SCALE_MODES)('%s: hero leaves never clip the worm', (mode) => {
     expect(stats.covered).toBeGreaterThan(100000);
     expect(stats.violations, JSON.stringify({ ...stats, gaps: undefined })).toBe(0);
     // ...and a leaf held over the worm rests near it rather than floating high above: the bounds
-    // are conservative, so the typical least gap is several cm (measured 0.10 m median; True's
-    // bigger leaves settle more slowly and span more of the body: 0.135 m).
+    // are conservative, so the typical least gap is several cm (measured 0.10 m median in Classic
+    // and Hybrid, 0.105 m in True).
     const g = stats.gaps.sort((a, b) => a - b);
     expect(g.length).toBeGreaterThan(10000);
-    expect(g[g.length >> 1]).toBeLessThan(mode === 'true' ? 0.15 : 0.12);
+    expect(g[g.length >> 1]).toBeLessThan(0.12);
   }, 120_000);
 
   it('in tight coils, and crawling along the world\'s edge (leaves recycled next to the body)', () => {

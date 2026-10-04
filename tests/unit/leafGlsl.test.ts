@@ -169,7 +169,7 @@ describe.each(SCALE_MODES)('%s: the drape on the real litter and the real worm',
   it('so does every detail leaf, placed around the head as the GPU places it (400 placements)', () => {
     const count = scaledLeafCount(PRESETS.ultra.detail);
     const detail = buildDetailLeaves(count);
-    // A detail leaf is at most 0.39 m across in Classic, times the mode's biggest leaf size.
+    // A detail leaf's radius is at most 0.385 m in Classic, times the mode's biggest leaf size.
     const reach = 0.9 + 0.39 * Math.max(...Object.values(SCALE_SPECS[mode].leaf));
     const g = detail.mesh.geometry;
     const pos = g.getAttribute('position');
@@ -299,8 +299,10 @@ describe('drapeProfile', () => {
 });
 
 describe.each(SCALE_MODES)('%s: litter leaf anchors', (mode) => {
+  beforeAll(() => { setScale(mode); });
+  afterAll(() => { setScale(DEFAULT_SCALE); });
+
   it('every vertex of both chunk shapes lies within its leaf radius, which a vertex reaches, and the map reaches the biggest leaf', () => {
-    setScale(mode);
     // Many more than any preset draws, so the biggest leaf is about as big as any can be.
     const litter = buildLeafLitter(6000);
     let biggest = 0;
@@ -338,6 +340,5 @@ describe.each(SCALE_MODES)('%s: litter leaf anchors', (mode) => {
     expect(biggest + DRAPE_FOOT).toBeLessThanOrEqual(leafReach());
     expect(leafReach()).toBeLessThan(stampLimit());
     expect(stampLimit()).toBeLessThanOrEqual(DIST_REACH);
-    setScale(DEFAULT_SCALE);
   });
 });

@@ -130,11 +130,11 @@ function reversal(a: ArrayLike<number>, b: ArrayLike<number>, c: ArrayLike<numbe
 /**
  * The crawl as the game runs it (the auto-drive's loop): a 60 Hz display with uneven frames
  * (one in seven late), 60 Hz steps and the 30 fps cap. `frame` sees every rendered frame after
- * the first 3 s.
+ * the first 3 s, with `heroes` hero leaves shown.
  */
-function crawlFrames(seconds: number, frame: (crawl: Crawl, alpha: number) => void): Crawl {
+function crawlFrames(seconds: number, frame: (crawl: Crawl, alpha: number) => void, heroes = HERO_MAX): Crawl {
   const crawl = new Crawl();
-  crawl.setHeroCount(HERO_MAX);
+  crawl.setHeroCount(heroes);
   const st = createStepper();
   const rng = mulberry32(7);
   let wall = 0;
@@ -235,16 +235,21 @@ describe.each(['classic', 'true'] as ScaleMode[])('%s: leaves over the crawling 
   it('hero leaves: few turn back by more than 2 mm between frames', () => {
     const m4 = new THREE.Matrix4();
     const v = new THREE.Vector3();
+    // The leaves the mode shows at Ultra (the most of any preset): Classic's 32; True's bigger
+    // leaves are fewer (scaledLeafCount: 8), so it crawls three times as long for a like sample.
+    // True measured 2.1 to 2.2% and a p99 of 4.2 to 4.5 mm over seven frame-timing seeds.
+    const heroes = scaledLeafCount(PRESETS.ultra.hero);
+    const seconds = mode === 'classic' ? 15 : 45;
     // Three points on each leaf (its centre and two near its tip), per frame.
-    const tracks: number[][][] = Array.from({ length: HERO_MAX * 3 }, () => []);
-    crawlFrames(15, (crawl, alpha) => {
-      for (let i = 0; i < HERO_MAX; i++) {
+    const tracks: number[][][] = Array.from({ length: heroes * 3 }, () => []);
+    crawlFrames(seconds, (crawl, alpha) => {
+      for (let i = 0; i < crawl.hero.count; i++) {
         heroLeafMatrix(crawl.hero, i, alpha, m4);
         tracks[i * 3].push(v.set(0, 0, 0).applyMatrix4(m4).toArray());
         tracks[i * 3 + 1].push(v.set(0.4, 0, -0.5).applyMatrix4(m4).toArray());
         tracks[i * 3 + 2].push(v.set(-0.4, 0, -0.5).applyMatrix4(m4).toArray());
       }
-    });
+    }, heroes);
     const back: number[] = [];
     for (const tr of tracks) {
       for (let k = 1; k + 1 < tr.length; k++) {

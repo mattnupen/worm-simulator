@@ -8,6 +8,7 @@ import { detailShape } from './detailShape';
 import { leafLift, leafNormal, type LeafForm } from './leafForm';
 import { leafTint, LEAF_SIZE, LATERAL_VEINS } from './leafPalette';
 import { scaleSpec } from './worldScale';
+import { scaledLeafCount } from './leafScale';
 
 export interface DetailLeaves {
   mesh: THREE.Mesh;
@@ -35,7 +36,7 @@ function reach(kind: LeafKind): number {
  * farthest vertex is 1 out, which makes aDetail.w its radius: the disturbance map moves it as one
  * piece of that radius, as it does the litter.
  */
-export function buildDetailLeaves(count = PRESETS.ultra.detail, seed = 3): DetailLeaves {
+export function buildDetailLeaves(count = scaledLeafCount(PRESETS.ultra.detail), seed = 3): DetailLeaves {
   const rng = mulberry32(seed);
   // The scale mode's leaf sizes (worldScale.ts): 1 in Classic. Pass the mode's count (scaledLeafCount).
   const grow = scaleSpec().leaf;
@@ -66,8 +67,8 @@ export function buildDetailLeaves(count = PRESETS.ultra.detail, seed = 3): Detai
     const np = s.points.length / 2;
     // Small (0.6x the first cut): they are many and near the camera, and a leaf's cost is its
     // area on screen (the layer is fill-bound). `size` is the leaf's scale, 0.21 to 0.39 of its
-    // species' LEAF_SIZE (0.21 to 0.62 m, against the litter's 0.6 to 1.9); its radius
-    // (aDetail.w, size times the shape's reach) is 0.11 to 0.385 m.
+    // species' LEAF_SIZE, times spec.leaf (in Classic 0.21 to 0.62 m, against the litter's 0.6 to
+    // 1.9); its radius (aDetail.w, size times the shape's reach) is 0.11 to 0.385 m in Classic.
     const size = LEAF_SIZE[kind] * (0.21 + rng() * 0.18) * grow[kind];
     form.fold = 0.1 + rng() * 0.2;
     form.cup = 0.2 + rng() * (kind === 'oak' ? 0.5 : 0.3);
@@ -143,7 +144,7 @@ export interface DetailLayer {
  * the weakest machines. Switching up to a preset that draws it builds it then (a one-time hitch
  * while its shader compiles).
  */
-export function buildDetailLayer(count = PRESETS.ultra.detail, seed = 3): DetailLayer {
+export function buildDetailLayer(count = scaledLeafCount(PRESETS.ultra.detail), seed = 3): DetailLayer {
   const group = new THREE.Group();
   group.name = 'detailLayer';
   let built: DetailLeaves | null = null;
