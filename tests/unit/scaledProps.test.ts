@@ -1,5 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import * as THREE from 'three';
+import { createHash } from 'node:crypto';
 import { buildGroundProps, writeHeroLog } from '../../src/surface/groundProps';
 import { buildForestTrees } from '../../src/surface/forestTrees';
 import { buildDistantTrees } from '../../src/surface/distantTrees';
@@ -11,15 +12,15 @@ import { heroLog, logEnd } from '../../src/surface/propPlacement';
 import { terrainHeight } from '../../src/surface/terrain';
 import { DEFAULT_SCALE, SCALE_MODES, SCALE_SPECS, setScale } from '../../src/surface/worldScale';
 
-/** Length, sum and a weighted sum of an array: a cheap fingerprint of a mesh. */
-function fingerprint(a: ArrayLike<number>): number[] {
-  let s = 0;
-  let w = 0;
-  for (let i = 0; i < a.length; i++) {
-    s += a[i];
-    w += a[i] * ((i % 7) + 1);
+/** Every attribute of a geometry (by name: positions, normals, aBark, aProp, aCanopy...) and its index, hashed. */
+function geometryHash(g: THREE.BufferGeometry): string {
+  const h = createHash('sha1');
+  for (const name of Object.keys(g.attributes).sort()) {
+    h.update(name);
+    h.update(Buffer.from((g.attributes[name].array as Float32Array).buffer));
   }
-  return [a.length, s, w];
+  if (g.index) h.update(Buffer.from((g.index.array as Uint32Array).buffer));
+  return h.digest('hex');
 }
 const positions = (m: THREE.Object3D) => (m as THREE.Mesh).geometry.getAttribute('position');
 /** The worm is never taller than this over the ground, so a footprint must hold the props up to here. */
@@ -28,23 +29,51 @@ const hit = { nx: 0, nz: 0 };
 
 afterAll(() => { setScale(DEFAULT_SCALE); });
 
-describe('Classic props are exactly Step 1a\'s (fingerprints taken before the scale modes)', () => {
-  it('ground props, trunks, crowns and the distant ring', () => {
+describe('Classic props are exactly Step 1a\'s (hashes checked equal to commit 7ce8936\'s first)', () => {
+  it('ground props, trunks and the log, crowns and the distant ring: every attribute, index and instance', () => {
     setScale('classic');
-    const props = buildGroundProps().mesh.geometry;
     const trees = buildForestTrees(writeHeroLog);
     const distant = buildDistantTrees();
-    const close = (a: number[], b: number[]) => {
-      expect(a[0]).toBe(b[0]);
-      expect(a[1]).toBeCloseTo(b[1], 6);
-      expect(a[2]).toBeCloseTo(b[2], 5);
-    };
-    close(fingerprint(props.getAttribute('position').array), [28107, -8939.906466193963, -35534.30563228228]);
-    expect(props.index!.count).toBe(20652);
-    close(fingerprint(positions(trees.children[0]).array), [17793, 6109.6819789083675, 24396.986306414008]);
-    close(fingerprint(positions(trees.children[1]).array), [14112, 34505.49341870146, 139358.94168695062]);
-    close(fingerprint(distant.instanceMatrix.array), [1152, 197.031853672117, 721.2187286820263]);
+    expect(geometryHash(buildGroundProps().mesh.geometry)).toBe('c118705c09662efacd4dbd177f237847c0430c63');
+    expect(geometryHash((trees.children[0] as THREE.Mesh).geometry)).toBe('68b049ed608ec2f876c2c85074cd185b4e1fe055');
+    expect(geometryHash((trees.children[1] as THREE.Mesh).geometry)).toBe('6294458d1037eb769acd258fbd6ca2c47c1b5373');
+    expect(geometryHash(distant.geometry)).toBe('df8fc78a79849834517d89eb7b730ead046a3f67');
+    const instances = createHash('sha1')
+      .update(Buffer.from(distant.instanceMatrix.array.buffer))
+      .update(Buffer.from(distant.instanceColor!.array.buffer))
+      .digest('hex');
+    expect(instances).toBe('57c663929eb916d248d90a31495f4e07efa2c250');
     expect(distant.count).toBe(72);
+  });
+});
+
+describe('the bark pattern is laid out at Classic size in every mode', () => {
+  /** The largest aBark.y (height or length along the bark, over grow) of the trunks, and of the log. */
+  function barkReach(): { trunk: number; log: number } {
+    const trunks = buildForestTrees().children[0] as THREE.Mesh;
+    const withLog = buildForestTrees(writeHeroLog).children[0] as THREE.Mesh;
+    const first = trunks.geometry.getAttribute('position').count;
+    const bark = withLog.geometry.getAttribute('aBark');
+    let trunk = 0;
+    let log = 0;
+    // Trunk vertices come first; the log's follow them.
+    for (let v = 0; v < bark.count; v++) {
+      if (v < first) trunk = Math.max(trunk, bark.getY(v));
+      else log = Math.max(log, bark.getY(v));
+    }
+    return { trunk, log };
+  }
+
+  it('the tallest trunk\'s reach is about the same in every mode, and the log\'s is its Classic length, 4.4', () => {
+    setScale('classic');
+    const classic = barkReach();
+    for (const mode of SCALE_MODES) {
+      setScale(mode);
+      const r = barkReach();
+      expect(r.trunk / classic.trunk, mode).toBeGreaterThan(0.85);
+      expect(r.trunk / classic.trunk, mode).toBeLessThan(1.15);
+      expect(r.log, mode).toBeCloseTo(4.4, 5);
+    }
   });
 });
 

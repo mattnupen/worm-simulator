@@ -11,6 +11,9 @@ import { PLAY_HALF, WORLD_HALF } from '../../src/surface/terrain';
 import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
 import { DEFAULT_SCALE, SCALE_MODES, SCALE_SPECS, setScale } from '../../src/surface/worldScale';
 import { litterDepth } from '../../src/surface/litterDepth';
+import { createHash } from 'node:crypto';
+
+const sha1 = (s: string) => createHash('sha1').update(s).digest('hex');
 
 /** The speed test's auto-drive: the exact move and locomotion options the game uses. */
 function autoDrivePath(seconds: number): { x: number; z: number }[] {
@@ -178,12 +181,10 @@ describe('Classic is exactly the Step 1a world (checksums taken before the scale
     setScale('classic');
     const t = treeSites();
     expect(t).toHaveLength(14);
-    expect(t.reduce((s, c) => s + c.x, 0)).toBeCloseTo(-70.84152821917087, 10);
-    expect(t.reduce((s, c) => s + c.z, 0)).toBeCloseTo(9.825550918467343, 10);
-    const c = placeClutter(64);
-    expect(c.reduce((s, i) => s + i.x, 0)).toBeCloseTo(-35.457261321132044, 10);
-    expect(c.reduce((s, i) => s + i.z, 0)).toBeCloseTo(-23.469567911623017, 10);
-    expect(c.reduce((s, i) => s + i.scale, 0)).toBeCloseTo(65.08443361632527, 10);
+    // Every field of every tree (birch, clump) and clutter item (rot, scale, kind), to the bit:
+    // checked equal to commit 7ce8936's (Step 1a's layout) before these hashes were taken.
+    expect(sha1(JSON.stringify(t))).toBe('552df261059997070ae7ed9786663173e113dfdc');
+    expect(sha1(JSON.stringify(placeClutter(64)))).toBe('d379802160515d06409e4daeb5fabbe1e06f1563');
     let depth = 0;
     let n = 0;
     for (let x = -20; x <= 20; x += 0.37) for (let z = -20; z <= 20; z += 0.41) { depth += litterDepth(x, z); n++; }
