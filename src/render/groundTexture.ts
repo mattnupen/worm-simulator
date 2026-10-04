@@ -14,7 +14,7 @@ export const GROUND_TEX_N = MESH_GRID.innerSegs + 2 * MESH_GRID.outerSegs + 1;
 const { inner: IN, outer: OUT, innerSegs: NI, outerSegs: NO } = MESH_GRID;
 const STEP = (2 * IN) / NI;
 
-/** Mesh vertex heights, row j holding grid line j along z. Built once. */
+/** Mesh vertex heights, row j holding grid line j along z, for the active scale mode. */
 export function groundTextureData(): Float32Array {
   return Float32Array.from(heightGrid().heights);
 }
@@ -63,6 +63,13 @@ export function getGroundTexture(): THREE.DataTexture {
     texture.needsUpdate = true;
   }
   return texture;
+}
+
+/** After a scale-mode change: the new ground's heights, in place (as refreshLitterTexture). */
+export function refreshGroundTexture(): void {
+  if (!texture) return;
+  (texture.image.data as Float32Array).set(groundTextureData());
+  texture.needsUpdate = true;
 }
 
 /** GLSL: meshGround(xz), the rendered ground height. Needs uniform uGround. */

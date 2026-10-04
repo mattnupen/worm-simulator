@@ -17,7 +17,7 @@ export function texelCentre(i: number, n = LITTER_TEX_N): number {
 /**
  * The litter baked for shaders that place things near the worm on the GPU (detail leaves, near
  * clutter): R = litter mound / LITTER_MAX, G = litter depth / LITTER_MAX, B = baked trunk shade
- * (light multiplier), A = 255. Row j holds z = texelCentre(j). Built once; never re-uploaded.
+ * (light multiplier), A = 255. Row j holds z = texelCentre(j). Uploaded once per scale mode.
  */
 export function litterTextureData(n = LITTER_TEX_N): Uint8Array {
   const out = new Uint8Array(n * n * 4);
@@ -39,7 +39,7 @@ export function litterTextureData(n = LITTER_TEX_N): Uint8Array {
 
 let texture: THREE.DataTexture | null = null;
 
-/** The shared baked litter texture (built on first use). */
+/** The shared baked litter texture (built on first use, for the scale mode active then). */
 export function getLitterTexture(): THREE.DataTexture {
   if (!texture) {
     texture = new THREE.DataTexture(litterTextureData(), LITTER_TEX_N, LITTER_TEX_N, THREE.RGBAFormat, THREE.UnsignedByteType);
@@ -48,6 +48,17 @@ export function getLitterTexture(): THREE.DataTexture {
     texture.needsUpdate = true;
   }
   return texture;
+}
+
+/**
+ * After a scale-mode change (the litter drifts against the new props): bakes the texture again in
+ * place, so every material keeps the same texture object and nothing recompiles. Nothing to do
+ * before its first use.
+ */
+export function refreshLitterTexture(): void {
+  if (!texture) return;
+  (texture.image.data as Uint8Array).set(litterTextureData());
+  texture.needsUpdate = true;
 }
 
 /** GLSL: litterAt(xz) = (mound m, depth m, trunk shade). Needs uniform uLitter. */
