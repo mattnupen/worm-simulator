@@ -18,6 +18,7 @@ import { GraphicsControl } from './game/graphicsControl';
 import { buildWorld } from './game/world';
 import { Crawl } from './game/crawl';
 import { AUTO_DRIVE_MOVE } from './game/drive';
+import { scaledLeafCount } from './surface/leafScale';
 import { browserStore } from './save/settingsStore';
 import { FPS_CAP, SpeedTestRunner } from './perf/speedTestRunner';
 import { formatContextLostResults, formatNoWebGLResults } from './perf/speedTest';
@@ -126,7 +127,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     renderer.setPixelRatio(pixelRatioFor(s, window.devicePixelRatio));
     world.apply(s);
     crawl.setReaction(s.reaction);
-    crawl.setHeroCount(s.hero);
+    crawl.setHeroCount(scaledLeafCount(s.hero));
     updateResolution();
     dirty = true;
     // The frames around a preset change say nothing about the new preset's speed.

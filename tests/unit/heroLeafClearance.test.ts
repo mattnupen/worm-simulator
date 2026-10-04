@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as THREE from 'three';
 import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
 import { HeroWorm, type WormPose } from '../../src/worm/wormMesh';
 import { HeroLeafMesh, heroLeafMatrix } from '../../src/surface/heroLeafMesh';
 import { HERO_MAX } from '../../src/surface/heroLeaves';
 import { mulberry32 } from '../../src/core/random';
+import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
 
 const DT = 1 / 60;
 /** Vertices per worm ring (RADIAL 14, plus the seam). */
@@ -144,17 +145,21 @@ function replay(seed: number, steps: number, alphas: readonly number[], stats: S
   }
 }
 
-describe('hero leaves never clip the worm', () => {
+describe.each(SCALE_MODES)('%s: hero leaves never clip the worm', (mode) => {
+  beforeAll(() => { setScale(mode); });
+  afterAll(() => { setScale(DEFAULT_SCALE); });
+
   it('over many seeded crawls, every worm vertex under a hero leaf is at least 3 mm below it', () => {
     const stats: Stats = { gaps: [], frames: 0, covered: 0, violations: 0, worst: 0, worstAt: '' };
     for (let seed = 1; seed <= 6; seed++) replay(seed, 1500, [0, 0.5, 1], stats, 0);
     expect(stats.covered).toBeGreaterThan(100000);
     expect(stats.violations, JSON.stringify({ ...stats, gaps: undefined })).toBe(0);
     // ...and a leaf held over the worm rests near it rather than floating high above: the bounds
-    // are conservative, so the typical least gap is several cm (measured 0.10 m median).
+    // are conservative, so the typical least gap is several cm (measured 0.10 m median; True's
+    // bigger leaves settle more slowly and span more of the body: 0.135 m).
     const g = stats.gaps.sort((a, b) => a - b);
     expect(g.length).toBeGreaterThan(10000);
-    expect(g[g.length >> 1]).toBeLessThan(0.12);
+    expect(g[g.length >> 1]).toBeLessThan(mode === 'true' ? 0.15 : 0.12);
   }, 120_000);
 
   it('in tight coils, and crawling along the world\'s edge (leaves recycled next to the body)', () => {

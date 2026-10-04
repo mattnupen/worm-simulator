@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as THREE from 'three';
 import { disturbVertex, drapeProfile, packedMapSampler, DRAPE_FOOT, type MapSampler } from '../../src/render/leafGlsl';
 import {
@@ -14,7 +14,8 @@ import { wrapAround } from '../../src/render/wrap';
 import { litterTextureData } from '../../src/render/litterTexture';
 import { groundTextureData } from '../../src/render/groundTexture';
 import { PRESETS } from '../../src/render/graphics';
-import { leafReach, maxLeafRadius, onTopDistance, stampLimit } from '../../src/surface/leafScale';
+import { DEFAULT_SCALE, SCALE_MODES, SCALE_SPECS, setScale } from '../../src/surface/worldScale';
+import { leafReach, maxLeafRadius, onTopDistance, scaledLeafCount, stampLimit } from '../../src/surface/leafScale';
 
 
 /** Where a leaf triangle near the worm lands, after placement and the drape: three moved points. */
@@ -119,13 +120,18 @@ function clearance(count: number, leaves: (pl: Placement, emit: (t: Tri) => void
   return { placements, covered, failed, worst };
 }
 
-describe('the drape on the real litter and the real worm', () => {
+describe.each(SCALE_MODES)('%s: the drape on the real litter and the real worm', (mode) => {
+  beforeAll(() => { setScale(mode); });
+  afterAll(() => { setScale(DEFAULT_SCALE); });
+
   it('every leaf over the worm clears its body by 5 mm (shipped maths, 400 placements)', () => {
     // The chunked litter's full leaves (the only ones drawn with the drape), as the chunk writer
     // wrote them: positions relative to each chunk's mesh, anchors in world space.
     // The shipped litter (every preset draws the same count). About 100,000 worm vertices end
     // up under a leaf triangle, so the coverage floor below is far from vacuous.
-    const litter = buildLeafLitter(PRESETS.ultra.litter);
+    const litter = buildLeafLitter(scaledLeafCount(PRESETS.ultra.litter));
+    // A leaf can cover the head (1.54 m from body point 7) if its centre is within its radius of it.
+    const reach = Math.max(3.5, 1.8 + maxLeafRadius());
     const tri: Tri = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
     const p = [0, 0, 0];
     const a4 = [0, 0, 0, 0];
@@ -139,7 +145,7 @@ describe('the drape on the real litter and the real worm', () => {
         const { x: mx, y: my, z: mz } = ch.near.position;
         for (let t = 0; t < idx.count; t += 3) {
           const a = idx.getX(t);
-          if (Math.hypot(anc.getX(a) - pts[7][0], anc.getY(a) - pts[7][1]) > 3.5) continue;
+          if (Math.hypot(anc.getX(a) - pts[7][0], anc.getY(a) - pts[7][1]) > reach) continue;
           for (let c = 0; c < 3; c++) {
             const v = idx.getX(t + c);
             p[0] = pos.getX(v) + mx;
@@ -161,7 +167,10 @@ describe('the drape on the real litter and the real worm', () => {
   }, 120000);
 
   it('so does every detail leaf, placed around the head as the GPU places it (400 placements)', () => {
-    const detail = buildDetailLeaves(PRESETS.ultra.detail);
+    const count = scaledLeafCount(PRESETS.ultra.detail);
+    const detail = buildDetailLeaves(count);
+    // A detail leaf is at most 0.39 m across in Classic, times the mode's biggest leaf size.
+    const reach = 0.9 + 0.39 * Math.max(...Object.values(SCALE_SPECS[mode].leaf));
     const g = detail.mesh.geometry;
     const pos = g.getAttribute('position');
     const det = g.getAttribute('aDetail');
@@ -180,7 +189,7 @@ describe('the drape on the real litter and the real worm', () => {
     firstV.push(pos.count);
     firstT.push(idx.count);
     expect(firstT.length).toBe(firstV.length);
-    expect(firstV.length - 1).toBe(PRESETS.ultra.detail);
+    expect(firstV.length - 1).toBe(count);
     const inp: DetailInputs = {
       focusX: 0, focusZ: 0, wrapX: 0, wrapZ: 0, litter: litterTextureData(), ground: groundTextureData(),
     };
@@ -201,7 +210,7 @@ describe('the drape on the real litter and the real worm', () => {
         // Only a leaf whose home is within reach (radius + slide + half the body) can cover the worm.
         const hx = wrapAround(det.getX(v0), inp.wrapX, DETAIL_BOX);
         const hz = wrapAround(det.getY(v0), inp.wrapZ, DETAIL_BOX);
-        if (!pts.some(([x, z]) => Math.hypot(hx - x, hz - z) < 1.3)) continue;
+        if (!pts.some(([x, z]) => Math.hypot(hx - x, hz - z) < reach)) continue;
         near++;
         dv[0] = det.getX(v0);
         dv[1] = det.getY(v0);
@@ -228,7 +237,7 @@ describe('the drape on the real litter and the real worm', () => {
       }
     });
     expect(r.placements).toBe(400);
-    expect(near).toBeGreaterThan(400 * 50);
+    expect(near).toBeGreaterThan(400 * 12);
     expect(r.covered).toBeGreaterThan(10000);
     expect({ failed: r.failed, worst: r.worst }).toEqual({ failed: 0, worst: expect.any(Number) });
   }, 180000);
@@ -289,9 +298,11 @@ describe('drapeProfile', () => {
   });
 });
 
-describe('litter leaf anchors', () => {
+describe.each(SCALE_MODES)('%s: litter leaf anchors', (mode) => {
   it('every vertex of both chunk shapes lies within its leaf radius, which a vertex reaches, and the map reaches the biggest leaf', () => {
-    const litter = buildLeafLitter(1500);
+    setScale(mode);
+    // Many more than any preset draws, so the biggest leaf is about as big as any can be.
+    const litter = buildLeafLitter(6000);
     let biggest = 0;
     let leaves = 0;
     for (const ch of litter.chunks) {
@@ -320,11 +331,13 @@ describe('litter leaf anchors', () => {
         }
       }
     }
-    expect(leaves).toBe(3000);
+    expect(leaves).toBe(12000);
     // A leaf whose edge reaches the drape's foot is still on the map (and stamped), so it never pops.
     expect(biggest).toBeLessThanOrEqual(maxLeafRadius());
+    expect(biggest).toBeGreaterThan(maxLeafRadius() * 0.85);
     expect(biggest + DRAPE_FOOT).toBeLessThanOrEqual(leafReach());
     expect(leafReach()).toBeLessThan(stampLimit());
     expect(stampLimit()).toBeLessThanOrEqual(DIST_REACH);
+    setScale(DEFAULT_SCALE);
   });
 });

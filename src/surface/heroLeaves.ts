@@ -206,7 +206,16 @@ export function stepHeroLeaves(
       continue;
     }
     const surf = shortcuts && p.x[i] === sx && p.z[i] === sz ? surf0 : surfaceOr(surfaceAt, p.x[i], p.z[i], surf0);
-    const jumped = rideBody(p, i, surf, pushers, count, pitchK, liftDown, unpress);
+    // A leaf longer than a metre (only True's) tilts and settles more slowly, with the fourth power
+    // of its length (it is heavier to swing): its far edge would otherwise carry the best-tilt
+    // search's small steps between neighbouring solutions out to visible jitter
+    // (tests/unit/leafJitter.test.ts: 4.06% of steps over 2 mm unslowed, 3.05% with the cube, 2.86%
+    // with the fourth power, against 3%). Classic leaves (1 m at most) keep the shared rates.
+    const s2 = p.size[i] * p.size[i];
+    const slow = p.size[i] > 1 ? 1 / (s2 * s2) : 1;
+    const jumped = slow < 1
+      ? rideBody(p, i, surf, pushers, count, 1 - Math.exp(-PITCH_RATE * slow * dt), 1 - Math.exp(-LIFT_DOWN * slow * dt), unpress)
+      : rideBody(p, i, surf, pushers, count, pitchK, liftDown, unpress);
     const floor = surf + p.lift[i] + slotBias;
     // Hopping up as it turns over, a leaf the body lifts is carried up, still in the air.
     if (p.y[i] < floor && p.vy[i] > 0) p.y[i] = floor;

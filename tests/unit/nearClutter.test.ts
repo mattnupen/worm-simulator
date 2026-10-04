@@ -18,6 +18,7 @@ import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
 import { PRESETS } from '../../src/render/graphics';
 import { mulberry32 } from '../../src/core/random';
 import { HeroWorm, type WormPose } from '../../src/worm/wormMesh';
+import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
 
 describe('near-worm clutter (Ultra)', () => {
   const mesh = buildNearClutter();
@@ -242,7 +243,10 @@ describe('near clutter placement (TS twin of nearClutterPosition)', () => {
     expect(shrunk).toBeGreaterThan(5);
   });
 
-  it('keeps clear of the real worm over seeded crawls (the sedge never pokes through the body)', () => {
+  it.each(SCALE_MODES)('%s: keeps clear of the real worm over seeded crawls (the sedge never pokes through the body)', (mode) => {
+    setScale(mode);
+    inp.litter = litterTextureData();
+    inp.ground = groundTextureData();
     const rng = mulberry32(17);
     const crawl = new Crawl();
     const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
@@ -279,6 +283,9 @@ describe('near clutter placement (TS twin of nearClutterPosition)', () => {
     // The sample is real: items near the worm, some of them shrunk by it.
     expect(checked).toBeGreaterThan(5000);
     expect(shrunk).toBeGreaterThan(50);
+    setScale(DEFAULT_SCALE);
+    inp.litter = litterTextureData();
+    inp.ground = groundTextureData();
   });
 
   it('CLEAR covers the real body: no vertex of the worm tube lies farther than CLEAR from its spine', () => {

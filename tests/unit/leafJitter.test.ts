@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as THREE from 'three';
 import {
   createDisturbance, recentre, stampBody, packDisturbance, DIST_N, DIST_CELL, DIST_REACH, type DisturbanceMap,
@@ -16,6 +16,8 @@ import { advance, createStepper } from '../../src/core/stepper';
 import { AUTO_DRIVE_MOVE } from '../../src/game/drive';
 import type { WormPose } from '../../src/worm/wormMesh';
 import { mulberry32 } from '../../src/core/random';
+import { DEFAULT_SCALE, setScale, type ScaleMode } from '../../src/surface/worldScale';
+import { scaledLeafCount } from '../../src/surface/leafScale';
 
 /**
  * Leaves must move smoothly as the worm crawls under them (Matt's Step 1a playtest: "a little
@@ -146,10 +148,14 @@ function crawlFrames(seconds: number, frame: (crawl: Crawl, alpha: number) => vo
   return crawl;
 }
 
-describe('leaves over the crawling worm move smoothly (measured frame to frame)', () => {
+// Part 0 measured Classic; Part A re-measures at True's leaf sizes against the same thresholds.
+describe.each(['classic', 'true'] as ScaleMode[])('%s: leaves over the crawling worm move smoothly (measured frame to frame)', (mode) => {
+  beforeAll(() => { setScale(mode); });
+  afterAll(() => { setScale(DEFAULT_SCALE); });
+
   it('litter leaves: on screen, few turn back by more than half a pixel', () => {
     // Every third vertex of the near litter: world position, anchor, dip.
-    const litter = buildLeafLitter(PRESETS.ultra.litter);
+    const litter = buildLeafLitter(scaledLeafCount(PRESETS.ultra.litter));
     const P: number[] = [];
     const A: number[] = [];
     const D: number[] = [];
@@ -158,7 +164,8 @@ describe('leaves over the crawling worm move smoothly (measured frame to frame)'
       const pos = g.getAttribute('position');
       const anc = g.getAttribute('aAnchor');
       const dip = g.getAttribute('aDip');
-      for (let v = 0; v < pos.count; v += 3) {
+      // Every third vertex; True has a quarter as many (bigger) leaves, so every vertex there.
+      for (let v = 0; v < pos.count; v += mode === 'classic' ? 3 : 1) {
         P.push(pos.getX(v) + ch.near.position.x, pos.getY(v) + ch.near.position.y, pos.getZ(v) + ch.near.position.z);
         A.push(anc.getX(v), anc.getY(v), anc.getZ(v), anc.getW(v));
         D.push(dip.getX(v));

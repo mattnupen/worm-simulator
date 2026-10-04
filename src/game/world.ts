@@ -19,6 +19,7 @@ import { buildGroundProps, writeHeroLog, type GroundProps } from '../surface/gro
 import { HeroWorm, type WormPose } from '../worm/wormMesh';
 import { wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import { WORM_SEGMENTS, type Crawl } from './crawl';
+import { scaledLeafCount } from '../surface/leafScale';
 
 export interface World {
   scene: THREE.Scene;
@@ -51,8 +52,9 @@ export interface World {
  */
 export function buildWorld(crawl: Crawl): World {
   const scene = new THREE.Scene();
-  const litter = buildLeafLitter(PRESETS.ultra.litter);
-  const detail = buildDetailLayer(PRESETS.ultra.detail);
+  // Built at Ultra's counts for the scale mode (bigger leaves, fewer of them: leafScale.ts).
+  const litter = buildLeafLitter(scaledLeafCount(PRESETS.ultra.litter));
+  const detail = buildDetailLayer(scaledLeafCount(PRESETS.ultra.detail));
   const hero = new HeroLeafMesh(crawl.hero);
   const props = buildGroundProps();
   const nearClutter = buildNearClutterLayer();
@@ -79,8 +81,8 @@ export function buildWorld(crawl: Crawl): World {
     scene, litter, detail, hero, props, nearClutter, atmosphere, worm,
     apply(spec) {
       reaction = spec.reaction;
-      litter.setCount(spec.litter);
-      detail.setCount(spec.detail);
+      litter.setCount(scaledLeafCount(spec.litter));
+      detail.setCount(scaledLeafCount(spec.detail));
       props.setDensity(spec.clutter);
       nearClutter.show(spec.nearClutter);
       atmosphere.setLevel(spec.effects, spec.extraEffects);

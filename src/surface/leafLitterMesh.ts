@@ -11,6 +11,7 @@ import { meshGroundHeight } from './terrainMesh';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
 import { LeafBuffers, type LeafLook } from './leafWriter';
+import { scaleSpec } from './worldScale';
 import {
   ACTIVE_MARGIN, DRAPE_MARGIN, boxesMeet, chunkCentreX, chunkCentreZ, chunkDistance, countBelow,
   groupByChunk, hullBox, nextLod,
@@ -70,8 +71,10 @@ function looks(leaves: readonly LeafPlacement[], seed: number): LeafLook[] {
   const pos = new THREE.Vector3();
   const scl = new THREE.Vector3();
   const shadeAt = makeShadeAt(sharedLighting.uLightDir.value);
+  const grow = scaleSpec().leaf;
   return leaves.map((l) => {
-    const size = l.scale * LEAF_SIZE[l.kind];
+    // The scale mode's real-size leaves (worldScale.ts): 1 in Classic.
+    const size = l.scale * LEAF_SIZE[l.kind] * grow[l.kind];
     // Dry oak curls hardest; big leaves lie flatter, so no edge rises much over ~0.12.
     const flat = Math.min(1, 0.9 / size);
     const form = {
@@ -119,7 +122,8 @@ function chunkMesh(b: LeafBuffers, material: THREE.Material, cx: number, cz: num
 /**
  * The leaf litter in square chunks (see litterChunks.ts), each with a full-leaf and a low-detail
  * mesh: species silhouettes with a midrib fold, cup and curl, tinted per leaf and lying on the
- * rendered ground in loose layers. Presets trim every chunk with a draw range (no rebuild).
+ * rendered ground in loose layers, at the active scale mode's leaf sizes (pass the mode's count,
+ * scaledLeafCount). Presets trim every chunk with a draw range (no rebuild).
  */
 export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   const placed = placeLeaves(count, WORLD_HALF, seed, litterDepth);

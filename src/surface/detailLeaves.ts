@@ -7,6 +7,7 @@ import { LEAF_KINDS, type LeafKind } from './leafLitter';
 import { detailShape } from './detailShape';
 import { leafLift, leafNormal, type LeafForm } from './leafForm';
 import { leafTint, LEAF_SIZE, LATERAL_VEINS } from './leafPalette';
+import { scaleSpec } from './worldScale';
 
 export interface DetailLeaves {
   mesh: THREE.Mesh;
@@ -36,6 +37,8 @@ function reach(kind: LeafKind): number {
  */
 export function buildDetailLeaves(count = PRESETS.ultra.detail, seed = 3): DetailLeaves {
   const rng = mulberry32(seed);
+  // The scale mode's leaf sizes (worldScale.ts): 1 in Classic. Pass the mode's count (scaledLeafCount).
+  const grow = scaleSpec().leaf;
   const kinds = Array.from({ length: count }, () => LEAF_KINDS[Math.floor(rng() * LEAF_KINDS.length)]);
   let verts = 0;
   let idx = 0;
@@ -65,7 +68,7 @@ export function buildDetailLeaves(count = PRESETS.ultra.detail, seed = 3): Detai
     // area on screen (the layer is fill-bound). `size` is the leaf's scale, 0.21 to 0.39 of its
     // species' LEAF_SIZE (0.21 to 0.62 m, against the litter's 0.6 to 1.9); its radius
     // (aDetail.w, size times the shape's reach) is 0.11 to 0.385 m.
-    const size = LEAF_SIZE[kind] * (0.21 + rng() * 0.18);
+    const size = LEAF_SIZE[kind] * (0.21 + rng() * 0.18) * grow[kind];
     form.fold = 0.1 + rng() * 0.2;
     form.cup = 0.2 + rng() * (kind === 'oak' ? 0.5 : 0.3);
     form.curl = 0.2 + rng() * (kind === 'oak' ? 0.35 : 0.25);

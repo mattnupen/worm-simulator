@@ -1,3 +1,6 @@
+import { LEAF_KINDS } from './leafLitter';
+import { scaleSpec } from './worldScale';
+
 /**
  * The hero-leaf pool (spec 5.4): the per-slot state of a small set of loose leaves, as plain
  * typed arrays (see heroLeaves.ts for their physics, heroSpawn.ts for where they appear).
@@ -64,6 +67,15 @@ export function hash01(a: number, b: number): number {
   return (h >>> 0) / 4294967296;
 }
 
+/**
+ * Sets every slot's leaf length from its fixed base (0.55 to 1 m) times its species' size in the
+ * active scale mode (worldScale.ts). createHeroLeaves calls it; call it again after a mode change.
+ */
+export function sizeHeroLeaves(p: HeroLeaves): void {
+  const grow = scaleSpec().leaf;
+  for (let i = 0; i < p.max; i++) p.size[i] = (0.55 + 0.45 * hash01(i, p.seed + 101)) * grow[LEAF_KINDS[p.kind[i]]];
+}
+
 export function createHeroLeaves(max = HERO_MAX, seed = 1): HeroLeaves {
   const f = () => new Float32Array(max);
   const p: HeroLeaves = {
@@ -72,10 +84,8 @@ export function createHeroLeaves(max = HERO_MAX, seed = 1): HeroLeaves {
     pitch: f(), pitchDir: f(), lift: f(), pinned: f(), wedged: f(), flat: f(),
     px: f(), py: f(), pz: f(), pyaw: f(), pflip: f(), ppitch: f(), ppitchDir: f(), pflat: f(), size: f(), kind: new Uint8Array(max),
   };
-  for (let i = 0; i < max; i++) {
-    p.size[i] = 0.55 + 0.45 * hash01(i, seed + 101);
-    p.kind[i] = Math.floor(hash01(i, seed + 202) * 5);
-  }
+  for (let i = 0; i < max; i++) p.kind[i] = Math.floor(hash01(i, seed + 202) * 5);
+  sizeHeroLeaves(p);
   return p;
 }
 
