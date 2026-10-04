@@ -82,6 +82,20 @@ export function loadSettings(store: KeyValueStore | null): Settings {
   }
 }
 
+/**
+ * The world scale the player stored, or null when none is (they never picked one, or storage
+ * is missing or unreadable). loadSettings fills in DEFAULT_SCALE instead.
+ */
+export function storedScale(store: KeyValueStore | null): ScaleMode | null {
+  if (!store) return null;
+  try {
+    const s = storedObject(store)?.scale;
+    return isScaleMode(s) ? s : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Writes `fields` over the stored object, keeping fields this build does not know. False if it failed. */
 function write(store: KeyValueStore, kept: Record<string, unknown>, fields: Record<string, unknown>): boolean {
   try {

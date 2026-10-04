@@ -20,6 +20,21 @@ const saved = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getIte
 const ready = (page: Page, mode: ScaleMode) =>
   expect(page.getByText(`The forest is ready: ${SCALE_LABELS[mode]}.`)).toBeVisible({ timeout: 30_000 });
 
+/**
+ * Counts WebGL buffer deletions. Only freeing the old forest after a rebuild deletes buffers here,
+ * so a rise proves a rebuild really ran.
+ */
+async function countDeletes(page: Page): Promise<() => Promise<number>> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __deletes: number };
+    w.__deletes = 0;
+    const proto = WebGL2RenderingContext.prototype;
+    const del = proto.deleteBuffer;
+    proto.deleteBuffer = function (b) { w.__deletes++; return del.call(this, b); };
+  });
+  return () => page.evaluate(() => (window as unknown as { __deletes: number }).__deletes);
+}
+
 test('keyboard only: Start -> World scale, pick a mode, it builds, saves, and Esc returns focus', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto(PAGE);
@@ -52,6 +67,7 @@ test('keyboard only: Start -> World scale, pick a mode, it builds, saves, and Es
 
 test('switching modes rebuilds the forest without compiling a single shader, offline, with no errors', async ({ page, context }) => {
   const errors = watchErrors(page);
+  const deletes = await countDeletes(page);
   const outside: string[] = [];
   page.on('request', (r) => { if (!/^(file|data|blob):/.test(r.url())) outside.push(r.url()); });
   await page.addInitScript(() => {
@@ -70,8 +86,11 @@ test('switching modes rebuilds the forest without compiling a single shader, off
   expect(before).toBeGreaterThan(0);
   await button(page, 'World scale').click();
   for (const m of ['true', 'hybrid', 'classic', 'true'] as ScaleMode[]) {
+    const freed = await deletes();
     await radio(page, m).check();
     await ready(page, m);
+    // The old forest was really freed: this switch rebuilt it.
+    expect(await deletes()).toBeGreaterThan(freed);
     await page.waitForTimeout(300);
   }
   expect(await compiles()).toBe(before);
@@ -113,3 +132,46 @@ test('the speed test report names the world scale', async ({ page }) => {
   await button(page, 'Start speed test').click();
   await expect(page.getByTestId('result')).toContainText('World scale: True', { timeout: 30_000 });
 });
+
+test('a pick then Esc builds it at once on the way out, and Back returns focus to World scale', async ({ page }) => {
+  const errors = watchErrors(page);
+  const deletes = await countDeletes(page);
+  await page.goto(PAGE + '?scale=classic');
+  await button(page, 'World scale').click();
+  await expect(radio(page, 'classic')).toBeFocused();
+  const before = await deletes();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Escape');
+  await expect(button(page, 'World scale')).toBeFocused();
+  // Built before Start came back (not 400 ms later).
+  expect(await deletes()).toBeGreaterThan(before);
+  await button(page, 'World scale').click();
+  await expect(radio(page, 'hybrid')).toBeChecked();
+  await button(page, 'Back').click();
+  await expect(button(page, 'World scale')).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
+for (const leave of [false, true]) {
+  test(`a rebuild that fails shows the Something went wrong card${leave ? ' (pick, then Esc at once)' : ''}`, async ({ page }) => {
+    await page.goto(PAGE + '?scale=classic');
+    await button(page, 'World scale').click();
+    // Freeing the old forest throws once.
+    await page.evaluate(() => {
+      const proto = WebGL2RenderingContext.prototype;
+      const del = proto.deleteBuffer;
+      let armed = true;
+      proto.deleteBuffer = function (b) {
+        if (armed) { armed = false; throw new Error('test: rebuild failed'); }
+        return del.call(this, b);
+      };
+    });
+    await radio(page, 'true').check();
+    if (leave) await page.keyboard.press('Escape');
+    await expect(page.getByRole('heading', { name: 'Something went wrong' })).toBeVisible({ timeout: 30_000 });
+    await expect(button(page, 'Reload the page')).toBeFocused();
+    // It stays: nothing draws a game screen over it.
+    await page.waitForTimeout(800);
+    await expect(page.getByRole('heading', { name: 'Something went wrong' })).toBeVisible();
+  });
+}

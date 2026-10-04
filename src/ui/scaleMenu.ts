@@ -1,9 +1,7 @@
 import { el, button, menu } from './dom';
 import { SCALE_MODES, SCALE_LABELS, SCALE_DESCRIPTIONS, type ScaleMode } from '../surface/worldScale';
+import type { ScaleStatus } from '../game/scalePicker';
 import type { Shell } from './shell';
-
-/** What the World scale screen says under its choices (the card is the aria-live region). */
-export type ScaleStatus = 'idle' | 'building' | 'ready';
 
 export const BUILDING_TEXT = 'Building the forest…';
 

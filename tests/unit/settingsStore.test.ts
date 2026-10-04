@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  loadSettings, saveSettings, updateSettings, DEFAULT_SETTINGS, SETTINGS_KEY, type KeyValueStore,
+  loadSettings, saveSettings, storedScale, updateSettings, DEFAULT_SETTINGS, SETTINGS_KEY, type KeyValueStore,
 } from '../../src/save/settingsStore';
 import { DEFAULT_SCALE } from '../../src/surface/worldScale';
 
@@ -95,6 +95,15 @@ describe('settings store', () => {
     const picked = memory();
     expect(updateSettings(picked, { scale: 'true' }).scale).toBe('true');
     expect(JSON.parse(picked.data[SETTINGS_KEY])).toEqual({ version: 1, graphics: 'auto', autoSettled: null, scale: 'true' });
+  });
+
+  it('storedScale is the picked scale, or null when none is stored', () => {
+    expect(storedScale(stored({ version: 1, graphics: 'low', autoSettled: null, scale: 'hybrid' }))).toBe('hybrid');
+    expect(storedScale(stored({ version: 1, graphics: 'low', autoSettled: null }))).toBeNull();
+    expect(storedScale(stored({ version: 1, graphics: 'low', autoSettled: null, scale: 'huge' }))).toBeNull();
+    expect(storedScale(memory())).toBeNull();
+    expect(storedScale(throwing)).toBeNull();
+    expect(storedScale(null)).toBeNull();
   });
 
   it('survives storage that throws, on read and on write', () => {

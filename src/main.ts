@@ -19,15 +19,16 @@ import { buildWorld } from './game/world';
 import { Crawl } from './game/crawl';
 import { AUTO_DRIVE_MOVE } from './game/drive';
 import { scaledLeafCount } from './surface/leafScale';
-import { browserStore, loadSettings, updateSettings } from './save/settingsStore';
-import { SCALE_LABELS, scaleSpec, setScale, type ScaleMode } from './surface/worldScale';
+import { browserStore, loadSettings } from './save/settingsStore';
+import { SCALE_LABELS, scaleSpec, setScale } from './surface/worldScale';
 import { FPS_CAP, SpeedTestRunner } from './perf/speedTestRunner';
 import { formatContextLostResults, formatNoWebGLResults } from './perf/speedTest';
 import { basicDeviceInfo, deviceInfo } from './perf/device';
 import { createShell } from './ui/shell';
 import { showCrawl, showLost, showPause, showStart } from './ui/menus';
 import { showGraphics } from './ui/graphicsMenu';
-import { setScaleStatus, showScale, type ScaleStatus } from './ui/scaleMenu';
+import { setScaleStatus, showScale } from './ui/scaleMenu';
+import { ScalePicker } from './game/scalePicker';
 import { showResult, showRunning, showTestIntro } from './ui/speedTestUi';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
@@ -39,11 +40,6 @@ const CRASH_TITLE = 'Something went wrong';
 const NO_MOVE: Vec2 = Object.freeze({ x: 0, y: 0 });
 /** The game's frame cap; the speed test lifts it for its uncapped phase. */
 const MAX_FPS = FPS_CAP;
-/**
- * A World scale pick is built this long after the last one (ms): arrowing from Classic to True
- * builds the forest once, not for every choice passed on the way.
- */
-const SCALE_SETTLE_MS = 400;
 
 const params = parseParams(location.search);
 const app = document.getElementById('app')!;
@@ -109,10 +105,8 @@ function start(renderer: THREE.WebGLRenderer): void {
   let lastNow = performance.now();
   /** Something changed while frozen (preset, size): draw one more frame. */
   let dirty = true;
-  /** The World scale screen's note, and a picked mode waiting to be built. */
-  let scaleStatus: ScaleStatus = 'idle';
-  let pendingScale: ScaleMode | null = null;
-  let scaleTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Leaving World scale waits one painted frame (see dispatch); other screen events wait too. */
+  let leaving = false;
 
   const runner = new SpeedTestRunner({
     // Every run starts at the spawn, whatever the player did before opening the test.
@@ -176,45 +170,28 @@ function start(renderer: THREE.WebGLRenderer): void {
   }
 
   /**
-   * Rebuilds the forest for `mode` behind the Start screen (Step 1b spec 4.3) through
-   * world.switchForest: the new forest takes over the old one's compiled shaders before the old
-   * one is freed, so nothing recompiles; the crawl starts again at the spawn.
+   * The World scale screen's picks (Step 1b spec 4.3): built once the picking settles, or when the
+   * player leaves; saved by its rule (see ScalePicker). A build goes through world.switchForest:
+   * the new forest takes over the old one's compiled shaders before the old one is freed, so
+   * nothing recompiles; the crawl starts again at the spawn. A build that throws shows the crash
+   * card (the loop is stopped: the half-switched forest is never drawn).
    */
-  function switchScale(mode: ScaleMode): void {
-    if (mode === scaleSpec().mode) return;
-    setScale(mode);
-    world.switchForest(renderer, camera);
-    dirty = true;
-    // The frames around the rebuild say nothing about the new forest's speed.
-    graphics.interruptAuto(performance.now());
-  }
-
-  /** A World scale pick: saved now, built once the picking settles (SCALE_SETTLE_MS). */
-  function chooseScale(mode: ScaleMode): void {
-    updateSettings(store, { scale: mode });
-    pendingScale = mode;
-    if (scaleTimer !== null) clearTimeout(scaleTimer);
-    const was = scaleStatus;
-    scaleStatus = 'building';
-    if (was !== 'building' && state.screen === 'scale') setScaleStatus(shell, scaleStatus, mode);
-    scaleTimer = setTimeout(finishScale, SCALE_SETTLE_MS);
-  }
-
-  /**
-   * Builds a waiting pick now (also when the player leaves the screen first). Not after the game
-   * is lost (context lost, crash): the settle timer can fire after that, and a rebuild or a redraw
-   * then would touch a dead renderer or replace the Lost card.
-   */
-  function finishScale(): void {
-    if (lost || pendingScale === null) return;
-    if (scaleTimer !== null) clearTimeout(scaleTimer);
-    const mode = pendingScale;
-    pendingScale = null;
-    scaleTimer = null;
-    switchScale(mode);
-    scaleStatus = 'ready';
-    if (state.screen === 'scale') setScaleStatus(shell, scaleStatus, mode);
-  }
+  const picker = new ScalePicker({
+    current: () => scaleSpec().mode,
+    build: (mode) => {
+      setScale(mode);
+      world.switchForest(renderer, camera);
+      dirty = true;
+      // The frames around the rebuild say nothing about the new forest's speed.
+      graphics.interruptAuto(performance.now());
+    },
+    show: (status, mode) => { if (state.screen === 'scale') setScaleStatus(shell, status, mode); },
+    failed: (e) => {
+      console.error(e);
+      loop.stop();
+      crash();
+    },
+  }, store);
 
   function resize(): void {
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -225,22 +202,54 @@ function start(renderer: THREE.WebGLRenderer): void {
   }
 
   function dispatch(e: ScreenEvent): void {
-    if (lost) return;
+    if (lost || leaving) return;
     const next = transition(state, e);
     if (next === state) return;
+    if (state.screen === 'scale' && picker.waiting) {
+      // Leaving World scale with a pick still settling builds it now, which blocks the page for
+      // a moment: first let "Building the forest…" paint (a frame's wait, then the build).
+      leaving = true;
+      afterPaint(() => {
+        leaving = false;
+        if (picker.flush()) dispatch(e);
+      });
+      return;
+    }
     // Leaving the speed-test screen while the test runs (Back to start) stops the test first:
     // otherwise its uncapped frame rate and quality tier would stay on, and its result would
     // later land on another screen. The running card offers no such button today.
     if (runner.running && next.screen !== 'speedTest') stopTest();
-    // Leaving World scale with a pick still settling builds it now.
-    if (state.screen === 'scale') finishScale();
     // Back from Graphics or World scale: focus returns to the button that opened it.
     const back = e.type === 'back' && (state.screen === 'graphics' || state.screen === 'scale') ? state.screen : null;
-    if (next.screen === 'scale') scaleStatus = 'idle';
+    if (next.screen === 'scale') picker.open();
     state = next;
     // A slow streak from before (or a menu over the scene) must not count against Auto.
     graphics.interruptAuto(performance.now());
     draw(back);
+  }
+
+  /**
+   * The game threw (the loop, or a World scale rebuild) and the loop is stopped: say so, do not
+   * freeze silently. Nothing builds or redraws a game screen after this.
+   */
+  function crash(): void {
+    picker.stop();
+    if (runner.running) runner.abort();
+    const finished = state.screen === 'results' && !lost ? report : null;
+    lost = true;
+    if (finished) {
+      // As after a context loss: the finished report matters more than the crash. Shown
+      // again with a note and without the buttons that need a running game.
+      report = { ...finished, summary: CRASH_AFTER_TEST_NOTE };
+      showReport();
+    } else {
+      showLost(shell, 'The game stopped unexpectedly. Reload the page to try again.', CRASH_TITLE);
+    }
+  }
+
+  /** Runs `fn` once the next frame has been painted. */
+  function afterPaint(fn: () => void): void {
+    requestAnimationFrame(() => { setTimeout(fn, 0); });
   }
 
   /** Abandons a running speed test without a result and restores the player's own settings. */
@@ -268,8 +277,8 @@ function start(renderer: THREE.WebGLRenderer): void {
           onStart: () => dispatch({ type: 'toStart' }),
         }, back === 'graphics');
       case 'scale':
-        return showScale(shell, pendingScale ?? scaleSpec().mode, scaleStatus,
-          chooseScale, () => dispatch({ type: 'back' }));
+        return showScale(shell, picker.shown, picker.status,
+          (m) => picker.choose(m), () => dispatch({ type: 'back' }));
       case 'graphics':
         return showGraphics(shell, graphics.choice, (c) => {
           graphics.choose(c);
@@ -351,19 +360,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   const loop = startLoop(update, render, {
     maxFps: MAX_FPS,
     // update() or render() threw: the loop has stopped (and logged it). Say so, do not freeze silently.
-    onError: () => {
-      if (runner.running) runner.abort();
-      const finished = state.screen === 'results' && !lost ? report : null;
-      lost = true;
-      if (finished) {
-        // As after a context loss: the finished report matters more than the crash. Shown
-        // again with a note and without the buttons that need a running game.
-        report = { ...finished, summary: CRASH_AFTER_TEST_NOTE };
-        showReport();
-      } else {
-        showLost(shell, 'The game stopped unexpectedly. Reload the page to try again.', CRASH_TITLE);
-      }
-    },
+    onError: crash,
   });
 
   renderer.domElement.addEventListener('webglcontextlost', (e) => {
@@ -371,6 +368,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     // it anyway, because a mid-test reset means the numbers cannot be trusted.
     e.preventDefault();
     loop.stop();
+    picker.stop();
     if (runner.running) {
       runner.abort();
       report = { text: formatContextLostResults(basicDeviceInfo()), pass: false, summary: RESET_NOTE };
