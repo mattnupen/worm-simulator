@@ -9,8 +9,9 @@ import type { PresetId } from '../render/graphics';
  *   pause --Graphics--> graphics
  *   pause --Back to start--> start
  *   start --Speed test--> speedTest --done--> results --Back to start--> start
+ *   start --World scale--> scale --Back--> start
  */
-export type Screen = 'start' | 'crawl' | 'pause' | 'graphics' | 'speedTest' | 'results';
+export type Screen = 'start' | 'crawl' | 'pause' | 'graphics' | 'scale' | 'speedTest' | 'results';
 
 export type ScreenEvent =
   | { type: 'crawl' }
@@ -18,6 +19,7 @@ export type ScreenEvent =
   | { type: 'hidden' }
   | { type: 'resume' }
   | { type: 'graphics' }
+  | { type: 'scale' }
   | { type: 'back' }
   | { type: 'toStart' }
   | { type: 'speedTest' }
@@ -52,7 +54,10 @@ export function transition(s: ScreenState, e: ScreenEvent): ScreenState {
       return s.screen === 'start' || s.screen === 'pause'
         ? { ...s, screen: 'graphics', graphicsFrom: s.screen }
         : s;
+    case 'scale':
+      return s.screen === 'start' ? { ...s, screen: 'scale' } : s;
     case 'back':
+      if (s.screen === 'scale') return { ...s, screen: 'start' };
       return s.screen === 'graphics' ? { ...s, screen: s.graphicsFrom } : s;
     case 'toStart':
       return s.screen === 'pause' || s.screen === 'results' || s.screen === 'speedTest'

@@ -185,6 +185,12 @@ describe('formatResults', () => {
     expect(lines[3]).toBe('Measurement restarts: 2');
   });
 
+  it('names the world scale right after the leaves, when given', () => {
+    const lines = formatResults(full, auto, 1, 368, device, 0, 'True').split('\n');
+    expect(lines[lines.indexOf('Leaves: 368') + 1]).toBe('World scale: True');
+    expect(formatResults(full, auto, 1, 368, device)).not.toContain('World scale');
+  });
+
   it('flags when the restart limit was reached', () => {
     const lines = formatResults(full, auto, 1, 2000, device, MAX_RESTARTS).split('\n');
     expect(lines[3]).toBe(

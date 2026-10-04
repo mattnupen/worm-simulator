@@ -63,6 +63,8 @@ test('keyboard only: from Start reach Graphics, Speed test and Crawl; Esc leaves
   await page.goto(QUICK);
   await expect(button(page, 'Crawl')).toBeFocused();
   await page.keyboard.press('Tab');
+  await expect(button(page, 'World scale')).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(button(page, 'Graphics')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(radio(page, 'Auto')).toBeChecked();
@@ -136,6 +138,7 @@ test('the scene is frozen while paused and moves while crawling', async ({ page 
 test('a chosen preset (picked with the arrow keys) is still selected after a reload', async ({ page }) => {
   await page.goto(PAGE);
   await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(radio(page, 'Auto')).toBeFocused();
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
@@ -147,6 +150,7 @@ test('a chosen preset (picked with the arrow keys) is still selected after a rel
 
   await page.reload();
   await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(radio(page, 'High')).toBeChecked();
   await expect(radio(page, 'Auto')).not.toBeChecked();
@@ -155,6 +159,7 @@ test('a chosen preset (picked with the arrow keys) is still selected after a rel
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowUp');
   await expect(radio(page, 'Auto')).toBeChecked();
   await page.reload();
+  await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(radio(page, 'Auto')).toBeChecked();

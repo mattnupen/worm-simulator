@@ -19,13 +19,15 @@ import { buildWorld } from './game/world';
 import { Crawl } from './game/crawl';
 import { AUTO_DRIVE_MOVE } from './game/drive';
 import { scaledLeafCount } from './surface/leafScale';
-import { browserStore } from './save/settingsStore';
+import { browserStore, loadSettings, updateSettings } from './save/settingsStore';
+import { SCALE_LABELS, scaleSpec, setScale, type ScaleMode } from './surface/worldScale';
 import { FPS_CAP, SpeedTestRunner } from './perf/speedTestRunner';
 import { formatContextLostResults, formatNoWebGLResults } from './perf/speedTest';
 import { basicDeviceInfo, deviceInfo } from './perf/device';
 import { createShell } from './ui/shell';
 import { showCrawl, showLost, showPause, showStart } from './ui/menus';
 import { showGraphics } from './ui/graphicsMenu';
+import { setScaleStatus, showScale, type ScaleStatus } from './ui/scaleMenu';
 import { showResult, showRunning, showTestIntro } from './ui/speedTestUi';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
@@ -37,6 +39,11 @@ const CRASH_TITLE = 'Something went wrong';
 const NO_MOVE: Vec2 = Object.freeze({ x: 0, y: 0 });
 /** The game's frame cap; the speed test lifts it for its uncapped phase. */
 const MAX_FPS = FPS_CAP;
+/**
+ * A World scale pick is built this long after the last one (ms): arrowing from Classic to True
+ * builds the forest once, not for every choice passed on the way.
+ */
+const SCALE_SETTLE_MS = 400;
 
 const params = parseParams(location.search);
 const app = document.getElementById('app')!;
@@ -80,12 +87,16 @@ function start(renderer: THREE.WebGLRenderer): void {
   // camera stays >= 0.5 above the litter and 2.6 behind the worm, so nothing it normally looks
   // at comes within 0.2 of the lens.
   const camera = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
+  const store = browserStore();
+  // The world scale: a forced ?scale= for this visit (tests, gates), else the saved choice. Set
+  // before anything is built from it.
+  setScale(params.scale ?? loadSettings(store).scale);
   const crawl = new Crawl();
   const world = buildWorld(crawl);
   const keyboard = new KeyboardInput();
   const joystick = new TouchJoystick(app);
   const meter = new FpsMeter();
-  const graphics = new GraphicsControl(browserStore(), params.preset);
+  const graphics = new GraphicsControl(store, params.preset);
   // The speed test measures a forced ?preset= or, normally, High.
   const testBase = PRESETS[params.preset ?? 'high'];
   const drawSize = new THREE.Vector2();
@@ -98,6 +109,10 @@ function start(renderer: THREE.WebGLRenderer): void {
   let lastNow = performance.now();
   /** Something changed while frozen (preset, size): draw one more frame. */
   let dirty = true;
+  /** The World scale screen's note, and a picked mode waiting to be built. */
+  let scaleStatus: ScaleStatus = 'idle';
+  let pendingScale: ScaleMode | null = null;
+  let scaleTimer: ReturnType<typeof setTimeout> | null = null;
 
   const runner = new SpeedTestRunner({
     // Every run starts at the spawn, whatever the player did before opening the test.
@@ -110,6 +125,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     showPhase: (p) => showRunning(shell,
       p.id === 'full' ? 'Test 1 of 2: full quality' : 'Test 2 of 2: auto quality', p.id === 'full' ? 1 : 2, 2),
     deviceInfo: () => deviceInfo(renderer),
+    worldScale: () => SCALE_LABELS[scaleSpec().mode],
   }, params.quick, () => world.litter.drawn + world.detail.drawn);
 
   function updateResolution(): void {
@@ -159,6 +175,47 @@ function start(renderer: THREE.WebGLRenderer): void {
     }
   }
 
+  /**
+   * Rebuilds the forest for `mode` behind the Start screen (Step 1b spec 4.3) through
+   * world.switchForest: the new forest takes over the old one's compiled shaders before the old
+   * one is freed, so nothing recompiles; the crawl starts again at the spawn.
+   */
+  function switchScale(mode: ScaleMode): void {
+    if (mode === scaleSpec().mode) return;
+    setScale(mode);
+    world.switchForest(renderer, camera);
+    dirty = true;
+    // The frames around the rebuild say nothing about the new forest's speed.
+    graphics.interruptAuto(performance.now());
+  }
+
+  /** A World scale pick: saved now, built once the picking settles (SCALE_SETTLE_MS). */
+  function chooseScale(mode: ScaleMode): void {
+    updateSettings(store, { scale: mode });
+    pendingScale = mode;
+    if (scaleTimer !== null) clearTimeout(scaleTimer);
+    const was = scaleStatus;
+    scaleStatus = 'building';
+    if (was !== 'building' && state.screen === 'scale') setScaleStatus(shell, scaleStatus, mode);
+    scaleTimer = setTimeout(finishScale, SCALE_SETTLE_MS);
+  }
+
+  /**
+   * Builds a waiting pick now (also when the player leaves the screen first). Not after the game
+   * is lost (context lost, crash): the settle timer can fire after that, and a rebuild or a redraw
+   * then would touch a dead renderer or replace the Lost card.
+   */
+  function finishScale(): void {
+    if (lost || pendingScale === null) return;
+    if (scaleTimer !== null) clearTimeout(scaleTimer);
+    const mode = pendingScale;
+    pendingScale = null;
+    scaleTimer = null;
+    switchScale(mode);
+    scaleStatus = 'ready';
+    if (state.screen === 'scale') setScaleStatus(shell, scaleStatus, mode);
+  }
+
   function resize(): void {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -175,12 +232,15 @@ function start(renderer: THREE.WebGLRenderer): void {
     // otherwise its uncapped frame rate and quality tier would stay on, and its result would
     // later land on another screen. The running card offers no such button today.
     if (runner.running && next.screen !== 'speedTest') stopTest();
-    // Back from Graphics: focus returns to the Graphics button that opened it.
-    const fromGraphics = e.type === 'back' && state.screen === 'graphics';
+    // Leaving World scale with a pick still settling builds it now.
+    if (state.screen === 'scale') finishScale();
+    // Back from Graphics or World scale: focus returns to the button that opened it.
+    const back = e.type === 'back' && (state.screen === 'graphics' || state.screen === 'scale') ? state.screen : null;
+    if (next.screen === 'scale') scaleStatus = 'idle';
     state = next;
     // A slow streak from before (or a menu over the scene) must not count against Auto.
     graphics.interruptAuto(performance.now());
-    draw(fromGraphics);
+    draw(back);
   }
 
   /** Abandons a running speed test without a result and restores the player's own settings. */
@@ -190,14 +250,15 @@ function start(renderer: THREE.WebGLRenderer): void {
     applyActive();
   }
 
-  function draw(fromGraphics = false): void {
+  function draw(back: 'graphics' | 'scale' | null = null): void {
     switch (state.screen) {
       case 'start':
         return showStart(shell, {
           onCrawl: () => dispatch({ type: 'crawl' }),
+          onScale: () => dispatch({ type: 'scale' }),
           onGraphics: () => dispatch({ type: 'graphics' }),
           onSpeedTest: () => dispatch({ type: 'speedTest' }),
-        }, fromGraphics);
+        }, back);
       case 'crawl':
         return showCrawl(shell);
       case 'pause':
@@ -205,7 +266,10 @@ function start(renderer: THREE.WebGLRenderer): void {
           onResume: () => dispatch({ type: 'resume' }),
           onGraphics: () => dispatch({ type: 'graphics' }),
           onStart: () => dispatch({ type: 'toStart' }),
-        }, fromGraphics);
+        }, back === 'graphics');
+      case 'scale':
+        return showScale(shell, pendingScale ?? scaleSpec().mode, scaleStatus,
+          chooseScale, () => dispatch({ type: 'back' }));
       case 'graphics':
         return showGraphics(shell, graphics.choice, (c) => {
           graphics.choose(c);
@@ -334,13 +398,13 @@ function start(renderer: THREE.WebGLRenderer): void {
     }
   });
 
-  // Esc or P pauses and resumes; Esc also leaves the Graphics menu.
+  // Esc or P pauses and resumes; Esc also leaves the Graphics and World scale screens.
   window.addEventListener('keydown', (e) => {
     if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
     const pauseKey = e.code === 'Escape' || e.code === 'KeyP';
     if (state.screen === 'crawl' && pauseKey) dispatch({ type: 'pause' });
     else if (state.screen === 'pause' && pauseKey) dispatch({ type: 'resume' });
-    else if (state.screen === 'graphics' && e.code === 'Escape') dispatch({ type: 'back' });
+    else if ((state.screen === 'graphics' || state.screen === 'scale') && e.code === 'Escape') dispatch({ type: 'back' });
     else return;
     e.preventDefault();
   });

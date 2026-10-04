@@ -40,6 +40,7 @@ test('the speed test starts from the keyboard alone', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Crawl' })).toBeFocused();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Speed test', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
   const start = page.getByRole('button', { name: 'Start speed test' });

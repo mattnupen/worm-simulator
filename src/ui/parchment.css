@@ -61,11 +61,11 @@ canvas { display: block; }
 
 /* Title-card screens sit bottom-left, clear of the worm. */
 .panel[data-state="start"], .panel[data-state="speedTest"], .panel[data-state="pause"],
-.panel[data-state="graphics"], .panel[data-state="lost"] {
+.panel[data-state="graphics"], .panel[data-state="scale"], .panel[data-state="lost"] {
   left: var(--edge); bottom: var(--edge-y); width: min(540px, calc(100vw - 32px));
   max-height: calc(100dvh - var(--edge-y) - 16px);
 }
-.panel[data-state="graphics"] { width: min(620px, calc(100vw - 32px)); }
+.panel[data-state="graphics"], .panel[data-state="scale"] { width: min(620px, calc(100vw - 32px)); }
 /* Small top-left cards while the scene is the point. */
 .panel[data-state="running"],
 .panel[data-state="crawl"] { left: var(--edge); top: 16px; width: min(400px, calc(100vw - 32px)); padding: 18px 24px 20px; }
@@ -168,6 +168,9 @@ canvas { display: block; }
 .choice-words { display: grid; gap: 2px; }
 .choice-name { font-size: 22px; font-weight: 800; }
 .choice-desc { font-size: 18px; color: var(--ink-soft); }
+.choices .lead { margin-bottom: 4px !important; }
+/* What the forest is doing after a World scale pick; reserved height, so nothing jumps. */
+.scale-status { min-height: 1.4em; margin-top: 12px !important; font-weight: 700; color: var(--ink); }
 
 /* ---------- Running: quest-tracker card, top-left so the worm stays clear ---------- */
 .running-label { font-size: 24px; font-weight: 800; line-height: 1.2; margin-top: 4px !important; }
