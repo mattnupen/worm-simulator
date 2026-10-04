@@ -150,13 +150,30 @@ function depthIn(id: number, x: number, z: number, pad: number, out: ObstacleHit
 }
 
 /**
- * The footprints a slideMove has met: which, the way out of each, and how far along it the move
- * must reach to stay out (the move m keeps out of footprint i while m . n_i >= b_i).
+ * The edges a slideMove has met: which (a footprint's id as deepestId, or a play edge's, below),
+ * the way back from each, and how far along it the move must reach to stay behind it (the move m
+ * keeps behind edge i while m . n_i >= b_i). Up to three footprints and two play edges.
  */
-const metIds = new Int32Array(3);
-const metN = new Float64Array(6);
-const metB = new Float64Array(3);
+const metIds = new Int32Array(5);
+const metN = new Float64Array(10);
+const metB = new Float64Array(5);
 let met = 0;
+/** Ids for the play area's edges (x = +half, x = -half, z = +half, z = -half), below the log's -1. */
+const EDGE_X_HI = -2;
+const EDGE_X_LO = -3;
+const EDGE_Z_HI = -4;
+const EDGE_Z_LO = -5;
+
+/** Adds edge `id` (the way back n, reach b) to the edges met, unless it is met already; false if it was. */
+function meet(id: number, nx: number, nz: number, b: number): boolean {
+  for (let i = 0; i < met; i++) if (metIds[i] === id) return false;
+  metIds[met] = id;
+  metN[2 * met] = nx;
+  metN[2 * met + 1] = nz;
+  metB[met] = b;
+  met++;
+  return true;
+}
 /** The wanted move, and the nearest move to it found so far that keeps out of all of them. */
 let wantX = 0;
 let wantZ = 0;
@@ -182,25 +199,41 @@ function consider(ax: number, az: number): void {
  * by `radius`) the move ends in becomes an edge to keep behind (the line touching it nearest
  * `from`), and the move becomes the nearest one that keeps behind them all: against one footprint
  * the point slides along its edge, and in a notch where two meet it stops in the notch and stays
- * there, instead of being pushed from one side to the other. Writes the result into `to`, and
- * leaves `to` exactly as it was when the move is clear. Allocates nothing.
+ * there, instead of being pushed from one side to the other. The play area's edges (|x|, |z| up
+ * to `half`) are fixed edges too: a slide never carries the point out of it, and where a footprint
+ * crosses one the point stops in that notch. Writes the result into `to`, and leaves `to` exactly
+ * as it was when the move is clear of every footprint. Allocates nothing.
  */
-export function slideMove(from: { x: number; z: number }, to: { x: number; z: number }, radius: number): void {
+export function slideMove(
+  from: { x: number; z: number }, to: { x: number; z: number }, radius: number, half = Infinity,
+): void {
   wantX = to.x - from.x;
   wantZ = to.z - from.z;
   met = 0;
-  for (let k = 0; k < 3; k++) {
-    if (!(obstacleDepth(to.x, to.z, radius, contact) > 0)) return;
-    let i = 0;
-    while (i < met && metIds[i] !== deepestId) i++;
-    // Still a hair inside an edge already met (by rounding): pushOut sees to it.
-    if (i < met) return;
-    // Its edge as seen from where the point was: the line touching it at its point nearest there.
-    metIds[i] = deepestId;
-    metB[i] = depthIn(deepestId, from.x, from.z, radius, contact);
-    metN[2 * i] = contact.nx;
-    metN[2 * i + 1] = contact.nz;
-    met++;
+  let props = 0;
+  for (let k = 0; k < 5; k++) {
+    if (obstacleDepth(to.x, to.z, radius, contact) > 0) {
+      // Three footprints with no way between them: pushOut sees to it.
+      if (props === 3) return;
+      // Its edge as seen from where the point was: the line touching it at its point nearest there.
+      const id = deepestId;
+      const b = depthIn(id, from.x, from.z, radius, contact);
+      // Still a hair inside an edge already met (by rounding): pushOut sees to it.
+      if (!meet(id, contact.nx, contact.nz, b)) return;
+      props++;
+    } else if (met === 0) {
+      return;
+    } else if (to.x > half + 1e-9) {
+      if (!meet(EDGE_X_HI, -1, 0, from.x - half)) return;
+    } else if (to.x < -half - 1e-9) {
+      if (!meet(EDGE_X_LO, 1, 0, -half - from.x)) return;
+    } else if (to.z > half + 1e-9) {
+      if (!meet(EDGE_Z_HI, 0, -1, from.z - half)) return;
+    } else if (to.z < -half - 1e-9) {
+      if (!meet(EDGE_Z_LO, 0, 1, -half - from.z)) return;
+    } else {
+      return;
+    }
     // The nearest allowed move is the wanted one, or on one edge, or where two edges cross.
     bestD2 = Infinity;
     consider(wantX, wantZ);
@@ -217,7 +250,7 @@ export function slideMove(from: { x: number; z: number }, to: { x: number; z: nu
         consider((metB[c] * ez - metB[e] * cz) / det, (cx * metB[e] - ex * metB[c]) / det);
       }
     }
-    // Three edges with no way between them: pushOut sees to it.
+    // Edges with no way between them: pushOut sees to it.
     if (bestD2 === Infinity) return;
     to.x = from.x + bestX;
     to.z = from.z + bestZ;
