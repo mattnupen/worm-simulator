@@ -1,7 +1,7 @@
 # Step 1b: Leaf Jitter Fix, World Scale Modes, and Level 1 "First Bite", Design
 
 Date: 2026-10-03
-Status: Draft for Matt's review
+Status: Part 0 and Part A are built (V1 · True Size, section 4.7); Part B is next
 Parent spec: `docs/superpowers/specs/2026-09-30-worm-simulator-design.md` (sections 3.2, 3.3, 3.4, 5, 6, 8.3)
 Previous round: `docs/superpowers/specs/2026-10-01-game-shell-and-forest-floor-v2-design.md`
 
@@ -146,7 +146,8 @@ The worm, its speed and the camera stay the same in every mode. The world stays 
     stopping dead, and the body never cuts through.
   - Hero leaves keep their own unwedging, now using the same footprints.
 - **Clear paths:** in every mode, props stay clear of the speed test's auto-drive loop and
-  corridor, the spawn and Level 1's zones (5.5). Tests check this for each mode.
+  corridor, the spawn and Level 1's zones (5.5). Tests check this for each mode. *(V1: Level 1
+  does not exist yet, so its zones are checked in Part B's plan.)*
 - **The camera stays out of props.** If the line from the head to the camera's target position
   crosses a footprint taller than the line there, the camera slides in toward the head to stop just
   short of it. It eases in and out with the existing smoothing: no snaps and no shake.
@@ -170,6 +171,192 @@ The worm, its speed and the camera stay the same in every mode. The world stays 
 - If True fails a gate, the order of cuts is: leaf counts, then clutter counts, then distant-tree
   detail. Each cut is recorded in this spec.
 - Draw calls stay at 40 or fewer, with no shadow maps, post passes or extra render targets.
+
+### 4.7 As built (V1 · True Size)
+
+Built by `docs/superpowers/plans/2026-10-03-v1-true-size.md` on branch `step1b` (`5903ca2` to
+`5ad125d`). This records what differs from 4.1 to 4.6, what the reviews decided, and what was
+measured.
+
+**Classic is Step 1a.** Its layout, props, trees, distant ring, clutter and litter depth are
+byte for byte Step 1a's. Hash tests (`tests/unit/propPlacement.test.ts`, `scaledProps.test.ts`)
+pin every field, attribute, index and instance. A scratch comparison proved them equal to
+`355e777`, the last commit before Part A. (The test comments name `7ce8936`, a later Part A
+commit that draws the same Classic bytes; `355e777` is the true baseline.) There are two
+deliberate exceptions:
+- **Litter that sank.** 47 litter leaves that tipped into the ground at a mound's edge are re-laid
+  at the terrain mesh's slope. Any vertex still under the rendered ground is draped onto it:
+  about 4.7% of full-leaf vertices move, by up to 0.5. Colours, UVs and indices are unchanged.
+- **Bigger hero-leaf footprints.** Hero leaves now use the drawn props' footprints (below), which
+  are bigger than Step 1a's.
+
+**Layouts** (`src/surface/worldScale.ts`):
+
+| | Classic | Hybrid | True |
+|---|---|---|---|
+| Near trees | 14 (seed 7, at least 4 from the spawn) | 5 (seed 15, at least 12.5) | 2 in the corners (seed 284, at least 18) |
+| Rocks | Step 1a's 7 | 5 new sites, ×4 | 5 new sites, ×4 |
+| Log | (3.9, 4.7), 4.4 long | (9, 9), turned −0.6, 19.8 long | across the view at z = 15.5, 39.6 long: a wall whose ends (x ≈ ±21.4) lie past the play area |
+| Clutter items | 64 | 24 | 24 |
+| Distant ring | 72 trees | 24, ×4.5 | 14, ×9 |
+
+**Props as drawn.**
+- Trees scale in height, girth, lean, limbs, peeling curls (normals included), root collar and
+  crown. The bark pattern grows with the trunk, so a True birch doesn't read as a picket fence.
+  The bark noise uses a flat seed, so branch scars don't break into speckles.
+- A grown fern has 14 broader leaflet pairs a frond instead of 8.
+- A grown log's broken ends are jagged at its size (`LOG_END` per unit of growth).
+- **Clutter in grown modes:** an item's *base* keeps off rocks and the log, but fronds may lean
+  over them.
+- **Log-side mushrooms in grown modes:** clusters wander along the log and stand off it by
+  varied amounts. A cluster that would overlap an earlier one is moved or skipped, which leaves
+  True 2 and Hybrid 3.
+
+**Solid props** (`src/surface/obstacles.ts`).
+- **Footprints are measured from the drawn meshes:**
+  - trunk root flare: 0.52 (birch) and 1.08 (maple) per unit of trunk size, about 0.95 for a
+    birch clump;
+  - rocks: 1.2 × their size;
+  - the log: 1.15 × its radius, plus `LOG_END` at its broken ends.
+
+  The worm, the camera, the hero leaves and clutter placement all use them.
+- **Collide and slide.** The head moves by `slideMove`. Each footprint it meets becomes an edge
+  line, and the head takes the nearest move that keeps behind every edge: it slides along one
+  edge and rests exactly in a notch. The play area's edges count as fixed edges, so a slide never
+  carries the head out.
+  - Body points use `pushOut` only, which also stays as the head's safety net.
+  - The worm keeps off props by `WORM_HALF_WIDTH` (about 0.1335, the drawn body at full-speed
+    swell), not the hand-set 0.13.
+- **Classic's straight run.** Step 1a's maple at (1.92, 8.27) keeps its place. Its footprint
+  reaches about 0.28 into the far corner of the speed test's corridor; the straight line x = 0
+  keeps 0.84 clear. Hybrid and True keep clear by distance.
+- **Clear paths:** the speed test's loop, its corridor and the spawn are checked in every mode.
+  Level 1's zones wait for Part B.
+
+**Camera** (`src/game/cameraClearance.ts`; 4.4 described one sight line).
+- **Sight lines.** It checks a fan of 3 lines from the head (the middle one, and one 0.5 rad to
+  either side) and stops 0.35 short of a prop taller than the line.
+  - A side line pulls the camera in to at most 0.8 of what the middle line allows
+    (`CAM_SIDE_FLOOR`), unless the camera is swinging toward it within 0.5 s. So brushing past a
+    trunk barely pulls it in.
+- **Easing.** The reach follows a critically damped spring: it settles in 0.25 s pulling in and
+  1 s easing out.
+- **No snaps.** The camera itself is pushed out of tall props, at least 0.15 away, instead of
+  being clamped along its line.
+- **Crane.** As it pulls in, the camera cranes up (its height grows by 25% at reach 0) and aims
+  down over the body. Below reach 0.3, its "up" blends from the sky to the worm's forward, so
+  forward stays at the top of the screen when it looks almost straight down.
+
+**Disturbance map** (`src/surface/disturbance.ts`, `leafScale.ts`).
+- **Size.** 96 × 96 cells over 12 m (12.5 cm cells, as before), with a reach of 3.65, sized once
+  for True's biggest leaf.
+- **Per-mode settings** (`disturbReach`):
+  - Stamp limit: the leaves' reach plus a lookup's spread. Classic is 1.9 m; True is capped at
+    3.65.
+  - On-top offset: the reach minus 0.2. Classic is 1.4, as in Step 1a; True is 3.2.
+  - Fade window: a `uDistFade` uniform at 85–97% of 2.5 × the reach, capped at the half span.
+    Classic is 3.4–3.88 m, Step 1a's window.
+
+  A switch changes only uniforms, so nothing recompiles.
+- **Lid rule.** A leaf lifts more and more level from radius 1.3, fully by 2.0. Only True's
+  leaves are that big. GPU parity covers big leaves.
+- **Cost, in every mode:** decay and packing are about 2.25× (the whole 96² map), and the upload
+  grows from 24.6 to 55.3 KB a frame. Classic's stamp takes 65–70 µs against 46–48.
+- **Classic trails** are kept up to 6 m and faded by the shader. Turning back within about 40 s
+  fades an old trail back in smoothly, which Step 1a did not do.
+
+**Leaves at true size.**
+- **Sizes.** Each species' factor (aspen 1.43 to oak 2.43) applies to litter, detail and hero
+  leaves. Litter is real length on average. Detail and hero leaves keep their Classic share of
+  it, so they are smaller than real (a deviation from 4.5).
+- **Counts** follow 1 / silhouette area. True draws 395 litter leaves, and 8 hero leaves on
+  Ultra instead of 32.
+- **No big-leaf slowdown.** A slowdown for leaves over 1 m (by 1/L³, then 1/L⁴) left them
+  floating for seconds, so it was removed. Jitter is measured on True's real 8 hero leaves:
+  2.1–2.2% of frames turn back by more than 2 mm, with a p99 of 4.2–4.5 mm (thresholds 3% and
+  6 mm). Litter passes Part 0's thresholds in True as in Classic.
+- **Clearance.** Hero gap medians are at most 0.12 m in every mode (True 0.105). The clearance
+  tests are at 0 violations in every mode.
+- **No sinking.** In every mode, no open-ground litter vertex lies below the rendered ground:
+  - A leaf that sinks more than 5 cm is re-laid at the mesh's slope, but only when that sinks it
+    less. True keeps the original pose for 8 of 54 such leaves and Hybrid for 2 of 60; all 47 of
+    Classic's improve.
+  - The largest drape left is 0.10 (Classic, Hybrid) and 0.20 (True).
+- **Not scaled:** Ultra's near clutter, whose shader is bounded by `NEAR_CLUTTER_REACH`.
+
+**Hero leaf respawn** (`src/surface/heroSpawn.ts`, `heroPool.ts`).
+- **Ahead first.** Wider tries stay within a quarter turn of the heading. The ring fallback
+  searches straight ahead, then alternately left and right, all of the front half (every half
+  ring) before any of the back.
+- **Never stacked.** Each leaf shifts the ring spots by its own amount (inward by up to half a
+  ring, and turned by up to half a spot in front or a whole spot behind). No two leaves land
+  within 0.15 m.
+- **Grow-in.** A new leaf grows in over 0.3 s (`HERO_GROW_IN`), eased and allocation-free, in
+  every mode.
+
+**Switching** (`src/game/world.ts`, `scalePicker.ts`).
+- **One entry point.** `World.switchForest` frees the old forest (the distant ring included) and
+  builds the new one from the spec. It compiles the new forest while the old one still holds its
+  programs, so a switch compiles 0 shaders (the e2e test counts `compileShader`), and memory
+  stays stable (it counts `deleteBuffer`). The detail layer is recreated, and the crawl's stamp
+  limit is refreshed.
+- **`ScalePicker`.**
+  - A pick is built 400 ms after the last one. Leaving the screen builds a waiting pick at once,
+    after "Building the forest…" has painted.
+  - Then the status reads "The forest is ready: True."
+  - A rebuild that throws shows the crash card.
+  - A pick is saved only if it is a real change: it differs from the mode in effect when the
+    screen opened, or a scale is already stored. So a device that never chose follows
+    `DEFAULT_SCALE` (True).
+- **Settings:** `scale` is added to `wormsim.settings`, which stays version 1, and every write
+  keeps fields it doesn't know. `?scale=` overrides the saved scale for one visit.
+- **Start:** Crawl, World scale, Graphics, Speed test (Play and Free crawl come with Part B). The
+  speed test's report names the world scale.
+
+**Performance (4.6).** `node scripts/perf-gates.mjs 4` was run on 2026-10-03 on the final code
+(`f2de2c5`). Every gate passes, with no cuts.
+
+| Preset | Gate | True median | Classic median | Draws (True / Classic) |
+|---|---|---|---|---|
+| Low | 1.089 | 1.508 | 1.511 | ≤ 25 / ≤ 26 |
+| Medium | 0.871 | 1.442 | 1.135 | ≤ 30 / ≤ 32 |
+| High | 0.741 | 0.921 | 0.742 (thin) | ≤ 31 / ≤ 31 |
+| Ultra | 0.610 | 0.755 | 0.632 | ≤ 33 / ≤ 31 |
+
+Hybrid on High: median 0.751, with at most 33 draws. Classic High clears its gate by only 0.001;
+watch it.
+
+**Known limits** (for Matt and the students; screenshots in `docs/codev/versions/v01-true-size/`):
+- big leaves lift like lids over the worm, most in True (`true-lid.jpg`);
+- True's near floor reads a bit sparser and flatter, because the same leaf area is spread over
+  fewer, bigger leaves;
+- big leaves show straight polygon edges up close;
+- the distant trees are plain pale columns;
+- Hybrid's log ends read as angled cuts (the 12-point jag is coarse);
+- a fast camera pull-in can swing the view briefly, by 0.05–0.085 rad a step for a fraction of a
+  second;
+- sliding round a big trunk can briefly show the worm through the trunk's edge (at most about
+  half a second).
+
+**Deferred** (none blocks V1):
+- code tidying:
+  - `obstacleDepth`'s `deepestId` side channel;
+  - freezing the cached layout arrays;
+  - a shared `LITTER_MEAN_SCALE` for the hand-typed True leaf factors;
+  - moving `LOG_END` to `trunkShape.ts`;
+  - `geometryHash` using `byteOffset` / `byteLength`;
+  - pointing the hash comments at `355e777`;
+- the log's look:
+  - more log rings when grown (True's 40-unit log has slight kinks at 4-unit segments);
+  - Classic's log seam is about 7 cm, not the "hairline" its comment says;
+- a `pagehide` save, so a pick made within 400 ms of closing the tab isn't lost;
+- `src/game/crawl.ts` (342 lines), `obstacles.ts` (374) and `src/main.ts` (415) are over the
+  ~260-line guide;
+- a Step 1a build open in an old tab drops a picked scale when it saves (harmless: that device
+  then follows the default);
+- the "World scale" legend isn't a real heading for screen-reader heading navigation (the same as
+  the Graphics screen);
+- `pushOutTall` could bounce between two trunks closer than 0.3 (never seen).
 
 ## 5. Part B: Core loop, Moisture and Level 1 "First bite"
 

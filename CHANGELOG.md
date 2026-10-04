@@ -16,7 +16,22 @@ How to write an entry (for Matt and Claude):
 ## Coming next: V1 · True Size
 
 ### New
-- (to be filled in as V1 is built)
+- **World scale:** a new button on the Start screen. Pick Classic, Hybrid or True to see the
+  forest at a different size next to your worm.
+- **True size is the new normal.** Leaves, mushrooms, rocks, ferns, the fallen log and the trees
+  are as big as they really are next to a 15 cm earthworm. One oak leaf can cover most of your
+  worm!
+- Tree trunks, rocks and the fallen log are solid now. Your worm slides along them instead of
+  crawling through them.
+- When a tree or rock gets in the way, the camera moves in closer so you can still see your worm.
+  If a tree is right behind you, the camera looks down from above.
+- Leaves that show up near your worm grow in gently instead of popping in.
+- The Start screen shows which version you are playing: V1 · True Size.
+- The speed test now tells you which world scale it used.
+
+### Fixed
+- Leaves no longer shake when your worm crawls under them.
+- Leaves no longer stick into the ground.
 
 ## Before V1
 

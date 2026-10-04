@@ -28,7 +28,8 @@ npm run dev            # Vite dev server
 npm test               # Vitest unit tests
 npm run test:e2e       # build + Playwright
 npm run verify:build   # build + single-file check
-npm run build && node scripts/perf-gates.mjs 4   # performance gates, relative to a Step 0 build
+npm run build && node scripts/perf-gates.mjs 4   # perf gates (True and Classic), relative to a Step 0 build
+npm run release -- <N> # freeze the build as releases/vN/index.html (after Matt approves the root build)
 ```
 
 Benchmark with only one agent running. This Mac is often busy, so perf gates compare against a
@@ -91,7 +92,7 @@ Step 0 build side by side rather than absolute fps.
 - **Timing lag:**
   - a "how" vote from VN ships in VN+1;
   - a topic vote from VN ships in VN+2, which gives a full week to build it;
-  - Matt picks the topics for V1 and V2.
+  - Matt picks the topics for V1, V2 and V3 (V1's form has no topic vote, and V2's vote picks V4).
 
 ### Consensus rules
 - All class periods' answers are combined. Plurality wins.
@@ -106,9 +107,15 @@ Step 0 build side by side rather than absolute fps.
 
 ### How co-development shapes the code
 - **Ballot choices ship as settings behind one default.** World scale (Classic, Hybrid, True) is
-  the pattern: students try each option, then vote. Applying a vote is a one-line default
-  change. Delete the losing modes once a decision is settled, unless students voted to keep the
-  choice.
+  the pattern: students try each option, then vote.
+  - One table holds every option (`src/surface/worldScale.ts`); nothing else knows which is on.
+  - Switching rebuilds in place through one entry point (`World.switchForest`), with no shader
+    compiles.
+  - A setting is saved only when the player really picks it, so a device that never chose
+    follows the default. Applying a vote is then a one-line default change that reaches every
+    device that hasn't picked.
+  - Delete the losing modes once a decision is settled, unless students voted to keep the
+    choice.
 - **Versions are small.** Size each version's new work to about one week. Split big features
   across versions so every version has something new to try and something to vote on. Specs and
   plans still go in `docs/superpowers/` and name the version they serve.
@@ -116,16 +123,20 @@ Step 0 build side by side rather than absolute fps.
 - **Versioned URLs.** Each released version is a frozen single-file snapshot served at
   `/vN/`. A snapshot is never rebuilt or edited, except for an emergency fix noted in its
   version doc. The root `/` follows `main` as Matt's preview, and students only get version links.
-  *Not built yet: setting this up is the first task of V1 prep.*
+  `npm run release -- N` freezes `releases/vN/index.html` (it refuses an existing one without
+  `--emergency-fix`). Render's build runs `scripts/copy-releases.mjs` to copy `releases/` into
+  the site (`render.yaml`, `docs/hosting.md`).
 - **One origin, shared saves.** Every version runs on wormsimulator.com, so they share
   localStorage. A new build must read older saves without crashing, and an older build must
   ignore unknown fields. Never repurpose an existing save key.
 - **Release checklist for a version:**
   1. unit tests, e2e tests and perf gates pass;
-  2. the Start-screen label shows the new number and name;
-  3. the "Coming next" changelog entry becomes the version's entry;
-  4. the snapshot is saved to `releases/vN/index.html` and served at `/vN/`;
-  5. a student Chromebook check is done if rendering changed.
+  2. the Start-screen label (`src/version.ts`) shows the new number and name;
+  3. the "Coming next" changelog entry becomes "VN · Name (date)";
+  4. merge to `main`, push, and Matt checks the root build;
+  5. `npm run release -- N`, then commit and push `releases/vN/index.html`, and check that
+     `wormsimulator.com/vN/` serves it;
+  6. a student Chromebook check is done if rendering changed.
 
 ### Each version's materials (Claude drafts, Matt publishes)
 Create `docs/codev/versions/vNN-<name-slug>.md` (for example `v02-first-bite.md`, zero-padded so

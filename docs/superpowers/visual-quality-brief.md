@@ -12,11 +12,22 @@ real.
 - Northern Minnesota hardwood forest floor in fall. Paper birch and sugar maple; leaf litter
   of ash, basswood, aspen, maple and oak. Accurate enough to recognise on a field walk.
 - **Scale is part of realism.** The worm is about 3.5 units long and 0.23 wide, and props must
-  be sized to match. A real fallen log or mushroom cap is large next to an earthworm; see the
-  open issue in the handoff doc.
+  be sized to match. A real fallen log or mushroom cap is large next to an earthworm, and True
+  mode draws them that way (see "World scale" below).
 - **The worm has no eyes.** Expression comes from body motion and the moving prostomium.
 - Meaning is never carried by colour alone. Nothing flashes more than 3 times a second.
 - The camera is gentle, with no screen shake.
+
+## World scale (V1 onward)
+- The forest is drawn in three modes (Classic, Hybrid, True) from one table,
+  `src/surface/worldScale.ts`. True is the default. Only that table knows which mode is on.
+- **Judge every visual change in True and Hybrid, not just Classic.** Big leaves, 4x rocks and
+  9x trunks show problems that Classic hides: lids, polygon edges, bark stretch, sinking leaves
+  and the camera crowding a trunk.
+- Classic must stay Step 1a byte for byte: hash tests pin it (Step 1b spec 4.7).
+- Reference screenshots of each mode, and of True's big-leaf lid, are in
+  `docs/codev/versions/v01-true-size/` (`classic.jpg`, `hybrid.jpg`, `true.jpg`, `true-lid.jpg`).
+  Use `?scale=classic|hybrid|true` to compare.
 
 ## Performance budget (verify; don't guess)
 - One scene render per frame. No shadow maps, no post-processing passes, no extra render
@@ -34,7 +45,8 @@ real.
   `npm run build && node scripts/perf-gates.mjs 4`
   - The script runs the speed test in headless Chromium with software WebGL. Each preset is run
     back to back with the Step 0 page, and its median fps ratio must clear the gate: Low 1.09,
-    Medium 0.87, High 0.74, Ultra 0.61.
+    Medium 0.87, High 0.74, Ultra 0.61. It runs every preset in True and in Classic
+    (`--scale=hybrid` for another mode; `--list` shows the run order).
   - For a single run, use `node scripts/bench.mjs . <label> "?speedtest=1&preset=high"`.
 - **Twins.** GLSL with a TypeScript twin must stay in step with it.
   `tests/e2e/glslParity.spec.ts` runs the real shaders through transform feedback. Print shared

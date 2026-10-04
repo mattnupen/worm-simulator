@@ -25,7 +25,7 @@ What each version's form decides:
 | Next topic: 3 vetted options | VN+2 |
 | Ideas: themes from VN−1's write-ins | VN+1 or VN+2, depending on size |
 
-Matt picks the topics for V1 and V2.
+Matt picks the topics for V1, V2 and V3: V1's form has no topic vote, and V2's topic vote picks V4.
 
 ## What students see each version (Canvas)
 
@@ -116,9 +116,10 @@ students can go back and compare. The root URL follows `main` and is a preview f
 All versions share one origin and one localStorage, so save data must stay compatible both ways
 (see `CLAUDE.md`).
 
-*Status: not built yet. It is the first task of V1 prep. It needs:*
-- *a script that snapshots `dist/index.html` into `releases/vN/index.html` (committed);*
-- *a Render build step that copies `releases/` into `dist/`.*
+Built in V1 prep. `npm run release -- N` checks the build is labelled VN, then copies
+`dist/index.html` to `releases/vN/index.html`, which you commit. It refuses to overwrite a
+released version unless you pass `--emergency-fix`. Render's build runs
+`scripts/copy-releases.mjs`, which copies `releases/` into the site (`docs/hosting.md`).
 
 ## Suggested first versions
 
@@ -138,6 +139,6 @@ splits naturally:
 - `versions/vNN-<name-slug>.md`: one doc per version, made from `version-template.md`. Example:
   `v02-first-bite.md`, zero-padded so the files sort.
 - `../../CHANGELOG.md`: what changed in each version, written for students.
-- `../../releases/vN/index.html`: the frozen build students play at `/vN/` (once set up).
+- `../../releases/vN/index.html`: the frozen build students play at `/vN/`.
 - `topics.md`: the topic pool, with sources and prerequisites.
 - `../../codev-raw/`: raw exports. Git-ignored and never committed.
