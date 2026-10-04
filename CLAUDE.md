@@ -16,6 +16,7 @@ below). The full playbook is `docs/codev/README.md`.
 | Current and past versions | `docs/codev/versions/` |
 | What changed in each version (student-friendly) | `CHANGELOG.md` |
 | Topic pool students vote from | `docs/codev/topics.md` |
+| The 8-week plan (V1–V8) | `docs/codev/roadmap.md` |
 | Parent game design (vision, science, accessibility) | `docs/superpowers/specs/2026-09-30-worm-simulator-design.md` |
 | Latest handoff | newest file in `docs/superpowers/handoff/` |
 | Visual and performance rules (**read before any rendering work**) | `docs/superpowers/visual-quality-brief.md` |
@@ -92,7 +93,7 @@ Step 0 build side by side rather than absolute fps.
 - **Timing lag:**
   - a "how" vote from VN ships in VN+1;
   - a topic vote from VN ships in VN+2, which gives a full week to build it;
-  - Matt picks the topics for V1, V2 and V3 (V1's form has no topic vote, and V2's vote picks V4).
+  - Matt picks the topics for V1, V2 and V3 (V1's form has no topic vote, and V2's vote picks V4), plus the V8 finale. The current 8-week plan is `docs/codev/roadmap.md`.
 
 ### Consensus rules
 - All class periods' answers are combined. Plurality wins.

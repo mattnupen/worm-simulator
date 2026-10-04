@@ -25,7 +25,7 @@ What each version's form decides:
 | Next topic: 3 vetted options | VN+2 |
 | Ideas: themes from VN−1's write-ins | VN+1 or VN+2, depending on size |
 
-Matt picks the topics for V1, V2 and V3: V1's form has no topic vote, and V2's topic vote picks V4.
+Matt picks the topics for V1, V2 and V3 (V1's form has no topic vote, and V2's topic vote picks V4), plus the V8 finale. The current plan is in `roadmap.md`.
 
 ## What students see each version (Canvas)
 
@@ -121,18 +121,14 @@ Built in V1 prep. `npm run release -- N` checks the build is labelled VN, then c
 released version unless you pass `--emergency-fix`. Render's build runs
 `scripts/copy-releases.mjs`, which copies `releases/` into the site (`docs/hosting.md`).
 
-## Suggested first versions
+## The current plan
 
-The Step 1b work (`docs/superpowers/specs/2026-10-03-step1b-world-scale-and-first-bite-design.md`)
-splits naturally:
-- **V1 · True Size**, topic "How big is a worm's world?"
-  - Topics: real earthworm size, and Minnesota's forests had no earthworms for about
-    11,000 years.
-  - Build: Step 1b Part A, the World scale modes, with free crawl.
-  - Design vote: Classic, Hybrid or True scale.
-- **V2 · First Bite** (topic picked by Matt): food preferences and moisture.
-  - Build: Step 1b Part B (Level 1).
-  - Its form holds the first student topic vote, which picks V4's topic.
+See `roadmap.md` for the 8-week plan (V1–V8). In short:
+- V1 · True Size (World scale vote);
+- V2 · Underground (the first side-view dig level);
+- V3 · First Bite (surface eating and Moisture);
+- V4–V7 chosen by students;
+- V8 · The Forest Changed (the finale).
 
 ## Files
 
@@ -140,5 +136,6 @@ splits naturally:
   `v02-first-bite.md`, zero-padded so the files sort.
 - `../../CHANGELOG.md`: what changed in each version, written for students.
 - `../../releases/vN/index.html`: the frozen build students play at `/vN/`.
+- `roadmap.md`: the 8-week plan.
 - `topics.md`: the topic pool, with sources and prerequisites.
 - `../../codev-raw/`: raw exports. Git-ignored and never committed.

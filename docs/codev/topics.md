@@ -15,17 +15,18 @@ Status values: `pool` (can go on a ballot) · `needs source` · `blocked` (prere
 
 | Topic (student wording) | The idea | Game part | Needs first | Sources | Status |
 |---|---|---|---|---|---|
-| How big is a worm's world? | Real worm size; Minnesota forests grew about 11,000 years with no earthworms | World scale modes | none | MN DNR; USFWS | pool |
-| First bite: what do worms eat? | Leaf preferences: ash, basswood and aspen are favourites, oak is least | Eating, growing, Level 1 | none | Indiana Acad. of Sci.; *L. terrestris* refs | pool |
-| Breathing through skin | Worms breathe through moist skin, so drying out is the danger | Moisture meter, sunny gaps, damp spots | First bite | UMN Extension | needs source (skin-breathing line) |
+| How big is a worm's world? | Real worm size; Minnesota forests grew about 11,000 years with no earthworms | World scale modes | none | MN DNR; USFWS | chosen (V1) |
+| First bite: what do worms eat? | Leaf preferences: ash, basswood and aspen are favourites, oak is least | Eating, growing, Level 1 (with Moisture) | none | Indiana Acad. of Sci.; *L. terrestris* refs | chosen (V3) |
+| Breathing through skin | Worms breathe through moist skin, so drying out is the danger | Moisture meter, sunny gaps, damp spots (part of V3) | First bite | UMN Extension | chosen (V3); needs source (skin-breathing line) |
 | Skin that senses light | Light-sensing cells in the skin, with no eyes | Light in Worm View; sun avoidance | Breathing through skin | Hess | pool |
 | Feeling vibrations: the robin | A predator's hops warn the worm, and it hides under leaves | Robin warn → strike → leave | First bite | ScienceDaily (worm grunting) | needs source (robin diet and range in MN) |
 | Following your nose | Worms follow fungus smells to food | Worm View smell trails, Level 3 | Skin that senses light (Worm View) | Zirbes et al. 2011 | pool |
-| Growing up: the clitellum | The clitellum band marks an adult worm | Clitellum appears at full size | First bite | UMN Extension | pool |
-| Cocoons | Cocoons carry the next generation and are the score | Leave cocoons with Action | Growing up | UMN Extension | pool |
-| Racing the frost | Adults die when frozen, but cocoons survive | Frost line moving down | Cocoons | UMN Extension | needs source (marked in spec 5) |
-| Worms change the forest | Less leaf litter; fewer trillium, ferns and ground-nesting birds; more sedge | Forest change screen and neighbours | Cocoons | UMN global invasion; Great Lakes Now; Lawrence et al. 2003 | needs source (sedge increase) |
-| Three kinds of worms | Litter, topsoil and deep-burrowing groups | Chapter 2 underground (big; spans several versions) | Forest change | Great Lakes Worm Watch | pool |
+| Growing up: the clitellum and cocoons | The clitellum band marks an adult worm; cocoons carry the next generation | Clitellum at full size; leave cocoons with Action (one version) | First bite | UMN Extension | pool |
+| Racing the frost | Adults die when frozen, but cocoons survive | Frost line moving down the cross-section | Growing up; Underground | UMN Extension | needs source (marked in spec 5) |
+| Worms change the forest | Less leaf litter; fewer trillium, ferns and ground-nesting birds; more sedge | Forest change screen and neighbours (driven by how much the worm ate and dug) | First bite; Underground | UMN global invasion; Great Lakes Now; Lawrence et al. 2003 | chosen (V8, Matt's finale); needs source (sedge increase) |
+| Three kinds of worms (Underground) | Litter, topsoil and deep-burrowing groups; the topsoil worm eats soil | Side-view cross-section: eat through soil, tunnels, castings, grow (first slice) | none | Great Lakes Worm Watch; UMN Extension | chosen (V2) |
+| Down the burrow | Worms move between the leaf litter and the soil | Dig down from the forest floor into the cross-section and back | Underground | Great Lakes Worm Watch | pool |
+| The mole | Moles hunt worms underground; digging vibrations drive worms up | Mole warn → strike → leave in the cross-section | Underground | ScienceDaily (worm grunting) | needs source (mole diet and range in MN) |
 | Jumping worms | The newest invader | Chapter 4 (later) | Three kinds of worms | UMN Jumping Worm handbook | blocked |
 
 Add vetted student topic ideas here as new rows, and credit the class period in the version doc.
