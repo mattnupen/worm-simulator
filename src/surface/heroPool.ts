@@ -14,7 +14,7 @@ export const HERO_RECYCLE = 4;
 /** Slot i rests i * HERO_Y_BIAS above the surface so overlapping leaves never z-fight. */
 export const HERO_Y_BIAS = 0.0006;
 /** A leaf that appears (scattered or recycled) grows in from nothing over this long (s), so it never pops in. */
-export const HERO_GROW_IN = 0.18;
+export const HERO_GROW_IN = 0.3;
 
 /** Height (m) of the rendered litter top at (x, z): `litterTop` (src/worm/surfaceHeight.ts) in the game. */
 export type SurfaceFn = (x: number, z: number) => number;

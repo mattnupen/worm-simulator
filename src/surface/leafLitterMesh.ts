@@ -65,6 +65,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 const slope = new THREE.Quaternion();
 const euler = new THREE.Euler();
 const probe = new THREE.Vector3();
+const flatQ = new THREE.Quaternion();
+const flatM = new THREE.Matrix4();
 
 /** A leaf's orientation lying on ground with unit normal `n`, its own turn and tilt on top. Writes `out`. */
 function pose(n: THREE.Vector3, l: LeafPlacement, out: THREE.Quaternion): THREE.Quaternion {
@@ -73,21 +75,23 @@ function pose(n: THREE.Vector3, l: LeafPlacement, out: THREE.Quaternion): THREE.
 }
 
 /**
- * A leaf any point of which sinks more than this into the rendered ground is laid at the ground's
- * slope instead (looks); shallower dips are only draped (LeafBuffers.write).
+ * A leaf any point of which sinks more than this into the rendered ground is laid at the mesh's
+ * slope instead, where that sinks it less (looks); shallower dips are only draped
+ * (LeafBuffers.write).
  */
 const REPOSE_DIP = 0.05;
 
-/** Whether any point of a leaf (`shape` with `form`, placed by `m`) sinks more than REPOSE_DIP into the rendered ground. */
-function dips(shape: LeafShape, form: LeafForm, m: THREE.Matrix4): boolean {
+/** How far the deepest point of a leaf (`shape` with `form`, placed by `m`) sinks into the ground. */
+function sink(shape: LeafShape, form: LeafForm, m: THREE.Matrix4): number {
   const pts = shape.points;
+  let deepest = -Infinity;
   for (let p = 0; p < pts.length; p += 2) {
     const u = pts[p];
     const v = pts[p + 1];
     probe.set(u, leafLift(u, v, form), -v).applyMatrix4(m);
-    if (probe.y < meshGroundHeight(probe.x, probe.z) - REPOSE_DIP) return true;
+    deepest = Math.max(deepest, meshGroundHeight(probe.x, probe.z) - probe.y);
   }
-  return false;
+  return deepest;
 }
 
 /** Size, curl, colour and pose of every leaf, from a second seeded stream (placement stays as seeded). */
@@ -129,11 +133,17 @@ function looks(leaves: readonly LeafPlacement[], seed: number): LeafLook[] {
     const m = new THREE.Matrix4().compose(pos, q, scl.setScalar(size));
     // That normal is the ground's over a few cm, which a mound's edge can tip steeply (the mesh is
     // much smoother there). A leaf it tips well into the rendered ground lies at the mesh's slope
-    // across the leaf's own size instead; the writer drapes whatever still dips (LeafBuffers.write).
-    // Every other leaf keeps its pose.
-    if (dips(leafShape(l.kind), form, m)) {
-      pose(meshGroundNormal(l.x, l.z, size / 2, nrm), l, q);
-      m.compose(pos, q, scl);
+    // across the leaf's own size instead, if that sinks it less; the writer drapes whatever still
+    // dips (LeafBuffers.write). Every other leaf keeps its pose.
+    const deepest = sink(leafShape(l.kind), form, m);
+    if (deepest > REPOSE_DIP) {
+      pose(meshGroundNormal(l.x, l.z, size / 2, nrm), l, flatQ);
+      flatM.compose(pos, flatQ, scl);
+      // Only if it sinks less that way (a hollow under a big leaf can make the mesh slope worse).
+      if (sink(leafShape(l.kind), form, flatM) < deepest) {
+        q.copy(flatQ);
+        m.copy(flatM);
+      }
     }
     return { kind: l.kind, x: l.x, z: l.z, rest, m, q, form, inner, edge, petiole, wet, lateral, seed: seedValue };
   });

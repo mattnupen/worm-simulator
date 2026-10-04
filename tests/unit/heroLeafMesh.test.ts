@@ -82,15 +82,20 @@ describe('HeroLeafMesh', () => {
     const DT = 1 / 60;
     let last = sizeAt(1);
     const steps = Math.ceil(HERO_GROW_IN / DT);
+    expect(HERO_GROW_IN).toBeGreaterThanOrEqual(0.3);
     for (let t = 0; t < steps; t++) {
       snapshotHeroLeaves(p);
       stepHeroLeaves(p, DT, new Float32Array(0), 0, 0, 0, 0, flat);
       for (const alpha of [0.25, 0.5, 1]) {
+        // Never shrinking, and never more than a tenth of its size from one quarter step to the next.
         const s = sizeAt(alpha);
         expect(s).toBeGreaterThanOrEqual(last - 1e-9);
-        expect(s - last).toBeLessThan(0.2);
+        expect(s - last).toBeLessThan(0.1);
         last = s;
       }
+      // Halfway through, about half grown (eased in and out).
+      if (t === Math.floor(steps / 2) - 1) expect(last).toBeGreaterThan(0.3);
+      if (t === Math.floor(steps / 2) - 1) expect(last).toBeLessThan(0.7);
     }
     expect(last).toBeCloseTo(1, 9);
     // Recycled (the head is now far away): small again where it lands.

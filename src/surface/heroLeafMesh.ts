@@ -35,10 +35,11 @@ const pitchQ = new THREE.Quaternion();
 
 /**
  * The instance matrix of hero leaf `i`, between its last two physics steps by `alpha`: scaled
- * to its size (growing in from nothing just after it appears), flipped about its midrib, turned by its yaw, then tilted by its pitch (about the
- * horizontal axis across (sin pitchDir, cos pitchDir), so its far edge tips down away from the
- * body under it), at its position (raised onto its rim when face down; a leaf held over the
- * worm drapes, its cup flattening toward its base plane). Allocates nothing.
+ * to its size (growing in from nothing just after it appears), flipped about its midrib, turned
+ * by its yaw, then tilted by its pitch (about the horizontal axis across (sin pitchDir,
+ * cos pitchDir), so its far edge tips down away from the body under it), at its position (raised
+ * onto its rim when face down; a leaf held over the worm drapes, its cup flattening toward its
+ * base plane). Allocates nothing.
  */
 export function heroLeafMatrix(p: HeroLeaves, i: number, alpha: number, out: THREE.Matrix4): THREE.Matrix4 {
   const flip = p.pflip[i] + (p.flip[i] - p.pflip[i]) * alpha;
