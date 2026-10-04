@@ -336,7 +336,9 @@ watch it.
 - a fast camera pull-in can swing the view briefly, by 0.05–0.085 rad a step for a fraction of a
   second;
 - sliding round a big trunk can briefly show the worm through the trunk's edge (at most about
-  half a second).
+  half a second);
+- grown ferns and sedge aren't solid and the camera only avoids tall props, so turning beside a
+  7× fern can put the camera inside its fronds and hide the worm for about a second.
 
 **Deferred** (none blocks V1):
 - code tidying:

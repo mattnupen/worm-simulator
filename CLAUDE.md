@@ -113,7 +113,10 @@ Step 0 build side by side rather than absolute fps.
     compiles.
   - A setting is saved only when the player really picks it, so a device that never chose
     follows the default. Applying a vote is then a one-line default change that reaches every
-    device that hasn't picked.
+    device that hasn't picked. Careful: students who try every option end up with a stored pick,
+    so before applying a vote that keeps more than one mode, plan how the new default reaches
+    them (e.g. store the default in effect with each pick and ignore picks made under an old
+    default).
   - Delete the losing modes once a decision is settled, unless students voted to keep the
     choice.
 - **Versions are small.** Size each version's new work to about one week. Split big features
@@ -132,11 +135,11 @@ Step 0 build side by side rather than absolute fps.
 - **Release checklist for a version:**
   1. unit tests, e2e tests and perf gates pass;
   2. the Start-screen label (`src/version.ts`) shows the new number and name;
-  3. the "Coming next" changelog entry becomes "VN · Name (date)";
-  4. merge to `main`, push, and Matt checks the root build;
-  5. `npm run release -- N`, then commit and push `releases/vN/index.html`, and check that
-     `wormsimulator.com/vN/` serves it;
-  6. a student Chromebook check is done if rendering changed.
+  3. merge to `main`, push, and Matt checks the root build;
+  4. once Matt approves: the "Coming next" changelog entry becomes "VN · Name (date)", then
+     `npm run release -- N`, commit and push `releases/vN/index.html` with the changelog, and
+     check that `wormsimulator.com/vN/` serves it;
+  5. a student Chromebook check is done if rendering changed.
 
 ### Each version's materials (Claude drafts, Matt publishes)
 Create `docs/codev/versions/vNN-<name-slug>.md` (for example `v02-first-bite.md`, zero-padded so

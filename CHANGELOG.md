@@ -30,7 +30,7 @@ How to write an entry (for Matt and Claude):
 - The speed test now tells you which world scale it used.
 
 ### Fixed
-- Leaves no longer shake when your worm crawls under them.
+- Leaves shake much less when your worm crawls under them.
 - Leaves no longer stick into the ground.
 
 ## Before V1

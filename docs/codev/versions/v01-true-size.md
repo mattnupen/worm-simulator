@@ -216,6 +216,9 @@ Deck title: **Worm Simulator V1 · True Size**
   - True's forest floor reads a bit sparser, because bigger leaves mean fewer of them.
   - Distant trees are plain columns.
   - In Hybrid, the ends of the fallen log look cut off.
+  - Turning beside a giant fern can put the camera inside the fronds for about a second.
+  - Trying every World scale stores a pick on that device, so a later default change won't reach
+    it unless V2 plans for that (see CLAUDE.md).
   - Q9's first three checkboxes are there to catch these and the rebuild wait.
 - **Release:** cut the frozen build at `/v1/` with `npm run release -- 1` only after you approve
   it. Then fill in the Live, Form closes and commit lines above.
