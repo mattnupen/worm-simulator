@@ -1,6 +1,8 @@
 /**
- * The leaf disturbance map (spec 5.3): a 64 x 64 grid covering 8 x 8 m around the worm, scrolled
- * in whole cells as it moves. Each cell holds:
+ * The leaf disturbance map (spec 5.3): a 96 x 96 grid covering 12 x 12 m around the worm, scrolled
+ * in whole cells as it moves. It is sized once for the biggest leaves of any scale mode (True's,
+ * Step 1b spec 4.3), so no shader changes between modes; each mode stamps only as far as its own
+ * leaves need (stampBody's `limit`). Each cell holds:
  * - path: nearness to the worm's path (1 on it, falling linearly to 0 DIST_REACH away), kept
  *   until the trail there has settled;
  * - (unused, 0);
@@ -12,15 +14,21 @@
  */
 import type { Vec3 } from '../core/vec';
 
-export const DIST_N = 64;
-export const DIST_SPAN = 8;
+export const DIST_N = 96;
+export const DIST_SPAN = 12;
 export const DIST_CELL = DIST_SPAN / DIST_N;
 /** The trail halves every 6 s, so it settles back in about 20 s. */
 export const TRAIL_HALF_LIFE = 6;
-/** Nearness reaches this far (m): past the biggest leaf's radius plus the drape's foot. */
-export const DIST_REACH = 1.6;
-/** A segment riding on top of the litter counts as this much farther away, so leaves stay put. */
-export const ON_TOP_DISTANCE = 1.4;
+/**
+ * Nearness reaches this far (m): past the biggest leaf's radius (True's, about 3.1) plus the drape's
+ * foot, with room for ON_TOP_DISTANCE (tests/unit/disturbance.test.ts). The map's span holds the body plus this on every side.
+ */
+export const DIST_REACH = 3.65;
+/**
+ * A segment riding on top of the litter counts as this much farther away, so leaves stay put: on
+ * top, the body reaches only 0.2 m.
+ */
+export const ON_TOP_DISTANCE = DIST_REACH - 0.2;
 /** A trail fresher than this is still settling; below it the cell is cleared. */
 const TRAIL_GONE = 0.01;
 
@@ -106,9 +114,10 @@ export function recentre(m: DisturbanceMap, x: number, z: number): void {
  */
 export function stampSegment(
   m: DisturbanceMap, ax: number, az: number, bx: number, bz: number, ua: number, ub: number,
+  limit = DIST_REACH,
 ): void {
   const d = m.data;
-  const range = DIST_REACH - (1 - Math.max(ua, ub)) * ON_TOP_DISTANCE;
+  const range = Math.min(limit, DIST_REACH - (1 - Math.max(ua, ub)) * ON_TOP_DISTANCE);
   if (range <= 0) return;
   const i0 = Math.max(0, Math.floor((Math.min(ax, bx) - range) / DIST_CELL) - m.ci);
   const i1 = Math.min(DIST_N - 1, Math.floor((Math.max(ax, bx) + range) / DIST_CELL) - m.ci);
@@ -124,8 +133,10 @@ export function stampSegment(
       const t = len2 > 0 ? Math.min(1, Math.max(0, (cx * ex + cz * ez) / len2)) : 0;
       const px = cx - ex * t;
       const pz = cz - ez * t;
+      const dist = Math.sqrt(px * px + pz * pz);
+      if (dist >= limit) continue;
       const off = (1 - (ua + (ub - ua) * t)) * ON_TOP_DISTANCE;
-      const near = 1 - (Math.sqrt(px * px + pz * pz) + off) / DIST_REACH;
+      const near = 1 - (dist + off) / DIST_REACH;
       if (near <= 0) continue;
       const k = (j * DIST_N + i) * K;
       if (near > d[k + 2]) d[k + 2] = near;
@@ -138,17 +149,19 @@ export function stampSegment(
 }
 
 /** Stamps one body point at (x, z): a segment of no length (see stampSegment). */
-export function stamp(m: DisturbanceMap, x: number, z: number, under: number): void {
-  stampSegment(m, x, z, x, z, under, under);
+export function stamp(m: DisturbanceMap, x: number, z: number, under: number, limit = DIST_REACH): void {
+  stampSegment(m, x, z, x, z, under, under, limit);
 }
 
 /**
  * Stamps the whole body: the segments joining consecutive body points (x, z of each, in order),
- * each end as far under the leaves as `under` says for that point.
+ * each end as far under the leaves as `under` says for that point. Cells `limit` or more from the
+ * body stay empty: a mode with smaller leaves passes how far they need it (stampLimit), which saves
+ * most of the work, and those leaves read an empty cell exactly as they would read a far one.
  */
-export function stampBody(m: DisturbanceMap, body: readonly Vec3[], under: ArrayLike<number>): void {
+export function stampBody(m: DisturbanceMap, body: readonly Vec3[], under: ArrayLike<number>, limit = DIST_REACH): void {
   for (let i = 0; i + 1 < body.length; i++) {
-    stampSegment(m, body[i].x, body[i].z, body[i + 1].x, body[i + 1].z, under[i], under[i + 1]);
+    stampSegment(m, body[i].x, body[i].z, body[i + 1].x, body[i + 1].z, under[i], under[i + 1], limit);
   }
 }
 

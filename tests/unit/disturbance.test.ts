@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   createDisturbance, recentre, stamp, decay, clearDisturbance, packDisturbance, cellAt, disturbedBox,
-  originX, originZ, DIST_N, DIST_SPAN, DIST_CELL, DIST_REACH, ON_TOP_DISTANCE, type DisturbanceMap,
+  originX, originZ, stampBody, DIST_N, DIST_SPAN, DIST_CELL, DIST_REACH, ON_TOP_DISTANCE, type DisturbanceMap,
 } from '../../src/surface/disturbance';
+import { maxLeafRadius, stampLimit } from '../../src/surface/leafScale';
+import { DRAPE_FOOT } from '../../src/render/leafGlsl';
+import { SCALE_MODES, SCALE_SPECS } from '../../src/surface/worldScale';
 
 const sum = (m: DisturbanceMap) => m.data.reduce((a, v) => a + Math.abs(v), 0);
 const cell = (m: DisturbanceMap, x: number, z: number) => {
@@ -11,11 +14,11 @@ const cell = (m: DisturbanceMap, x: number, z: number) => {
 };
 
 describe('disturbance map', () => {
-  it('covers 8 x 8 m with 64 x 64 cells', () => {
-    expect(DIST_N).toBe(64);
-    expect(DIST_SPAN).toBe(8);
+  it('covers 12 x 12 m with 96 x 96 cells (12.5 cm each)', () => {
+    expect(DIST_N).toBe(96);
+    expect(DIST_SPAN).toBe(12);
     expect(DIST_CELL).toBeCloseTo(0.125, 12);
-    expect(createDisturbance().data.length).toBe(64 * 64 * 4);
+    expect(createDisturbance().data.length).toBe(96 * 96 * 4);
   });
 
   it('recentres so the point lies in the middle cell', () => {
@@ -33,9 +36,11 @@ describe('disturbance map', () => {
       const onTop = createDisturbance();
       stamp(under, 0.06, 0.06, 1);
       stamp(onTop, 0.06, 0.06, 0);
-      expect(cell(under, 0.06, 0.06)![2]).toBeGreaterThan(0.9);
-      expect(cell(onTop, 0.06, 0.06)![2]).toBeGreaterThan(0.1);
-      expect(cell(onTop, 0.06, 0.06)![2]).toBeLessThan(0.3);
+      expect(cell(under, 0.06, 0.06)![2]).toBeGreaterThan(0.95);
+      // On top it reads as if 3.4 m away: it reaches only 0.2 m.
+      expect(cell(onTop, 0.06, 0.06)![2]).toBeGreaterThan(0.03);
+      expect(cell(onTop, 0.06, 0.06)![2]).toBeLessThan(0.07);
+      expect(DIST_REACH - ON_TOP_DISTANCE).toBeCloseTo(0.2, 9);
     });
 
     it('nearness falls linearly with distance, so a shader can read the distance back', () => {
@@ -194,11 +199,12 @@ describe('disturbance map', () => {
     recentre(m, 1, 1);
     stamp(m, 1, 1, 1);
     disturbedBox(m, box);
-    // The stamp reaches DIST_REACH from (1, 1), so its cells span about that, plus a cell each side.
+    // The stamp reaches DIST_REACH from (1, 1), so its cells span about that, plus a cell each side
+    // (the outermost stamped cell's centre lies within the reach; the box adds a cell).
     for (const [lo, hi] of [[box[0], box[2]], [box[1], box[3]]]) {
-      expect(lo).toBeLessThanOrEqual(1 - DIST_REACH - DIST_CELL + 1e-9);
+      expect(lo).toBeLessThanOrEqual(1 - DIST_REACH + 1e-9);
       expect(lo).toBeGreaterThan(1 - DIST_REACH - 2 * DIST_CELL - 1e-9);
-      expect(hi).toBeGreaterThanOrEqual(1 + DIST_REACH + DIST_CELL - 1e-9);
+      expect(hi).toBeGreaterThanOrEqual(1 + DIST_REACH - 1e-9);
       expect(hi).toBeLessThan(1 + DIST_REACH + 2 * DIST_CELL + 1e-9);
     }
     // A fading trail still counts until it is cleared.
@@ -210,8 +216,44 @@ describe('disturbance map', () => {
     expect(box[0]).toBe(Infinity);
   });
 
-  it('reaches past the body plus a leaf, inside the map', () => {
+  it('reaches past the biggest leaf plus the drape, inside the map\'s unfaded middle', () => {
     expect(DIST_REACH).toBeGreaterThan(ON_TOP_DISTANCE);
-    expect(DIST_REACH).toBeLessThan(DIST_SPAN / 4);
+    // The map centres 7 segments (1.54 m) behind the head; a True leaf whose edge reaches the
+    // drape's foot from the head must sit inside the leaf shader's edge fade (85% of the half span).
+    expect(7 * 0.22 + maxLeafRadius(SCALE_SPECS.true) + DRAPE_FOOT).toBeLessThan(0.85 * DIST_SPAN / 2);
+    for (const mode of SCALE_MODES) expect(stampLimit(SCALE_SPECS[mode])).toBeLessThanOrEqual(DIST_REACH);
+    // A body riding on top reaches 0.2 m: even the biggest leaf beside it stays put.
+    expect(ON_TOP_DISTANCE - maxLeafRadius(SCALE_SPECS.true)).toBeGreaterThanOrEqual(DRAPE_FOOT);
+    // Classic stamps exactly as far as before the map grew.
+    expect(stampLimit(SCALE_SPECS.classic)).toBeCloseTo(1.6, 9);
+    expect(stampLimit(SCALE_SPECS.classic) - maxLeafRadius(SCALE_SPECS.classic)).toBeCloseTo(DRAPE_FOOT, 9);
+  });
+
+  it('a stamp limit leaves far cells empty and the near ones exactly as before', () => {
+    const body = Array.from({ length: 16 }, (_, i) => ({ x: 0.03, y: 0, z: 0.05 - i * 0.22 }));
+    const under = new Float32Array(16).fill(1);
+    const full = createDisturbance();
+    const near = createDisturbance();
+    for (const m of [full, near]) recentre(m, 0, -1.5);
+    stampBody(full, body, under);
+    stampBody(near, body, under, 1.8);
+    let kept = 0;
+    for (let x = -4; x <= 4; x += 0.1) {
+      for (let z = -6; z <= 3; z += 0.1) {
+        const a = cell(full, x, z)!;
+        const b = cell(near, x, z)!;
+        // Distance from the cell's centre to the body's line (x = 0.03, z from -3.25 to 0.05).
+        const cx = (Math.floor(x / DIST_CELL) + 0.5) * DIST_CELL;
+        const cz = (Math.floor(z / DIST_CELL) + 0.5) * DIST_CELL;
+        const d = Math.hypot(cx - 0.03, cz - Math.max(-3.25, Math.min(0.05, cz)));
+        if (d < 1.79) {
+          expect(b).toEqual(a);
+          kept++;
+        } else if (d > 1.81) {
+          expect(b.every((v) => v === 0)).toBe(true);
+        }
+      }
+    }
+    expect(kept).toBeGreaterThan(1000);
   });
 });

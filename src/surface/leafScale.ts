@@ -2,6 +2,16 @@ import { LEAF_KINDS, type LeafKind } from './leafLitter';
 import { leafShape } from './leafShapes';
 import { LEAF_SIZE } from './leafPalette';
 import { scaleSpec, type ScaleSpec } from './worldScale';
+import { DIST_REACH } from './disturbance';
+
+/**
+ * The farthest any Classic litter leaf reaches from its centre (the largest placement scale of the
+ * biggest species, petiole included; tests/unit/leafGlsl.test.ts checks it). Detail leaves are
+ * smaller, and hero leaves do not read the disturbance map.
+ */
+export const CLASSIC_LEAF_RADIUS = 1.26;
+/** The drape's foot (leafGlsl.ts DRAPE_FOOT; tests/unit/disturbance.test.ts checks they agree). */
+const DRAPE_FOOT_M = 0.34;
 
 /** A species' silhouette area at length 1 (its outline, leaf units). */
 function shapeArea(kind: LeafKind): number {
@@ -34,4 +44,18 @@ export function leafCountScale(spec: ScaleSpec = scaleSpec()): number {
 /** A preset's leaf count (graphics.ts gives Classic's) for the mode: at least 1 when n > 0. */
 export function scaledLeafCount(n: number, spec: ScaleSpec = scaleSpec()): number {
   return n > 0 ? Math.max(1, Math.round(n * leafCountScale(spec))) : 0;
+}
+
+/** The farthest a litter leaf of the mode reaches from its centre. */
+export function maxLeafRadius(spec: ScaleSpec = scaleSpec()): number {
+  return CLASSIC_LEAF_RADIUS * Math.max(...LEAF_KINDS.map((k) => spec.leaf[k]));
+}
+
+/**
+ * How far from the body the mode's leaves need the disturbance map stamped (stampBody's limit):
+ * the biggest leaf plus the drape's foot (Classic: 1.6 m, the map's reach before Part A). Never
+ * past the map's reach.
+ */
+export function stampLimit(spec: ScaleSpec = scaleSpec()): number {
+  return Math.min(DIST_REACH, maxLeafRadius(spec) + DRAPE_FOOT_M);
 }

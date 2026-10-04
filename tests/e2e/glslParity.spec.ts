@@ -82,7 +82,7 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
   ];
 
   await page.setContent('<canvas id="c"></canvas>');
-  const gpu = await page.evaluate(({ glsl, litter, litterN, ground, groundN, inputs, cases, stride }) => {
+  const gpu = await page.evaluate(({ glsl, litter, litterN, ground, groundN, inputs, cases, stride, distN }) => {
     const gl = (document.getElementById('c') as HTMLCanvasElement).getContext('webgl2');
     if (!gl) throw new Error('no WebGL 2');
     const vs = `#version 300 es
@@ -130,10 +130,10 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
       return t;
     };
     // As three uploads them: the maps filtered, the ground read texel by texel.
-    const dist = tex(0, gl.RGBA8, 64, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(64 * 64 * 4), gl.LINEAR);
+    const dist = tex(0, gl.RGBA8, distN, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(distN * distN * 4), gl.LINEAR);
     tex(1, gl.RGBA8, litterN, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(litter), gl.LINEAR);
     tex(2, gl.R32F, groundN, gl.RED, gl.FLOAT, new Float32Array(ground), gl.NEAREST);
-    const trailTex = tex(3, gl.RG8, 64, gl.RG, gl.UNSIGNED_BYTE, new Uint8Array(64 * 64 * 2), gl.LINEAR);
+    const trailTex = tex(3, gl.RG8, distN, gl.RG, gl.UNSIGNED_BYTE, new Uint8Array(distN * distN * 2), gl.LINEAR);
     const U = (name: string) => gl.getUniformLocation(pr, name);
     gl.uniform1i(U('uDisturb'), 0);
     gl.uniform1i(U('uDisturbTrail'), 3);
@@ -155,10 +155,10 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
     return cases.map((c) => {
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, dist);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(c.dist));
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, distN, distN, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(c.dist));
       gl.activeTexture(gl.TEXTURE3);
       gl.bindTexture(gl.TEXTURE_2D, trailTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 64, 64, gl.RG, gl.UNSIGNED_BYTE, new Uint8Array(c.trail));
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, distN, distN, gl.RG, gl.UNSIGNED_BYTE, new Uint8Array(c.trail));
       gl.uniform2f(U('uDistOrigin'), c.origin[0], c.origin[1]);
       gl.uniform3f(U('uFocus'), c.focus[0], 0, c.focus[1]);
       gl.uniform2f(U('uWrapCentre'), Math.round(c.focus[0]), Math.round(c.focus[1]));
@@ -182,7 +182,7 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
     });
   }, {
     glsl: `${DETAIL_GLSL}\n${DISTURB_GLSL}`, litter: Array.from(litter), litterN: LITTER_TEX_N,
-    ground: Array.from(ground), groundN: GROUND_TEX_N, inputs, cases, stride: STRIDE,
+    ground: Array.from(ground), groundN: GROUND_TEX_N, inputs, cases, stride: STRIDE, distN: DIST_N,
   });
 
   const n = inputs.length / STRIDE;

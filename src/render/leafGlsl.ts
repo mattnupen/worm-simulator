@@ -27,6 +27,15 @@ export const TRAIL_DARKEN = 0.35;
  */
 export const DRAPE_MAX_SLOPE = 1;
 
+/**
+ * Leaves bigger than any Classic leaf (radius over LID_FROM, up to True's real sizes) lift level,
+ * like a lid, instead of tilting onto the body: across a leaf that big the worm can curve away from
+ * the one direction a tilt follows, under the low side (Step 1b spec 4.5, the known "lid" look).
+ * Classic leaves (radius at most 1.26) are never affected.
+ */
+export const LID_FROM = 1.3;
+export const LID_TO = 2.0;
+
 /** Height (above the ground) a leaf must clear `s` m from the spine: TS twin of the GLSL. */
 export function drapeProfile(s: number): number {
   return DRAPE_HEIGHT * Math.min(1, Math.max(0, (DRAPE_FOOT - s) / (DRAPE_FOOT - DRAPE_FLAT)));
@@ -50,6 +59,8 @@ const C = {
   /** A lifted leaf's dips (parts below its rest plane) are raised by the time it has lifted this much. */
   unsag: 0.02,
   maxSlope: DRAPE_MAX_SLOPE,
+  lidFrom: LID_FROM,
+  lidTo: LID_TO,
 };
 
 /**
@@ -63,9 +74,10 @@ const C = {
  * - Trail: a leaf the worm passed slides out from its path until its near edge clears FURROW_HALF,
  *   easing back as the trail fades.
  * - Drape: a leaf reaching over the body tilts up onto it, its far edge on the litter and its
- *   plane clear of the body (drapeProfile); a leaf centred on the body rests level on top.
+ *   plane clear of the body (drapeProfile); a leaf centred on the body rests level on top, and so
+ *   does a leaf bigger than LID_FROM.
  * Skipped (a uniform branch) when leaves do not react (uLeafReact 0), and for leaves outside the
- * 8 m window. `n` (world normal) is tilted to match.
+ * map's 12 m window. `n` (world normal) is tilted to match.
  * Needs uniforms uDisturb and uDisturbTrail (packed by packDisturbance), uDistOrigin and uLeafReact.
  */
 export const DISTURB_GLSL = /* glsl */ `
@@ -113,7 +125,7 @@ export const DISTURB_GLSL = /* glsl */ `
     float span = max(db - sc + r, 0.05);
     float slope = min(lift / span, ${f(C.maxSlope)});
     float base = lift - slope * span;
-    float tilt = smoothstep(0.3, 0.8, lb / ${f(C.even)});
+    float tilt = smoothstep(0.3, 0.8, lb / ${f(C.even)}) * (1.0 - smoothstep(${f(C.lidFrom)}, ${f(C.lidTo)}, r));
     vec2 grad = toBody * (slope * tilt * edge);
     float y = max((1.0 - tilt) * lift + tilt * (base + slope * (dot(p.xz - anchor.xy, toBody) + r)), 0.0)
       + dip * smoothstep(0.0, ${f(C.unsag)}, lift);
@@ -205,7 +217,7 @@ export function disturbVertex(
   const span = Math.max(db - sc + r, 0.05);
   const slope = Math.min(lift / span, C.maxSlope);
   const base = lift - slope * span;
-  const tilt = smooth(0.3, 0.8, lb / C.even);
+  const tilt = smooth(0.3, 0.8, lb / C.even) * (1 - smooth(C.lidFrom, C.lidTo, r));
   const y = Math.max((1 - tilt) * lift + tilt * (base + slope * ((p[0] - anchor[0]) * tx + (p[2] - anchor[1]) * tz + r)), 0)
     + dip * smooth(0, C.unsag, lift);
   out[0] = p[0] + mx * edge;
