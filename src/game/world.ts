@@ -59,15 +59,26 @@ export interface World {
   /** Poses everything that moves with the simulation for this rendered frame. Allocates nothing. */
   sync(crawl: Crawl, alpha: number, timeSec: number, camera: THREE.PerspectiveCamera): void;
   /**
-   * After setScale: builds the forest for the new mode in place of the old one (the baked litter
-   * and ground textures re-baked in place) and returns the old one. Call apply() again, then
-   * compileForest() so the new materials take over the old ones' compiled programs, and only then
-   * dispose the old forest (disposeForest): nothing recompiles.
+   * THE way to change the world scale mode: the caller calls setScale(mode), then this, then draws.
+   * In order: rebuildForest, the crawl takes the mode (applyScale) and starts again at the spawn
+   * with the last applied preset's hero count for the new mode, apply(that preset) on the new
+   * forest, compileForest (the new materials take over the old ones' compiled programs), and only
+   * then disposeForest(old): nothing recompiles and nothing leaks. Throws if no preset was ever
+   * applied. Use only this; the three steps below are its parts, public for tests.
+   */
+  switchForest(renderer: ForestCompiler, camera: THREE.Camera): void;
+  /**
+   * Part of switchForest (do not call alone). After setScale: builds the forest for the new mode
+   * in place of the old one (the baked litter and ground textures re-baked in place) and returns
+   * the old one.
    */
   rebuildForest(): Forest;
-  /** Compiles every program the forest can draw with (the litter's reacting one too), now. */
-  compileForest(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void;
+  /** Part of switchForest. Compiles every program the forest can draw with (the litter's reacting one too), now. */
+  compileForest(renderer: ForestCompiler, camera: THREE.Camera): void;
 }
+
+/** What compiling a forest needs of the renderer (a THREE.WebGLRenderer). */
+export type ForestCompiler = Pick<THREE.WebGLRenderer, 'compile'>;
 
 /** The scale mode's forest, built at Ultra size so presets only trim it. */
 function buildForest(): Forest {
@@ -95,6 +106,8 @@ export function disposeForest(f: Forest): void {
   const materials = new Set<THREE.Material>([f.litter.materials.active, f.litter.materials.plain, f.litter.materials.far]);
   f.group.traverse((o) => {
     if (!(o instanceof THREE.Mesh)) return;
+    // The distant ring's per-instance buffers (instanceMatrix, instanceColor) are freed only here.
+    if (o instanceof THREE.InstancedMesh) o.dispose();
     o.geometry.dispose();
     for (const m of Array.isArray(o.material) ? o.material : [o.material]) materials.add(m);
   });
@@ -120,14 +133,17 @@ export function buildWorld(crawl: Crawl): World {
   const occBox = new Float32Array(5);
   // Where the uploaded map can move a leaf (disturbedBox); empty until the first upload.
   const distBox = new Float32Array([Infinity, Infinity, -Infinity, -Infinity]);
+  /** The preset last shown (apply): a switch shows it again on the new forest. */
+  let shown: PresetSpec | null = null;
 
   scene.add(forest.group, hero.mesh, nearClutter.group, worm.group, buildSky(), atmosphere.group);
-  return {
+  const world: World = {
     scene, hero, nearClutter, atmosphere, worm,
     get litter() { return forest.litter; },
     get detail() { return forest.detail; },
     get props() { return forest.props; },
     apply(spec) {
+      shown = spec;
       reaction = spec.reaction;
       forest.litter.setCount(scaledLeafCount(spec.litter));
       forest.detail.setCount(scaledLeafCount(spec.detail));
@@ -136,6 +152,16 @@ export function buildWorld(crawl: Crawl): World {
       atmosphere.setLevel(spec.effects, spec.extraEffects);
       setRimLight(spec.rim);
       setLeafReaction(spec.reaction);
+    },
+    switchForest(renderer, camera) {
+      const spec = shown;
+      if (!spec) throw new Error('switchForest: apply a preset first');
+      const old = world.rebuildForest();
+      crawl.applyScale();
+      crawl.reset(scaledLeafCount(spec.hero));
+      world.apply(spec);
+      world.compileForest(renderer, camera);
+      disposeForest(old);
     },
     rebuildForest() {
       const old = forest;
@@ -152,13 +178,13 @@ export function buildWorld(crawl: Crawl): World {
     compileForest(renderer, camera) {
       // The litter's reacting program is only put on a chunk when the worm comes near: lend it to
       // one for the compile, so it is ready too.
-      const near = forest.litter.chunks[0].near;
-      const was = near.material;
-      near.material = forest.litter.materials.active;
+      const near = forest.litter.chunks.length > 0 ? forest.litter.chunks[0].near : null;
+      const was = near?.material;
+      if (near) near.material = forest.litter.materials.active;
       try {
         renderer.compile(forest.group, camera, scene);
       } finally {
-        near.material = was;
+        if (near && was) near.material = was;
       }
     },
     sync(crawl, alpha, timeSec, camera) {
@@ -187,4 +213,5 @@ export function buildWorld(crawl: Crawl): World {
       forest.litter.update(camera.position.x, camera.position.z, pose.spine, distBox);
     },
   };
+  return world;
 }

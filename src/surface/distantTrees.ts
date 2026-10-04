@@ -5,7 +5,8 @@ import { createPaintedMaterial } from '../render/paintedMaterial';
 import { terrainHeight, WORLD_HALF } from './terrain';
 import { scaleSpec } from './worldScale';
 
-const RING_COUNT = 72;
+/** The most trees the distant ring holds (Classic); each mode draws min(this, its distantCount). */
+export const RING_COUNT = 72;
 
 function colored(g: THREE.BufferGeometry, hex: string): THREE.BufferGeometry {
   const geo = g.index ? g.toNonIndexed() : g;
