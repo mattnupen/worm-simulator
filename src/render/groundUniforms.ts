@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { DIST_N, DIST_CELL, packDisturbance, type DisturbanceMap } from '../surface/disturbance';
+import { DIST_N, DIST_CELL, DIST_SPAN, packDisturbance, type DisturbanceMap } from '../surface/disturbance';
+import { FULL_FADE } from './leafGlsl';
 
 /** Spine points the shaders read: the worm's segments, head first. */
 export const SPINE_POINTS = 16;
@@ -33,6 +34,8 @@ export const groundUniforms = {
   uDisturbTrail: { value: trailTexture },
   /** World x, z of the disturbance grid's corner. */
   uDistOrigin: { value: new THREE.Vector2(-DIST_N * DIST_CELL / 2, -DIST_N * DIST_CELL / 2) },
+  /** Where leaves stop reading the map (from, to, as fractions of its half span): the mode's window. */
+  uDistFade: { value: new THREE.Vector2(FULL_FADE[0], FULL_FADE[1]) },
   /** The worm's rendered spine (x, y, z per point, head first): the near clutter keeps clear of it. */
   uSpine: { value: new Float32Array(SPINE_POINTS * 3) },
   /** The leaf fade's view of the body (occluderSegments): projected axis segments, and how many. */
@@ -63,7 +66,15 @@ export function setSpine(spine: Float32Array): void {
   groundUniforms.uSpine.value.set(spine);
 }
 
-/** The per-frame upload: 16 KB and 8 KB into the same two textures, no reallocation. */
+/**
+ * The mode's window (metres from the map's centre: leafScale.ts disturbReach's fadeFrom, fadeTo):
+ * a uniform, so switching modes recompiles nothing.
+ */
+export function setDisturbFade(from: number, to: number): void {
+  groundUniforms.uDistFade.value.set(from / (DIST_SPAN / 2), to / (DIST_SPAN / 2));
+}
+
+/** The per-frame upload: 36 KB and 18 KB into the same two textures, no reallocation. */
 export function uploadDisturbance(m: DisturbanceMap): void {
   packDisturbance(m, nearBytes, trailBytes);
   nearTexture.needsUpdate = true;

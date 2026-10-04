@@ -26,7 +26,9 @@ export const TRAIL_HALF_LIFE = 6;
 export const DIST_REACH = 3.65;
 /**
  * A segment riding on top of the litter counts as this much farther away, so leaves stay put: on
- * top, the body reaches only 0.2 m.
+ * top, the body reaches only 0.2 m. This is the default for the whole map; each mode passes its own
+ * (leafScale.ts onTopDistance: 0.2 m past its biggest leaf), so a body partly under the litter
+ * lifts that mode's leaves as far as it should.
  */
 export const ON_TOP_DISTANCE = DIST_REACH - 0.2;
 /** A trail fresher than this is still settling; below it the cell is cleared. */
@@ -107,17 +109,20 @@ export function recentre(m: DisturbanceMap, x: number, z: number): void {
  * to the nearest point of that segment (the drape) and, where it is the nearest path yet, that as
  * its path nearness and a fresh trail. A cell nearer an older path keeps that path and its fading
  * trail. `ua`, `ub`: how far under the leaves each end is (1 under, 0 on top), blended along the
- * segment; on top it reaches less far, as if ON_TOP_DISTANCE away. Measured to the segment, not to
- * points along it, so a body gliding along its own line leaves the nearness beside it level
- * (points 11 cm apart scalloped it, and the leaves over it jittered). Values only rise, so
+ * segment; on top it reaches less far, as if `onTop` farther away. A cell is left alone when this
+ * segment would read `limit` or more there even at its least offset (stampBody). Measured to the
+ * segment, not to points along it, so a body gliding along its own line leaves the nearness beside
+ * it level (points 11 cm apart scalloped it, and the leaves over it jittered). Values only rise, so
  * stamping twice is the same as once.
  */
 export function stampSegment(
   m: DisturbanceMap, ax: number, az: number, bx: number, bz: number, ua: number, ub: number,
-  limit = DIST_REACH,
+  limit = DIST_REACH, onTop = ON_TOP_DISTANCE,
 ): void {
   const d = m.data;
-  const range = Math.min(limit, DIST_REACH - (1 - Math.max(ua, ub)) * ON_TOP_DISTANCE);
+  // Past this, the segment reads `limit` or more (distance plus its least on-top offset): a cell
+  // there could differ from the full map only where the full map reads that far too.
+  const range = Math.min(limit, DIST_REACH) - (1 - Math.max(ua, ub)) * onTop;
   if (range <= 0) return;
   const i0 = Math.max(0, Math.floor((Math.min(ax, bx) - range) / DIST_CELL) - m.ci);
   const i1 = Math.min(DIST_N - 1, Math.floor((Math.max(ax, bx) + range) / DIST_CELL) - m.ci);
@@ -134,8 +139,8 @@ export function stampSegment(
       const px = cx - ex * t;
       const pz = cz - ez * t;
       const dist = Math.sqrt(px * px + pz * pz);
-      if (dist >= limit) continue;
-      const off = (1 - (ua + (ub - ua) * t)) * ON_TOP_DISTANCE;
+      if (dist >= range) continue;
+      const off = (1 - (ua + (ub - ua) * t)) * onTop;
       const near = 1 - (dist + off) / DIST_REACH;
       if (near <= 0) continue;
       const k = (j * DIST_N + i) * K;
@@ -149,19 +154,25 @@ export function stampSegment(
 }
 
 /** Stamps one body point at (x, z): a segment of no length (see stampSegment). */
-export function stamp(m: DisturbanceMap, x: number, z: number, under: number, limit = DIST_REACH): void {
-  stampSegment(m, x, z, x, z, under, under, limit);
+export function stamp(
+  m: DisturbanceMap, x: number, z: number, under: number, limit = DIST_REACH, onTop = ON_TOP_DISTANCE,
+): void {
+  stampSegment(m, x, z, x, z, under, under, limit, onTop);
 }
 
 /**
  * Stamps the whole body: the segments joining consecutive body points (x, z of each, in order),
  * each end as far under the leaves as `under` says for that point. Cells `limit` or more from the
- * body stay empty: a mode with smaller leaves passes how far they need it (stampLimit), which saves
- * most of the work, and those leaves read an empty cell exactly as they would read a far one.
+ * body stay empty: a mode with smaller leaves passes how far they need it (leafScale.ts stampLimit:
+ * their reach plus a lookup's spread, so every lookup a reacting leaf takes reads only stamped
+ * cells), which saves most of the work. `onTop`: how much farther a segment on top counts as
+ * (leafScale.ts onTopDistance).
  */
-export function stampBody(m: DisturbanceMap, body: readonly Vec3[], under: ArrayLike<number>, limit = DIST_REACH): void {
+export function stampBody(
+  m: DisturbanceMap, body: readonly Vec3[], under: ArrayLike<number>, limit = DIST_REACH, onTop = ON_TOP_DISTANCE,
+): void {
   for (let i = 0; i + 1 < body.length; i++) {
-    stampSegment(m, body[i].x, body[i].z, body[i + 1].x, body[i + 1].z, under[i], under[i + 1], limit);
+    stampSegment(m, body[i].x, body[i].z, body[i + 1].x, body[i + 1].z, under[i], under[i + 1], limit, onTop);
   }
 }
 
@@ -220,10 +231,11 @@ export function packDisturbance(m: DisturbanceMap, near: Uint8Array, trail: Uint
  * The world x, z box (min x, min z, max x, max z) outside which the map moves no leaf: every cell
  * holding anything, grown by one cell. A leaf moves only where the lookup at its anchor reads a
  * fresh trail (A) or the body (B), and a bilinear lookup reads only cells whose centres are within
- * a cell of it. Empty (Infinity, Infinity, -Infinity, -Infinity) when the map is clear. Allocates
- * nothing.
+ * a cell of it. Clipped to the shaders' window (`window`: metres from the map's centre along x and z,
+ * the mode's fadeTo), outside which no leaf reads the map. Empty (Infinity, Infinity, -Infinity,
+ * -Infinity) when the map is clear. Allocates nothing.
  */
-export function disturbedBox(m: DisturbanceMap, out: number[] | Float32Array): void {
+export function disturbedBox(m: DisturbanceMap, out: number[] | Float32Array, window = DIST_SPAN / 2): void {
   const d = m.data;
   let i0 = DIST_N;
   let j0 = DIST_N;
@@ -239,15 +251,21 @@ export function disturbedBox(m: DisturbanceMap, out: number[] | Float32Array): v
       if (j > j1) j1 = j;
     }
   }
-  if (i1 < 0) {
+  const cx = (m.ci + DIST_N / 2) * DIST_CELL;
+  const cz = (m.cj + DIST_N / 2) * DIST_CELL;
+  const x0 = Math.max((m.ci + i0 - 1) * DIST_CELL, cx - window);
+  const z0 = Math.max((m.cj + j0 - 1) * DIST_CELL, cz - window);
+  const x1 = Math.min((m.ci + i1 + 2) * DIST_CELL, cx + window);
+  const z1 = Math.min((m.cj + j1 + 2) * DIST_CELL, cz + window);
+  if (i1 < 0 || x0 > x1 || z0 > z1) {
     out[0] = Infinity;
     out[1] = Infinity;
     out[2] = -Infinity;
     out[3] = -Infinity;
     return;
   }
-  out[0] = (m.ci + i0 - 1) * DIST_CELL;
-  out[1] = (m.cj + j0 - 1) * DIST_CELL;
-  out[2] = (m.ci + i1 + 2) * DIST_CELL;
-  out[3] = (m.cj + j1 + 2) * DIST_CELL;
+  out[0] = x0;
+  out[1] = z0;
+  out[2] = x1;
+  out[3] = z1;
 }

@@ -14,7 +14,7 @@ import { wrapAround } from '../../src/render/wrap';
 import { litterTextureData } from '../../src/render/litterTexture';
 import { groundTextureData } from '../../src/render/groundTexture';
 import { PRESETS } from '../../src/render/graphics';
-import { maxLeafRadius, stampLimit } from '../../src/surface/leafScale';
+import { leafReach, maxLeafRadius, onTopDistance, stampLimit } from '../../src/surface/leafScale';
 
 
 /** Where a leaf triangle near the worm lands, after placement and the drape: three moved points. */
@@ -101,7 +101,7 @@ function clearance(count: number, leaves: (pl: Placement, emit: (t: Tri) => void
     for (let k = 0; k <= 2 * (n - 1); k++) {
       const i = k >> 1;
       const j = Math.min(n - 1, i + (k & 1));
-      stamp(m, (pts[i][0] + pts[j][0]) / 2, (pts[i][1] + pts[j][1]) / 2, 1, stampLimit());
+      stamp(m, (pts[i][0] + pts[j][0]) / 2, (pts[i][1] + pts[j][1]) / 2, 1, stampLimit(), onTopDistance());
     }
     packDisturbance(m, near, trail);
     pl.ox = m.ci * DIST_CELL;
@@ -323,7 +323,8 @@ describe('litter leaf anchors', () => {
     expect(leaves).toBe(3000);
     // A leaf whose edge reaches the drape's foot is still on the map (and stamped), so it never pops.
     expect(biggest).toBeLessThanOrEqual(maxLeafRadius());
-    expect(biggest + DRAPE_FOOT).toBeLessThan(stampLimit());
+    expect(biggest + DRAPE_FOOT).toBeLessThanOrEqual(leafReach());
+    expect(leafReach()).toBeLessThan(stampLimit());
     expect(stampLimit()).toBeLessThanOrEqual(DIST_REACH);
   });
 });

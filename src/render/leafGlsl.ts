@@ -36,6 +36,13 @@ export const DRAPE_MAX_SLOPE = 1;
 export const LID_FROM = 1.3;
 export const LID_TO = 2.0;
 
+/**
+ * The map's whole window for uDistFade (from, to, as fractions of its half span): the leaves fade
+ * out from 85% to 97% of the way to its edge. Each mode sets its own window (leafScale.ts
+ * disturbReach, groundUniforms.ts setDisturbFade); this is the TS twin's default.
+ */
+export const FULL_FADE: readonly number[] = [0.85, 0.97];
+
 /** Height (above the ground) a leaf must clear `s` m from the spine: TS twin of the GLSL. */
 export function drapeProfile(s: number): number {
   return DRAPE_HEIGHT * Math.min(1, Math.max(0, (DRAPE_FOOT - s) / (DRAPE_FOOT - DRAPE_FLAT)));
@@ -77,13 +84,16 @@ const C = {
  *   plane clear of the body (drapeProfile); a leaf centred on the body rests level on top, and so
  *   does a leaf bigger than LID_FROM.
  * Skipped (a uniform branch) when leaves do not react (uLeafReact 0), and for leaves outside the
- * map's 12 m window. `n` (world normal) is tilted to match.
- * Needs uniforms uDisturb and uDisturbTrail (packed by packDisturbance), uDistOrigin and uLeafReact.
+ * mode's window (uDistFade: from, to, as fractions of the map's half span; a uniform, so a mode
+ * switch recompiles nothing). `n` (world normal) is tilted to match.
+ * Needs uniforms uDisturb and uDisturbTrail (packed by packDisturbance), uDistOrigin, uDistFade and
+ * uLeafReact.
  */
 export const DISTURB_GLSL = /* glsl */ `
   uniform sampler2D uDisturb;
   uniform sampler2D uDisturbTrail;
   uniform vec2 uDistOrigin;
+  uniform vec2 uDistFade;
   uniform float uLeafReact;
   // Path and body nearness at uv, each packed in two bytes (packDisturbance).
   vec2 nearness(vec2 uv) {
@@ -94,7 +104,7 @@ export const DISTURB_GLSL = /* glsl */ `
     if (uLeafReact < 0.5) return p;
     vec2 uv = (anchor.xy - uDistOrigin) / ${f(C.span)};
     vec2 e = abs(uv - 0.5) * 2.0;
-    float edge = 1.0 - smoothstep(0.85, 0.97, max(e.x, e.y));
+    float edge = 1.0 - smoothstep(uDistFade.x, uDistFade.y, max(e.x, e.y));
     if (edge <= 0.0) return p;
     // x: path, y: body nearness; w: the trail.
     vec2 c = nearness(uv);
@@ -179,11 +189,12 @@ const s4 = [0, 0, 0, 0];
 /**
  * TS twin of DISTURB_GLSL's disturb() (positions only), for tests: moves world point `p` of a leaf
  * with `anchor` (x, z, radius, rest) and `dip`, reading the map through `sample` with its corner at
- * (originX, originZ). Writes the moved point into `out`.
+ * (originX, originZ) and fading it out as uDistFade does (`fade`). Writes the moved point into `out`.
  */
 export function disturbVertex(
   sample: MapSampler, originX: number, originZ: number, react: boolean,
   p: readonly number[], anchor: readonly number[], dip: number, out: number[],
+  fade: readonly number[] = FULL_FADE,
 ): void {
   out[0] = p[0];
   out[1] = p[1];
@@ -191,7 +202,7 @@ export function disturbVertex(
   if (!react) return;
   const u = (anchor[0] - originX) / C.span;
   const v = (anchor[1] - originZ) / C.span;
-  const edge = 1 - smooth(0.85, 0.97, Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) * 2);
+  const edge = 1 - smooth(fade[0], fade[1], Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) * 2);
   if (edge <= 0) return;
   sample(u, v, s0);
   sample(u + C.step, v, s1);
@@ -233,6 +244,7 @@ export function disturbVertex(
 export const TRAIL_GROUND_GLSL = /* glsl */ `
   uniform sampler2D uDisturbTrail;
   uniform vec2 uDistOrigin;
+  uniform vec2 uDistFade;
   uniform float uLeafReact;
   float trailShade(vec2 xz) {
     if (uLeafReact < 0.5) return 1.0;
@@ -240,7 +252,7 @@ export const TRAIL_GROUND_GLSL = /* glsl */ `
     // x: the trail, y: the path (one byte is plenty for the band).
     vec4 d = texture2D(uDisturbTrail, uv);
     vec2 e = abs(uv - 0.5) * 2.0;
-    float edge = 1.0 - smoothstep(0.85, 0.97, max(e.x, e.y));
+    float edge = 1.0 - smoothstep(uDistFade.x, uDistFade.y, max(e.x, e.y));
     float s = (1.0 - d.y) * ${f(C.reach)};
     float band = 1.0 - smoothstep(${f(FURROW_HALF - 0.06)}, ${f(FURROW_HALF + 0.04)}, s);
     return 1.0 - ${f(TRAIL_DARKEN)} * band * d.x * max(edge, 0.0);

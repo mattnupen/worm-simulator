@@ -20,7 +20,7 @@ import {
   HERO_MAX, PUSHER_SPAN, PUSHER_STRIDE, type HeroLeaves,
 } from '../surface/heroLeaves';
 import { LOCOMOTION } from './drive';
-import { stampLimit } from '../surface/leafScale';
+import { disturbReach, type DisturbReach } from '../surface/leafScale';
 import { pushOut, slideMove } from '../surface/obstacles';
 import { CAM_OPTS, CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
 
@@ -78,8 +78,11 @@ export class Crawl {
   readonly disturbance: DisturbanceMap = createDisturbance();
   /** The disturbance map changed since the renderer last uploaded it. */
   disturbed = true;
-  /** How far from the body the map is stamped: as far as the scale mode's leaves need (leafScale.ts). */
-  private stampLimit = stampLimit();
+  /**
+   * The scale mode's reach on the disturbance map (leafScale.ts): how far it is stamped, how much
+   * farther a body on top counts as, and the window the renderer fades it in.
+   */
+  readonly reach: DisturbReach = disturbReach();
   /** Loose physics leaves near the head. */
   readonly hero: HeroLeaves = createHeroLeaves(HERO_MAX);
   /** PUSHER_STRIDE floats per pusher ([x, z, radius, strength, top, under, belly, fall]), for the hero leaves. */
@@ -184,7 +187,7 @@ export class Crawl {
     const b = this.body;
     decay(m, dt);
     recentre(m, b[MAP_CENTRE].x, b[MAP_CENTRE].z);
-    stampBody(m, b, this.under, this.stampLimit);
+    stampBody(m, b, this.under, this.reach.stamp, this.reach.onTop);
     this.disturbed = true;
   }
 

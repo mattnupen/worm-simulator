@@ -2,7 +2,7 @@ import { LEAF_KINDS, type LeafKind } from './leafLitter';
 import { leafShape } from './leafShapes';
 import { LEAF_SIZE } from './leafPalette';
 import { scaleSpec, type ScaleSpec } from './worldScale';
-import { DIST_REACH } from './disturbance';
+import { DIST_CELL, DIST_REACH, DIST_SPAN } from './disturbance';
 
 /**
  * The farthest any Classic litter leaf reaches from its centre (the largest placement scale of the
@@ -52,10 +52,66 @@ export function maxLeafRadius(spec: ScaleSpec = scaleSpec()): number {
 }
 
 /**
- * How far from the body the mode's leaves need the disturbance map stamped (stampBody's limit):
- * the biggest leaf plus the drape's foot (Classic: 1.6 m, the map's reach before Part A). Never
- * past the map's reach.
+ * How far from the body the mode's leaves react: the biggest leaf plus the drape's foot (Classic:
+ * 1.6 m, the map's reach before Part A).
+ */
+export function leafReach(spec: ScaleSpec = scaleSpec()): number {
+  return maxLeafRadius(spec) + DRAPE_FOOT_M;
+}
+
+/**
+ * A lookup reads cells this far from where it is taken: the bilinear filter's four cells (up to a
+ * cell's diagonal away) at the gradient taps (one cell either side), at most (1 + sqrt 2) cells.
+ */
+const LOOKUP_SPREAD = DIST_CELL * (1 + Math.SQRT2);
+
+/**
+ * How far from the body the mode stamps the disturbance map (stampBody's limit): the leaves' reach
+ * plus a lookup's spread, so every leaf that can react reads exactly what the full map holds (an
+ * empty cell reads as the map's whole reach, and bilinear filtering beside it would jump).
+ * Classic: 1.9 m. Never past the map's reach.
  */
 export function stampLimit(spec: ScaleSpec = scaleSpec()): number {
-  return Math.min(DIST_REACH, maxLeafRadius(spec) + DRAPE_FOOT_M);
+  return Math.min(DIST_REACH, leafReach(spec) + LOOKUP_SPREAD);
+}
+
+/**
+ * How much farther a segment riding on top of the litter counts as being (stampBody's onTop), so
+ * it reaches only 0.2 m past the mode's biggest leaf: Classic 1.4, as before Part A; True 3.2.
+ */
+export function onTopDistance(spec: ScaleSpec = scaleSpec()): number {
+  return leafReach(spec) - 0.2;
+}
+
+/**
+ * The half width of the window the leaf shaders read the map in. Step 1a's 8 m map faded leaves
+ * out from 85% to 97% of its 4 m half span, 2.5 times its 1.6 m reach; each mode keeps that ratio
+ * (Classic exactly Step 1a's window, so trails end where they did), up to the map's own half span
+ * (True).
+ */
+function windowHalf(spec: ScaleSpec): number {
+  return Math.min(DIST_SPAN / 2, 2.5 * leafReach(spec));
+}
+
+/** Everything the crawl and the renderer need from the mode about the disturbance map. */
+export interface DisturbReach {
+  /** stampBody's limit (stampLimit). */
+  stamp: number;
+  /** stampBody's onTop (onTopDistance). */
+  onTop: number;
+  /** Where the leaf shaders fade the map out: from, to (metres from the map's centre along x or z). */
+  fadeFrom: number;
+  fadeTo: number;
+}
+
+/** The mode's DisturbReach, written into `out` (allocates nothing when given one). */
+export function disturbReach(
+  spec: ScaleSpec = scaleSpec(), out: DisturbReach = { stamp: 0, onTop: 0, fadeFrom: 0, fadeTo: 0 },
+): DisturbReach {
+  out.stamp = stampLimit(spec);
+  out.onTop = onTopDistance(spec);
+  const half = windowHalf(spec);
+  out.fadeFrom = 0.85 * half;
+  out.fadeTo = 0.97 * half;
+  return out;
 }

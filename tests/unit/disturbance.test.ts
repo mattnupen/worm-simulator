@@ -3,7 +3,7 @@ import {
   createDisturbance, recentre, stamp, decay, clearDisturbance, packDisturbance, cellAt, disturbedBox,
   originX, originZ, stampBody, DIST_N, DIST_SPAN, DIST_CELL, DIST_REACH, ON_TOP_DISTANCE, type DisturbanceMap,
 } from '../../src/surface/disturbance';
-import { maxLeafRadius, stampLimit } from '../../src/surface/leafScale';
+import { leafReach, maxLeafRadius, stampLimit } from '../../src/surface/leafScale';
 import { DRAPE_FOOT } from '../../src/render/leafGlsl';
 import { SCALE_MODES, SCALE_SPECS } from '../../src/surface/worldScale';
 
@@ -216,17 +216,36 @@ describe('disturbance map', () => {
     expect(box[0]).toBe(Infinity);
   });
 
+  it('disturbedBox keeps to the shaders\' window around the map\'s centre; empty when nothing is in it', () => {
+    const m = createDisturbance();
+    const box = [0, 0, 0, 0];
+    recentre(m, 0, 0);
+    const cx = originX(m) + DIST_SPAN / 2;
+    const cz = originZ(m) + DIST_SPAN / 2;
+    stamp(m, 0, 0, 1);
+    disturbedBox(m, box, 1.2);
+    expect(box).toEqual([cx - 1.2, cz - 1.2, cx + 1.2, cz + 1.2]);
+    // A trail only past the window: nothing a leaf reads.
+    clearDisturbance(m);
+    stamp(m, 5, 0, 1, 0.3);
+    disturbedBox(m, box, 3.88);
+    expect(box[0]).toBe(Infinity);
+    disturbedBox(m, box);
+    expect(box[0]).toBeGreaterThan(4.5);
+    expect(box[2]).toBeLessThanOrEqual(cx + DIST_SPAN / 2);
+  });
+
   it('reaches past the biggest leaf plus the drape, inside the map\'s unfaded middle', () => {
     expect(DIST_REACH).toBeGreaterThan(ON_TOP_DISTANCE);
     // The map centres 7 segments (1.54 m) behind the head; a True leaf whose edge reaches the
-    // drape's foot from the head must sit inside the leaf shader's edge fade (85% of the half span).
+    // drape's foot from the head must sit inside the leaf shader's widest edge fade (85% of the half span).
     expect(7 * 0.22 + maxLeafRadius(SCALE_SPECS.true) + DRAPE_FOOT).toBeLessThan(0.85 * DIST_SPAN / 2);
     for (const mode of SCALE_MODES) expect(stampLimit(SCALE_SPECS[mode])).toBeLessThanOrEqual(DIST_REACH);
-    // A body riding on top reaches 0.2 m: even the biggest leaf beside it stays put.
-    expect(ON_TOP_DISTANCE - maxLeafRadius(SCALE_SPECS.true)).toBeGreaterThanOrEqual(DRAPE_FOOT);
-    // Classic stamps exactly as far as before the map grew.
-    expect(stampLimit(SCALE_SPECS.classic)).toBeCloseTo(1.6, 9);
-    expect(stampLimit(SCALE_SPECS.classic) - maxLeafRadius(SCALE_SPECS.classic)).toBeCloseTo(DRAPE_FOOT, 9);
+    // The whole map's default: a body riding on top reaches 0.2 m (each mode's own: disturbReach.test.ts).
+    expect(DIST_REACH - ON_TOP_DISTANCE).toBeCloseTo(0.2, 9);
+    // Classic's leaves react exactly as far as before the map grew.
+    expect(leafReach(SCALE_SPECS.classic)).toBeCloseTo(1.6, 9);
+    expect(leafReach(SCALE_SPECS.classic) - maxLeafRadius(SCALE_SPECS.classic)).toBeCloseTo(DRAPE_FOOT, 9);
   });
 
   it('a stamp limit leaves far cells empty and the near ones exactly as before', () => {

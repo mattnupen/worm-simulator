@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
-  createDisturbance, recentre, stampBody, packDisturbance, DIST_N, DIST_CELL, type DisturbanceMap,
+  createDisturbance, recentre, stampBody, packDisturbance, DIST_N, DIST_CELL, DIST_REACH, type DisturbanceMap,
 } from '../../src/surface/disturbance';
 import { overBody } from '../../src/surface/heroClearance';
 import { PUSHER_STRIDE } from '../../src/surface/heroBody';
@@ -63,14 +63,14 @@ describe('the disturbance map reads the body as a smooth tube', () => {
         }
       });
     }
-    // 1/1600 of nearness is 1 mm of distance.
+    // 0.001 / DIST_REACH of nearness is 1 mm of distance.
     besides.forEach((_, k) => {
-      expect(hi[k][0] - lo[k][0]).toBeLessThan(1 / 1600);
-      expect(hi[k][1] - lo[k][1]).toBeLessThan(1 / 1600);
+      expect(hi[k][0] - lo[k][0]).toBeLessThan(0.001 / DIST_REACH);
+      expect(hi[k][1] - lo[k][1]).toBeLessThan(0.001 / DIST_REACH);
     });
   });
 
-  it('packs path and body in two bytes each, to within 1/20000 (a tenth of a mm); the trail in one', () => {
+  it('packs path and body in two bytes each, to within a tenth of a mm of distance; the trail in one', () => {
     const m = createDisturbance();
     for (let k = 0; k < m.data.length; k++) m.data[k] = ((k * 7919) % 10007) / 10007;
     const near = new Uint8Array(DIST_N * DIST_N * 4);
@@ -86,7 +86,7 @@ describe('the disturbance map reads the body as a smooth tube', () => {
       worst = Math.max(worst, Math.abs(out[0] - m.data[c * 4]), Math.abs(out[2] - m.data[c * 4 + 2]));
       worstTrail = Math.max(worstTrail, Math.abs(out[3] - m.data[c * 4 + 3]));
     }
-    expect(worst).toBeLessThan(1 / 20000);
+    expect(worst * DIST_REACH).toBeLessThan(0.0001);
     expect(worstTrail).toBeLessThanOrEqual(0.5 / 255 + 1e-9);
   });
 });

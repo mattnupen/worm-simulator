@@ -3,7 +3,7 @@ import { buildSky } from '../render/sky';
 import { buildAtmosphere, type Atmosphere } from '../render/atmosphere';
 import { setRimLight } from '../render/paintedMaterial';
 import {
-  groundUniforms, setFocus, setLeafReaction, setSpine, uploadDisturbance,
+  groundUniforms, setDisturbFade, setFocus, setLeafReaction, setSpine, uploadDisturbance,
 } from '../render/groundUniforms';
 import { occluderSegments } from '../render/occluderSegments';
 import { disturbedBox } from '../surface/disturbance';
@@ -104,7 +104,9 @@ export function buildWorld(crawl: Crawl): World {
       g.uOccTan.value.set(1 / pe[0], 1 / pe[5]);
       if (crawl.disturbed) {
         uploadDisturbance(crawl.disturbance);
-        disturbedBox(crawl.disturbance, distBox);
+        // The mode's window: leaves past it never read the map, so chunks there need not react.
+        setDisturbFade(crawl.reach.fadeFrom, crawl.reach.fadeTo);
+        disturbedBox(crawl.disturbance, distBox, crawl.reach.fadeTo);
         crawl.disturbed = false;
       }
       // Per litter chunk: full or low-detail leaves, and whether it may react (as uploaded now).

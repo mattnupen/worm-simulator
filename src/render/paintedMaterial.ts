@@ -194,6 +194,7 @@ export function createPaintedMaterial(opts: PaintedOptions): THREE.ShaderMateria
       ...(opts.trail ? {
         uDisturbTrail: groundUniforms.uDisturbTrail,
         uDistOrigin: groundUniforms.uDistOrigin,
+        uDistFade: groundUniforms.uDistFade,
         uLeafReact: groundUniforms.uLeafReact,
       } : {}),
     },

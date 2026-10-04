@@ -4,7 +4,9 @@ import { occlusion, ign, OCCLUSION_FN_GLSL, IGN_GLSL, OCC_SEGMENTS } from '../..
 import { occluderSegments } from '../../src/render/occluderSegments';
 import { mulberry32 } from '../../src/core/random';
 import { DETAIL_GLSL, detailVertex, type DetailInputs } from '../../src/render/detailGlsl';
-import { DISTURB_GLSL, disturbVertex, packedMapSampler } from '../../src/render/leafGlsl';
+import { DISTURB_GLSL, FULL_FADE, disturbVertex, packedMapSampler } from '../../src/render/leafGlsl';
+import { disturbReach } from '../../src/surface/leafScale';
+import { SCALE_SPECS } from '../../src/surface/worldScale';
 import { litterTextureData, LITTER_TEX_N } from '../../src/render/litterTexture';
 import { groundTextureData, GROUND_TEX_N } from '../../src/render/groundTexture';
 import {
@@ -14,7 +16,7 @@ import { buildDetailLeaves } from '../../src/surface/detailLeaves';
 import { buildNearClutter } from '../../src/surface/nearClutter';
 import { wrapAround } from '../../src/render/wrap';
 import {
-  createDisturbance, recentre, stampBody, decay, packDisturbance, DIST_N, DIST_CELL,
+  createDisturbance, recentre, stampBody, decay, packDisturbance, DIST_N, DIST_CELL, DIST_SPAN,
 } from '../../src/surface/disturbance';
 
 /**
@@ -29,9 +31,13 @@ const STRIDE = 16;
 /** Float32 on the GPU, approximate sin/cos: 0.2 mm is far below anything visible. */
 const TOLERANCE = 2e-4;
 
-interface Case { focus: [number, number]; dist: number[]; trail: number[]; origin: [number, number] }
+interface Case { focus: [number, number]; dist: number[]; trail: number[]; origin: [number, number]; fade: number[] }
 
-function worm(hx: number, hz: number, yaw: number, curve: number): Case {
+/** Classic's window (uDistFade), where leaves fade out from 3.4 to 3.88 m: some detail leaves lie in it. */
+const CLASSIC = disturbReach(SCALE_SPECS.classic);
+const CLASSIC_FADE = [CLASSIC.fadeFrom / (DIST_SPAN / 2), CLASSIC.fadeTo / (DIST_SPAN / 2)];
+
+function worm(hx: number, hz: number, yaw: number, curve: number, fade: readonly number[] = FULL_FADE): Case {
   const n = 16;
   const pts: number[][] = [];
   for (let i = 0; i < n; i++) {
@@ -53,7 +59,10 @@ function worm(hx: number, hz: number, yaw: number, curve: number): Case {
   const trail = new Uint8Array(DIST_N * DIST_N * 2);
   packDisturbance(m, near, trail);
   // The head a little off the 1 m snap, so the wrap centre and the focus differ.
-  return { focus: [hx + 0.13, hz - 0.27], dist: Array.from(near), trail: Array.from(trail), origin: [m.ci * DIST_CELL, m.cj * DIST_CELL] };
+  return {
+    focus: [hx + 0.13, hz - 0.27], dist: Array.from(near), trail: Array.from(trail), origin: [m.ci * DIST_CELL, m.cj * DIST_CELL],
+    fade: [...fade],
+  };
 }
 
 
@@ -77,8 +86,8 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
     );
   }
   const cases = [
-    worm(0.31, -0.17, 0.7, 0.5), worm(6.4, -3.3, 2.1, -0.4), worm(-6.9, -7.2, 4.0, 0.3),
-    worm(18.6, 17.9, 0.9, 0.2), worm(-18.8, 4.2, 3.3, -0.5),
+    worm(0.31, -0.17, 0.7, 0.5, CLASSIC_FADE), worm(6.4, -3.3, 2.1, -0.4), worm(-6.9, -7.2, 4.0, 0.3, CLASSIC_FADE),
+    worm(18.6, 17.9, 0.9, 0.2), worm(-18.8, 4.2, 3.3, -0.5, CLASSIC_FADE),
   ];
 
   await page.setContent('<canvas id="c"></canvas>');
@@ -160,6 +169,7 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
       gl.bindTexture(gl.TEXTURE_2D, trailTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, distN, distN, gl.RG, gl.UNSIGNED_BYTE, new Uint8Array(c.trail));
       gl.uniform2f(U('uDistOrigin'), c.origin[0], c.origin[1]);
+      gl.uniform2f(U('uDistFade'), c.fade[0], c.fade[1]);
       gl.uniform3f(U('uFocus'), c.focus[0], 0, c.focus[1]);
       gl.uniform2f(U('uWrapCentre'), Math.round(c.focus[0]), Math.round(c.focus[1]));
       const bufs = [0, 1, 2].map((i) => {
@@ -205,7 +215,7 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
       p[0] = w[0];
       p[1] = w[1];
       p[2] = w[2];
-      if (a[2] > 0) disturbVertex(sample, c.origin[0], c.origin[1], true, w, a, 0, p);
+      if (a[2] > 0) disturbVertex(sample, c.origin[0], c.origin[1], true, w, a, 0, p, c.fade);
       const o = k * 4;
       // A home exactly on a tile edge may land a tile apart on the CPU and GPU: only if shrunk to nothing.
       if (Math.abs(ga[o] - a[0]) > 1 || Math.abs(ga[o + 1] - a[1]) > 1) {
