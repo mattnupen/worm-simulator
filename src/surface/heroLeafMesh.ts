@@ -35,7 +35,7 @@ const pitchQ = new THREE.Quaternion();
 
 /**
  * The instance matrix of hero leaf `i`, between its last two physics steps by `alpha`: scaled
- * to its size, flipped about its midrib, turned by its yaw, then tilted by its pitch (about the
+ * to its size (growing in from nothing just after it appears), flipped about its midrib, turned by its yaw, then tilted by its pitch (about the
  * horizontal axis across (sin pitchDir, cos pitchDir), so its far edge tips down away from the
  * body under it), at its position (raised onto its rim when face down; a leaf held over the
  * worm drapes, its cup flattening toward its base plane). Allocates nothing.
@@ -55,7 +55,10 @@ export function heroLeafMatrix(p: HeroLeaves, i: number, alpha: number, out: THR
   const level = Math.cos(flip);
   const flat = Math.max(p.pflat[i] + (p.flat[i] - p.pflat[i]) * alpha, DRAPE * held * level * level);
   const rim = FLIP_LIFT + (RIM[p.kind[i]] - FLIP_LIFT) * held;
-  const lift = (1 - Math.cos(flip)) * 0.5 * rim * p.size[i] * (1 - flat);
+  // Growing in since it appeared (eased; never quite nothing, so the matrix stays invertible).
+  const g = p.pgrow[i] + (p.grow[i] - p.pgrow[i]) * alpha;
+  const size = p.size[i] * Math.max(0.01, g * g * (3 - 2 * g));
+  const lift = (1 - Math.cos(flip)) * 0.5 * rim * size * (1 - flat);
   pos.set(
     p.px[i] + (p.x[i] - p.px[i]) * alpha,
     p.py[i] + (p.y[i] - p.py[i]) * alpha + lift,
@@ -70,7 +73,7 @@ export function heroLeafMatrix(p: HeroLeaves, i: number, alpha: number, out: THR
     pitchQ.setFromAxisAngle(pitchAxis, pitch);
     quat.premultiply(pitchQ);
   }
-  scale.setScalar(p.size[i]);
+  scale.setScalar(size);
   out.compose(pos, quat, scale);
   // Pressed flat: the leaf's own height (its cup and curl) shrinks, applied before everything else.
   if (flat > 0) out.multiply(press.makeScale(1, 1 - flat, 1));

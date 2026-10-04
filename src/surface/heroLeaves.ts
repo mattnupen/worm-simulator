@@ -5,14 +5,14 @@ import {
 import { HELD, atRest, rideBody, settle } from './heroRide';
 import { bodyBounds } from './heroBody';
 import {
-  HERO_RECYCLE, HERO_Y_BIAS, clamp, surfaceOr, type HeroLeaves, type SurfaceFn,
+  HERO_GROW_IN, HERO_RECYCLE, HERO_Y_BIAS, clamp, surfaceOr, type HeroLeaves, type SurfaceFn,
 } from './heroPool';
 import { OBSTACLE_PAD, respawn } from './heroSpawn';
 import { unwedge } from './heroObstacles';
 
 export { PUSHER_SPAN, PUSHER_STRIDE } from './heroClearance';
 export {
-  HERO_MAX, HERO_RADIUS, HERO_RECYCLE, HERO_Y_BIAS, clearHeroLeaves, createHeroLeaves, snapshotHeroLeaves,
+  HERO_GROW_IN, HERO_MAX, HERO_RADIUS, HERO_RECYCLE, HERO_Y_BIAS, clearHeroLeaves, createHeroLeaves, snapshotHeroLeaves,
   type HeroLeaves, type SurfaceFn,
 } from './heroPool';
 export { setHeroCount } from './heroSpawn';
@@ -111,7 +111,9 @@ export function stepHeroLeaves(
   const bcz = bounds.z;
   const bodyR = bounds.r;
   const shortcuts = heroShortcuts.on;
+  const grown = dt / HERO_GROW_IN;
   for (let i = 0; i < p.count; i++) {
+    if (p.grow[i] < 1) p.grow[i] = Math.min(1, p.grow[i] + grown);
     const hdx = p.x[i] - hx;
     const hdz = p.z[i] - hz;
     if (Math.sqrt(hdx * hdx + hdz * hdz) > HERO_RECYCLE) {

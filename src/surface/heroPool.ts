@@ -13,6 +13,8 @@ export const HERO_RADIUS = 3;
 export const HERO_RECYCLE = 4;
 /** Slot i rests i * HERO_Y_BIAS above the surface so overlapping leaves never z-fight. */
 export const HERO_Y_BIAS = 0.0006;
+/** A leaf that appears (scattered or recycled) grows in from nothing over this long (s), so it never pops in. */
+export const HERO_GROW_IN = 0.18;
 
 /** Height (m) of the rendered litter top at (x, z): `litterTop` (src/worm/surfaceHeight.ts) in the game. */
 export type SurfaceFn = (x: number, z: number) => number;
@@ -49,11 +51,13 @@ export interface HeroLeaves {
    * the litter presses a leaf it passes over, which springs back once the worm has gone.
    */
   readonly flat: Float32Array;
+  /** How far (0 to 1) the leaf has grown in since it appeared (HERO_GROW_IN); drawing only. */
+  readonly grow: Float32Array;
   /** The previous step, for render interpolation. */
   readonly px: Float32Array; readonly py: Float32Array; readonly pz: Float32Array;
   readonly pyaw: Float32Array; readonly pflip: Float32Array; readonly ppitch: Float32Array;
   readonly ppitchDir: Float32Array;
-  readonly pflat: Float32Array;
+  readonly pflat: Float32Array; readonly pgrow: Float32Array;
   /** Leaf length (m) and species index (into LEAF_KINDS), fixed per slot. */
   readonly size: Float32Array;
   readonly kind: Uint8Array;
@@ -81,8 +85,9 @@ export function createHeroLeaves(max = HERO_MAX, seed = 1): HeroLeaves {
   const p: HeroLeaves = {
     max, count: 0, seed, spawned: 0, headX: NaN, headZ: NaN,
     x: f(), y: f(), z: f(), yaw: f(), flip: f(), vx: f(), vy: f(), vz: f(), spin: f(), flipRate: f(),
-    pitch: f(), pitchDir: f(), lift: f(), pinned: f(), wedged: f(), flat: f(),
-    px: f(), py: f(), pz: f(), pyaw: f(), pflip: f(), ppitch: f(), ppitchDir: f(), pflat: f(), size: f(), kind: new Uint8Array(max),
+    pitch: f(), pitchDir: f(), lift: f(), pinned: f(), wedged: f(), flat: f(), grow: f(),
+    px: f(), py: f(), pz: f(), pyaw: f(), pflip: f(), ppitch: f(), ppitchDir: f(), pflat: f(), pgrow: f(),
+    size: f(), kind: new Uint8Array(max),
   };
   for (let i = 0; i < max; i++) p.kind[i] = Math.floor(hash01(i, seed + 202) * 5);
   sizeHeroLeaves(p);
@@ -100,7 +105,8 @@ export function clearHeroLeaves(p: HeroLeaves): void {
   p.headZ = NaN;
   for (const a of [
     p.x, p.y, p.z, p.yaw, p.flip, p.vx, p.vy, p.vz, p.spin, p.flipRate, p.pitch, p.pitchDir, p.lift,
-    p.pinned, p.wedged, p.flat, p.px, p.py, p.pz, p.pyaw, p.pflip, p.ppitch, p.ppitchDir, p.pflat,
+    p.pinned, p.wedged, p.flat, p.grow, p.px, p.py, p.pz, p.pyaw, p.pflip, p.ppitch, p.ppitchDir, p.pflat,
+    p.pgrow,
   ]) a.fill(0);
 }
 
@@ -118,6 +124,7 @@ export function snapshotHeroLeaves(p: HeroLeaves): void {
     p.ppitch[i] = p.pitch[i];
     p.ppitchDir[i] = p.pitchDir[i];
     p.pflat[i] = p.flat[i];
+    p.pgrow[i] = p.grow[i];
   }
 }
 

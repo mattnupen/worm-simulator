@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { HeroLeafMesh, heroLeafMatrix } from '../../src/surface/heroLeafMesh';
-import { createHeroLeaves, setHeroCount, snapshotHeroLeaves, HERO_MAX } from '../../src/surface/heroLeaves';
+import {
+  createHeroLeaves, setHeroCount, snapshotHeroLeaves, stepHeroLeaves, HERO_GROW_IN, HERO_MAX,
+} from '../../src/surface/heroLeaves';
 
 describe('HeroLeafMesh', () => {
   const pool = createHeroLeaves(HERO_MAX, 2);
@@ -64,6 +66,38 @@ describe('HeroLeafMesh', () => {
         .applyMatrix4(inv).setY(0).applyMatrix4(m);
       expect(near.y).toBeGreaterThan(centre.y + 0.05);
     }
+  });
+
+  it('a leaf that appears grows in from nothing over HERO_GROW_IN, smoothly, and again when recycled', () => {
+    const p = createHeroLeaves(1, 2);
+    const flat = () => 0.05;
+    setHeroCount(p, 1, 0, 0, 0, flat);
+    const m = new THREE.Matrix4();
+    const scale = new THREE.Vector3();
+    const sizeAt = (alpha: number) => {
+      heroLeafMatrix(p, 0, alpha, m).decompose(new THREE.Vector3(), new THREE.Quaternion(), scale);
+      return scale.x / p.size[0];
+    };
+    expect(sizeAt(1)).toBeLessThan(0.02);
+    const DT = 1 / 60;
+    let last = sizeAt(1);
+    const steps = Math.ceil(HERO_GROW_IN / DT);
+    for (let t = 0; t < steps; t++) {
+      snapshotHeroLeaves(p);
+      stepHeroLeaves(p, DT, new Float32Array(0), 0, 0, 0, 0, flat);
+      for (const alpha of [0.25, 0.5, 1]) {
+        const s = sizeAt(alpha);
+        expect(s).toBeGreaterThanOrEqual(last - 1e-9);
+        expect(s - last).toBeLessThan(0.2);
+        last = s;
+      }
+    }
+    expect(last).toBeCloseTo(1, 9);
+    // Recycled (the head is now far away): small again where it lands.
+    snapshotHeroLeaves(p);
+    stepHeroLeaves(p, DT, new Float32Array(0), 0, 10, 0, 0, flat);
+    expect(p.spawned).toBe(2);
+    expect(sizeAt(1)).toBeLessThan(0.02);
   });
 
   it('hides itself at zero leaves (Low)', () => {

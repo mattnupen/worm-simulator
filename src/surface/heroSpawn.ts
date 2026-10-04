@@ -81,7 +81,7 @@ function nearestLeaf2(p: HeroLeaves, i: number, x: number, z: number): number {
  * Moves slot i to a free spot: around the head (`around`) or ahead of it, inside the playable
  * world, clear of the other leaves, of trunks, rocks and the log, and of the body (`count`
  * pushers; at the world's edge or beside a big prop the spots ahead can all be blocked, so later
- * tries look wider, still in front of the head). Resets its motion.
+ * tries look wider, still in front of the head). Resets its motion, and it grows in again.
  * Only slots below `p.count` count as occupied.
  */
 export function respawn(
@@ -194,6 +194,7 @@ export function respawn(
   p.ppitchDir[i] = p.pitchDir[i];
   p.lift[i] = p.pinned[i] = p.wedged[i] = 0;
   p.flat[i] = p.pflat[i] = 0;
+  p.grow[i] = p.pgrow[i] = 0;
   p.vx[i] = p.vy[i] = p.vz[i] = p.spin[i] = p.flipRate[i] = 0;
   return surf;
 }
