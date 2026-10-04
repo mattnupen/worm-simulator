@@ -15,7 +15,7 @@ unit ends with the big idea: *worms change the forest*.
 | Week (suggested start) | Version | Topic (learning unit) | What's new to play | Main vote on its form |
 |---|---|---|---|---|
 | 1 (Oct 5) | **V1 · True Size** | How big is a worm's world? No native earthworms in Minnesota | World scale: Classic / Hybrid / True | Which World scale? |
-| 2 (Oct 12) | **V2 · Underground** | Three kinds of worms: litter, topsoil, deep burrowers. The topsoil worm eats soil | First dig level in the side-view cross-section: eat through soil, leave tunnels and castings, grow | How digging looks and feels (decided in V2's spec) · topic vote → V4 |
+| 2 (Oct 12) | **V2 · Underground** | Three kinds of worms: litter, topsoil, deep burrowers. The topsoil worm eats soil | Dig down from the forest floor into a painted 3D cutaway of the soil. Free dig: tunnels and castings, no goal yet | Camera view: close and following, or wide cross-section (both in the build as a setting) · topic vote → V4 |
 | 3 (Oct 19) | **V3 · First Bite** | What worms eat; breathing through moist skin | Surface Level 1: eat leaves (species differ), grow, Moisture meter, sun gap and damp spots. Moisture also works underground | A Moisture design question · topic vote → V5 |
 | 4 (Oct 26) | **V4** (students' pick) | From V2's vote | | topic vote → V6 |
 | 5 (Nov 2) | **V5** (students' pick) | From V3's vote | | topic vote → V7 |
@@ -31,8 +31,6 @@ or give V8 extra days.
 Each topic can be built in about one week, now that V2 and V3 are done. Each needs its sources
 checked before it goes on a ballot.
 
-- **Down the burrow:** dig down from the forest floor into the cross-section and back up, joining
-  the two modes.
 - **The mole:** digging vibrations warn you; fleeing upward escapes. Underground.
 - **The robin:** a shadow and hop vibrations warn you; hide under leaves. Surface.
 - **Skin that senses light, and Worm View:** see the world as a worm senses it.
@@ -41,6 +39,15 @@ checked before it goes on a ballot.
   to fit the 8 weeks.
 - **Racing the frost:** the frost line moves down the cross-section; adults die, but cocoons
   deeper down survive. Needs "Growing up" and a source check.
+
+## V2 decisions (Matt, 2026-10-04)
+- **Entry:** the worm digs down from the 3D forest floor into the cross-section, and back up.
+  The two modes are joined from the start.
+- **Goal:** a free dig sandbox. No level goal yet; goals come with later versions.
+- **Look:** a 3D cutaway painted to match the forest: litter on top, dark topsoil, lighter
+  subsoil, roots and stones (parent spec 3.1 and 8.3).
+- **Vote on V2's form:** camera view. Close and following, or a wide cross-section. Both ship
+  as a setting.
 
 ## What this changes from the original plan
 - The underground side view (the parent spec's Chapter 2, "Eat the ground") moves from after

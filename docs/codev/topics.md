@@ -24,8 +24,8 @@ Status values: `pool` (can go on a ballot) · `needs source` · `blocked` (prere
 | Growing up: the clitellum and cocoons | The clitellum band marks an adult worm; cocoons carry the next generation | Clitellum at full size; leave cocoons with Action (one version) | First bite | UMN Extension | pool |
 | Racing the frost | Adults die when frozen, but cocoons survive | Frost line moving down the cross-section | Growing up; Underground | UMN Extension | needs source (marked in spec 5) |
 | Worms change the forest | Less leaf litter; fewer trillium, ferns and ground-nesting birds; more sedge | Forest change screen and neighbours (driven by how much the worm ate and dug) | First bite; Underground | UMN global invasion; Great Lakes Now; Lawrence et al. 2003 | chosen (V8, Matt's finale); needs source (sedge increase) |
-| Three kinds of worms (Underground) | Litter, topsoil and deep-burrowing groups; the topsoil worm eats soil | Side-view cross-section: eat through soil, tunnels, castings, grow (first slice) | none | Great Lakes Worm Watch; UMN Extension | chosen (V2) |
-| Down the burrow | Worms move between the leaf litter and the soil | Dig down from the forest floor into the cross-section and back | Underground | Great Lakes Worm Watch | pool |
+| Three kinds of worms (Underground) | Litter, topsoil and deep-burrowing groups; the topsoil worm eats soil | Side-view cross-section reached by digging down from the forest floor: free dig, tunnels, castings (first slice) | none | Great Lakes Worm Watch; UMN Extension | chosen (V2) |
+| Down the burrow | Worms move between the leaf litter and the soil | Dig down from the forest floor into the cross-section and back | none | Great Lakes Worm Watch | chosen (V2, with Underground) |
 | The mole | Moles hunt worms underground; digging vibrations drive worms up | Mole warn → strike → leave in the cross-section | Underground | ScienceDaily (worm grunting) | needs source (mole diet and range in MN) |
 | Jumping worms | The newest invader | Chapter 4 (later) | Three kinds of worms | UMN Jumping Worm handbook | blocked |
 
