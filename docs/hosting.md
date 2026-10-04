@@ -32,33 +32,35 @@ the code from, so the school's GitHub block doesn't affect students.
 ## Updating the game
 
 Every push to `main` on GitHub rebuilds and redeploys automatically. The root,
-`wormsimulator.com/`, always shows the newest `main`: it is Matt's preview.
+`wormsimulator.com/`, always shows the newest `main`: it is your preview.
 
 ## Versions students play (`/v1/`, `/v2/`, ...)
 
 Students only ever get a version link such as `https://wormsimulator.com/v1/`
 (docs/codev/README.md). Each one is a frozen copy of the single-file build:
 
-1. When Matt has checked the root build, freeze it: `npm run release -- 1` (the version number).
+1. When you have checked the root build, freeze it: `npm run release -- 1` (the version number).
    It builds, checks that the Start-screen label says V1, and copies `dist/index.html` to
    `releases/v1/index.html`.
-2. Commit that file and push. Render's build (`render.yaml`) copies every `releases/vN/` folder
+2. Commit that file and push. Render's build (`render.yaml`) copies each `releases/vN/index.html`
    into the site, so the snapshot is served at `/v1/` and `/v1`, next to the root build.
-3. Check `https://wormsimulator.com/v1/` loads and shows "V1 · …" on the Start screen.
+3. Check `https://wormsimulator.com/v1/` loads and shows "V1 · …" on the Start screen, and that
+   `https://wormsimulator.com/v1` (without the slash) opens it too.
 
 The first time, check the site's **Settings → Build Command** in the Render Dashboard reads
 `npm ci && npm run build && node scripts/copy-releases.mjs`. A Blueprint with auto-sync picks up the
 `render.yaml` change on its own; if it still shows the old command, paste the new one in.
 
 A released version is never rebuilt. `npm run release` refuses to overwrite `releases/vN/` unless
-you add `--emergency-fix`, and an emergency fix is noted in that version's doc and changelog entry.
-Every version runs on the same site, so they share saved settings (see CLAUDE.md, "One origin,
-shared saves").
+you run `npm run release -- N --emergency-fix` (without the `--`, npm eats the flag), and an
+emergency fix is noted in that version's doc and changelog entry. Every version runs on the same
+site, so they share saved settings (see CLAUDE.md, "One origin, shared saves").
 
 ## Before using it with a class
 
-- **Test on a student account and a student Chromebook.** School web filters (GoGuardian,
-  Securly, Lightspeed and others) often block *newly registered* or *uncategorized* domains.
+- **Test the version link students will use** (such as `wormsimulator.com/v1/`) on a student
+  account and a student Chromebook. School web filters (GoGuardian, Securly, Lightspeed and
+  others) often block *newly registered* or *uncategorized* domains.
   If wormsimulator.com is blocked, ask district IT to allowlist `wormsimulator.com` (and
   `www.wormsimulator.com`). Doing this a week ahead avoids a surprise on class day.
 - The page makes no network requests after it loads, so it keeps working if the Wi-Fi drops.

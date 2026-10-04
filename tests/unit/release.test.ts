@@ -13,7 +13,7 @@ describe('parseReleaseArgs', () => {
     expect(parseReleaseArgs(['--emergency-fix', '3'])).toEqual({ version: 3, emergencyFix: true });
   });
   it('rejects a missing, non-whole, zero or extra argument with the usage line', () => {
-    for (const bad of [[], ['v1'], ['1.5'], ['0'], ['-2'], ['1', '2'], ['1', '--force']]) {
+    for (const bad of [[], ['v1'], ['1.5'], ['0'], ['01'], ['-2'], ['1', '2'], ['1', '--force']]) {
       expect(() => parseReleaseArgs(bad)).toThrow(/Usage: npm run release -- <N>/);
     }
   });
@@ -35,7 +35,7 @@ describe('checkTarget: released versions are frozen', () => {
     expect(checkTarget(2, false, false)).toBeNull();
   });
   it('refuses to overwrite an existing release', () => {
-    expect(checkTarget(1, true, false)).toMatch(/releases\/v1\/ already exists.*frozen.*--emergency-fix/s);
+    expect(checkTarget(1, true, false)).toMatch(/releases\/v1\/ already exists.*frozen.*npm run release -- 1 --emergency-fix/s);
   });
   it('overwrites only with --emergency-fix', () => {
     expect(checkTarget(1, true, true)).toBeNull();

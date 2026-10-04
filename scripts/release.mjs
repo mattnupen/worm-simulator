@@ -26,7 +26,11 @@ const target = releasePath(version);
 const refused = checkTarget(version, existsSync(path.dirname(target)), emergencyFix);
 if (refused) fail(refused);
 
-execFileSync('npm', ['run', 'verify:build'], { stdio: 'inherit' });
+try {
+  execFileSync('npm', ['run', 'verify:build'], { stdio: 'inherit' });
+} catch {
+  fail('npm run verify:build failed');
+}
 const wrong = checkBuild(readFileSync('dist/index.html', 'utf8'), version);
 if (wrong) fail(wrong);
 

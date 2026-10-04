@@ -23,9 +23,10 @@ test('the Start screen shows the version label, at least 18 px and 7:1 on the pa
     return { size: parseFloat(s.fontSize), color: s.color };
   });
   expect(style.size).toBeGreaterThanOrEqual(18);
-  // The card's flat parchment (--parchment, #f8eed6) under the label.
+  // The card's parchment shades from --parchment (#f8eed6) to --parchment-lo (#efdfbd) in its
+  // corner gradient; check against the darker, worst case.
   const L1 = luminance(style.color);
-  const L2 = luminance('rgb(248, 238, 214)');
+  const L2 = luminance('rgb(239, 223, 189)');
   expect((Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05)).toBeGreaterThanOrEqual(7);
   // Decorative to keyboard users: it takes no focus, so the menu's focus order is unchanged.
   await expect(page.getByRole('button', { name: 'Crawl', exact: true })).toBeFocused();

@@ -14,6 +14,10 @@ describe('version', () => {
     expect(words.length).toBeLessThanOrEqual(4);
   });
 
+  it('has a name safe to put unescaped in the meta tag\'s attribute: letters, digits, spaces, \' and -', () => {
+    expect(VERSION.name).toMatch(/^[A-Za-z0-9 '-]+$/);
+  });
+
   it('stamps the build with a meta tag the release script reads', () => {
     expect(VERSION_META).toBe('<meta name="wormsim-version" content="V1 · True Size">');
   });

@@ -26,7 +26,8 @@ export function releasePath(n) {
 export function checkTarget(n, exists, emergencyFix) {
   if (!exists || emergencyFix) return null;
   return `releases/v${n}/ already exists. Released versions are frozen: students and slides point at it. `
-    + 'For a real emergency fix, run again with --emergency-fix and note the fix in the version doc '
+    + `For a real emergency fix, run npm run release -- ${n} --emergency-fix (the -- keeps npm from eating the flag) `
+    + 'and note the fix in the version doc '
     + 'and its CHANGELOG entry.';
 }
 

@@ -22,7 +22,7 @@ let copied = 0;
 for (const v of versions) {
   const src = path.join(from, v, 'index.html');
   if (!existsSync(src)) {
-    console.error(`copy-releases: ${src} is missing (every release folder holds one index.html).`);
+    console.error(`copy-releases: the release folder ${v}/ has no index.html. Check ${from}/${v}/: every release folder holds one index.html.`);
     process.exit(1);
   }
   mkdirSync(path.join(to, v), { recursive: true });

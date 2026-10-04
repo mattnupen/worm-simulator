@@ -48,6 +48,8 @@ test('every release copied into the site runs offline with zero network requests
     const onRequest = (r: { url(): string }) => { if (!/^(file|data|blob):/.test(r.url())) outside.push(r.url()); };
     page.on('request', onRequest);
     page.on('pageerror', (e) => errors.push(e.message));
+    // Three reports shader compile and link failures as console errors.
+    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
     await page.goto(pathToFileURL(path.join(site, v, 'index.html')).href);
     const crawl = page.getByRole('button', { name: 'Crawl', exact: true });
     await expect(crawl).toBeFocused();
@@ -59,6 +61,7 @@ test('every release copied into the site runs offline with zero network requests
     expect(errors, v).toEqual([]);
     page.off('request', onRequest);
     page.removeAllListeners('pageerror');
+    page.removeAllListeners('console');
   }
 });
 
