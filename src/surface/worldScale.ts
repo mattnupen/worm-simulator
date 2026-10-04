@@ -25,6 +25,7 @@ export interface RockSite { x: number; z: number; size: number }
 export interface LogSite { x: number; z: number; yaw: number; length: number; radius: number }
 
 export interface ScaleSpec {
+  /** Which mode this is: for reporting only (results, the picker); never branch on mode. */
   readonly mode: ScaleMode;
   /** Size of every leaf (litter, detail, hero) per species, times Classic. */
   readonly leaf: Readonly<Record<LeafKind, number>>;
@@ -32,7 +33,7 @@ export interface ScaleSpec {
   readonly mushroom: number;
   readonly fern: number;
   readonly sedge: number;
-  /** Rock size, times Classic. */
+  /** Rock size (about a rock's radius; it is twice that across), times Classic. */
   readonly rock: number;
   /** The fallen log's radius and length, times Classic. */
   readonly log: number;
@@ -72,8 +73,8 @@ const CLASSIC_ROCKS: readonly RockSite[] = [
 ];
 
 /**
- * Hybrid and True: fewer stones, four times bigger (10 to 40 cm), placed around each mode's
- * trees and log, well away from the worm's paths (tests/unit/propPlacement.test.ts).
+ * Hybrid and True: fewer stones, four times bigger (about 17 to 41 cm across), placed around each
+ * mode's trees and log, well away from the worm's paths (tests/unit/propPlacement.test.ts).
  */
 const HYBRID_ROCKS: readonly RockSite[] = [
   { x: 3.5, z: -11, size: 1.2 },
@@ -134,7 +135,8 @@ export function scaleSpec(): ScaleSpec {
 
 /**
  * Makes `mode` active. Everything built from the spec must then be rebuilt (src/game/world.ts);
- * caches keyed on the spec (treeSites, footprints, the height grid) refresh on their next read.
+ * caches keyed on the spec (treeSites, rocks(), footprints, the height grid and the litter drifts)
+ * refresh on their next read.
  */
 export function setScale(mode: ScaleMode): ScaleSpec {
   active = SCALE_SPECS[mode];

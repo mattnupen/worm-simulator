@@ -38,7 +38,7 @@ export function trunkFootOf(t: TreeSite, spec: ScaleSpec = scaleSpec()): number 
  * Near-tree positions (pure): `count` sites from `seed`, birch and maple in turn, at least `clear`
  * from the spawn and with their footprint (plus a body width) off the speed test's loop. Classic's
  * layout (14, seed 7, clear 4) is the Step 1a forest. The bigger modes keep the spawn's straight
- * run clear by `clear` alone (tests/unit/layout.test.ts).
+ * run clear by `clear` alone (tests/unit/propPlacement.test.ts).
  */
 export function placeTrees(layout: TreeLayout, spec: ScaleSpec): TreeSite[] {
   const rng = mulberry32(layout.seed);

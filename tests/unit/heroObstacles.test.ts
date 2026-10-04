@@ -134,6 +134,7 @@ describe.each(SCALE_MODES)('%s: hero leaves and trunks, rocks and the log', (mod
       stepHeroLeaves(p, DT, NONE, 0, x, z, -Math.PI / 2, flat);
       expect(p.spawned - spawned, `respawned again at (${x}, ${z})`).toBe(0);
     }
-    expect(checked).toBeGreaterThan(80);
+    // Every recycled leaf at every site was checked (Classic 768, Hybrid 416, True 320).
+    expect(checked).toBe(sites.length * HERO_MAX);
   });
 });

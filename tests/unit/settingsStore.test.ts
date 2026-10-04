@@ -97,6 +97,12 @@ describe('settings store', () => {
     expect(JSON.parse(picked.data[SETTINGS_KEY])).toEqual({ version: 1, graphics: 'auto', autoSettled: null, scale: 'true' });
   });
 
+  it('updateSettings leaves an unknown stored scale (a later version\'s) alone, and plays the default', () => {
+    const store = stored({ version: 1, graphics: 'auto', autoSettled: null, scale: 'giant' });
+    expect(updateSettings(store, { graphics: 'low' }).scale).toBe(DEFAULT_SCALE);
+    expect(JSON.parse(store.data[SETTINGS_KEY])).toEqual({ version: 1, graphics: 'low', autoSettled: null, scale: 'giant' });
+  });
+
   it('storedScale is the picked scale, or null when none is stored', () => {
     expect(storedScale(stored({ version: 1, graphics: 'low', autoSettled: null, scale: 'hybrid' }))).toBe('hybrid');
     expect(storedScale(stored({ version: 1, graphics: 'low', autoSettled: null }))).toBeNull();

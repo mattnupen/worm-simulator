@@ -5,12 +5,12 @@ import {
 } from '../../src/surface/litterDepth';
 import { treeSites, trunkRadiusOf } from '../../src/surface/treeSites';
 import { heroLog, rocks } from '../../src/surface/propPlacement';
-
-const HERO_LOG = heroLog();
-const ROCKS = rocks();
 import { PLAY_HALF, WORLD_HALF } from '../../src/surface/terrain';
 import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
 import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
+
+const HERO_LOG = heroLog();
+const ROCKS = rocks();
 
 const grid = (half: number, step: number): [number, number][] => {
   const pts: [number, number][] = [];

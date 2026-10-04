@@ -15,7 +15,7 @@ const TRUNK_CLEAR = 1.0;
 export function keepsClear(x: number, z: number, radius: number): boolean {
   if (!clearOfPaths(x, z, radius)) return false;
   if (Math.abs(x) > PLAY_HALF - radius || Math.abs(z) > PLAY_HALF - radius) return false;
-  // Classic's trunks keep TRUNK_CLEAR; a bigger trunk keeps its whole footprint.
+  // Each trunk keeps the larger of TRUNK_CLEAR and its footprint.
   return treeSites().every((t) => Math.hypot(x - t.x, z - t.z) > Math.max(TRUNK_CLEAR, trunkFootOf(t)) + radius);
 }
 
