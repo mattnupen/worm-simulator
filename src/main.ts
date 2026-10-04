@@ -105,7 +105,10 @@ function start(renderer: THREE.WebGLRenderer): void {
   let lastNow = performance.now();
   /** Something changed while frozen (preset, size): draw one more frame. */
   let dirty = true;
-  /** Leaving World scale waits one painted frame (see dispatch); other screen events wait too. */
+  /**
+   * Leaving World scale waits one painted frame (see dispatch); screen events that arrive in that
+   * frame are dropped, not queued.
+   */
   let leaving = false;
 
   const runner = new SpeedTestRunner({
@@ -152,11 +155,13 @@ function start(renderer: THREE.WebGLRenderer): void {
   /**
    * Compiles every eagerly built program once, now, while the Start card is up. On Low the
    * atmosphere (light shafts, motes, falling leaves) is hidden, so without this three would
-   * compile those programs on the first switch up from Low and the game would hitch once. The
-   * lazily built layers (detail leaves, Ultra's near clutter) are deliberately not built here:
-   * their one-time build and compile on first show is accepted (see applySpec). Nor are the
-   * litter's plain and reacting (active) programs: its near chunks stay hidden until the first
-   * frame places them, so those two compile on that frame, also behind the Start card.
+   * compile those programs on the first switch up from Low and the game would hitch once.
+   * three r186's renderer.compile prepares hidden objects too, so the hidden near litter chunks'
+   * plain program is compiled here as well; showing the atmosphere for the call only keeps this
+   * from depending on that. The lazily built layers (detail leaves, Ultra's near clutter) are
+   * deliberately not built here: their one-time build and compile on first show is accepted (see
+   * applySpec). Nor is the litter's reacting (active) program, which no chunk wears yet: it
+   * compiles on the first frame a chunk reacts (a world rebuild lends it out, compileForest).
    */
   function warmShaders(): void {
     const group = world.atmosphere.group;
