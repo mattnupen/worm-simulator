@@ -1,10 +1,13 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import { placeLeaves, wetnessLayer } from '../../src/surface/leafLitter';
 import { leafTint } from '../../src/surface/leafPalette';
 import { mulberry32 } from '../../src/core/random';
 import * as THREE from 'three';
-import { buildLeafLitter } from '../../src/surface/leafLitterMesh';
-import { buildTerrainGeometry, meshGroundHeight } from '../../src/surface/terrainMesh';
+import { buildLeafLitter, type LeafLitter } from '../../src/surface/leafLitterMesh';
+import { obstacleDepth } from '../../src/surface/obstacles';
+import { scaledLeafCount } from '../../src/surface/leafScale';
+import { PRESETS } from '../../src/render/graphics';
+import { buildTerrainGeometry, meshGroundHeight, meshGroundNormal } from '../../src/surface/terrainMesh';
 import { groundHeight } from '../../src/surface/litterDepth';
 import { WORLD_HALF } from '../../src/surface/terrain';
 import { PILES, litterDepth, litterMound } from '../../src/surface/litterDepth';
@@ -59,24 +62,50 @@ describe('litter and ground on a pile', () => {
     expect(pos[best + 1]).toBeCloseTo(terrainHeight(x, z) + litterMound(litterDepth(x, z)), 5);
     expect(pos[best + 1] - terrainHeight(x, z)).toBeGreaterThan(0.15);
   });
+});
 
-  // Classic's leaves (True's are as big as the piles: a known limit, Step 1b spec 4.5).
-  it('leaves near a pile centre lie on top of it', () => {
-    setScale('classic');
-    const litter = buildLeafLitter(6000);
-    let near = 0;
+describe.each(SCALE_MODES)('%s: litter on the rendered ground', (mode) => {
+  let litter: LeafLitter;
+  beforeAll(() => {
+    setScale(mode);
+    litter = buildLeafLitter(scaledLeafCount(PRESETS.ultra.litter));
+  });
+  const hit = { nx: 0, nz: 0 };
+
+  // Chunk geometry is relative to the chunk's centre (the mesh position).
+  const eachVertex = (mesh: THREE.Mesh, f: (x: number, y: number, z: number) => void) => {
+    const pos = mesh.geometry.getAttribute('position').array as Float32Array;
+    for (let v = 0; v < pos.length; v += 3) f(pos[v] + mesh.position.x, pos[v + 1], pos[v + 2] + mesh.position.z);
+  };
+
+  it('no litter vertex on open ground is below the rendered ground (beyond 3 mm), full or low detail', () => {
+    let open = 0;
+    let worst = 0;
     for (const c of litter.chunks) {
-      // Chunk geometry is relative to the chunk's centre (the mesh position).
-      const pos = c.near.geometry.getAttribute('position').array as Float32Array;
-      for (let v = 0; v < pos.length; v += 3) {
-        const x = pos[v] + c.near.position.x;
-        const z = pos[v + 2] + c.near.position.z;
-        if (Math.hypot(x - pile.x, z - pile.z) > pile.r * 0.2) continue;
-        near++;
-        expect(pos[v + 1] - terrainHeight(x, z)).toBeGreaterThan(0.12);
+      for (const mesh of [c.near, c.far]) {
+        eachVertex(mesh, (x, y, z) => {
+          // Under a trunk, rock or the log the prop hides it.
+          if (obstacleDepth(x, z, 0, hit) > 0) return;
+          open++;
+          worst = Math.max(worst, meshGroundHeight(x, z) - y);
+        });
       }
     }
-    expect(near).toBeGreaterThan(20);
+    expect(open).toBeGreaterThan(4000);
+    expect(worst).toBeLessThanOrEqual(0.003);
+  });
+
+  it('leaves near a pile centre lie on top of it', () => {
+    const pile = PILES[0];
+    let near = 0;
+    for (const c of litter.chunks) {
+      eachVertex(c.near, (x, y, z) => {
+        if (Math.hypot(x - pile.x, z - pile.z) > pile.r * 0.4) return;
+        near++;
+        expect(y - terrainHeight(x, z)).toBeGreaterThan(0.12);
+      });
+    }
+    expect(near).toBeGreaterThan(10);
   });
 });
 
@@ -136,6 +165,24 @@ describe('meshGroundHeight', () => {
   it('equals the vertex heights at grid points', () => {
     for (let v = 0; v < pos.length; v += 3 * 97) {
       expect(meshGroundHeight(pos[v], pos[v + 2])).toBeCloseTo(pos[v + 1], 5);
+    }
+  });
+
+  it('meshGroundNormal is the unit normal of the mesh slope across the span', () => {
+    const r = mulberry32(6);
+    const n = new THREE.Vector3();
+    for (let i = 0; i < 200; i++) {
+      const x = (r() * 2 - 1) * (WORLD_HALF - 2);
+      const z = (r() * 2 - 1) * (WORLD_HALF - 2);
+      const h = 0.2 + r();
+      meshGroundNormal(x, z, h, n);
+      expect(n.length()).toBeCloseTo(1, 9);
+      expect(n.y).toBeGreaterThan(0);
+      // Its plane through (x, z) meets the ground h either side along x and z (on average).
+      const slopeX = -n.x / n.y;
+      const slopeZ = -n.z / n.y;
+      expect(slopeX * 2 * h).toBeCloseTo(meshGroundHeight(x + h, z) - meshGroundHeight(x - h, z), 9);
+      expect(slopeZ * 2 * h).toBeCloseTo(meshGroundHeight(x, z + h) - meshGroundHeight(x, z - h), 9);
     }
   });
 

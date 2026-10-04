@@ -116,6 +116,16 @@ export function meshGroundHeight(x: number, z: number): number {
   return u + v <= 1 ? a + u * (b - a) + v * (d - a) : e + (1 - u) * (d - e) + (1 - v) * (b - e);
 }
 
+/**
+ * Unit normal of the rendered ground (meshGroundHeight) across a span of `half` either side of
+ * (x, z), from four samples: the slope a flat thing that size lies at. Writes `out`.
+ */
+export function meshGroundNormal(x: number, z: number, half: number, out: THREE.Vector3): THREE.Vector3 {
+  const dx = (meshGroundHeight(x + half, z) - meshGroundHeight(x - half, z)) / (2 * half);
+  const dz = (meshGroundHeight(x, z + half) - meshGroundHeight(x, z - half)) / (2 * half);
+  return out.set(-dx, 1, -dz).normalize();
+}
+
 export function buildTerrainGeometry(): THREE.BufferGeometry {
   const { lines, heights } = heightGrid();
   const n = lines.length;

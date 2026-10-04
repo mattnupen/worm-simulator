@@ -2,12 +2,13 @@ import * as THREE from 'three';
 import { mulberry32 } from '../core/random';
 import { createLeafMaterial } from '../render/leafMaterial';
 import { placeLeaves, wetnessLayer, type LeafPlacement } from './leafLitter';
-import { leafShape } from './leafShapes';
+import { leafShape, type LeafShape } from './leafShapes';
+import { leafLift, type LeafForm } from './leafForm';
 import { lodShape } from './leafLod';
 import { leafTint, LEAF_SIZE, LATERAL_VEINS } from './leafPalette';
 import { WORLD_HALF } from './terrain';
 import { groundNormal, litterDepth } from './litterDepth';
-import { meshGroundHeight } from './terrainMesh';
+import { meshGroundHeight, meshGroundNormal } from './terrainMesh';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
 import { LeafBuffers, type LeafLook } from './leafWriter';
@@ -61,12 +62,37 @@ export interface LeafLitter {
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
+const slope = new THREE.Quaternion();
+const euler = new THREE.Euler();
+const probe = new THREE.Vector3();
+
+/** A leaf's orientation lying on ground with unit normal `n`, its own turn and tilt on top. Writes `out`. */
+function pose(n: THREE.Vector3, l: LeafPlacement, out: THREE.Quaternion): THREE.Quaternion {
+  slope.setFromUnitVectors(UP, n);
+  return out.setFromEuler(euler.set(l.tilt * 0.3, l.rotY, 0)).premultiply(slope);
+}
+
+/**
+ * A leaf any point of which sinks more than this into the rendered ground is laid at the ground's
+ * slope instead (looks); shallower dips are only draped (LeafBuffers.write).
+ */
+const REPOSE_DIP = 0.05;
+
+/** Whether any point of a leaf (`shape` with `form`, placed by `m`) sinks more than REPOSE_DIP into the rendered ground. */
+function dips(shape: LeafShape, form: LeafForm, m: THREE.Matrix4): boolean {
+  const pts = shape.points;
+  for (let p = 0; p < pts.length; p += 2) {
+    const u = pts[p];
+    const v = pts[p + 1];
+    probe.set(u, leafLift(u, v, form), -v).applyMatrix4(m);
+    if (probe.y < meshGroundHeight(probe.x, probe.z) - REPOSE_DIP) return true;
+  }
+  return false;
+}
 
 /** Size, curl, colour and pose of every leaf, from a second seeded stream (placement stays as seeded). */
 function looks(leaves: readonly LeafPlacement[], seed: number): LeafLook[] {
   const rng = mulberry32(seed * 7919 + 13);
-  const slope = new THREE.Quaternion();
-  const euler = new THREE.Euler();
   const nrm = new THREE.Vector3();
   const pos = new THREE.Vector3();
   const scl = new THREE.Vector3();
@@ -95,13 +121,20 @@ function looks(leaves: readonly LeafPlacement[], seed: number): LeafLook[] {
     const seedValue = rng();
     // Lie along the ground, including the slopes of leaf piles.
     const tn = groundNormal(l.x, l.z);
-    slope.setFromUnitVectors(UP, nrm.set(tn.x, tn.y, tn.z));
-    const q = new THREE.Quaternion().setFromEuler(euler.set(l.tilt * 0.3, l.rotY, 0)).premultiply(slope);
+    const q = pose(nrm.set(tn.x, tn.y, tn.z), l, new THREE.Quaternion());
     // On the ground as the terrain mesh draws it (soil plus mound, at the mesh's own resolution), in
     // loose layers: each leaf at its own height, so overlaps never z-fight.
     const rest = 0.006 + l.y;
     pos.set(l.x, meshGroundHeight(l.x, l.z) + rest, l.z);
     const m = new THREE.Matrix4().compose(pos, q, scl.setScalar(size));
+    // That normal is the ground's over a few cm, which a mound's edge can tip steeply (the mesh is
+    // much smoother there). A leaf it tips well into the rendered ground lies at the mesh's slope
+    // across the leaf's own size instead; the writer drapes whatever still dips (LeafBuffers.write).
+    // Every other leaf keeps its pose.
+    if (dips(leafShape(l.kind), form, m)) {
+      pose(meshGroundNormal(l.x, l.z, size / 2, nrm), l, q);
+      m.compose(pos, q, scl);
+    }
     return { kind: l.kind, x: l.x, z: l.z, rest, m, q, form, inner, edge, petiole, wet, lateral, seed: seedValue };
   });
 }

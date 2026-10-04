@@ -8,6 +8,16 @@ import { meshGroundHeight } from './terrainMesh';
 /** Petiole: two extra vertices per leaf (one thin triangle off the blade's base). */
 export const PETIOLE_VERTS = 2;
 const PETIOLE: Record<LeafKind, number> = { maple: 0.32, oak: 0.08, aspen: 0.3, basswood: 0.22, ash: 0.07 };
+/**
+ * A litter vertex the rendered ground would hide rests this far above it instead (the static drape
+ * in LeafBuffers.write)...
+ */
+export const DRAPE_FLOOR = 0.003;
+/**
+ * ...plus this much of its leaf's rest height, so the draped parts of overlapping leaves keep their
+ * layer order and never z-fight (rests differ per leaf).
+ */
+export const DRAPE_FLOOR_LAYER = 0.1;
 
 /** Everything about one litter leaf except its silhouette, worked out once at build time. */
 export interface LeafLook {
@@ -149,15 +159,21 @@ export class LeafBuffers {
       box[2] = Math.max(box[2], wx);
       box[3] = Math.max(box[3], wz);
     }
+    // Where the ground under a vertex rises past the leaf's plane (a hollow, the foot of a mound,
+    // a big leaf's far ends), the vertex lies on the ground instead: a static drape. Only vertices
+    // that were below the ground move, so a leaf that already clears it is written unchanged.
+    const floor = DRAPE_FLOOR + DRAPE_FLOOR_LAYER * look.rest;
     for (let k = v0; k < v0 + added; k++) {
       const wx = this.pos[k * 3] + ox;
       const wz = this.pos[k * 3 + 2] + oz;
+      const ground = meshGroundHeight(wx, wz);
+      if (this.pos[k * 3 + 1] < ground) this.pos[k * 3 + 1] = ground + floor;
       this.anchor[k * 4] = look.x;
       this.anchor[k * 4 + 1] = look.z;
       this.anchor[k * 4 + 2] = radius;
       this.anchor[k * 4 + 3] = look.rest;
       // How far this vertex lies below the leaf's rest plane over its own ground (tilt, curl, slope).
-      this.dip[k] = Math.max(0, look.rest - (this.pos[k * 3 + 1] - meshGroundHeight(wx, wz)));
+      this.dip[k] = Math.max(0, look.rest - (this.pos[k * 3 + 1] - ground));
     }
     this.v0 += added;
     this.ends[this.count++] = this.ii;
