@@ -8,3 +8,6 @@ playwright-report/
 
 # Raw Google Form exports (student data). Never commit.
 codev-raw/
+
+# Matt's large reference photos (kept locally; notes in docs/codev/research/)
+reference images/

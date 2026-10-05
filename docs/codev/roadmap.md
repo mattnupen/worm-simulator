@@ -15,7 +15,7 @@ unit ends with the big idea: *worms change the forest*.
 | Week (suggested start) | Version | Topic (learning unit) | What's new to play | Main vote on its form |
 |---|---|---|---|---|
 | 1 (Oct 5) | **V1 · True Size** | How big is a worm's world? No native earthworms in Minnesota | World scale: Classic / Hybrid / True | Which World scale? |
-| 2 (Oct 12) | **V2 · Underground** | Three kinds of worms: litter, topsoil, deep burrowers. The topsoil worm eats soil | Dig down from the forest floor into a painted 3D cutaway of the soil. Free dig: tunnels and castings, no goal yet | Camera view: close and following, or wide cross-section (both in the build as a setting) · topic vote → V4 |
+| 2 (Oct 12) | **V2 · Underground** | Before worms: the forest floor's layers (litter, fermentation, humus) and who lives in them; worms are newcomers | Dig down from a realistic, layered forest floor into a painted 3D cutaway. Free dig: tunnels and castings, no goal yet | **Which native forest-floor life should the game add?** Shapes V3 · quick camera question · topic vote → V4 |
 | 3 (Oct 19) | **V3 · First Bite** | What worms eat; breathing through moist skin | Surface Level 1: eat leaves (species differ), grow, Moisture meter, sun gap and damp spots. Moisture also works underground | A Moisture design question · topic vote → V5 |
 | 4 (Oct 26) | **V4** (students' pick) | From V2's vote | | topic vote → V6 |
 | 5 (Nov 2) | **V5** (students' pick) | From V3's vote | | topic vote → V7 |
@@ -46,8 +46,24 @@ checked before it goes on a ballot.
 - **Goal:** a free dig sandbox. No level goal yet; goals come with later versions.
 - **Look:** a 3D cutaway painted to match the forest: litter on top, dark topsoil, lighter
   subsoil, roots and stones (parent spec 3.1 and 8.3).
-- **Vote on V2's form:** camera view. Close and following, or a wide cross-section. Both ship
-  as a setting.
+- **V2's learning focus and main vote (2026-10-04):** the forest floor before worms, and who
+  lives in it. Students dig through the layers and notice the life in them.
+  - Main question: "Which native forest-floor life should we add next?"
+  - The winner is built into V3, where it reacts to moisture and the worm.
+  - Camera view is a quick extra question, with both views shipped as a setting.
+- **Realistic leaf litter (must):** follow `research/mn-forest-floor.md` and Matt's reference
+  photos.
+  - **Cutaway layers:**
+    - L: this fall's bright leaves, needles and twigs;
+    - F: dark matted older leaves, threaded with white hyphae and fine roots;
+    - H: a thin black humus band;
+    - then a thin A topsoil and lighter E/B subsoil with stones and roots.
+  - **Depth:** the forest floor is up to about 10 cm, about two thirds of the worm's length.
+  - **On the surface:** a mixed-colour mosaic, with some leaves still green and older leaves
+    bleached pale, plus twigs and sticks, conifer needles, moss carpets and mounds, moss collars
+    on trunks, mossy logs and stones with puffballs and shelf fungi, ferns and seedlings.
+  - **Patches differ:** a conifer patch has a needle and moss mat (mor). The worm's own tunnels
+    and castings start turning the floor towards worm soil (mull).
 
 ## What this changes from the original plan
 - The underground side view (the parent spec's Chapter 2, "Eat the ground") moves from after
