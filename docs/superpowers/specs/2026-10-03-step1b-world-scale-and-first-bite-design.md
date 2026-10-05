@@ -1,7 +1,10 @@
 # Step 1b: Leaf Jitter Fix, World Scale Modes, and Level 1 "First Bite", Design
 
 Date: 2026-10-03
-Status: Part 0 and Part A are built (V1 · True Size, section 4.7); Part B is next
+Status: Part 0 and Part A are built (V1 · True Size, section 4.7). **Part B moved to V3 · First
+Bite** (see `docs/codev/roadmap.md`). V2 · Underground comes first and takes two pieces of Part B
+with it: the science-honesty content system (5.6) and the touch Action button (5.1). Read the
+"Part B after V2" note at the start of section 5 before planning V3.
 Parent spec: `docs/superpowers/specs/2026-09-30-worm-simulator-design.md` (sections 3.2, 3.3, 3.4, 5, 6, 8.3)
 Previous round: `docs/superpowers/specs/2026-10-01-game-shell-and-forest-floor-v2-design.md`
 
@@ -361,6 +364,21 @@ watch it.
 - `pushOutTall` could bounce between two trunks closer than 0.3 (never seen).
 
 ## 5. Part B: Core loop, Moisture and Level 1 "First bite"
+
+> **Part B after V2 (2026-10-04).** Part B is V3's design. Update it in V3's brainstorm for what
+> V2 built (`docs/superpowers/specs/2026-10-04-v2-underground-design.md`):
+> - **Already built in V2:** `src/content/` (sources, labelled lines, build check: 5.6), the
+>   large touch **Action** button (5.1), and the dashed-ring cue style (5.2). Reuse them.
+> - **Moisture underground:** the roadmap says V3's Moisture also works in the cross-section.
+>   Add rates by layer and damp value (V2's soil grid stores a damp value per cell), and "too
+>   dry" underground returns to the checkpoint too.
+> - **Native forest-floor life:** V3 also builds the winner of V2's vote (V2 spec, section 9),
+>   reacting to Moisture and the worm.
+> - **Start screen:** Free crawl now includes digging down. Play opens Level 1 on the surface.
+> - **Settings:** follow the V1 save rule (store only real picks), and plan how a vote's new
+>   default reaches devices that already picked (CLAUDE.md).
+> - **Action:** it now means "dig down" on open ground and "bite" with a food target. Decide
+>   which wins when both apply, e.g. bite when there's a target, otherwise dig.
 
 ### 5.1 Screens and flow
 - **Start:** Play, Free crawl, World scale, Graphics, Speed test.

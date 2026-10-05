@@ -68,7 +68,8 @@ checked before it goes on a ballot.
 ## What this changes from the original plan
 - The underground side view (the parent spec's Chapter 2, "Eat the ground") moves from after
   Chapter 1 to **V2**.
-- Surface eating and Moisture (the Step 1b spec's Part B) move from V2 to **V3**.
+- Surface eating and Moisture (the Step 1b spec's Part B) move from V2 to **V3**. V2 builds two pieces of Part B early, the science-honesty content system and the touch Action
+  button; see the V2 spec's section 2b.
 - The V2 dig level is a first slice:
   - In it: the cross-section look, eating through soil blocks, tunnels, castings and growing.
   - Later, by vote: Moisture underground (V3), the mole, frost and the move between modes.

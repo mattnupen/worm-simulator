@@ -45,6 +45,30 @@ two views, not a jump into a different-looking game.
 | Extra form question | Camera view underground: close and following, or wide (both shipped as a setting) |
 | Litter realism | **Must** be realistic, following the research notes and photos |
 
+## 2b. Taken from the Step 1b spec's Part B (which moved to V3)
+
+V2 needs these first, so it builds them. Part B (V3) then reuses them:
+- **Science honesty system** (Step 1b 5.6, unchanged):
+  - `src/content/sources.ts`: ID, plain title, publisher, URL, date checked.
+  - `src/content/text.ts`: every student-facing line, typed as `fact` (needs a source ID and
+    `verified`), `gameChoice` (shown with "Game choice:") or `ui`.
+  - `tsc` and a unit test fail the build on an unsourced or unverified shown fact.
+  - V2's lines go through it: the dig hints, layer names, and any Game choice label such as the
+    worm's size (section 11.4). Seed the sources from `docs/codev/research/mn-forest-floor.md`.
+- **Large touch Action button** (Step 1b 5.1):
+  - at least 64 px, bottom right, shown on touch screens;
+  - it feeds the existing `Commands.action`;
+  - V1 had none, and V2's "Dig down" needs it.
+- **Cue style** (Step 1b 5.2): the "you can dig here" cue uses the dashed-ring style. The shape is
+  the cue, not the colour, and it pulses no faster than 1 Hz. V3's food target ring will match.
+- **Engineering rules** (Step 1b section 6):
+  - files under about 260 lines;
+  - tests first for pure modules;
+  - no per-frame or per-step allocation;
+  - no shader recompiles;
+  - GLSL twins kept in step;
+  - all checks green.
+
 ## 3. Scope tiers (one-week build)
 
 - **Must have:**
@@ -52,6 +76,7 @@ two views, not a jump into a different-looking game.
   - digging down and coming back up, with the camera transition (4);
   - free digging: tunnels, eating through soil, castings, stones and roots (6);
   - the camera setting (7);
+  - the content system and the touch Action button (2b);
   - version label "V2 · Underground", changelog, version doc;
   - performance gates for the underground view.
 - **Should have:** a more realistic surface forest floor (8.1):
@@ -319,7 +344,8 @@ from Great Lakes Worm Watch (research notes).
   - plane movement and collide-and-slide on stones and roots;
   - the transition state machine;
   - the dig-down allowed check (not on footprints or the edge);
-  - settings save compatibility.
+  - settings save compatibility;
+  - the content check: every shown line is labelled, and facts are sourced and verified.
 - **Motion smoothness** (V1 lesson):
   - frame-to-frame camera rotation and position limits in both views;
   - the down/up transitions;
