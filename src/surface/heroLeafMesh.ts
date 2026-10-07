@@ -10,26 +10,12 @@ import { mulberry32 } from '../core/random';
 import type { HeroLeaves } from './heroLeaves';
 import { POCKET_ORDER } from '../render/drawOrder';
 import { litterTopHeight } from './litterDepth';
+import { easeLit, topShare } from './heroTopLight';
 
 /** The hero leaves lie lowest in the litter: this much of their colour shows. */
 const HERO_DIM = 0.55;
 /** The pocket's older leaves are warmer and duller than this fall's (times HERO_DIM). */
 const DIM_TINT = [1, 0.9, 0.78] as const;
-/**
- * A hero leaf whose highest point rises from TOP_FROM under the top of the litter to TOP_TO over
- * it (at its centre) brightens from the pocket's dim tint to a top leaf's colour: one the worm
- * heaves up through the top reads as a disturbed top leaf, not a dark leaf standing on it.
- */
-export const TOP_FROM = -0.1;
-export const TOP_TO = 0.1;
-/** The brightening eases over this long (s), so a leaf crossing the top never flashes. */
-export const TOP_EASE = 0.15;
-
-/** 0 (the pocket's dim tint) to 1 (a top leaf's colour) for a leaf whose highest point is `over` the top. */
-export function topShare(over: number): number {
-  const t = Math.min(1, Math.max(0, (over - TOP_FROM) / (TOP_TO - TOP_FROM)));
-  return t * t * (3 - 2 * t);
-}
 
 /** A leaf lying face down on the litter rests on its curled rim, sunk in a little: this much (per unit of size) higher. */
 const FLIP_LIFT = 0.12;
@@ -111,8 +97,10 @@ export function heroLeafMatrix(p: HeroLeaves, i: number, alpha: number, out: THR
  */
 export class HeroLeafMesh {
   readonly mesh: THREE.InstancedMesh;
-  /** Per leaf, 0 (dim, in the pocket) to 1 (bright, heaved up through the top): eased (TOP_EASE). */
+  /** Per leaf, 0 (dim, in the pocket) to 1 (bright, heaved up through the top): eased (easeLit). */
   readonly lit: Float32Array;
+  /** Per leaf, how long (s) its target has stayed under `lit` (easeLit). */
+  private readonly held: Float32Array;
   private readonly m = new THREE.Matrix4();
   /** Per leaf, its random brightness (fixed at build). */
   private readonly shade: Float32Array;
@@ -186,6 +174,7 @@ export class HeroLeafMesh {
     // They lie on the floor in the worm's pocket (V2 spec 8.2): older, damper leaves, darker
     // and duller than this fall's on top, until the worm heaves one up through the top.
     this.lit = new Float32Array(pool.max);
+    this.held = new Float32Array(pool.max);
     this.shade = new Float32Array(pool.max);
     const tint = new THREE.Color();
     for (let i = 0; i < pool.max; i++) {
@@ -210,7 +199,6 @@ export class HeroLeafMesh {
   update(p: HeroLeaves, alpha: number, timeSec: number): void {
     const dt = Number.isNaN(this.lastTime) ? 0 : Math.min(0.1, Math.max(0, timeSec - this.lastTime));
     this.lastTime = timeSec;
-    const step = dt / TOP_EASE;
     let recoloured = false;
     for (let i = 0; i < p.count; i++) {
       const e = heroLeafMatrix(p, i, alpha, this.m).elements;
@@ -220,10 +208,7 @@ export class HeroLeafMesh {
       let top = e[13];
       for (let a = 0; a < 3; a++) top += Math.max(e[1 + a * 4] * this.box[b + a], e[1 + a * 4] * this.box[b + 3 + a]);
       const target = topShare(top - litterTopHeight(e[12], e[14]));
-      const was = this.lit[i];
-      const now = was + Math.min(step, Math.max(-step, target - was));
-      if (now !== was) {
-        this.lit[i] = now;
+      if (easeLit(this.lit, this.held, i, target, dt)) {
         this.writeColour(i);
         recoloured = true;
       }

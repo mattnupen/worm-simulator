@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { HeroLeafMesh, heroLeafMatrix, topShare, TOP_EASE, TOP_FROM, TOP_TO } from '../../src/surface/heroLeafMesh';
+import { HeroLeafMesh, heroLeafMatrix } from '../../src/surface/heroLeafMesh';
+import { easeLit, topShare, TOP_EASE, TOP_FADE, TOP_FROM, TOP_HOLD, TOP_TO } from '../../src/surface/heroTopLight';
 import { floorHeight, litterTopHeight } from '../../src/surface/litterDepth';
 import {
   createHeroLeaves, setHeroCount, snapshotHeroLeaves, stepHeroLeaves, HERO_GROW_IN, HERO_MAX,
@@ -142,12 +143,16 @@ describe('a hero leaf heaved up through the top of the litter brightens to a top
     const frame = 1 / 30;
     let worst = 0;
     let prev = hero.lit[1];
+    let brightAt = Infinity;
     for (let f = 0; f <= 30; f++) {
       colour.needsUpdate = false;
       hero.update(pool, 1, f * frame);
       worst = Math.max(worst, Math.abs(hero.lit[1] - prev));
       prev = hero.lit[1];
+      if (hero.lit[1] === 1) brightAt = Math.min(brightAt, f * frame);
     }
+    // Heaved up, it turns bright almost at once.
+    expect(brightAt).toBeLessThanOrEqual(0.2);
     expect(hero.lit[0]).toBe(0);
     expect([colour.getX(0), colour.getY(0), colour.getZ(0)]).toEqual(dim);
     expect(hero.lit[1]).toBe(1);
@@ -162,11 +167,74 @@ describe('a hero leaf heaved up through the top of the litter brightens to a top
     const version = colour.version;
     hero.update(pool, 1, 31 * frame);
     expect(colour.version).toBe(version);
-    // Paused (the clock stands still): no easing at all.
+    // Back on the floor, paused (the clock stands still): nothing changes.
     pool.y[1] = pool.py[1] = floorHeight(3.5, 2);
     hero.update(pool, 1, 31 * frame);
     expect(hero.lit[1]).toBe(1);
-    hero.update(pool, 1, 32 * frame);
-    expect(hero.lit[1]).toBeCloseTo(1 - frame / TOP_EASE, 6);
+    // Then it stays bright for TOP_HOLD, and dims over TOP_FADE, a frame's share at a time.
+    let f = 31;
+    for (let k = 1; k < Math.round(TOP_HOLD / frame); k++) {
+      hero.update(pool, 1, ++f * frame);
+      expect(hero.lit[1]).toBe(1);
+    }
+    for (let k = 0; k < 4; k++) hero.update(pool, 1, ++f * frame);
+    expect(hero.lit[1]).toBeLessThan(1);
+    expect(hero.lit[1]).toBeGreaterThanOrEqual(1 - 4 * frame / TOP_FADE - 1e-6);
+    for (let k = 0; k < (TOP_FADE / frame) + 2; k++) hero.update(pool, 1, ++f * frame);
+    expect(hero.lit[1]).toBe(0);
+  });
+
+  it('a leaf wholly under the top never brightens, wherever it lies', () => {
+    expect(topShare(-0.001)).toBe(0);
+    expect(TOP_FROM).toBe(0);
+  });
+});
+
+/**
+ * Swings of `lit` per second (turning back by 0.1 or more from its last peak or trough), with its target driven by a wave of `hz`: high (1) for the first half of
+ * each period, at `under` (a leaf rocked back under the band) for the rest. 30 fps for 10 s.
+ */
+function swingsPerSecond(hz: number, under = 0): number {
+  return swings(1 / (2 * hz), 1 / (2 * hz), under);
+}
+
+/** As swingsPerSecond, the target high for `high` s, then at `under` for `low` s, over and over. */
+function swings(high: number, low: number, under = 0): number {
+  const lit = new Float32Array(1);
+  const held = new Float32Array(1);
+  const frame = 1 / 30;
+  const seconds = 10;
+  // It starts at 0, so it can only rise first.
+  let ext = 0;
+  let dir = 1;
+  let count = 0;
+  for (let f = 1; f <= seconds * 30; f++) {
+    const t = f * frame;
+    easeLit(lit, held, 0, t % (high + low) < high ? 1 : under, frame);
+    const v = lit[0];
+    if (dir > 0 ? v > ext : v < ext) ext = v;
+    else if (Math.abs(v - ext) >= 0.1) {
+      count++;
+      dir = -dir;
+      ext = v;
+    }
+  }
+  return count / seconds;
+}
+
+describe('a hero leaf rocked across the top of the litter never flashes (parent spec 7: 3 a second at most)', () => {
+  for (const hz of [6, 3]) {
+    it(`a ${hz} Hz rocking: fewer than 3 swings of lit a second`, () => {
+      expect(swingsPerSecond(hz)).toBeLessThan(3);
+      expect(swingsPerSecond(hz, 0.4)).toBeLessThan(3);
+    });
+  }
+
+  it('nor does any other rhythm of rising through and sinking back under the top', () => {
+    let worst = 0;
+    for (let high = 1 / 30; high <= 1; high += 1 / 60) {
+      for (let low = 1 / 30; low <= 2; low += 1 / 60) worst = Math.max(worst, swings(high, low));
+    }
+    expect(worst).toBeLessThan(3);
   });
 });
