@@ -1,14 +1,11 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as THREE from 'three';
 import { buildWorld, type World } from '../../src/game/world';
-import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
+import { Crawl, SPACING, WORM_SEGMENTS } from '../../src/game/crawl';
 import { PRESETS, type PresetId } from '../../src/render/graphics';
 import { scaledLeafCount } from '../../src/surface/leafScale';
 import { createBody } from '../../src/worm/body';
-import { createFollowCam } from '../../src/surface/followCamera';
-import { CAM_OPTS } from '../../src/game/cameraClearance';
 import { rocks, ROCK_FOOT } from '../../src/surface/propPlacement';
-import type { Vec3 } from '../../src/core/vec';
 
 /**
  * The draw-call budget (visual-quality-brief.md: up to 40 per frame on every preset), counted
@@ -66,43 +63,13 @@ function countDraws(scene: THREE.Scene, camera: THREE.Camera): number {
   return n;
 }
 
-interface CrawlInternals {
-  placeAtSpawn(): void;
-  rest(x: number, z: number): number;
-  clearance: { reset(): void; follow(head: Vec3, dt: number): Vec3 };
-  prevBody: Vec3[];
-  prevCam: Vec3;
-  prevHead: Vec3;
-  prevYaw: number;
-}
-
 /**
  * Resets the crawl as the game does, but with the worm at (x, z) heading h (0 is +z), straight
- * and still with its camera settled behind it: the spawn, moved. (Test only: the game always
- * starts at the origin.) Fails loudly if the stand-in is not what reset() placed, e.g. once
- * Crawl.placeAtSpawn is renamed (every view would silently become the spawn).
+ * and still with its camera settled behind it: the spawn, moved (reset's given points, as the
+ * worm coming up out of the cut uses them).
  */
 function spawnAt(crawl: Crawl, x: number, z: number, h: number): void {
-  const c = crawl as unknown as CrawlInternals;
-  const place = Object.getPrototypeOf(crawl).placeAtSpawn as (() => void) | undefined;
-  expect(place, 'Crawl.placeAtSpawn').toBeTypeOf('function');
-  c.placeAtSpawn = () => {
-    place!.call(crawl);
-    const spacing = Math.hypot(crawl.body[1].x - crawl.body[0].x, crawl.body[1].z - crawl.body[0].z);
-    const head = { x, y: c.rest(x, z), z };
-    crawl.motion = { head, heading: h };
-    createBody(WORM_SEGMENTS, spacing, head, h).forEach((p, i) => {
-      crawl.body[i] = p;
-      Object.assign(c.prevBody[i], p);
-    });
-    c.clearance.reset();
-    crawl.cam = createFollowCam(c.clearance.follow(head, 0), h, CAM_OPTS);
-    Object.assign(c.prevCam, crawl.cam.pos);
-    Object.assign(c.prevHead, head);
-    c.prevYaw = crawl.cam.yaw;
-    Object.assign(crawl.focus, head);
-  };
-  crawl.reset();
+  crawl.reset(crawl.hero.count, createBody(WORM_SEGMENTS, SPACING, { x, y: 0, z }, h), h);
   expect(Math.hypot(crawl.motion.head.x - x, crawl.motion.head.z - z), 'head at the view').toBeLessThan(1e-9);
   expect(crawl.motion.heading).toBe(h);
   expect(crawl.cam.yaw, 'camera yaw').toBeCloseTo(h, 9);

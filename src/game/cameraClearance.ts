@@ -1,6 +1,6 @@
 import type { Vec3 } from '../core/vec';
 import {
-  smoothDampInto, type FollowCamOptions, type FollowCamState, type Spring,
+  createFollowCam, smoothDampInto, type FollowCamOptions, type FollowCamState, type Spring,
 } from '../surface/followCamera';
 import { pushOutTall, sightReach } from '../surface/obstacles';
 import { groundHeight, litterTopHeight } from '../surface/litterDepth';
@@ -128,23 +128,38 @@ export class CameraClearance {
    * `follow` is the point the camera follows (Crawl's view over the buried head), not the head.
    */
   update(follow: Vec3, cam: FollowCamState, dt: number): void {
-    // Three sight lines fanning out behind the follow point. The middle one is the camera's own
-    // line: a prop on it pulls the camera in short of it. A prop on a side line is one the camera
-    // may meet soon: it starts the pull-in early, in full only when the camera is swinging toward it.
-    const mid = sightAt(follow, cam.yaw);
-    let reach = mid;
-    for (let k = -1; k <= 1; k += 2) {
-      const toward = Math.max(0, Math.min(1, (k * cam.yawVel * CAM_LOOK) / CAM_FAN));
-      reach = Math.min(reach, Math.max(sightAt(follow, cam.yaw + k * CAM_FAN), mid * CAM_SIDE_FLOOR * (1 - toward)));
-    }
+    const reach = wantedReach(follow, cam.yaw, cam.yawVel);
     const r = this.spring;
     smoothDampInto(r, reach, reach < r.value ? CAM_IN_TIME : CAM_OUT_TIME, dt);
     if (r.value < 0 || r.value > 1) {
       r.value = Math.max(0, Math.min(1, r.value));
       r.velocity = 0;
     }
-    this.opts.distance = CAM_OPTS.distance * r.value;
-    this.opts.height = CAM_OPTS.height * (1 + CAM_CRANE * (1 - r.value));
+    this.setOpts();
+  }
+
+  /**
+   * The camera at rest behind `head` facing `heading`, as if it had followed the worm there for a
+   * while: the follow point's height settled (follow at dt 0), the reach what the sight lines allow
+   * there, and the camera out of props and off the litter (keepOut). So a step that leaves the worm
+   * still leaves the camera still too: nothing eases in after the worm is placed somewhere new.
+   * Returns the new camera state (allocates: for a reset, never per step).
+   */
+  settle(head: Vec3, heading: number): FollowCamState {
+    const view = this.follow(head, 0);
+    this.spring.value = Math.max(0, Math.min(1, wantedReach(view, heading, 0)));
+    this.spring.velocity = 0;
+    this.setOpts();
+    const cam = createFollowCam(view, heading, this.opts);
+    this.keepOut(cam.pos);
+    return cam;
+  }
+
+  /** `opts` from the reach: the distance cut to it, the height craned. */
+  private setOpts(): void {
+    const r = this.spring.value;
+    this.opts.distance = CAM_OPTS.distance * r;
+    this.opts.height = CAM_OPTS.height * (1 + CAM_CRANE * (1 - r));
   }
 
   /**
@@ -162,6 +177,22 @@ export class CameraClearance {
     const u = pos.y - litterTopHeight(pos.x, pos.z) - CAM_GROUND_MARGIN;
     if (u < GROUND_EASE) pos.y += (u < -GROUND_EASE ? 0 : ((u + GROUND_EASE) * (u + GROUND_EASE)) / (4 * GROUND_EASE)) - u;
   }
+}
+
+/**
+ * The reach the sight lines allow behind the follow point `follow` for a camera at `yaw` turning
+ * at `yawVel`. Three lines fan out behind the follow point. The middle one is the camera's own
+ * line: a prop on it pulls the camera in short of it. A prop on a side line is one the camera may
+ * meet soon: it starts the pull-in early, in full only when the camera is swinging toward it.
+ */
+function wantedReach(follow: Vec3, yaw: number, yawVel: number): number {
+  const mid = sightAt(follow, yaw);
+  let reach = mid;
+  for (let k = -1; k <= 1; k += 2) {
+    const toward = Math.max(0, Math.min(1, (k * yawVel * CAM_LOOK) / CAM_FAN));
+    reach = Math.min(reach, Math.max(sightAt(follow, yaw + k * CAM_FAN), mid * CAM_SIDE_FLOOR * (1 - toward)));
+  }
+  return reach;
 }
 
 /**

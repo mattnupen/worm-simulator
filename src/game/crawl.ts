@@ -1,8 +1,6 @@
 import type * as THREE from 'three';
 import { copy3 as copy, vec3s as blank, type Vec2, type Vec3 } from '../core/vec';
-import {
-  createFollowCam, stepFollowCam, type FollowCamState,
-} from '../surface/followCamera';
+import { stepFollowCam, type FollowCamState } from '../surface/followCamera';
 import { createBody, followHead } from '../worm/body';
 import { clampToNeck, stepWorm, type WormMotion } from '../worm/locomotion';
 import { advanceWave, type WaveState } from '../worm/wormShape';
@@ -23,7 +21,7 @@ import {
 import { LOCOMOTION } from './drive';
 import { disturbReach, type DisturbReach } from '../surface/leafScale';
 import { pushOut, slideMove } from '../surface/obstacles';
-import { CAM_OPTS, CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
+import { CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
 
 export const WORM_SEGMENTS = 16;
 export const SPACING = 0.22;
@@ -108,7 +106,7 @@ export class Crawl {
   }
 
   constructor() {
-    this.placeAtSpawn();
+    this.place(null, 0);
     const ext: WormExtent = { top: 0, half: 0, fall: 0, probe: 0 };
     for (let k = 0; k < PUSHERS; k++) {
       this.pushM[k] = bodyCoordAt((k * SPACING) / 2, WORM_SEGMENTS, SPACING);
@@ -121,20 +119,20 @@ export class Crawl {
   }
 
   /**
-   * The worm at the spawn, straight and still, heading +z, with its camera settled behind it
-   * and the previous step the same (nothing to interpolate).
+   * The worm still, facing `heading`: at `at` (head first, x and z as given, each resting on the
+   * floor), else straight at the spawn. Its camera settles behind it, and the previous step is
+   * the same (nothing to interpolate, so nothing sweeps across a jump).
    */
-  private placeAtSpawn(): void {
-    const head = { x: 0, y: 0, z: 0 };
-    this.motion = { head, heading: 0 };
-    head.y = this.rest(0, 0);
-    const body = createBody(WORM_SEGMENTS, SPACING, head, 0);
+  private place(at: readonly Vec3[] | null, heading: number): void {
+    const head = { x: at ? at[0].x : 0, y: 0, z: at ? at[0].z : 0 };
+    this.motion = { head, heading };
+    head.y = this.rest(head.x, head.z);
+    const body = at ?? createBody(WORM_SEGMENTS, SPACING, head, heading);
     for (let i = 0; i < WORM_SEGMENTS; i++) {
-      this.body[i] = body[i];
-      copy(this.prevBody[i], body[i]);
+      this.body[i] = { x: body[i].x, y: at ? this.rest(body[i].x, body[i].z) : head.y, z: body[i].z };
+      copy(this.prevBody[i], this.body[i]);
     }
-    this.clearance.reset();
-    this.cam = createFollowCam(this.clearance.follow(head, 0), 0, CAM_OPTS);
+    this.cam = this.clearance.settle(head, heading);
     copy(this.prevCam, this.cam.pos);
     copy(this.prevHead, head);
     this.prevYaw = this.cam.yaw;
@@ -149,16 +147,17 @@ export class Crawl {
 
   /**
    * Back to the start, exactly as a freshly built crawl given the same leaf reaction and hero
-   * count: the worm and its camera at the spawn (see placeAtSpawn), the disturbance map empty
-   * and back on the spawn, and the hero leaves scattered around the spawn again, in the same
-   * deterministic order as at the start. The speed test starts here, so its numbers never
-   * depend on where the worm had been. `heroes`: how many hero leaves to scatter (the same count
-   * as now unless given).
+   * count: the worm and its camera at the spawn (see place), the disturbance map empty and back
+   * on the spawn, and the hero leaves scattered around the spawn again, in the same deterministic
+   * order as at the start. The speed test starts here, so its numbers never depend on where the
+   * worm had been. `heroes`: how many hero leaves to scatter (the same count as now unless given).
+   * With `at` (WORM_SEGMENTS points, head first) the same fresh start happens there, facing
+   * `heading`: the worm coming up out of the cut, with no trail or leaf drawn across the jump.
    */
-  reset(heroes = this.hero.count): void {
-    this.placeAtSpawn();
+  reset(heroes = this.hero.count, at: readonly Vec3[] | null = null, heading = 0): void {
+    this.place(at, heading);
     clearDisturbance(this.disturbance);
-    recentre(this.disturbance, 0, 0);
+    recentre(this.disturbance, at ? at[MAP_CENTRE].x : 0, at ? at[MAP_CENTRE].z : 0);
     this.disturbed = true;
     clearHeroLeaves(this.hero);
     this.pushers.fill(0);
