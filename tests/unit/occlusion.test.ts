@@ -226,11 +226,14 @@ describe('the dither', () => {
     expect(ign(10.5, 20.5)).toBe(ign(10.5, 20.5));
   });
 
-  it('has a GLSL twin that skips pixels outside the box before the segment loop', () => {
+  it('has a GLSL twin that skips pixels outside the box, then searches only its tile\'s segments', () => {
     expect(OCCLUDE_GLSL).toContain('bool fadedOut()');
     expect(OCCLUDE_GLSL).toContain('uniform vec4 uOccBox;');
-    expect(OCCLUDE_GLSL.indexOf('return false;')).toBeLessThan(OCCLUDE_GLSL.indexOf('occlusion(ndc'));
-    expect(OCCLUSION_FN_GLSL).toContain(`for (int i = 0; i < ${OCC_SEGMENTS}; i++)`);
+    const fn = OCCLUDE_GLSL.slice(OCCLUDE_GLSL.indexOf('bool fadedOut()'));
+    expect(fn.indexOf('return false;')).toBeLessThan(fn.indexOf('occTileRange(ndc)'));
+    expect(fn.indexOf('occTileRange(ndc)')).toBeLessThan(fn.indexOf('occlusionIn(ndc'));
+    expect(OCCLUSION_FN_GLSL).toContain('for (int i = max(lo, 0); i <= last; i++)');
+    expect(OCCLUSION_FN_GLSL).toContain(`occlusionIn(t, dl, 0, ${OCC_SEGMENTS - 1})`);
     expect(OCCLUSION_FN_GLSL).toContain('mix(0.400000000, 0.600000000');
   });
 });

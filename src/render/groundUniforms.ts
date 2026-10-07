@@ -4,6 +4,8 @@ import { FULL_FADE } from './leafGlsl';
 
 /** Spine points the shaders read: the worm's segments, head first. */
 export const SPINE_POINTS = 16;
+/** Tiles per side of the fade's screen box (occlusionTiles.ts). */
+export const OCC_TILES = 16;
 
 function mapTexture(data: Uint8Array, format: THREE.PixelFormat): THREE.DataTexture {
   const t = new THREE.DataTexture(data, DIST_N, DIST_N, format, THREE.UnsignedByteType);
@@ -18,6 +20,11 @@ const nearBytes = new Uint8Array(DIST_N * DIST_N * 4);
 const trailBytes = new Uint8Array(DIST_N * DIST_N * 2);
 const nearTexture = mapTexture(nearBytes, THREE.RGBAFormat);
 const trailTexture = mapTexture(trailBytes, THREE.RGFormat);
+/**
+ * The fade's tiles (occlusionTiles.ts), packed for uOccTiles: tile k's byte (lo in its low four bits,
+ * hi in its high four) at bits 8 (k % 4) of int k / 4. Every tile searches nothing until set.
+ */
+export const occTileWords = new Int32Array((OCC_TILES * OCC_TILES) / 4).fill(0x0f0f0f0f);
 
 /**
  * Uniforms shared by reference by every leaf material (and the near clutter): where the worm
@@ -41,6 +48,10 @@ export const groundUniforms = {
   /** The leaf fade's view of the body (occluderSegments): projected axis segments, and how many. */
   uOccSeg: { value: new Float32Array((SPINE_POINTS - 1) * 8) },
   uOccCount: { value: 0 },
+  /** The same segments in view space (occluderAxis): (start x, y, depth, 1 / squared length), (end - start, 0). */
+  uOccAxis: { value: new Float32Array((SPINE_POINTS - 1) * 8) },
+  /** Per tile of uOccBox, the segments its pixels search (occlusionTiles.ts), rewritten each frame. */
+  uOccTiles: { value: occTileWords },
   /** NDC box (xmin, ymin, xmax, ymax) of the pixels the fade can touch; empty until set. */
   uOccBox: { value: new THREE.Vector4(2, 2, -2, -2) },
   /** 1 / p00, 1 / p11 of the camera's projection: NDC to the tan space the segments are in. */

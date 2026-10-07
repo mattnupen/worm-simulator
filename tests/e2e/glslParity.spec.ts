@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
 import * as THREE from 'three';
-import { occlusion, ign, worldUpInView, OCCLUSION_FN_GLSL, IGN_GLSL, OCC_SEGMENTS } from '../../src/render/occlusion';
-import { occluderSegments } from '../../src/render/occluderSegments';
+import {
+  occlusion, ign, worldUpInView, OCCLUSION_FN_GLSL, IGN_GLSL, OCC_SEGMENTS, OCC_TILES, OCC_TILE_GLSL,
+} from '../../src/render/occlusion';
+import { occluderAxis, occluderSegments } from '../../src/render/occluderSegments';
+import { occlusionTiles, tileRange } from '../../src/render/occlusionTiles';
 import { mulberry32 } from '../../src/core/random';
 import { DETAIL_GLSL, detailVertex, type DetailInputs } from '../../src/render/detailGlsl';
 import { DISTURB_GLSL, FULL_FADE, disturbVertex, packedMapSampler } from '../../src/render/leafGlsl';
@@ -460,11 +463,20 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
       const ty = (rng() * 2 - 1) / pe[5];
       points.push(tx, ty, 0.3 + rng() * 4, 0);
     }
-    return { seg: Array.from(seg), count, far: box[4], points, up: up.toArray() };
+    // The view-space segments the shader's tail reads, and the box's tiles (as the world clips the box).
+    const axis = new Float32Array(OCC_SEGMENTS * 8);
+    occluderAxis(seg, count, axis);
+    const tbox = [Math.max(-1, box[0]), Math.max(-1, box[1]), Math.min(1, box[2]), Math.min(1, box[3])];
+    const tiles = new Int32Array((OCC_TILES * OCC_TILES) / 4);
+    occlusionTiles(seg, count, tbox, pe[0], pe[5], tiles);
+    return {
+      seg: Array.from(seg), axis: Array.from(axis), count, far: box[4], points, up: up.toArray(),
+      tbox, tiles: Array.from(tiles), p: [pe[0], pe[5]],
+    };
   });
 
   await page.setContent('<canvas id="c" width="64" height="64"></canvas>');
-  const gpu = await page.evaluate(({ fn, ignGlsl, cases, segs }) => {
+  const gpu = await page.evaluate(({ fn, tileGlsl, ignGlsl, cases, segs, tileWords }) => {
     const gl = (document.getElementById('c') as HTMLCanvasElement).getContext('webgl2', { antialias: false });
     if (!gl) throw new Error('no WebGL 2');
     const shader = (type: number, src: string) => {
@@ -486,13 +498,24 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
     // occlusion() at each pixel and depth, by transform feedback.
     const pr = program(`#version 300 es
       precision highp float; precision highp int;
-      uniform vec4 uOccSeg[${segs * 2}]; uniform int uOccCount; uniform float uOccDepth; uniform vec3 uOccUp;
+      uniform vec4 uOccSeg[${segs * 2}]; uniform vec4 uOccAxis[${segs * 2}]; uniform int uOccCount;
+      uniform float uOccDepth; uniform vec3 uOccUp;
+      uniform vec4 uOccBox; uniform ivec4 uOccTiles[${tileWords / 4}]; uniform vec2 uP;
       in vec4 aPoint;
       ${fn}
+      ${tileGlsl}
       out float oOcc;
-      void main() { oOcc = occlusion(aPoint.xy, aPoint.z); gl_Position = vec4(0.0); }`,
+      out float oTiled;
+      void main() {
+        oOcc = occlusion(aPoint.xy, aPoint.z);
+        vec2 ndc = aPoint.xy * uP;
+        bool inBox = all(greaterThanEqual(ndc, uOccBox.xy)) && all(lessThanEqual(ndc, uOccBox.zw));
+        ivec2 r = occTileRange(ndc);
+        oTiled = inBox ? occlusionIn(aPoint.xy, aPoint.z, r.x, r.y) : -1.0;
+        gl_Position = vec4(0.0);
+      }`,
     `#version 300 es
-      precision highp float; out vec4 c; void main() { c = vec4(1.0); }`, ['oOcc']);
+      precision highp float; out vec4 c; void main() { c = vec4(1.0); }`, ['oOcc', 'oTiled']);
     gl.useProgram(pr);
     const U = (name: string) => gl.getUniformLocation(pr, name);
     const vao = gl.createVertexArray();
@@ -505,23 +528,32 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
       gl.enableVertexAttribArray(l);
       gl.vertexAttribPointer(l, 4, gl.FLOAT, false, 16, 0);
       gl.uniform4fv(U('uOccSeg[0]'), new Float32Array(c.seg));
+      gl.uniform4fv(U('uOccAxis[0]'), new Float32Array(c.axis));
+      gl.uniform4f(U('uOccBox'), c.tbox[0], c.tbox[1], c.tbox[2], c.tbox[3]);
+      gl.uniform4iv(U('uOccTiles[0]'), new Int32Array(c.tiles));
+      gl.uniform2f(U('uP'), c.p[0], c.p[1]);
       gl.uniform1i(U('uOccCount'), c.count);
       gl.uniform1f(U('uOccDepth'), c.far);
       gl.uniform3f(U('uOccUp'), c.up[0], c.up[1], c.up[2]);
-      const b = gl.createBuffer();
-      gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, b);
-      gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, n * 4, gl.STATIC_READ);
-      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, b);
+      const bufs = [0, 1].map((i) => {
+        const b = gl.createBuffer();
+        gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, b);
+        gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, n * 4, gl.STATIC_READ);
+        gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, i, b);
+        return b;
+      });
       gl.enable(gl.RASTERIZER_DISCARD);
       gl.beginTransformFeedback(gl.POINTS);
       gl.drawArrays(gl.POINTS, 0, n);
       gl.endTransformFeedback();
       gl.disable(gl.RASTERIZER_DISCARD);
-      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
-      const o = new Float32Array(n);
-      gl.bindBuffer(gl.ARRAY_BUFFER, b);
-      gl.getBufferSubData(gl.ARRAY_BUFFER, 0, o);
-      return Array.from(o);
+      for (const i of [0, 1]) gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, i, null);
+      return bufs.map((b) => {
+        const o = new Float32Array(n);
+        gl.bindBuffer(gl.ARRAY_BUFFER, b);
+        gl.getBufferSubData(gl.ARRAY_BUFFER, 0, o);
+        return Array.from(o);
+      });
     });
     // The dither on a full-screen triangle: which pixels of a 0.6 drop survive, drawn twice.
     const dpr = program(`#version 300 es
@@ -542,8 +574,8 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
       gl.readPixels(0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, px);
       return Array.from({ length: 64 * 64 }, (_, k) => (px[k * 4] > 127 ? 1 : 0));
     };
-    return { occ, kept: [draw(), draw()] };
-  }, { fn: OCCLUSION_FN_GLSL, ignGlsl: IGN_GLSL, cases, segs: OCC_SEGMENTS });
+    return { occ: occ.map((o) => o[0]), tiled: occ.map((o) => o[1]), kept: [draw(), draw()] };
+  }, { fn: OCCLUSION_FN_GLSL, tileGlsl: OCC_TILE_GLSL, ignGlsl: IGN_GLSL, cases, segs: OCC_SEGMENTS, tileWords: (OCC_TILES * OCC_TILES) / 4 });
 
   cases.forEach((c, ci) => {
     let worst = 0;
@@ -564,6 +596,21 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
       else clear++;
     }
     expect(c.count, `case ${ci}`).toBeGreaterThan(3);
+    // The tiles: in the box, searching only the pixel's tile's segments gives the same fade on the
+    // GPU, and the GPU picks the tile the TS twin (tileRange) does.
+    let tiledOff = 0;
+    let inBox = 0;
+    const r = [0, 0];
+    for (let k = 0; k < c.points.length / 4; k++) {
+      if (gpu.tiled[ci][k] < 0) continue;
+      inBox++;
+      if (Math.abs(gpu.tiled[ci][k] - gpu.occ[ci][k]) > 1e-6) tiledOff++;
+      tileRange(c.points[k * 4] * c.p[0], c.points[k * 4 + 1] * c.p[1], c.tbox, Int32Array.from(c.tiles), r);
+      const ts = occlusion(c.points[k * 4], c.points[k * 4 + 1], c.points[k * 4 + 2], c.seg, c.count, c.far, c.up, r[0], r[1]);
+      expect(Math.abs(gpu.tiled[ci][k] - ts), `case ${ci} point ${k}`).toBeLessThan(0.06);
+    }
+    expect(inBox, `case ${ci}: points in the box`).toBeGreaterThan(300);
+    expect(tiledOff, `case ${ci}: tiled differs from the full search`).toBe(0);
     expect(Number.isFinite(worst), `case ${ci}`).toBe(true);
     // Float32 against float64: nearly every pixel agrees to 1e-3 of its drop share, and every
     // pixel to 0.01, except where two segments tie for nearest (beyond a joint, both reach it at

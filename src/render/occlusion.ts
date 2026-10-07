@@ -1,5 +1,5 @@
 import { glslFloat as f } from './glslNumber';
-import { SPINE_POINTS } from './groundUniforms';
+import { OCC_TILES, SPINE_POINTS } from './groundUniforms';
 
 /**
  * Leaves between the camera and the worm fade (spec 5.2) with a dithered discard, so there is no
@@ -75,17 +75,19 @@ const smoothstep = (a: number, b: number, v: number): number => {
  * TS twin of occlusion() below: the share of a leaf's pixels dropped at the pixel whose ray has
  * tan-space direction (tx, ty) (NDC x / p00, y / p11), for a leaf at view depth dl there. seg and
  * count are occluderSegments' output; far its farthest kept depth (box[4], uOccDepth); up the
- * world's up in view space as (x, y, depth) (uOccUp, worldUpInView).
+ * world's up in view space as (x, y, depth) (uOccUp, worldUpInView). Only segments lo to hi are
+ * searched (occlusionIn; occlusionTiles.ts narrows them without changing the result).
  */
 export function occlusion(
   tx: number, ty: number, dl: number, seg: ArrayLike<number>, count: number, far: number, up: ArrayLike<number>,
+  lo = 0, hi = count - 1,
 ): number {
   // Behind the whole body: the "in front" factor below is 0 for every segment, so skip the loop.
   if (dl >= far - OCC_FRONT) return 0;
   let best = 1e9;
   let bi = 0;
   let bu = 0;
-  for (let i = 0; i < count; i++) {
+  for (let i = Math.max(0, lo); i <= Math.min(hi, count - 1); i++) {
     const o = i * 8;
     const abx = seg[o + 4] - seg[o];
     const aby = seg[o + 5] - seg[o + 1];
@@ -149,15 +151,18 @@ export function ign(x: number, y: number): number {
   return fr(52.9829189 * fr(x * 0.06711056 + y * 0.00583715));
 }
 
-/** GLSL occlusion(t, dl), stage-agnostic: needs uOccSeg, uOccCount, uOccDepth and uOccUp declared. */
+/**
+ * GLSL occlusionIn(t, dl, lo, hi), searching segments lo to hi only, and occlusion(t, dl), all of
+ * them; stage-agnostic: needs uOccSeg, uOccAxis, uOccCount, uOccDepth and uOccUp declared.
+ */
 export const OCCLUSION_FN_GLSL = /* glsl */ `
-  float occlusion(vec2 t, float dl) {
-    if (dl >= uOccDepth - ${f(OCC_FRONT)}) return 0.0;
+  float occlusionIn(vec2 t, float dl, int lo, int hi) {
     float best = 1e9;
     int bi = 0;
     float bu = 0.0;
-    for (int i = 0; i < ${OCC_SEGMENTS}; i++) {
-      if (i >= uOccCount) break;
+    // Behind the whole body: no segment can be in front, so search none.
+    int last = dl < uOccDepth - ${f(OCC_FRONT)} ? min(hi, uOccCount - 1) : -1;
+    for (int i = max(lo, 0); i <= last; i++) {
       vec4 a = uOccSeg[2 * i];
       vec4 b = uOccSeg[2 * i + 1];
       vec2 ab = b.xy - a.xy;
@@ -168,23 +173,41 @@ export const OCCLUSION_FN_GLSL = /* glsl */ `
       if (q2 < best * inv * inv) { best = q2 / (inv * inv); bi = i; bu = u; }
     }
     if (best >= ${f(OCC_REACH * OCC_REACH)}) return 0.0;
-    vec4 a = uOccSeg[2 * bi];
-    vec4 b = uOccSeg[2 * bi + 1];
-    float ds = 1.0 / mix(a.z, b.z, bu);
+    // The segment's ends in view space, from the CPU (occluderAxis): A with 1 / |e|^2, e = B - A.
+    vec4 A = uOccAxis[2 * bi];
+    vec4 e = uOccAxis[2 * bi + 1];
+    float ds = 1.0 / mix(uOccSeg[2 * bi].z, uOccSeg[2 * bi + 1].z, bu);
     float front = ds - dl;
-    vec3 A = vec3(a.xy, 1.0) / a.z;
-    vec3 e = vec3(b.xy, 1.0) / b.z - A;
-    vec3 l = vec3(t, 1.0) * dl - A;
-    float v = clamp(dot(l, e) / max(dot(e, e), 1e-8), -2.0, 3.0);
-    vec3 off = l - e * v;
+    vec3 l = vec3(t, 1.0) * dl - A.xyz;
+    vec3 off = l - e.xyz * clamp(dot(l, e.xyz) * A.w, -2.0, 3.0);
     float touch = length(off);
     float h = dot(off, uOccUp);
     float grow = ${f(OCC_FUNNEL)} * clamp(h, 0.0, ${f(OCC_FUNNEL_HEIGHT)});
     float drop = mix(${f(OCC_DRAPE)}, ${f(OCC_DROP)}, smoothstep(${f(OCC_TOUCH)}, ${f(OCC_CLEAR)}, touch));
-    return (1.0 - smoothstep(${f(OCC_INNER)} + grow, ${f(OCC_OUTER)} + grow, sqrt(best)))
+    // smoothstep(INNER + grow, OUTER + grow, miss), with the constant width multiplied, not divided.
+    return (1.0 - smoothstep(0.0, 1.0, (sqrt(best) - grow - ${f(OCC_INNER)}) * ${f(1 / (OCC_OUTER - OCC_INNER))}))
       * smoothstep(${f(OCC_FRONT)}, ${f(OCC_FRONT_FULL)}, front)
       * smoothstep(${f(OCC_NEAR)}, ${f(OCC_NEAR + OCC_NEAR_FADE)}, ds)
       * mix(drop, 1.0, smoothstep(${f(OCC_DEEP_FROM)}, ${f(OCC_DEEP_TO)}, h));
+  }
+  float occlusion(vec2 t, float dl) { return occlusionIn(t, dl, 0, ${OCC_SEGMENTS - 1}); }
+`;
+
+export { OCC_TILES };
+
+/**
+ * Fragment GLSL occTileRange(ndc): the segments (lo, hi) the pixel's tile searches
+ * (occlusionTiles.ts; lo > hi: none), unpacked from uOccTiles (groundUniforms.ts occTileWords): a
+ * uniform read, cheaper than a texture fetch in a software rasterizer. Needs uOccBox and uOccTiles
+ * declared.
+ */
+export const OCC_TILE_GLSL = /* glsl */ `
+  ivec2 occTileRange(vec2 ndc) {
+    vec2 uv = (ndc - uOccBox.xy) / (uOccBox.zw - uOccBox.xy);
+    ivec2 c = clamp(ivec2(floor(uv * ${f(OCC_TILES)})), ivec2(0), ivec2(${OCC_TILES - 1}));
+    int k = c.y * ${OCC_TILES} + c.x;
+    int b = (uOccTiles[k >> 4][(k >> 2) & 3] >> ((k & 3) * 8)) & 255;
+    return ivec2(b & 15, b >> 4);
   }
 `;
 
@@ -197,23 +220,28 @@ export const IGN_GLSL = /* glsl */ `
 
 /**
  * Fragment GLSL: fadedOut() is true for the dropped pixels of this leaf fragment. Pixels outside
- * uOccBox (NDC) return at once, so only those near the worm on screen run the segment loop. The
+ * uOccBox (NDC) return at once; those inside search only the segments their tile can need
+ * (occTileRange, occlusionTiles.ts). The
  * pixel's ray comes from gl_FragCoord and uOccTan (1 / p00, 1 / p11), the leaf's view depth from
  * gl_FragCoord.w (1 / clip w). Needs uniform uResolution (drawing-buffer size).
  */
 export const OCCLUDE_GLSL = /* glsl */ `
   uniform vec4 uOccSeg[${OCC_SEGMENTS * 2}];
+  uniform vec4 uOccAxis[${OCC_SEGMENTS * 2}];
   uniform int uOccCount;
   uniform vec4 uOccBox;
   uniform vec2 uOccTan;
   uniform float uOccDepth;
   uniform vec3 uOccUp;
+  uniform ivec4 uOccTiles[${(OCC_TILES * OCC_TILES) / 16}];
   ${OCCLUSION_FN_GLSL}
+  ${OCC_TILE_GLSL}
   ${IGN_GLSL}
   bool fadedOut() {
     vec2 ndc = gl_FragCoord.xy / uResolution * 2.0 - 1.0;
     if (any(lessThan(ndc, uOccBox.xy)) || any(greaterThan(ndc, uOccBox.zw))) return false;
+    ivec2 r = occTileRange(ndc);
     // 1 / gl_FragCoord.w is the view depth only for a perspective camera without setViewOffset.
-    return ign(gl_FragCoord.xy) < occlusion(ndc * uOccTan, 1.0 / gl_FragCoord.w);
+    return ign(gl_FragCoord.xy) < occlusionIn(ndc * uOccTan, 1.0 / gl_FragCoord.w, r.x, r.y);
   }
 `;

@@ -197,6 +197,8 @@ export function createPaintedMaterial(opts: PaintedOptions): THREE.ShaderMateria
       ...(opts.occlude ? {
         uOccSeg: groundUniforms.uOccSeg,
         uOccCount: groundUniforms.uOccCount,
+        uOccAxis: groundUniforms.uOccAxis,
+        uOccTiles: groundUniforms.uOccTiles,
         uOccBox: groundUniforms.uOccBox,
         uOccTan: groundUniforms.uOccTan,
         uOccDepth: groundUniforms.uOccDepth,

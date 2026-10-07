@@ -38,6 +38,12 @@ real.
 - **Fill rate is the main cost.** Leaves close to the camera dominate. Measured levers so far:
   smaller detail leaves, per-vertex noise, chunk culling with distance detail, and leaving
   `discard` out of chunks that cannot occlude the worm.
+- **The gates' software renderer (SwiftShader) runs straight-line shader code for every pixel a
+  draw covers**, past ifs and early returns that no pixel takes (measured, V2 Plan A); only a loop
+  stops early, once every pixel of its 2x2 group has left it. So the worm's fade (`OCCLUDE`) costs
+  per pixel of every fading draw, inside its screen box or not, and a narrower hole saves almost
+  nothing there. Keep fading draws small (the terrain hands only the cells over the worm to
+  `topPatch.ts`), the fade's code short, and its loops bounded per pixel (`occlusionTiles.ts`).
 - **Performance gates.** Run them after any change that could affect performance (about 4 min
   per cycle):
   `npm run build && node scripts/perf-gates.mjs 4`

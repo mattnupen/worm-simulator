@@ -3,9 +3,10 @@ import { buildSky } from '../render/sky';
 import { buildAtmosphere, type Atmosphere } from '../render/atmosphere';
 import { setRimLight } from '../render/paintedMaterial';
 import {
-  groundUniforms, setDisturbFade, setFocus, setLeafReaction, setSpine, uploadDisturbance,
+  groundUniforms, occTileWords, setDisturbFade, setFocus, setLeafReaction, setSpine, uploadDisturbance,
 } from '../render/groundUniforms';
-import { occluderSegments } from '../render/occluderSegments';
+import { occluderAxis, occluderSegments } from '../render/occluderSegments';
+import { occlusionTiles } from '../render/occlusionTiles';
 import { worldUpInView } from '../render/occlusion';
 import type { FadeFrame } from '../render/fadeBall';
 import { PRESETS, type PresetSpec } from '../render/graphics';
@@ -111,7 +112,16 @@ export function buildWorld(crawl: Crawl): World {
       const g = groundUniforms;
       const view = camera.matrixWorldInverse.elements;
       g.uOccCount.value = occluderSegments(pose.spine, view, pe[0], pe[5], g.uOccSeg.value, occBox);
+      occluderAxis(g.uOccSeg.value, g.uOccCount.value, g.uOccAxis.value);
+      // Only on-screen pixels fade: the box clipped to the screen, cut into the fade's tiles.
+      for (let k = 0; k < 2; k++) {
+        occBox[k] = Math.max(-1, occBox[k]);
+        occBox[k + 2] = Math.min(1, occBox[k + 2]);
+      }
       g.uOccBox.value.fromArray(occBox);
+      if (occBox[0] < occBox[2] && occBox[1] < occBox[3]) {
+        occlusionTiles(g.uOccSeg.value, g.uOccCount.value, occBox, pe[0], pe[5], occTileWords);
+      }
       g.uOccDepth.value = occBox[4];
       worldUpInView(view, g.uOccUp.value);
       g.uOccTan.value.set(1 / pe[0], 1 / pe[5]);

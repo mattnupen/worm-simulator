@@ -152,3 +152,29 @@ export function occluderSegments(
   }
   return n;
 }
+
+/**
+ * The `count` segments of seg (occluderSegments' output) in view space, for the fade's shader
+ * (uOccAxis): per segment its first end A (x, y, depth) with 1 / max(|e|^2, 1e-8), then e = B - A
+ * and 0. occlusion() works them out per pixel; the shader reads them. Allocates nothing.
+ */
+export function occluderAxis(seg: ArrayLike<number>, count: number, out: Float32Array): void {
+  for (let i = 0; i < count; i++) {
+    const o = i * 8;
+    const ad = 1 / seg[o + 2];
+    const bd = 1 / seg[o + 6];
+    const ax = seg[o] * ad;
+    const ay = seg[o + 1] * ad;
+    const ex = seg[o + 4] * bd - ax;
+    const ey = seg[o + 5] * bd - ay;
+    const ez = bd - ad;
+    out[o] = ax;
+    out[o + 1] = ay;
+    out[o + 2] = ad;
+    out[o + 3] = 1 / Math.max(ex * ex + ey * ey + ez * ez, 1e-8);
+    out[o + 4] = ex;
+    out[o + 5] = ey;
+    out[o + 6] = ez;
+    out[o + 7] = 0;
+  }
+}
