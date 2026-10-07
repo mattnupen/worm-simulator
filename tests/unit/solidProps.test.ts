@@ -7,7 +7,7 @@ import { terrainHeight } from '../../src/surface/terrain';
 import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
 import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
 import { CAM_OPTS } from '../../src/game/cameraClearance';
-import { pastTrunk } from './cameraPress';
+import { followY, pastTrunk } from './cameraPress';
 
 const DT = 1 / 60;
 const hit = { nx: 0, nz: 0 };
@@ -169,13 +169,17 @@ describe('the camera stays out of props', () => {
 });
 
 describe('the camera eases in gently past a trunk', () => {
-  /** Its full distance from the head, and whether its own line to the head (at its yaw) is clear. */
+  /**
+   * Its full distance from the point it follows over the head (followY: over the litter the worm
+   * is buried in), and whether its own line to that point (at its yaw) is clear.
+   */
   const FREE = Math.hypot(CAM_OPTS.distance, CAM_OPTS.height);
   const midClear = (c: Crawl) => {
     const h = c.motion.head;
+    const fy = followY(c);
     const y = c.cam.yaw;
     return sightReach(
-      h.x, h.y, h.z, h.x - Math.sin(y) * CAM_OPTS.distance, h.y + CAM_OPTS.height, h.z - Math.cos(y) * CAM_OPTS.distance, 0.35,
+      h.x, fy, h.z, h.x - Math.sin(y) * CAM_OPTS.distance, fy + CAM_OPTS.height, h.z - Math.cos(y) * CAM_OPTS.distance, 0.35,
     ) === 1;
   };
 
@@ -192,7 +196,7 @@ describe('the camera eases in gently past a trunk', () => {
       if (blocked) return;
       const h = cc.motion.head;
       const p = cc.cam.pos;
-      nearest = Math.min(nearest, Math.hypot(p.x - h.x, p.y - h.y, p.z - h.z) / FREE);
+      nearest = Math.min(nearest, Math.hypot(p.x - h.x, p.y - followY(cc), p.z - h.z) / FREE);
       if (cc.cameraReach < 0.99) pulled++;
     });
     // The case is real: a side line did pull the camera in, while its own line was clear.

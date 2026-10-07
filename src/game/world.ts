@@ -67,10 +67,9 @@ export function buildWorld(crawl: Crawl): World {
   const nearClutter = buildNearClutterLayer();
   const atmosphere = buildAtmosphere();
   // The hero worm: no eyes (spec 8.3); it is posed from the simulated spine every frame.
-  let reaction = true;
-  const surf: WormSurface = { y: 0, under: 0 };
+  const surf: WormSurface = { y: 0, under: 1 };
   // The contact shadow lies on the same surface the worm rests on.
-  const worm = new HeroWorm(WORM_SEGMENTS, (x, z) => wormSurface(x, z, reaction, surf).y);
+  const worm = new HeroWorm(WORM_SEGMENTS, (x, z) => wormSurface(x, z, surf).y);
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
   const occBox = new Float32Array(5);
   // Where the uploaded map can move a leaf (disturbedBox); empty until the first upload.
@@ -80,7 +79,6 @@ export function buildWorld(crawl: Crawl): World {
   return {
     scene, litter, detail, props, hero, nearClutter, atmosphere, worm,
     apply(spec) {
-      reaction = spec.reaction;
       litter.setCount(scaledLeafCount(spec.litter));
       detail.setCount(scaledLeafCount(spec.detail));
       props.setDensity(spec.clutter);

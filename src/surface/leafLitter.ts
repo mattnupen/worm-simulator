@@ -1,5 +1,5 @@
 import { mulberry32 } from '../core/random';
-import { LITTER_MAX, LITTER_OPEN, litterMound } from './litterDepth';
+import { LITTER_MAX, LITTER_OPEN, TOP_LAYER } from './litterDepth';
 
 export type LeafKind = 'ash' | 'basswood' | 'aspen' | 'maple' | 'oak';
 export const LEAF_KINDS: readonly LeafKind[] = ['ash', 'basswood', 'aspen', 'maple', 'oak'];
@@ -15,11 +15,11 @@ export const LEAF_COLORS: Record<LeafKind, string> = {
 
 export interface LeafPlacement {
   x: number; z: number;
-  /** Height of the solid litter mound under the leaf, above the soil. */
+  /** How deep the litter under the leaf is: the drawn top above the floor (litterDepth). */
   mound: number;
-  /** The leaf's layer in the loose litter above the mound; the lowest leaves are the dampest. */
+  /** The leaf's layer among the loose top leaves on the drawn top; the lowest are the dampest. */
   y: number;
-  /** The thickness `y` is drawn from (0 to `span`): the loose layer above the mound. */
+  /** The thickness `y` is drawn from (0 to `span`): the loose top leaves (TOP_LAYER). */
   span: number;
   rotY: number; tilt: number; scale: number;
   kind: LeafKind;
@@ -32,10 +32,10 @@ export type DepthField = (x: number, z: number) => number;
 const ONE_LEAF: DepthField = () => LITTER_OPEN;
 
 /**
- * Seeded leaf placement over a square. Deeper litter holds more leaves (a deep pile keeps about
- * three times as many as open ground) and stacks them higher: each leaf rests on the litter mound,
- * somewhere in the loose layer above it. Placement order is random, so any prefix is an even
- * thinning (the presets draw a prefix).
+ * Seeded placement of the top leaves (this fall's) over a square. Deeper litter holds more of them
+ * (a deep pile nearly twice as many as thin ground): each rests on the drawn top of the litter,
+ * somewhere in the loose top layer (TOP_LAYER). Placement order is random, so any prefix is an
+ * even thinning (the presets draw a prefix).
  */
 export function placeLeaves(count: number, halfSize: number, seed = 1, depthAt: DepthField = ONE_LEAF): LeafPlacement[] {
   const r = mulberry32(seed);
@@ -46,10 +46,9 @@ export function placeLeaves(count: number, halfSize: number, seed = 1, depthAt: 
     const z = (r() * 2 - 1) * halfSize;
     const depth = depthAt(x, z);
     if (r() > 0.3 + 0.7 * (depth / LITTER_MAX)) continue;
-    const mound = litterMound(depth);
-    const span = Math.max(LITTER_OPEN, depth - mound) * 0.8;
+    const span = TOP_LAYER * 0.8;
     out.push({
-      x, z, mound, span,
+      x, z, mound: depth, span,
       y: r() * span,
       rotY: r() * Math.PI * 2,
       tilt: (r() - 0.5) * 0.5,

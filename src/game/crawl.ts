@@ -11,7 +11,8 @@ import {
   type WormExtent, type WormPose,
 } from '../worm/wormMesh';
 import { probeReach, type HeadProbe } from '../worm/wormShape';
-import { bellyHeight, litterTop, wormSurface, type WormSurface } from '../worm/surfaceHeight';
+import { bellyHeight, wormSurface, type WormSurface } from '../worm/surfaceHeight';
+import { floorHeight, groundHeight } from '../surface/litterDepth';
 import {
   createDisturbance, recentre, stampBody, decay, clearDisturbance, type DisturbanceMap,
 } from '../surface/disturbance';
@@ -22,7 +23,7 @@ import {
 import { LOCOMOTION } from './drive';
 import { disturbReach, type DisturbReach } from '../surface/leafScale';
 import { pushOut, slideMove } from '../surface/obstacles';
-import { CAM_OPTS, CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
+import { CAM_OPTS, CAM_OVER_TOP, CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
 
 export const WORM_SEGMENTS = 16;
 const SPACING = 0.22;
@@ -60,8 +61,8 @@ function copy(dst: Vec3, src: Vec3): void {
 
 /**
  * The worm and its follow camera, stepped at the fixed simulation rate (moved from the Step 0
- * page). Every body segment rests on wormSurface, so the worm slips under thin litter and
- * climbs onto piles head first. Keeps the previous step so rendering can interpolate by alpha.
+ * page). Every body segment rests on wormSurface: the worm travels buried in the leaf litter, on
+ * the floor under it (V2 spec 8.2). Keeps the previous step so rendering can interpolate by alpha.
  */
 export class Crawl {
   motion: WormMotion = { head: { x: 0, y: 0, z: 0 }, heading: 0 };
@@ -70,8 +71,8 @@ export class Crawl {
   readonly wave: WaveState = { phase: 0, activity: 0 };
   /** The head as last rendered (interpolated): leaf shaders and the detail layer centre on it. */
   readonly focus: Vec3 = { x: 0, y: 0, z: 0 };
-  /** Per segment, head first: 1 under the litter, 0 on top (for the leaves it disturbs). */
-  readonly under = new Float32Array(WORM_SEGMENTS);
+  /** Per segment, head first: how far under the litter (for the leaves it disturbs). Always 1: buried. */
+  readonly under = new Float32Array(WORM_SEGMENTS).fill(1);
   /** Leaves react to the worm (off on Low: it always rides on top). */
   reaction = true;
   /** The leaves the worm has disturbed: stamped every step, decaying back. */
@@ -96,7 +97,9 @@ export class Crawl {
   private readonly pushM = new Float32Array(PUSHERS);
   private readonly swell = { min: 1, max: 1 };
   private readonly probe: HeadProbe = { lift: 0, sway: 0 };
-  private readonly surf: WormSurface = { y: 0, under: 0 };
+  private readonly surf: WormSurface = { y: 0, under: 1 };
+  /** Where the camera follows: over the head, near the top of the litter the worm is buried in. */
+  private readonly view: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly prevBody: Vec3[] = blank(WORM_SEGMENTS);
   private readonly prevCam: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly prevHead: Vec3 = { x: 0, y: 0, z: 0 };
@@ -126,21 +129,19 @@ export class Crawl {
 
   /**
    * The worm at the spawn, straight and still, heading +z, with its camera settled behind it
-   * and the previous step the same (nothing to interpolate). Rests on the surface for the
-   * current leaf reaction.
+   * and the previous step the same (nothing to interpolate).
    */
   private placeAtSpawn(): void {
-    this.under.fill(0);
     const head = { x: 0, y: 0, z: 0 };
     this.motion = { head, heading: 0 };
-    head.y = this.rest(0, 0, 0);
+    head.y = this.rest(0, 0);
     const body = createBody(WORM_SEGMENTS, SPACING, head, 0);
     for (let i = 0; i < WORM_SEGMENTS; i++) {
       this.body[i] = body[i];
       copy(this.prevBody[i], body[i]);
     }
     this.clearance.reset();
-    this.cam = createFollowCam(head, 0, CAM_OPTS);
+    this.cam = createFollowCam(this.viewOf(head), 0, CAM_OPTS);
     copy(this.prevCam, this.cam.pos);
     copy(this.prevHead, head);
     this.prevYaw = this.cam.yaw;
@@ -199,8 +200,8 @@ export class Crawl {
     const h = this.motion.head;
     const from = this.hero.count;
     this.packPushers();
-    setHeroCount(this.hero, n, h.x, h.z, this.motion.heading, litterTop, this.pushers, PUSHERS);
-    settleHeroLeaves(this.hero, from, this.pushers, PUSHERS, litterTop);
+    setHeroCount(this.hero, n, h.x, h.z, this.motion.heading, floorHeight, this.pushers, PUSHERS);
+    settleHeroLeaves(this.hero, from, this.pushers, PUSHERS, floorHeight);
   }
 
   /**
@@ -244,14 +245,21 @@ export class Crawl {
   private pushLeaves(dt: number): void {
     this.packPushers();
     const h = this.motion.head;
-    stepHeroLeaves(this.hero, dt, this.pushers, PUSHERS, h.x, h.z, this.motion.heading, litterTop);
+    stepHeroLeaves(this.hero, dt, this.pushers, PUSHERS, h.x, h.z, this.motion.heading, floorHeight);
   }
 
-  /** Belly height at (x, z) for segment `i`; records whether that segment is under the litter. */
-  private rest(i: number, x: number, z: number): number {
-    const s = wormSurface(x, z, this.reaction, this.surf);
-    this.under[i] = s.under;
-    return bellyHeight(s);
+  /** Belly height at (x, z): on the floor under the litter. */
+  private rest(x: number, z: number): number {
+    return bellyHeight(wormSurface(x, z, this.surf));
+  }
+
+  /** The camera's anchor for the head: right over it, CAM_OVER_TOP above the litter's top there. */
+  private viewOf(head: Vec3): Vec3 {
+    const v = this.view;
+    v.x = head.x;
+    v.z = head.z;
+    v.y = groundHeight(head.x, head.z) + CAM_OVER_TOP;
+    return v;
   }
 
   /** One fixed step. `move`: x turns right, y crawls forward (backward input is ignored). */
@@ -277,7 +285,7 @@ export class Crawl {
     slideMove(this.prevHead, head, BODY_RADIUS, LOCOMOTION.halfSize);
     pushOut(head, BODY_RADIUS);
     // stepWorm stays flat and pure; the litter decides the height here.
-    head.y = this.rest(0, head.x, head.z);
+    head.y = this.rest(head.x, head.z);
     advanceWave(
       wave, Math.hypot(head.x - this.prevHead.x, head.z - this.prevHead.z), dt,
       LOCOMOTION.speed, WAVES_PER_UNIT, BREATH_HZ,
@@ -289,10 +297,11 @@ export class Crawl {
       const s = body[i];
       // The body never cuts through a solid prop either.
       pushOut(s, BODY_RADIUS);
-      s.y = this.rest(i, s.x, s.z);
+      s.y = this.rest(s.x, s.z);
     }
-    this.clearance.update(head, this.cam, dt);
-    this.cam = stepFollowCam(this.cam, head, this.motion.heading, dt, this.clearance.opts);
+    const view = this.viewOf(head);
+    this.clearance.update(view, this.cam, dt);
+    this.cam = stepFollowCam(this.cam, view, this.motion.heading, dt, this.clearance.opts);
     const c = this.cam.pos;
     // Out of trunks, rocks and the log, and off the litter.
     this.clearance.keepOut(c);

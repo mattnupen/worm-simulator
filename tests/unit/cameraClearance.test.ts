@@ -7,7 +7,7 @@ import { footprints, insideTall, pushOutTall } from '../../src/surface/obstacles
 import { rocks } from '../../src/surface/propPlacement';
 import { terrainHeight } from '../../src/surface/terrain';
 import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
-import { DT, driveTo, pastTrunk } from './cameraPress';
+import { DT, driveTo, followY, pastTrunk } from './cameraPress';
 
 describe('sliding round a trunk at a slant', () => {
 
@@ -75,8 +75,10 @@ describe('the maple right behind the worm', () => {
     const c = new Crawl();
     driveTo(c, t.x, t.z, 1200, () => {});
     expect(c.cameraReach).toBeLessThan(0.05);
-    // Craned: it stands higher over the head than at full reach (the crane adds up to a quarter).
-    expect(c.cam.pos.y - c.motion.head.y).toBeGreaterThan(CAM_OPTS.height * 1.2);
+    // Craned: it stands higher over the point it follows than at full reach (the crane adds up to
+    // a quarter). Measured from that point, not the buried head, which lies a litter depth lower.
+    expect(open.cam.pos.y - followY(open)).toBeLessThan(CAM_OPTS.height * 1.05);
+    expect(c.cam.pos.y - followY(c)).toBeGreaterThan(CAM_OPTS.height * 1.2);
     expect(frontInFrame(c)).toBeGreaterThanOrEqual(usual);
   });
 });

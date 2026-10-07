@@ -10,7 +10,7 @@ import { PRESETS } from '../../src/render/graphics';
 import { buildTerrainGeometry, meshGroundHeight, meshGroundNormal } from '../../src/surface/terrainMesh';
 import { groundHeight } from '../../src/surface/litterDepth';
 import { WORLD_HALF } from '../../src/surface/terrain';
-import { PILES, litterDepth, litterMound } from '../../src/surface/litterDepth';
+import { PILES, litterDepth, TOP_LAYER } from '../../src/surface/litterDepth';
 import { terrainHeight } from '../../src/surface/terrain';
 import { placeClutter } from '../../src/surface/propPlacement';
 import { writeClutterItem } from '../../src/surface/groundProps';
@@ -20,20 +20,20 @@ import { clutterGrow } from '../../src/surface/propPlacement';
 
 
 describe('placeLeaves with a depth field', () => {
-  const field = (x: number) => (x > 0 ? 0.2 : 0.02);
+  const field = (x: number) => (x > 0 ? 1.2 : 0.45);
 
-  it('puts many more leaves where the litter is deeper', () => {
+  it('puts more leaves where the litter is deeper', () => {
     const leaves = placeLeaves(3000, 10, 1, field);
     expect(leaves).toHaveLength(3000);
     const deep = leaves.filter((l) => l.x > 0).length;
-    expect(deep).toBeGreaterThan((3000 - deep) * 2);
+    expect(deep).toBeGreaterThan((3000 - deep) * 1.5);
   });
 
-  it('rests leaves on the mound, in a thin loose layer', () => {
+  it('rests this fall\'s leaves on the top of the litter, in a thin loose layer', () => {
     for (const l of placeLeaves(500, 10, 2, field)) {
-      expect(l.mound).toBeCloseTo(litterMound(field(l.x)), 12);
+      expect(l.mound).toBe(field(l.x));
       expect(l.y).toBeGreaterThanOrEqual(0);
-      expect(l.y).toBeLessThan(0.05);
+      expect(l.y).toBeLessThan(TOP_LAYER);
     }
   });
 
@@ -46,7 +46,7 @@ describe('placeLeaves with a depth field', () => {
 describe('litter and ground on a pile', () => {
   const pile = PILES[0];
 
-  it('the ground mesh rises by the mound over a pile', () => {
+  it('the ground mesh is the top of the litter over a pile', () => {
     const g = buildTerrainGeometry();
     const pos = g.getAttribute('position').array as Float32Array;
     let best = 0;
@@ -57,8 +57,8 @@ describe('litter and ground on a pile', () => {
     }
     const x = pos[best];
     const z = pos[best + 2];
-    expect(pos[best + 1]).toBeCloseTo(terrainHeight(x, z) + litterMound(litterDepth(x, z)), 5);
-    expect(pos[best + 1] - terrainHeight(x, z)).toBeGreaterThan(0.15);
+    expect(pos[best + 1]).toBeCloseTo(terrainHeight(x, z) + litterDepth(x, z), 5);
+    expect(pos[best + 1] - terrainHeight(x, z)).toBeGreaterThan(0.9);
   });
 });
 
@@ -99,7 +99,7 @@ describe('litter on the rendered ground', () => {
       eachVertex(c.near, (x, y, z) => {
         if (Math.hypot(x - pile.x, z - pile.z) > pile.r * 0.4) return;
         near++;
-        expect(y - terrainHeight(x, z)).toBeGreaterThan(0.12);
+        expect(y - terrainHeight(x, z)).toBeGreaterThan(0.9);
       });
     }
     expect(near).toBeGreaterThan(10);
@@ -210,7 +210,7 @@ describe('meshGroundHeight', () => {
       }
       expect(got).not.toBeNull();
       expect(meshGroundHeight(x, z)).toBeCloseTo(got!, 5);
-      expect(Math.abs(meshGroundHeight(x, z) - groundHeight(x, z))).toBeLessThan(0.1);
+      expect(Math.abs(meshGroundHeight(x, z) - groundHeight(x, z))).toBeLessThan(0.17);
       checked++;
     }
     expect(checked).toBe(400);

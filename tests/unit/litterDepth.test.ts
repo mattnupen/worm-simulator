@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
-  litterDepth, driftDepth, pileDepth, hollowAmount, underAmount, litterMound,
-  LITTER_MIN, LITTER_MAX, LITTER_OPEN, UNDER_THIN, UNDER_DEEP, WIND, PILES,
+  litterDepth, driftDepth, pileDepth, hollowAmount, floorHeight, groundHeight, litterTopHeight,
+  LITTER_MIN, LITTER_MAX, LITTER_OPEN, WIND, PILES,
 } from '../../src/surface/litterDepth';
 import { treeSites, trunkRadiusOf } from '../../src/surface/treeSites';
 import { heroLog, rocks } from '../../src/surface/propPlacement';
-import { PLAY_HALF, WORLD_HALF } from '../../src/surface/terrain';
-import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
-import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
+import { PLAY_HALF, WORLD_HALF, terrainHeight } from '../../src/surface/terrain';
+import { meshGroundHeight } from '../../src/surface/terrainMesh';
+import { UNITS_PER_CM } from '../../src/surface/realScale';
 
 const HERO_LOG = heroLog();
 const ROCKS = rocks();
@@ -19,12 +19,14 @@ const grid = (half: number, step: number): [number, number][] => {
 };
 const awayFromEverything = (x: number, z: number) => driftDepth(x, z) === 0 && pileDepth(x, z) === 0;
 
-describe('litterDepth', () => {
+describe('litterDepth (the L layer, V2 spec 8.2)', () => {
   it('is deterministic', () => {
     for (const [x, z] of grid(20, 3.1)) expect(litterDepth(x, z)).toBe(litterDepth(x, z));
   });
 
-  it('stays within [0.01, 0.25] everywhere, including beyond the world edge', () => {
+  it('is 2 to 5 cm everywhere, including beyond the world edge', () => {
+    expect(LITTER_MIN / UNITS_PER_CM).toBeGreaterThan(1.9);
+    expect(LITTER_MAX / UNITS_PER_CM).toBeLessThan(5.2);
     for (const [x, z] of grid(WORLD_HALF + 6, 0.37)) {
       const d = litterDepth(x, z);
       expect(Number.isFinite(d)).toBe(true);
@@ -33,10 +35,10 @@ describe('litterDepth', () => {
     }
   });
 
-  it('is about one leaf deep in the open (the flat spawn)', () => {
+  it('is about 2.4 cm in the open (the flat spawn)', () => {
     expect(awayFromEverything(0, 0)).toBe(true);
-    expect(litterDepth(0, 0)).toBeGreaterThan(LITTER_OPEN - 0.006);
-    expect(litterDepth(0, 0)).toBeLessThan(LITTER_OPEN + 0.006);
+    expect(litterDepth(0, 0)).toBeGreaterThan(LITTER_OPEN - 0.06);
+    expect(litterDepth(0, 0)).toBeLessThan(LITTER_OPEN + 0.06);
   });
 
   it('is continuous: a 1 mm step never changes it by more than 2 mm', () => {
@@ -58,23 +60,34 @@ describe('litterDepth', () => {
     }
     expect(hollow.length).toBeGreaterThan(5);
     expect(rise.length).toBeGreaterThan(5);
-    // Aggregates over every sampled point, not the first pair found: the shallowest hollow
-    // is still clearly deeper than the deepest rise.
-    expect(Math.min(...hollow) - Math.max(...rise)).toBeGreaterThanOrEqual(0.03);
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(mean(hollow) - mean(rise)).toBeGreaterThan(0.1);
   });
 
-  it('drifts against every trunk and rock, deeper downwind than upwind', () => {
-    const round = [
-      ...treeSites().map((t) => ({ x: t.x, z: t.z, r: trunkRadiusOf(t) * 1.3 })),
-      ...ROCKS.map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05 })),
-    ];
-    for (const o of round) {
-      const gap = o.r + 0.15;
-      const down = litterDepth(o.x + WIND.x * gap, o.z + WIND.z * gap);
-      const up = litterDepth(o.x - WIND.x * gap, o.z - WIND.z * gap);
-      expect(down).toBeGreaterThan(0.1);
+  it('drifts against every trunk, deeper downwind than upwind', () => {
+    for (const t of treeSites()) {
+      const r = trunkRadiusOf(t) * 1.3;
+      const gap = r + 0.15;
+      const down = litterDepth(t.x + WIND.x * gap, t.z + WIND.z * gap);
+      const up = litterDepth(t.x - WIND.x * gap, t.z - WIND.z * gap);
       expect(down).toBeGreaterThan(up);
-      expect(down).toBeGreaterThan(litterDepth(0, 0) + 0.05);
+      expect(down).toBeGreaterThan(litterDepth(0, 0) + 0.25);
+    }
+  });
+
+  it('banks against every rock, never burying it: at least half the drawn rock shows', () => {
+    for (const k of ROCKS) {
+      // A drawn rock stands at least 0.36 of its size above the soil (0.36 to 0.53 measured).
+      const top = 0.36 * k.size;
+      for (let a = 0; a < Math.PI * 2; a += 0.2) {
+        for (const gap of [0, 0.15, 0.3]) {
+          const r = k.size * 1.05 + gap;
+          const d = litterDepth(k.x + Math.cos(a) * r, k.z + Math.sin(a) * r);
+          expect(d).toBeLessThanOrEqual(Math.max(LITTER_MIN, 0.5 * top) + 1e-9);
+        }
+      }
+      const gap = k.size * 1.05 + 0.15;
+      expect(litterDepth(k.x + WIND.x * gap, k.z + WIND.z * gap)).toBeGreaterThanOrEqual(litterDepth(k.x - WIND.x * gap, k.z - WIND.z * gap) - 1e-9);
     }
   });
 
@@ -83,13 +96,33 @@ describe('litterDepth', () => {
     const nz = Math.cos(HERO_LOG.yaw);
     const side = nx * WIND.x + nz * WIND.z > 0 ? 1 : -1;
     const gap = HERO_LOG.radius + 0.15;
-    expect(litterDepth(HERO_LOG.x + nx * gap * side, HERO_LOG.z + nz * gap * side)).toBeGreaterThan(0.12);
+    expect(litterDepth(HERO_LOG.x + nx * gap * side, HERO_LOG.z + nz * gap * side)).toBeGreaterThan(litterDepth(0, 0) + 0.3);
   });
 
-  it('has 4 to 6 windblown piles, deep in the middle', () => {
+  it('has 4 to 6 windblown piles, deep in the middle (one banks against a rock, so it stops lower)', () => {
     expect(PILES.length).toBeGreaterThanOrEqual(4);
     expect(PILES.length).toBeLessThanOrEqual(6);
-    for (const p of PILES) expect(litterDepth(p.x, p.z)).toBeGreaterThan(UNDER_DEEP + 0.05);
+    for (const p of PILES) expect(litterDepth(p.x, p.z) / UNITS_PER_CM).toBeGreaterThan(3.5);
+    expect(PILES.filter((p) => litterDepth(p.x, p.z) / UNITS_PER_CM > 4.5).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('floorHeight and litterTopHeight (the contract with the underground cut)', () => {
+  it('the floor is the soil\'s own smooth shape', () => {
+    for (const [x, z] of grid(WORLD_HALF, 1.3)) expect(floorHeight(x, z)).toBe(terrainHeight(x, z));
+  });
+
+  it('the top is the ground as drawn, about the floor plus the litter, never nearer the floor than 2 cm', () => {
+    let worst = 0;
+    for (const [x, z] of grid(PLAY_HALF, 0.23)) {
+      const top = litterTopHeight(x, z);
+      expect(top).toBe(meshGroundHeight(x, z));
+      worst = Math.max(worst, Math.abs(top - groundHeight(x, z)));
+      expect(top - floorHeight(x, z)).toBeGreaterThan(LITTER_MIN - 0.02);
+      expect(groundHeight(x, z)).toBeCloseTo(floorHeight(x, z) + litterDepth(x, z), 12);
+    }
+    // The drawn grid (0.5 m cells) is within 7 mm (0.17 units) of the analytic top, where it cuts a drift.
+    expect(worst).toBeLessThan(0.17);
   });
 });
 
@@ -146,44 +179,5 @@ describe('litterDepth at obstacle centres', () => {
       const near = litterDepth(HERO_LOG.x + nx * side * 0.001, HERO_LOG.z + nz * side * 0.001);
       expect(Math.abs(here - near)).toBeLessThan(0.002);
     }
-  });
-});
-
-describe('underAmount and litterMound', () => {
-  it('under is 1 on thin litter, 0 on deep, smooth and monotonic between', () => {
-    expect(underAmount(0.02)).toBe(1);
-    expect(underAmount(UNDER_THIN)).toBe(1);
-    expect(underAmount(UNDER_DEEP)).toBe(0);
-    expect(underAmount(0.25)).toBe(0);
-    let prev = 1;
-    for (let d = UNDER_THIN; d <= UNDER_DEEP; d += 0.001) {
-      const u = underAmount(d);
-      expect(u).toBeLessThanOrEqual(prev + 1e-12);
-      expect(prev - u).toBeLessThan(0.03);
-      prev = u;
-    }
-  });
-  it('the mound is flat under thin litter and the full depth on deep piles', () => {
-    expect(litterMound(0.03)).toBe(0);
-    expect(litterMound(0.2)).toBeCloseTo(0.2, 12);
-    for (let d = 0.01; d <= 0.25; d += 0.005) {
-      expect(litterMound(d)).toBeGreaterThanOrEqual(0);
-      expect(litterMound(d)).toBeLessThanOrEqual(d);
-    }
-  });
-});
-
-describe('the speed test path', () => {
-  it('stays on thin litter (the worm slips under it) for the whole auto-drive loop', () => {
-    // The exact move and locomotion options the speed test drives, from the spawn.
-    let m: WormMotion = { head: { x: 0, y: 0, z: 0 }, heading: 0 };
-    let max = 0;
-    for (let i = 0; i < 4000; i++) {
-      m = stepWorm(m, AUTO_DRIVE_MOVE.move, 1 / 60, LOCOMOTION);
-      max = Math.max(max, litterDepth(m.head.x, m.head.z));
-    }
-    expect(max).toBeLessThan(UNDER_THIN);
-    // And with margin, so tuning the litter never makes the benchmark's worm start riding piles.
-    expect(max).toBeLessThanOrEqual(0.05);
   });
 });

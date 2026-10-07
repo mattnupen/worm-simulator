@@ -4,28 +4,34 @@ import { terrainHeight } from './terrain';
 import { treeSites, trunkRadiusOf } from './treeSites';
 import { heroLog, rocks } from './propPlacement';
 import type { LogSite } from './realScale';
+import { gridLines, sampleGrid } from './meshGrid';
 
 /**
- * How deep the leaf litter lies at (x, z), in metres (world units), from LITTER_MIN to
- * LITTER_MAX (spec 5.1). Pure, deterministic, bounded and continuous:
- * - about one leaf (0.02) in the open and on rises;
+ * The forest floor's loose leaves (the L layer) over the matted old leaves (the F layer), V2 spec
+ * 8.2: the worm travels buried in the L layer, its belly on the F layer's top (floorHeight); the
+ * drawn ground is the top of the leaves (litterTopHeight), and the top leaves lie on it.
+ *
+ * litterDepth is how deep the L layer is at (x, z), in world units (1 cm is 0.23 units), from
+ * LITTER_MIN to LITTER_MAX (2 to 5 cm real). Pure, deterministic, bounded and continuous:
+ * - about 2.4 cm in the open, a little less on rises;
  * - deeper in terrain hollows (positive curvature of terrainHeight);
- * - drifts against trunks, rocks and the fallen log, deeper on their downwind side;
+ * - drifts against trunks, rocks and the fallen log, deeper on their downwind side; against a
+ *   rock it banks up to about half the rock's height, never burying it;
  * - a few windblown piles.
  */
-export const LITTER_MIN = 0.01;
-export const LITTER_MAX = 0.25;
-/** One leaf. */
-export const LITTER_OPEN = 0.02;
-/** Litter thinner than this: the worm slips under it. */
-export const UNDER_THIN = 0.06;
-/** Litter deeper than this: the worm rides on top. */
-export const UNDER_DEEP = 0.12;
+export const LITTER_MIN = 0.45;
+export const LITTER_MAX = 1.2;
+/** Open ground. */
+export const LITTER_OPEN = 0.55;
+/** The top leaves lie loose within this of the drawn top (one leaf: V1's open ground). */
+export const TOP_LAYER = 0.02;
+/** Drifts and piles are shaped in V1's metres (peaks 0.17 to 0.24); this deepens them for V2. */
+const DEEPEN = 2.6;
 
 /** The fall wind blows toward +x, +z (unit vector). */
 export const WIND = { x: 0.8, z: 0.6 };
 
-/** Windblown piles: centre, radius (m) and peak depth (m). */
+/** Windblown piles: centre, radius (m) and peak (V1's metres, times DEEPEN). */
 export const PILES: readonly { x: number; z: number; r: number; depth: number }[] = [
   { x: 2.2, z: 6.5, r: 1.3, depth: 0.23 },
   { x: -4.0, z: 3.0, r: 1.0, depth: 0.2 },
@@ -39,19 +45,18 @@ const smoothstep = (a: number, b: number, v: number): number => {
   return t * t * (3 - 2 * t);
 };
 
-/** The deepest drift against a trunk. */
+/** The deepest drift against a trunk (V1's metres). */
 const TRUNK_DRIFT = 0.17;
-
-/**
- * A rock stands about 0.44 of its size above the soil, and the mound rises right up to it, so
- * a small rock's drift is capped (about half its height): litter banks against a rock, it does
- * not bury it.
- */
-const rockDrift = (size: number): number => Math.min(TRUNK_DRIFT, Math.max(0.1, 0.22 * size));
+/** A drawn rock stands at least this share of its size above the soil (0.36 to 0.53 measured). */
+const ROCK_RISE = 0.36;
+/** Against a rock the litter banks up to this share of the rock's height. */
+const ROCK_BANK = 0.5;
 
 interface Drifts {
   /** Round obstacles that leaves drift against: trunks (with their root flare) and rocks. */
   round: readonly { x: number; z: number; r: number; peak: number }[];
+  /** Rocks: centre, footprint radius and the deepest the litter may be against it. */
+  banks: readonly { x: number; z: number; r: number; cap: number }[];
   log: LogSite;
   logDx: number;
   logDz: number;
@@ -65,8 +70,9 @@ function driftSources(): Drifts {
   drifts = {
     round: [
       ...treeSites().map((t) => ({ x: t.x, z: t.z, r: trunkRadiusOf(t) * 1.3, peak: TRUNK_DRIFT })),
-      ...rocks().map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05, peak: rockDrift(k.size) })),
+      ...rocks().map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05, peak: TRUNK_DRIFT })),
     ],
+    banks: rocks().map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05, cap: Math.max(LITTER_MIN, ROCK_BANK * ROCK_RISE * k.size) })),
     log,
     logDx: Math.cos(log.yaw),
     logDz: Math.sin(log.yaw),
@@ -77,9 +83,8 @@ function driftSources(): Drifts {
 /**
  * A drift against an obstacle of radius `r` whose surface is `gap` metres away, at offset
  * (dx, dz) (length d) from the obstacle's centre or axis. Outside the radius the direction is
- * the unit offset, as before. Inside it, the direction shrinks linearly to zero at the centre
- * (the mean of the upwind and downwind sides), where the unit offset has no direction at all:
- * so the depth is continuous there instead of jumping between the upwind and downwind values.
+ * the unit offset. Inside it, the direction shrinks linearly to zero at the centre (the mean of
+ * the upwind and downwind sides), so the depth is continuous there.
  */
 function drift(gap: number, dx: number, dz: number, d: number, r: number, peak: number): number {
   const downwind = (dx * WIND.x + dz * WIND.z) / Math.max(d, r);
@@ -88,7 +93,7 @@ function drift(gap: number, dx: number, dz: number, d: number, r: number, peak: 
   return peak * side * (1 - smoothstep(0, reach, gap));
 }
 
-/** The deepest drift at (x, z) from trunks, rocks and the log. */
+/** The deepest drift at (x, z) from trunks, rocks and the log (V1's metres). */
 export function driftDepth(x: number, z: number): number {
   const { round, log, logDx: LOG_DX, logDz: LOG_DZ } = driftSources();
   let best = 0;
@@ -109,7 +114,7 @@ export function driftDepth(x: number, z: number): number {
   return best;
 }
 
-/** The deepest windblown pile at (x, z): an oval dome stretched along the wind. */
+/** The deepest windblown pile at (x, z): an oval dome stretched along the wind (V1's metres). */
 export function pileDepth(x: number, z: number): number {
   let best = 0;
   for (const p of PILES) {
@@ -125,38 +130,71 @@ export function pileDepth(x: number, z: number): number {
 
 const CURVE_STEP = 0.6;
 
-/** 0..1: how much of a hollow (x, z) sits in, from the terrain's curvature. */
-export function hollowAmount(x: number, z: number): number {
+/** The terrain's curvature at (x, z): positive in hollows, negative on rises. */
+function curvature(x: number, z: number): number {
   const h = terrainHeight(x, z);
   const e = CURVE_STEP;
-  const lap = (terrainHeight(x + e, z) + terrainHeight(x - e, z) + terrainHeight(x, z + e)
+  return (terrainHeight(x + e, z) + terrainHeight(x - e, z) + terrainHeight(x, z + e)
     + terrainHeight(x, z - e) - 4 * h) / (e * e);
-  return smoothstep(0.01, 0.08, lap);
+}
+
+/** 0..1: how much of a hollow (x, z) sits in, from the terrain's curvature. */
+export function hollowAmount(x: number, z: number): number {
+  return smoothstep(0.01, 0.08, curvature(x, z));
+}
+
+/** The deepest the litter may be at (x, z): about half a rock's height against it, no limit away from rocks. */
+function rockCap(x: number, z: number): number {
+  let cap = LITTER_MAX;
+  for (const b of driftSources().banks) {
+    const gap = Math.hypot(x - b.x, z - b.z) - b.r;
+    if (gap < 1.5) cap = Math.min(cap, b.cap + (LITTER_MAX - b.cap) * smoothstep(0.3, 1.5, gap));
+  }
+  return cap;
 }
 
 export function litterDepth(x: number, z: number): number {
-  const open = LITTER_OPEN + 0.008 * (valueNoise2(x * 0.6, z * 0.6, 91) - 0.5);
-  const d = open + 0.05 * hollowAmount(x, z) + Math.max(driftDepth(x, z), pileDepth(x, z));
-  return Math.min(LITTER_MAX, Math.max(LITTER_MIN, d));
-}
-
-/** 1 where the worm crawls under the litter (thin), 0 where it rides on top (deep), smooth between. */
-export function underAmount(depth: number): number {
-  return 1 - smoothstep(UNDER_THIN, UNDER_DEEP, depth);
+  const lap = curvature(x, z);
+  const open = LITTER_OPEN + 0.1 * (valueNoise2(x * 0.6, z * 0.6, 91) - 0.5);
+  const shape = 0.18 * smoothstep(0.01, 0.08, lap) - 0.06 * smoothstep(0.01, 0.08, -lap);
+  const d = open + shape + DEEPEN * Math.max(driftDepth(x, z), pileDepth(x, z));
+  return Math.min(rockCap(x, z), LITTER_MAX, Math.max(LITTER_MIN, d));
 }
 
 /**
- * Height of the solid litter mound above the soil: 0 where litter is thin (the worm slips
- * under single leaves), the full depth where it is deep (the worm rides on the pile). The
- * ground mesh rises by this, so deep piles read as solid mounds with leaves on top.
+ * The top of the F layer at (x, z): the matted old leaves under the loose ones, where a buried
+ * worm's belly rests. It is the soil's shape (terrainHeight), so it is smooth everywhere.
  */
-export function litterMound(depth: number): number {
-  return depth * (1 - underAmount(depth));
+export function floorHeight(x: number, z: number): number {
+  return terrainHeight(x, z);
 }
 
-/** The visible ground: the soil plus the solid litter mound. */
+/** The top of the loose leaves, analytically: the floor plus the litter (the drawn top is litterTopHeight). */
 export function groundHeight(x: number, z: number): number {
-  return terrainHeight(x, z) + litterMound(litterDepth(x, z));
+  return floorHeight(x, z) + litterDepth(x, z);
+}
+
+let topGrid: { lines: number[]; heights: Float64Array } | null = null;
+
+/** The drawn top's height grid (meshGrid.ts): groundHeight at every vertex, built once. Read-only. */
+export function litterTopGrid(): { lines: number[]; heights: Float64Array } {
+  if (topGrid) return topGrid;
+  const lines = gridLines();
+  const n = lines.length;
+  const heights = new Float64Array(n * n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) heights[j * n + i] = groundHeight(lines[i], lines[j]);
+  topGrid = { lines, heights };
+  return topGrid;
+}
+
+/**
+ * The top of the loose leaves at (x, z), exactly as the ground is drawn (the terrain mesh, 0.5 m
+ * cells): about floorHeight + litterDepth, within a few cm where the grid cuts a drift. The top
+ * leaves lie on it and the camera keeps above it.
+ */
+export function litterTopHeight(x: number, z: number): number {
+  const g = litterTopGrid();
+  return sampleGrid(g.lines, g.heights, x, z);
 }
 
 const N_EPS = 0.05;

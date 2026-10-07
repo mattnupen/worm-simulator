@@ -9,6 +9,12 @@ import { litterTop } from '../worm/surfaceHeight';
 export const CAM_OPTS: Readonly<FollowCamOptions> = {
   distance: 2.6, height: 1.1, yawSmoothTime: 0.5, posRate: 10, maxYawSpeed: 1.8,
 };
+/**
+ * The camera follows a point this far above the top of the litter over the head (V2: the worm is
+ * buried 2 to 5 cm down), so it frames the worm's pocket from a little higher than V1's camera
+ * framed a worm crawling at the top of the leaves, looking down into the hole over it.
+ */
+export const CAM_OVER_TOP = 0.1;
 /** The camera aims a little ahead of the head, so the worm sits low in frame and the forest looms. */
 const LOOK_AHEAD = 1.0;
 const LOOK_UP = 0.6;

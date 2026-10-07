@@ -1,48 +1,33 @@
-import { litterDepth, litterMound, underAmount } from '../surface/litterDepth';
-import { meshGroundHeight } from '../surface/terrainMesh';
+import { floorHeight, litterTopHeight } from '../surface/litterDepth';
 
 export interface WormSurface {
-  /** Height the worm rests on (m). */
+  /** Height the worm rests on (m): the top of the F layer, under all the loose leaves. */
   y: number;
-  /** 1: crawling on the soil under the leaves; 0: riding on top of them. */
+  /** 1: the worm is under the litter. Always 1 in V2: it travels buried in the leaf layer. */
   under: number;
 }
 
 /**
- * The surface under the worm at (x, z) (spec 5.2): where the litter is thin (< 0.06) the worm
- * crawls on the soil beneath it (under = 1); where it is deep (> 0.12) it rides on top
- * (under = 0); smooth between. The height is the ground exactly as the terrain mesh draws it
- * (soil plus the litter mound, `meshGroundHeight`, which differs from the analytic ground by
- * up to ~18 cm where the 0.5 m grid cuts a sharp mound), so the worm never sinks into a pile
- * or floats off it. With `reaction` off (the Low preset) under is always 0: the worm also
- * rides over the loose leaves above the mound. Writes into `out`, so the per-step calls
- * allocate nothing.
+ * The surface under the worm at (x, z) (V2 spec 8.2): the worm travels buried in the loose leaf
+ * layer, its belly on the F layer's top (floorHeight), on every preset. The floor is the soil's
+ * own smooth shape, so the worm never steps on the drawn grid's edges. Writes into `out`, so the
+ * per-step calls allocate nothing.
  */
-export function wormSurface(
-  x: number, z: number, reaction = true, out: WormSurface = { y: 0, under: 0 },
-): WormSurface {
-  const depth = litterDepth(x, z);
-  const under = underAmount(depth);
-  out.y = meshGroundHeight(x, z) + (reaction ? 0 : depth * under);
-  out.under = reaction ? under : 0;
+export function wormSurface(x: number, z: number, out: WormSurface = { y: 0, under: 1 }): WormSurface {
+  out.y = floorHeight(x, z);
+  out.under = 1;
   return out;
 }
 
-/** The belly line just touches the soil when under the leaves... */
+/** The belly line just touches the floor. */
 export const BELLY_UNDER = 0.01;
-/** ...and clears the top leaves when riding on them. */
-export const BELLY_ON_TOP = 0.035;
 
 /** Height of the worm's belly line (its simulated spine) over a surface. */
 export function bellyHeight(s: WormSurface): number {
-  return s.y + BELLY_UNDER + (BELLY_ON_TOP - BELLY_UNDER) * (1 - s.under);
+  return s.y + BELLY_UNDER;
 }
 
-/**
- * Top of the leaf litter (the leaves themselves included): the rendered ground plus the loose
- * leaves above its mound. The camera keeps its margin over this.
- */
+/** Top of the leaf litter as drawn (litterTopHeight): the camera keeps its margin over this. */
 export function litterTop(x: number, z: number): number {
-  const depth = litterDepth(x, z);
-  return meshGroundHeight(x, z) + depth - litterMound(depth);
+  return litterTopHeight(x, z);
 }

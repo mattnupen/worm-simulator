@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
 import type { WormPose } from '../../src/worm/wormMesh';
 import { footprints, insideTall } from '../../src/surface/obstacles';
+import { CAM_OVER_TOP } from '../../src/game/cameraClearance';
+import { groundHeight } from '../../src/surface/litterDepth';
 
 /**
  * Shared by the camera tests: driving the worm at props, and watching its camera for snaps and
@@ -21,6 +23,14 @@ export function driveTo(c: Crawl, tx: number, tz: number, steps: number, each: (
     c.step(DT, move);
     each(c);
   }
+}
+
+/**
+ * The height of the point the camera follows over the head (Crawl's view): CAM_OVER_TOP above the
+ * top of the litter the worm is buried in. The camera's own line and its height start here.
+ */
+export function followY(c: Crawl): number {
+  return groundHeight(c.motion.head.x, c.motion.head.z) + CAM_OVER_TOP;
 }
 
 /**

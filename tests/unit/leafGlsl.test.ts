@@ -25,9 +25,9 @@ type Tri = [number[], number[], number[]];
 interface Placement { pts: number[][]; sample: MapSampler; ox: number; oz: number }
 
 /**
- * Lays the real worm, `count` times, anywhere it lies under the leaves (random place, heading and
- * curve), stamps the map as the crawl does, and checks every leaf triangle `leaves` yields against
- * the worm's mesh vertices beneath it: each must clear the body by 5 mm.
+ * Lays the real worm, `count` times, anywhere (random place, heading and curve: it is always buried
+ * in the litter, on the floor), stamps the map as the crawl does, and checks every leaf triangle
+ * `leaves` yields against the worm's mesh vertices beneath it: each must clear the body by 5 mm.
  */
 function clearance(count: number, leaves: (pl: Placement, emit: (t: Tri) => void) => void) {
   const n = 16;
@@ -35,7 +35,7 @@ function clearance(count: number, leaves: (pl: Placement, emit: (t: Tri) => void
   const wormMesh = worm.group.children.find((c) => c.name === 'worm') as THREE.Mesh;
   const wpos = wormMesh.geometry.getAttribute('position');
   const rng = mulberry32(2026);
-  const surf: WormSurface = { y: 0, under: 0 };
+  const surf: WormSurface = { y: 0, under: 1 };
   const spine = new Float32Array(n * 3);
   const pts: number[][] = [];
   const m = createDisturbance();
@@ -76,23 +76,20 @@ function clearance(count: number, leaves: (pl: Placement, emit: (t: Tri) => void
     const hz = (rng() - 0.5) * 30;
     const yaw = rng() * Math.PI * 2;
     const curve = (rng() - 0.5) * 1.2;
-    let under = true;
     pts.length = 0;
-    for (let i = 0; i < n && under; i++) {
+    for (let i = 0; i < n; i++) {
       const along = i * 0.22;
       const th = curve * along;
       const lx = curve ? (1 - Math.cos(th)) / curve : 0;
       const lz = curve ? -Math.sin(th) / curve : -along;
       const x = hx + Math.cos(yaw) * lx - Math.sin(yaw) * lz;
       const z = hz + Math.sin(yaw) * lx + Math.cos(yaw) * lz;
-      wormSurface(x, z, true, surf);
-      under = surf.under >= 0.999;
+      wormSurface(x, z, surf);
       pts.push([x, z]);
       spine[i * 3] = x;
       spine[i * 3 + 1] = bellyHeight(surf);
       spine[i * 3 + 2] = z;
     }
-    if (!under) continue;
     placements++;
     const pose: WormPose = { spine, phase: rng(), activity: rng() > 0.5 ? 1 : 0.3, timeSec: rng() * 7 };
     worm.update(pose);

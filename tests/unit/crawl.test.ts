@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
 import { CAM_GROUND_MARGIN } from '../../src/game/cameraClearance';
 import { bellyHeight, litterTop, wormSurface } from '../../src/worm/surfaceHeight';
+import { floorHeight, litterDepth } from '../../src/surface/litterDepth';
 import type { WormPose } from '../../src/worm/wormMesh';
 
 const DT = 1 / 60;
@@ -31,24 +32,35 @@ describe('Crawl', () => {
     }
   });
 
-  it('rests every segment on its own worm surface, and records under per segment', () => {
+  it('rests every segment on the floor, buried in the litter (V2 spec 8.2)', () => {
     const c = new Crawl();
     for (let i = 0; i < 240; i++) c.step(DT, { x: 0.3, y: 1 });
     c.body.forEach((s, i) => {
-      const surf = wormSurface(s.x, s.z);
-      expect(s.y).toBeCloseTo(bellyHeight(surf), 9);
-      expect(c.under[i]).toBeCloseTo(surf.under, 6);
+      expect(s.y).toBeCloseTo(bellyHeight(wormSurface(s.x, s.z)), 9);
+      expect(s.y).toBeCloseTo(floorHeight(s.x, s.z) + 0.01, 9);
+      // At least 2 cm of leaves over the belly.
+      expect(litterTop(s.x, s.z) - s.y).toBeGreaterThan(0.4);
+      expect(c.under[i]).toBe(1);
     });
   });
 
-  it('with leaf reaction off, rides on top everywhere', () => {
+  it('is buried on every preset: with leaf reaction off (Low) too', () => {
     const c = new Crawl();
     c.setReaction(false);
     for (let i = 0; i < 120; i++) c.step(DT, { x: 0, y: 1 });
     c.body.forEach((s, i) => {
-      expect(s.y).toBeCloseTo(bellyHeight(wormSurface(s.x, s.z, false)), 9);
-      expect(c.under[i]).toBe(0);
+      expect(s.y).toBeCloseTo(floorHeight(s.x, s.z) + 0.01, 9);
+      expect(c.under[i]).toBe(1);
     });
+  });
+
+  it('frames its camera over the top of the litter, not the buried worm', () => {
+    const c = new Crawl();
+    for (let i = 0; i < 300; i++) c.step(DT, { x: 0, y: 1 });
+    const h = c.motion.head;
+    // About the follow height (1.1) over the top of the litter above the head: 2 to 5 cm higher
+    // than over the worm itself.
+    expect(c.cam.pos.y - h.y).toBeGreaterThan(1.1 + litterDepth(h.x, h.z) - 0.2);
   });
 
   it('interpolates between the last two steps by alpha', () => {
@@ -147,7 +159,7 @@ describe('Crawl reset', () => {
     expect(c.reaction).toBe(false);
     expect(c.motion.head.x).toBe(0);
     expect(c.motion.head.z).toBe(0);
-    expect(c.motion.head.y).toBeCloseTo(bellyHeight(wormSurface(0, 0, false)), 9);
+    expect(c.motion.head.y).toBeCloseTo(bellyHeight(wormSurface(0, 0)), 9);
     expect(c.disturbed).toBe(true);
   });
 
