@@ -193,8 +193,6 @@ export const OCCLUSION_FN_GLSL = /* glsl */ `
   float occlusion(vec2 t, float dl) { return occlusionIn(t, dl, 0, ${OCC_SEGMENTS - 1}); }
 `;
 
-export { OCC_TILES };
-
 /**
  * Fragment GLSL occTileRange(ndc): the segments (lo, hi) the pixel's tile searches
  * (occlusionTiles.ts; lo > hi: none), unpacked from uOccTiles (groundUniforms.ts occTileWords): a

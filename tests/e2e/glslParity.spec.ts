@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
 import * as THREE from 'three';
 import {
-  occlusion, ign, worldUpInView, OCCLUSION_FN_GLSL, IGN_GLSL, OCC_SEGMENTS, OCC_TILES, OCC_TILE_GLSL,
+  occlusion, ign, worldUpInView, OCCLUSION_FN_GLSL, IGN_GLSL, OCC_SEGMENTS, OCC_TILE_GLSL,
 } from '../../src/render/occlusion';
 import { occluderAxis, occluderSegments } from '../../src/render/occluderSegments';
 import { occlusionTiles, tileRange } from '../../src/render/occlusionTiles';
+import { OCC_TILES } from '../../src/render/groundUniforms';
 import { mulberry32 } from '../../src/core/random';
 import { DETAIL_GLSL, detailVertex, type DetailInputs } from '../../src/render/detailGlsl';
 import { DISTURB_GLSL, FULL_FADE, disturbVertex, packedMapSampler } from '../../src/render/leafGlsl';

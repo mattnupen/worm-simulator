@@ -1,6 +1,5 @@
-import { OCC_REACH, OCC_TILES } from './occlusion';
-
-export { OCC_TILES } from './occlusion';
+import { OCC_REACH, OCC_SEGMENTS } from './occlusion';
+import { OCC_TILES } from './groundUniforms';
 
 /**
  * The fade's segment search, narrowed per screen tile (occlusion.ts).
@@ -15,12 +14,13 @@ export { OCC_TILES } from './occlusion';
  *   lies between (q - hd) / max and (q + hd) / min;
  * - a segment whose lower bound exceeds another's upper bound is never the nearest, and one whose
  *   lower bound reaches OCC_REACH cannot fade a pixel even if it is (occlusion() is 0 past it).
- * The lowest to highest index left goes in the tile's texel (lo, hi; lo > hi: none), and the pixel
- * searches only those: the same nearest segment wherever the fade is not 0, so the fade is
+ * The lowest to highest index left is packed into the tile's byte of the ivec4 uniform array
+ * uOccTiles (lo, hi; lo > hi: none; occlusion.ts occTileRange unpacks it), and the pixel searches
+ * only those: the same nearest segment wherever the fade is not 0, so the fade is
  * unchanged, pixel for pixel. A tile far from the body searches nothing.
  */
 
-/** A pixel lies at most this far (NDC) outside the tile its texel fetch picks (rounding). */
+/** A pixel lies at most this far (NDC) outside the tile the shader's lookup picks (rounding). */
 const PAD = 1e-4;
 
 /**
@@ -35,8 +35,11 @@ export function occlusionTiles(
   out.fill(0);
   const w = (box[2] - box[0]) / OCC_TILES;
   const h = (box[3] - box[1]) / OCC_TILES;
-  // Half the tile's diagonal in tan space, padded for the fetch's rounding.
-  const hd = Math.hypot((w / 2 + PAD) / p00, (h / 2 + PAD) / p11);
+  // Half the tile's diagonal in tan space, padded for the lookup's rounding (and far above any
+  // rounding in the distances below).
+  const hw = (w / 2 + PAD) / p00;
+  const hh = (h / 2 + PAD) / p11;
+  const hd = Math.sqrt(hw * hw + hh * hh);
   for (let j = 0; j < OCC_TILES; j++) {
     for (let i = 0; i < OCC_TILES; i++) {
       const cx = (box[0] + (i + 0.5) * w) / p00;
@@ -44,13 +47,14 @@ export function occlusionTiles(
       let up = 1e9;
       for (let s = 0; s < count; s++) {
         const o = s * 8;
-        up = Math.min(up, (centreMiss(cx, cy, seg, o) + hd) / Math.min(seg[o + 2], seg[o + 6]));
+        miss[s] = centreMiss(cx, cy, seg, o);
+        up = Math.min(up, (miss[s] + hd) / Math.min(seg[o + 2], seg[o + 6]));
       }
       let lo = 15;
       let hi = 0;
       for (let s = 0; s < count; s++) {
         const o = s * 8;
-        const low = (centreMiss(cx, cy, seg, o) - hd) / Math.max(seg[o + 2], seg[o + 6]);
+        const low = (miss[s] - hd) / Math.max(seg[o + 2], seg[o + 6]);
         if (low <= up && low < OCC_REACH) {
           lo = Math.min(lo, s);
           hi = s;
@@ -62,12 +66,17 @@ export function occlusionTiles(
   }
 }
 
+/** Per segment, the tile centre's distance from it (reused). */
+const miss = new Float64Array(OCC_SEGMENTS);
+
 /** Tan-space distance from (tx, ty) to segment o of seg. */
 function centreMiss(tx: number, ty: number, seg: ArrayLike<number>, o: number): number {
   const abx = seg[o + 4] - seg[o];
   const aby = seg[o + 5] - seg[o + 1];
   const u = Math.min(1, Math.max(0, ((tx - seg[o]) * abx + (ty - seg[o + 1]) * aby) * seg[o + 3]));
-  return Math.hypot(tx - seg[o] - abx * u, ty - seg[o + 1] - aby * u);
+  const qx = tx - seg[o] - abx * u;
+  const qy = ty - seg[o + 1] - aby * u;
+  return Math.sqrt(qx * qx + qy * qy);
 }
 
 /**

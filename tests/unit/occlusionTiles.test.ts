@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { occlusion, worldUpInView, OCC_SEGMENTS, OCC_TILES } from '../../src/render/occlusion';
+import { occlusion, worldUpInView, OCC_SEGMENTS } from '../../src/render/occlusion';
 import { occluderAxis, occluderSegments } from '../../src/render/occluderSegments';
 import { occlusionTiles, tileRange } from '../../src/render/occlusionTiles';
-import { groundUniforms, occTileWords } from '../../src/render/groundUniforms';
+import { groundUniforms, occTileWords, OCC_TILES } from '../../src/render/groundUniforms';
 import { LOCOMOTION } from '../../src/game/drive';
 import { mulberry32 } from '../../src/core/random';
 import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';

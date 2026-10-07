@@ -10,7 +10,8 @@ import * as THREE from 'three';
  * in the source geometry, drawn without it (early depth test kept). A part moved out of the source
  * collapses there (its indices all name its first vertex: nothing to draw), so every part is drawn
  * by exactly one of the two, and both draw the same vertices bit for bit (no crack, no double draw).
- * Only the index runs that change are uploaded. Allocates nothing after construction.
+ * Only the index runs that change are uploaded. Allocates nothing after construction: setParts
+ * copies index runs in plain loops and reuses its update-range records.
  */
 export class IndexSplit {
   /** Shares every attribute of the source; draws only the parts handed to it (setParts). */
@@ -78,7 +79,7 @@ export class IndexSplit {
       const p = cur[a];
       if (want[p]) continue;
       const s = p > 0 ? ends[p - 1] : 0;
-      mainArr.set(pristine.subarray(s, ends[p]), s);
+      for (let t = s; t < ends[p]; t++) mainArr[t] = pristine[t];
       inFade[p] = 0;
       ranges = this.range(ranges, s, ends[p] - s);
     }
@@ -92,8 +93,7 @@ export class IndexSplit {
         inFade[p] = 1;
         ranges = this.range(ranges, s, ends[p] - s);
       }
-      this.fadeArr.set(pristine.subarray(s, ends[p]), f);
-      f += ends[p] - s;
+      for (let t = s; t < ends[p]; t++) this.fadeArr[f++] = pristine[t];
       cur[a] = p;
     }
     this.n = k;

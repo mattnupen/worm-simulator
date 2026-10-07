@@ -90,6 +90,9 @@ export const PAINTED_LIGHT_GLSL = /* glsl */ `
 `;
 
 const vertexShader = /* glsl */ `
+  // The terrain and its top patch (topPatch.ts) are different programs drawing triangles that share
+  // edges: invariant keeps every driver computing each shared vertex's position bit for bit alike.
+  invariant gl_Position;
   uniform vec3 uColor;
   uniform vec3 uLightDir;
   uniform vec3 uLightColor;

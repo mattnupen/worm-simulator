@@ -78,7 +78,12 @@ export function pickTopCells(
       const c = j * m + i;
       const o = c * 4;
       if (!ballMayFade(fade, balls[o], balls[o + 1], balls[o + 2], balls[o + 3])) continue;
-      if (k === out.length) return k;
+      if (k === out.length) {
+        // Never in play (the hull holds far fewer cells): a dev build says so rather than drop
+        // cells silently, which would leave part of the hole closed.
+        if (import.meta.env.DEV) console.warn(`pickTopCells: more than ${out.length} cells; the rest stay closed`);
+        return k;
+      }
       out[k++] = c;
     }
   }
