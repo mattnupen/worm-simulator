@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { buildFloorPatch, floorCellShown, floorGridCentre } from '../../src/surface/floorPatch';
+import { buildFloorPatch, floorCellShown, floorGridCentre, updateFloorPatch } from '../../src/surface/floorPatch';
 import {
   FLOOR_CELL, FLOOR_CELL_GLSL, FLOOR_CENTRE, FLOOR_KEEP, FLOOR_SEGS, FLOOR_SIZE, FLOOR_SLOPE,
 } from '../../src/render/floorMaterial';
@@ -40,7 +40,8 @@ describe('the floor under the buried worm (V2 spec 8.2)', () => {
     // reading the hole's segments as the top of the litter does.
     expect(m.vertexShader).toContain(FLOOR_CELL_GLSL);
     expect(m.vertexShader).toContain(`floorCellShown(base + aCell * ${glslFloat(FLOOR_CELL)})`);
-    expect(m.vertexShader).toContain(`floor(uSpine[${FLOOR_CENTRE}].xz / ${glslFloat(FLOOR_CELL)} + 0.5) * ${glslFloat(FLOOR_CELL)}`);
+    // Centred by the CPU (updateFloorPatch, floorGridCentre), so the CPU's cell list and the GPU agree.
+    expect(m.vertexShader).toContain('vec2 base = uFloorBase;');
     expect(m.uniforms.uOccSeg).toBe(groundUniforms.uOccSeg);
     expect(m.uniforms.uOccCount).toBe(groundUniforms.uOccCount);
   });
@@ -95,6 +96,29 @@ describe('the floor under the buried worm (V2 spec 8.2)', () => {
     expect(near / FLOOR_SEGS ** 2).toBeLessThan(0.45);
     expect(shown).toBeLessThan(near * 0.75);
     expect(shown).toBeGreaterThan(200);
+    // The CPU lists exactly those cells in the index buffer (the vertex shader runs for them alone),
+    // each with its own two triangles, and centres the grid where floorGridCentre does.
+    const mesh = buildFloorPatch();
+    expect(mesh.geometry.drawRange.count).toBe(0);
+    expect(updateFloorPatch(mesh, pose.spine, view, seg, count)).toBe(shown);
+    expect(mesh.geometry.drawRange.count).toBe(shown * 6);
+    const base = (mesh.material as THREE.ShaderMaterial).uniforms.uFloorBase.value as THREE.Vector2;
+    expect([base.x, base.y]).toEqual(c);
+    const idx = mesh.geometry.index!.array;
+    const listed = new Set<number>();
+    for (let t = 0; t < shown * 6; t += 6) {
+      const v = idx[t];
+      expect(v % 4).toBe(0);
+      expect([idx[t + 1], idx[t + 2], idx[t + 3], idx[t + 4], idx[t + 5]]).toEqual([v + 2, v + 1, v + 1, v + 2, v + 3]);
+      const cellId = v / 4;
+      const i = cellId % FLOOR_SEGS;
+      const j = (cellId - i) / FLOOR_SEGS;
+      const x = c[0] + (i - FLOOR_SEGS / 2 + 0.5) * FLOOR_CELL;
+      const z = c[1] + (j - FLOOR_SEGS / 2 + 0.5) * FLOOR_CELL;
+      expect(floorCellShown(pose.spine, view, seg, count, x, z)).toBe(true);
+      listed.add(cellId);
+    }
+    expect(listed.size).toBe(shown);
   });
 
   it('draws after the top of the litter, and after the worm and the leaves in its pocket', () => {

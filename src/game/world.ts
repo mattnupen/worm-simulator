@@ -7,8 +7,10 @@ import {
 } from '../render/groundUniforms';
 import { occluderSegments } from '../render/occluderSegments';
 import { worldUpInView } from '../render/occlusion';
+import type { FadeFrame } from '../render/fadeBall';
 import { PRESETS, type PresetSpec } from '../render/graphics';
-import { buildTerrain } from '../surface/terrainMesh';
+import { buildTerrain, heightGrid } from '../surface/terrainMesh';
+import { buildTopPatch } from '../surface/topPatch';
 import { buildForestTrees } from '../surface/forestTrees';
 import { buildDistantTrees } from '../surface/distantTrees';
 import { buildLeafLitter, type LeafLitter } from '../surface/leafLitterMesh';
@@ -16,7 +18,7 @@ import { buildDetailLayer, type DetailLayer } from '../surface/detailLeaves';
 import { HeroLeafMesh } from '../surface/heroLeafMesh';
 import { buildNearClutterLayer, type NearClutterLayer } from '../surface/nearClutter';
 import { buildGroundProps, writeHeroLog, type GroundProps } from '../surface/groundProps';
-import { buildFloorPatch } from '../surface/floorPatch';
+import { buildFloorPatch, updateFloorPatch } from '../surface/floorPatch';
 import { GROUND_ORDER } from '../render/drawOrder';
 import { HeroWorm, type WormPose } from '../worm/wormMesh';
 import { wormSurface, type WormSurface } from '../worm/surfaceHeight';
@@ -64,8 +66,12 @@ export function buildWorld(crawl: Crawl): World {
   // depth test skips ground pixels already covered by leaves, props and trunks.
   const terrain = buildTerrain();
   terrain.renderOrder = GROUND_ORDER;
+  // The top over the worm, with the fade: the terrain skips the cells it draws.
+  const grid = heightGrid();
+  const top = buildTopPatch(terrain, grid.lines, grid.heights);
+  const floor = buildFloorPatch();
   forest.add(
-    terrain, buildFloorPatch(), buildForestTrees(writeHeroLog), buildDistantTrees(), litter.group, detail.group,
+    terrain, top.mesh, floor, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.group, detail.group,
     props.mesh,
   );
   const hero = new HeroLeafMesh(crawl.hero);
@@ -77,6 +83,8 @@ export function buildWorld(crawl: Crawl): World {
   const worm = new HeroWorm(WORM_SEGMENTS, (x, z) => wormSurface(x, z, surf).y);
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
   const occBox = new Float32Array(5);
+  // What the fade sees this frame, for the parts split off to carry it (indexSplit.ts).
+  const fade: FadeFrame = { view: occBox, seg: groundUniforms.uOccSeg.value, count: 0, far: 0 };
 
   scene.add(forest, hero.mesh, nearClutter.group, worm.group, buildSky(), atmosphere.group);
   return {
@@ -107,6 +115,11 @@ export function buildWorld(crawl: Crawl): World {
       g.uOccDepth.value = occBox[4];
       worldUpInView(view, g.uOccUp.value);
       g.uOccTan.value.set(1 / pe[0], 1 / pe[5]);
+      fade.view = view;
+      fade.count = g.uOccCount.value;
+      fade.far = occBox[4];
+      top.update(fade, camera.position.x, camera.position.z, pose.spine);
+      updateFloorPatch(floor, pose.spine, view, g.uOccSeg.value, g.uOccCount.value);
       if (crawl.disturbed) {
         uploadDisturbance(crawl.disturbance);
         // The window the pocket's leaves read the map in.

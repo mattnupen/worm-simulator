@@ -9,9 +9,10 @@ import { spineDistance } from '../render/nearClutterGlsl';
 
 /**
  * The F layer under the worm (floorMaterial.ts): one static grid of FLOOR_SEGS x FLOOR_SEGS cells
- * that the vertex shader lays on the floor under the middle of the body, drawing only the cells
- * the hole over the worm can show (floorCellShown). Each cell has its own four corners, so a dropped cell leaves its neighbours
- * whole. One draw call.
+ * that the vertex shader lays on the floor under the middle of the body. Each cell has its own four
+ * corners, at vertices 4c to 4c + 3 for cell c = j * FLOOR_SEGS + i, so a dropped cell leaves its
+ * neighbours whole. Each frame updateFloorPatch lists only the cells the hole over the worm can
+ * show (floorCellShown) in its index buffer, so the vertex shader runs for those alone. One draw.
  */
 export function buildFloorPatch(): THREE.Mesh {
   const cells = FLOOR_SEGS * FLOOR_SEGS;
@@ -39,7 +40,9 @@ export function buildFloorPatch(): THREE.Mesh {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('aCell', new THREE.BufferAttribute(cell, 2));
-  g.setIndex(new THREE.BufferAttribute(idx, 1));
+  g.setIndex(new THREE.BufferAttribute(idx, 1).setUsage(THREE.DynamicDrawUsage));
+  // Nothing until the first updateFloorPatch places it.
+  g.setDrawRange(0, 0);
   const mesh = new THREE.Mesh(g, createFloorMaterial());
   // Placed round the worm in the shader.
   mesh.frustumCulled = false;
@@ -58,6 +61,7 @@ export function floorGridCentre(spine: ArrayLike<number>, out: number[]): void {
 }
 
 const centre = [0, 0];
+const listed = { start: 0, count: 0 };
 
 /**
  * Whether the vertex shader draws the floor's cell centred at world (cx, cz): within FLOOR_KEEP of
@@ -101,4 +105,42 @@ export function floorDrawnAt(
   const j = Math.floor((z - centre[1]) / FLOOR_CELL);
   if (Math.abs(i + 0.5) > FLOOR_SEGS / 2 || Math.abs(j + 0.5) > FLOOR_SEGS / 2) return false;
   return floorCellShown(spine, view, seg, count, centre[0] + (i + 0.5) * FLOOR_CELL, centre[1] + (j + 0.5) * FLOOR_CELL);
+}
+
+/**
+ * Once per rendered frame, after the fade's segments are set: centres the floor patch `mesh` under
+ * this `spine` (uFloorBase, floorGridCentre) and lists in its index buffer only the cells
+ * floorCellShown keeps, ascending; returns how many. Allocates nothing.
+ */
+export function updateFloorPatch(
+  mesh: THREE.Mesh, spine: ArrayLike<number>, view: ArrayLike<number>, seg: ArrayLike<number>, count: number,
+): number {
+  floorGridCentre(spine, centre);
+  ((mesh.material as THREE.ShaderMaterial).uniforms.uFloorBase.value as THREE.Vector2).set(centre[0], centre[1]);
+  const index = mesh.geometry.index!;
+  const idx = index.array as Uint16Array;
+  let k = 0;
+  for (let j = 0; j < FLOOR_SEGS; j++) {
+    for (let i = 0; i < FLOOR_SEGS; i++) {
+      const cx = centre[0] + (i - FLOOR_SEGS / 2 + 0.5) * FLOOR_CELL;
+      const cz = centre[1] + (j - FLOOR_SEGS / 2 + 0.5) * FLOOR_CELL;
+      if (!floorCellShown(spine, view, seg, count, cx, cz)) continue;
+      const v = (j * FLOOR_SEGS + i) * 4;
+      const p = k * 6;
+      idx[p] = v; idx[p + 1] = v + 2; idx[p + 2] = v + 1;
+      idx[p + 3] = v + 1; idx[p + 4] = v + 2; idx[p + 5] = v + 3;
+      k++;
+    }
+  }
+  // One reused update range (addUpdateRange would allocate a record each frame).
+  index.updateRanges.length = 0;
+  if (k > 0) {
+    listed.count = k * 6;
+    index.updateRanges[0] = listed;
+    index.needsUpdate = true;
+  }
+  mesh.geometry.setDrawRange(0, k * 6);
+  // An empty draw range would still cost a draw call.
+  mesh.visible = k > 0;
+  return k;
 }

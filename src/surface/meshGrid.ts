@@ -29,7 +29,7 @@ export function gridLines(): number[] {
 }
 
 /** Index of the grid cell [lines[i], lines[i + 1]] holding v (clamped to the grid). */
-function cellOf(lines: readonly number[], v: number): number {
+export function cellOf(lines: readonly number[], v: number): number {
   let lo = 0;
   let hi = lines.length - 2;
   while (lo < hi) {

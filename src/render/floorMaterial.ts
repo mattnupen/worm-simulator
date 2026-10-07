@@ -85,9 +85,11 @@ export const FLOOR_CELL_GLSL = /* glsl */ `
  * The F layer's top round the worm (V2 spec 5.1 and 8.2; Matt's photos IMG_2427 and IMG_2428):
  * dark brown to black, wet, matted fragments of last years' leaves, white fungal threads, a sprig
  * of moss here and there, and the worm's fresh trail darker still. A square grid of FLOOR_SIZE
- * that the vertex shader keeps under the middle of the body (uSpine's FLOOR_CENTRE point, snapped
- * to its cells, so nothing swims), each vertex on the floor (TERRAIN_GLSL, the twin of
- * floorHeight); of it, only the cells the hole over the worm can show draw (FLOOR_CELL_GLSL).
+ * that the vertex shader keeps under the middle of the body (uFloorBase: uSpine's FLOOR_CENTRE
+ * point, snapped to its cells on the CPU, so nothing swims), each vertex on the floor
+ * (TERRAIN_GLSL, the twin of floorHeight); of it, only the cells the hole over the worm can show
+ * draw: the CPU lists them in the index buffer (floorPatch.ts updateFloorPatch), so the vertex
+ * shader runs for them alone, and the shader checks each again (FLOOR_CELL_GLSL).
  * It is drawn after the litter top, so only what the hole shows is shaded: everywhere else the
  * depth test rejects it.
  * Attributes: position (x, z), in cells from the grid's centre (y unused); aCell, the centre of
@@ -97,6 +99,7 @@ const vertexShader = /* glsl */ `
   uniform vec3 uSpine[${SPINE_POINTS}];
   uniform vec4 uOccSeg[${OCC_SEGMENTS * 2}];
   uniform int uOccCount;
+  uniform vec2 uFloorBase;
   uniform vec3 uLightDir;
   uniform vec3 uLightColor;
   uniform vec3 uFogColor;
@@ -110,7 +113,7 @@ const vertexShader = /* glsl */ `
   ${TERRAIN_GLSL}
   ${FLOOR_CELL_GLSL}
   void main() {
-    vec2 base = floor(uSpine[${FLOOR_CENTRE}].xz / ${f(CELL)} + 0.5) * ${f(CELL)};
+    vec2 base = uFloorBase;
     if (!floorCellShown(base + aCell * ${f(CELL)})) {
       // The hole cannot show it: all four corners of the cell land on one point outside the
       // view, so it draws nothing.
@@ -185,6 +188,7 @@ export function createFloorMaterial(): THREE.ShaderMaterial {
       uSpine: groundUniforms.uSpine,
       uOccSeg: groundUniforms.uOccSeg,
       uOccCount: groundUniforms.uOccCount,
+      uFloorBase: { value: new THREE.Vector2() },
       uDisturbTrail: groundUniforms.uDisturbTrail,
       uDistOrigin: groundUniforms.uDistOrigin,
       uDistFade: groundUniforms.uDistFade,

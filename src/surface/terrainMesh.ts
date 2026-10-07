@@ -95,7 +95,8 @@ export function buildTerrainGeometry(): THREE.BufferGeometry {
       col[k + 2] = c.b;
     }
   }
-  const idx = new Uint32Array((n - 1) * (n - 1) * 6);
+  // Cell c = j * (n - 1) + i holds indices c * 6 to c * 6 + 5 (topPatch.ts moves cells by id).
+  const idx = n * n < 65536 ? new Uint16Array((n - 1) * (n - 1) * 6) : new Uint32Array((n - 1) * (n - 1) * 6);
   let p = 0;
   for (let j = 0; j < n - 1; j++) {
     for (let i = 0; i < n - 1; i++) {
@@ -117,10 +118,15 @@ export function buildTerrainGeometry(): THREE.BufferGeometry {
   return g;
 }
 
+/**
+ * The top of the litter. It draws without the fade's discard, so the depth test rejects its hidden
+ * pixels before they are shaded: the cells over the buried worm, where the fade opens the hole, are
+ * handed over to the top patch (topPatch.ts), which alone carries the fade.
+ */
 export function buildTerrain(): THREE.Mesh {
   const mesh = new THREE.Mesh(
     buildTerrainGeometry(),
-    createPaintedMaterial({ color: '#ffffff', brush: 1, vertexColors: true, occlude: true }),
+    createPaintedMaterial({ color: '#ffffff', brush: 1, vertexColors: true }),
   );
   mesh.name = 'terrain';
   return mesh;
