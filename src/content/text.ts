@@ -32,10 +32,13 @@ export const TEXT = {
     kind: 'ui',
     text: 'Point the way to dig with the arrow keys, W A S D, or the joystick. Space: switch view, or come up near the top. Esc or P: pause.',
   },
-  burrowChoice: {
-    kind: 'gameChoice',
-    text: 'real nightcrawlers dig one deep up-and-down burrow. In the game you can dig any way you like.',
+  burrowFact: {
+    kind: 'fact',
+    text: 'Real nightcrawlers dig one burrow that goes straight down, as deep as 2 meters.',
+    source: 'wormwatch-ecogroups',
+    verified: true,
   },
+  burrowChoice: { kind: 'gameChoice', text: 'In the game you can dig any way you like.' },
 } as const satisfies Record<string, Line>;
 
 export type TextKey = keyof typeof TEXT;
@@ -53,13 +56,14 @@ export function shown(line: Line): string {
 export function lineProblems(lines: Readonly<Record<string, Line>>): string[] {
   const out: string[] = [];
   for (const [key, line] of Object.entries(lines)) {
-    if (!line.text.trim()) out.push(`${key}: empty`);
+    if (!String(line.text ?? '').trim()) out.push(`${key}: empty`);
     if (line.kind === 'fact') {
       if (!Object.prototype.hasOwnProperty.call(SOURCES, line.source)) out.push(`${key}: unknown source "${String(line.source)}"`);
       if (line.verified !== true) out.push(`${key}: not verified`);
     } else if (line.kind === 'gameChoice') {
-      if (line.text.startsWith(GAME_CHOICE_PREFIX.trim())) out.push(`${key}: has the game-choice prefix twice`);
+      if (String(line.text ?? '').toLowerCase().startsWith(GAME_CHOICE_PREFIX.trim().toLowerCase())) out.push(`${key}: has the game-choice prefix twice`);
     } else if (line.kind !== 'ui') {
+      // Unreachable by the types; catches a cast or JSON import with a kind we do not show.
       out.push(`${key}: unknown kind`);
     }
   }

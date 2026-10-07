@@ -54,7 +54,7 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     title: 'Earthworm Ecological Groups',
     publisher: 'Great Lakes Worm Watch, University of Minnesota Duluth',
     url: 'https://wormwatch.d.umn.edu/worm-id/earthworm-ecological-groups',
-    checked: '2026-10-04',
+    checked: '2026-10-07',
   },
   'wormwatch-vertebrates': {
     title: 'Vertebrate Animals',

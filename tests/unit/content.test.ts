@@ -15,6 +15,8 @@ describe('content: science honesty', () => {
       empty: { kind: 'ui', text: '  ' },
       twice: { kind: 'gameChoice', text: 'Game choice: worms fly.' },
       odd: { kind: 'rumour', text: 'Worms sing.' },
+      shouting: { kind: 'gameChoice', text: 'GAME CHOICE: worms fly.' },
+      missing: { kind: 'ui' },
     } as unknown as Record<string, Line>;
     expect(lineProblems(bad)).toEqual([
       'noSource: unknown source "my-blog"',
@@ -22,6 +24,8 @@ describe('content: science honesty', () => {
       'empty: empty',
       'twice: has the game-choice prefix twice',
       'odd: unknown kind',
+      'shouting: has the game-choice prefix twice',
+      'missing: empty',
     ]);
   });
 
@@ -41,14 +45,18 @@ describe('content: science honesty', () => {
       expect(s.publisher.length, id).toBeGreaterThan(0);
       expect(s.url, id).toMatch(/^https:\/\/\S+$/);
       expect(s.checked, id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Number.isNaN(Date.parse(s.checked)), id).toBe(false);
     }
     expect(Object.keys(SOURCES)).toEqual(expect.arrayContaining(['wormwatch-ecogroups', 'mndnr-humus', 'wormwatch-forest']));
   });
 
   it('a game choice is shown labelled; other lines as written', () => {
     expect(shown(TEXT.burrowChoice)).toBe(
-      'Game choice: real nightcrawlers dig one deep up-and-down burrow. In the game you can dig any way you like.',
+      'Game choice: In the game you can dig any way you like.',
     );
+    expect(TEXT.burrowFact).toMatchObject({ kind: 'fact', source: 'wormwatch-ecogroups', verified: true });
+    expect(shown(TEXT.burrowFact)).toBe('Real nightcrawlers dig one burrow that goes straight down, as deep as 2 meters.');
+    expect(SOURCES['wormwatch-ecogroups'].checked).toBe('2026-10-07');
     expect(GAME_CHOICE_PREFIX).toBe('Game choice: ');
     expect(shown(TEXT.digDown)).toBe('Dig down');
   });
