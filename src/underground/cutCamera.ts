@@ -2,6 +2,9 @@ import type { Spring } from '../surface/followCamera';
 import type { Slab } from './slab';
 import type { UndergroundView } from './modeMachine';
 import { settle } from './easing';
+import type { CutFrame } from './cutFrame';
+
+export { frameTarget, BELOW_SLAB, LABEL_ROOM, type BodyPoints, type CutFrame } from './cutFrame';
 
 /**
  * The camera facing the cut (V2 spec 7). It stands square to the cut on the slab's camera side,
@@ -9,29 +12,12 @@ import { settle } from './easing';
  * above the surface down to about the B layer, following gently only when the slab is wider than
  * the screen; Close frames a few worm lengths around the head, with more room ahead. Its near
  * plane sits just in front of the cut, so the forest between the camera and the cut is never
- * drawn (no shader changes; the projection does it). Pure; allocates nothing per step.
+ * drawn (no shader changes; the projection does it). Where each view wants the frame is
+ * cutFrame.ts. Pure; allocates nothing per step.
  */
 /** The vertical field of view (main.ts's camera). */
 export const FOV_DEG = 60;
 const TAN_HALF = Math.tan((FOV_DEG * Math.PI) / 360);
-/** Room beside each end of the playable slab for the layer names. */
-export const LABEL_ROOM = 1.8;
-/** Wide: from this far above the highest litter down to about the B layer (this tall)... */
-const WIDE_ABOVE = 1.4;
-const WIDE_H = 8.5;
-/** ...but on a narrow (phone) screen at least this wide, up to this tall. */
-const WIDE_MIN_W = 7;
-const WIDE_MAX_H = 13;
-/** Looking down, the cut's top is nearer than the frame's centre and shows less width: frame a bit more. */
-const PITCH_ROOM = 1.15;
-/** Close: the screen's shorter side spans this (about 1.7 worm lengths). */
-const CLOSE_SPAN = 6;
-/** Close keeps this share of the frame ahead of the head. */
-const CLOSE_AHEAD = 0.18;
-/** The head stays this share of the frame inside its edges. */
-const KEEP_IN = 0.2;
-/** Pitched down a little, so the surface reads above and behind the cut. */
-const PITCH = { wide: 0.2, close: 0.12 } as const;
 /** Seconds for the frame to settle: Wide follows gently, Close more closely. */
 const SMOOTH = { wide: 0.9, close: 0.4 } as const;
 /** The zoom and pitch settle this fast when the screen changes shape. */
@@ -45,8 +31,6 @@ export const SWITCH_S = 1.0;
 const AHEAD_SMOOTH = 0.8;
 /** The near plane stays this far in front of the cut's top (the worm stands out of it by 0.13). */
 export const CUT_MARGIN = 0.45;
-
-export interface CutFrame { cu: number; cv: number; h: number; pitch: number }
 
 export interface CutCam {
   /**
@@ -88,54 +72,6 @@ export function createCutCam(): CutCam {
     view: null, switchT: SWITCH_S,
     shown, follow: shown.map((s) => spring(s.value)), acc: new Float64Array(4), off: new Float64Array(12),
   };
-}
-
-/** Keeps x so that `head` lies within [x - half + keep, x + half - keep]. */
-function keepHead(x: number, head: number, half: number, keep: number): number {
-  return Math.min(head + half - keep, Math.max(head - half + keep, x));
-}
-
-/**
- * Where `view` wants the frame for the head at (hu, hv) facing (au, av) (eased: CutCam's), on a
- * screen of `aspect` (width / height). `now` is the frame's current centre (Wide holds still
- * while the head is well inside it); NaN when there is none yet (a new slab): Wide then starts
- * from its resting frame, so where an earlier visit left the camera never matters.
- */
-export function frameTarget(
-  view: UndergroundView, s: Slab, hu: number, hv: number, au: number, av: number, aspect: number,
-  nowU: number, nowV: number, out: CutFrame,
-): CutFrame {
-  const lo = s.playLo - LABEL_ROOM;
-  const hi = s.playHi + LABEL_ROOM;
-  let h: number;
-  let cu: number;
-  let cv: number;
-  if (view === 'wide') {
-    h = Math.min(WIDE_MAX_H, Math.max(WIDE_H, WIDE_MIN_W / aspect));
-    const top = s.topMax + WIDE_ABOVE;
-    cu = (lo + hi) / 2;
-    cv = top - h / 2;
-    const w = (h * aspect) / PITCH_ROOM;
-    const fromU = Number.isNaN(nowU) ? cu : nowU;
-    const fromV = Number.isNaN(nowV) ? cv : nowV;
-    if (w < hi - lo) cu = Math.min(hi - w / 2, Math.max(lo + w / 2, keepHead(fromU, hu, w / 2, w * 0.25)));
-    // Deeper than the frame reaches: it follows the head down, gently.
-    cv = Math.min(cv, keepHead(fromV, hv, h / 2, h * KEEP_IN));
-  } else {
-    h = aspect >= 1 ? CLOSE_SPAN : CLOSE_SPAN / aspect;
-    const w = h * aspect;
-    cu = hu + au * w * CLOSE_AHEAD;
-    cv = hv + av * h * CLOSE_AHEAD;
-    cu = Math.min(s.faceHi - w / 2, Math.max(s.faceLo + w / 2, cu));
-    cv = Math.min(s.topMax + 2 - h / 2, cv);
-  }
-  // Never below the slab's bottom.
-  cv = Math.max(s.bottom + h / 2, cv);
-  out.cu = cu;
-  out.cv = cv;
-  out.h = h;
-  out.pitch = PITCH[view];
-  return out;
 }
 
 function frameAt(f: CutFrame, i: number): number {

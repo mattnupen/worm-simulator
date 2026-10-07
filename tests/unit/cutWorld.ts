@@ -61,12 +61,15 @@ export function sweep(
   const o = placeSolids(s, createSolids());
   markSolids(g, o);
   const b = createBurrower();
-  const us = Array.from({ length: 16 }, () => 0);
-  const vs = us.map((_, i) => boundaryAt(s, B_F, 0) - 0.8 + i * SPACING);
+  // Lying in the cut under the F top, as the sink leaves it, the head turned down.
+  const us = Array.from({ length: 16 }, (_, i) => i * SPACING);
+  const vs = us.map(() => boundaryAt(s, B_F, 0) - 0.8);
   placeBurrower(b, us, vs, -Math.PI / 2, { phase: 0, activity: 0 });
+  // One still step first: it lets any body point placed in a stone out, before the camera snaps.
+  stepBurrower(b, s, g, o, 0, 0, DT);
   const cam = createCutCam();
   const aspect = w / hgt;
-  snapCutCam(cam, frameTarget(viewAt(0), s, b.u[0], b.v[0], 0, -1, aspect, NaN, NaN, frame), b.dir);
+  snapCutCam(cam, frameTarget(viewAt(0), s, b.u[0], b.v[0], Math.cos(b.dir), Math.sin(b.dir), aspect, NaN, NaN, frame, b), b.dir);
   const prev: CutPose = { ...pose };
   cutPose(s, cam.cu.value, cam.cv.value, cam.h.value, cam.pitch.value, prev);
   let du = 0; let dv = -1;
@@ -76,7 +79,7 @@ export function sweep(
     const v = viewAt(k);
     stepBurrower(b, s, g, o, du, dv, DT);
     stepCutFacing(cam, b.dir, DT);
-    frameTarget(v, s, b.u[0], b.v[0], cam.au.value, cam.av.value, aspect, cam.cu.value, cam.cv.value, frame);
+    frameTarget(v, s, b.u[0], b.v[0], cam.au.value, cam.av.value, aspect, cam.cu.value, cam.cv.value, frame, b);
     stepCutCam(cam, frame, v, DT);
     cutPose(s, cam.cu.value, cam.cv.value, cam.h.value, cam.pitch.value, pose);
     each(pose, prev, s, b.u[0], b.v[0], b, cam, k);
