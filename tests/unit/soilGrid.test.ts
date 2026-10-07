@@ -102,7 +102,7 @@ describe('the soil grid (spec 10)', () => {
     for (let i = 0; i < g.open.length; i++) {
       if (g.open[i] && Math.hypot(cellU(i % GRID_W) - 1, cellV(g, Math.floor(i / GRID_W)) - v) <= 0.14) tunnel.push(i);
     }
-    castBlob(g, 1, v, 0.14, shade);
+    castBlob(g, 1, v, 0.14, shade, 1, 0);
     return tunnel;
   };
   /** 4-connected path through cells that are open and not cast, from column cA to column cB. */
@@ -137,7 +137,7 @@ describe('the soil grid (spec 10)', () => {
       for (const i of tunnel) {
         if (!g.cast[i]) continue;
         filled++;
-        expect(cellV(g, Math.floor(i / GRID_W))).toBeLessThanOrEqual(v + 0.2 * 0.14 + 1e-9);
+        expect(cellV(g, Math.floor(i / GRID_W))).toBeLessThanOrEqual(v + 0.03 + 1e-9);
         lowest += cellV(g, Math.floor(i / GRID_W)) - v;
       }
       expect(filled / tunnel.length).toBeGreaterThan(0.3);
@@ -149,6 +149,89 @@ describe('the soil grid (spec 10)', () => {
     // About 50% of a 2-row tunnel, 65% of a 3-row one.
     expect(share).toBeGreaterThan(0.5);
     expect(share).toBeLessThan(0.75);
+  });
+
+  it('a casting never seals a tunnel at any angle, up or down (spec 6)', () => {
+    const free = (i: number) => g.open[i] === 1 && g.cast[i] === 0;
+    const seen = new Uint8Array(GRID_W * GRID_H);
+    const stack = new Int32Array(GRID_W * GRID_H);
+    /** Is there a 4-connected free path from within 0.12 of (ua, va) to within 0.12 of (ub, vb)? */
+    const connected = (ua: number, va: number, ub: number, vb: number): boolean => {
+      seen.fill(0);
+      let n = 0;
+      const near = (i: number, u: number, v: number) => Math.hypot(cellU(i % GRID_W) - u, cellV(g, Math.floor(i / GRID_W)) - v) <= 0.12;
+      for (let i = 0; i < seen.length; i++) if (free(i) && near(i, ua, va)) { seen[i] = 1; stack[n++] = i; }
+      while (n > 0) {
+        const i = stack[--n];
+        if (near(i, ub, vb)) return true;
+        const c = i % GRID_W;
+        for (const j of [c > 0 ? i - 1 : -1, c < GRID_W - 1 ? i + 1 : -1, i - GRID_W, i + GRID_W]) {
+          if (j < 0 || j >= seen.length || seen[j] || !free(j)) continue;
+          seen[j] = 1;
+          stack[n++] = j;
+        }
+      }
+      return false;
+    };
+    const base = slab.bottom + 3;
+    let share = 0;
+    let runs = 0;
+    for (let deg = -90; deg <= 90; deg += 15) {
+      const du = Math.cos((deg * Math.PI) / 180);
+      const dv = Math.sin((deg * Math.PI) / 180);
+      for (const flip of [1, -1]) {
+        for (let k = 0; k < 6; k++) {
+          fillSoilGrid(g, slab);
+          const cu = 1 + k * 0.017;
+          const cv = base + k * 0.023;
+          for (let s = -1; s <= 1; s += 0.05) digDisc(g, cu + du * s, cv + dv * s, 0.14, eaten);
+          const tunnel: number[] = [];
+          for (let i = 0; i < g.open.length; i++) {
+            if (g.open[i] && Math.hypot(cellU(i % GRID_W) - cu, cellV(g, Math.floor(i / GRID_W)) - cv) <= 0.14) tunnel.push(i);
+          }
+          castBlob(g, cu, cv, 0.14, 200, du * flip, dv * flip);
+          const filled = tunnel.filter((i) => g.cast[i]).length;
+          expect(filled, `${deg} deg`).toBeGreaterThan(0);
+          expect(filled).toBeLessThan(tunnel.length);
+          share += filled / tunnel.length;
+          runs++;
+          expect(connected(cu - du * 0.7, cv - dv * 0.7, cu + du * 0.7, cv + dv * 0.7), `${deg} deg, flip ${flip}, placement ${k}`).toBe(true);
+        }
+      }
+    }
+    expect(share / runs).toBeGreaterThan(0.4);
+    expect(share / runs).toBeLessThan(0.75);
+  });
+
+  it('the fill sits on the downhill wall; a vertical tunnel picks a side deterministically', () => {
+    const cu = 1;
+    const cv = slab.bottom + 3;
+    for (const deg of [0, 30, 60, -30, -60]) {
+      fillSoilGrid(g, slab);
+      const du = Math.cos((deg * Math.PI) / 180);
+      const dv = Math.sin((deg * Math.PI) / 180);
+      for (let s = -1; s <= 1; s += 0.05) digDisc(g, cu + du * s, cv + dv * s, 0.14, eaten);
+      castBlob(g, cu, cv, 0.14, 200, -du, -dv);
+      let side = 0;
+      let count = 0;
+      for (let i = 0; i < g.cast.length; i++) {
+        if (!g.cast[i]) continue;
+        // Signed distance from the axis, positive on the downhill wall (normal (dv, -du)). The tunnel's
+        // direction is given reversed: it must not matter which way the worm points along it.
+        side += (cellU(i % GRID_W) - cu) * dv - (cellV(g, Math.floor(i / GRID_W)) - cv) * du;
+        count++;
+      }
+      expect(side / count, `${deg} deg`).toBeGreaterThan(0.02);
+    }
+    const run = () => {
+      fillSoilGrid(g, slab);
+      for (let s = -1; s <= 1; s += 0.05) digDisc(g, cu, cv + s, 0.14, eaten);
+      castBlob(g, cu, cv, 0.14, 200, 0, 1);
+      return Array.from(g.cast);
+    };
+    const a = run();
+    expect(run()).toEqual(a);
+    expect(a.some((x) => x > 0)).toBe(true);
   });
 
   it('eating a casting opens it again', () => {
@@ -201,7 +284,7 @@ describe('the soil grid (spec 10)', () => {
     takeDirty(g, dirty);
     for (const [u, v] of [[-8, mid(B_A, -8)], [8, mid(B_A, 8)], [0, g.v0], [0, g.v0 - 0.05], [0, g.v0 + GRID_H * CELL]] as const) {
       digDisc(g, u, v, 0.2, eaten);
-      castBlob(g, u, v, 0.15, 100);
+      castBlob(g, u, v, 0.15, 100, 1, 0);
       markSolid(g, u, v, 0.3, SOLID_STONE);
       dampen(g, u, v, 0.3, 40);
     }
@@ -231,7 +314,7 @@ describe('the soil grid (spec 10)', () => {
     const v = mid(B_A, 1);
     for (let u = 0; u <= 2; u += 0.05) digDisc(g, u, v, 0.14, eaten);
     takeDirty(g, dirty);
-    castBlob(g, 1, v, 0.14, 100);
+    castBlob(g, 1, v, 0.14, 100, 1, 0);
     takeDirty(g, dirty);
     const [clo, chi] = rowsOf(g.cast);
     expect([dirty.lo, dirty.hi]).toEqual([clo, chi]);
