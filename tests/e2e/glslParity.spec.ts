@@ -7,7 +7,7 @@ import { occluderAxis, occluderSegments } from '../../src/render/occluderSegment
 import { occlusionTiles, tileRange } from '../../src/render/occlusionTiles';
 import { OCC_TILES } from '../../src/render/groundUniforms';
 import { mulberry32 } from '../../src/core/random';
-import { DETAIL_GLSL, detailVertex, type DetailInputs } from '../../src/render/detailGlsl';
+import { DETAIL_GLSL, detailVertex, pocketCap, type DetailInputs } from '../../src/render/detailGlsl';
 import { DISTURB_GLSL, FULL_FADE, disturbVertex, packedMapSampler } from '../../src/render/leafGlsl';
 import { litterTextureData, LITTER_TEX_N } from '../../src/render/litterTexture';
 import { groundTextureData, GROUND_TEX_N } from '../../src/render/groundTexture';
@@ -112,6 +112,10 @@ for (const pocket of [false, true]) test(`detail placement (${pocket ? 'in the w
         // As leafMaterial's main(): a leaf shrunk to nothing skips the drape.
         vec3 p = wp.xyz;
         if (anchor.z > 0.0) p = disturb(wp.xyz, anchor, 0.0, n);
+        // ...and caps a pocket leaf under the drawn top.
+        #ifdef POCKET
+        p = pocketCap(p);
+        #endif
         oP = vec4(p, 0.0); oA = anchor; gl_Position = vec4(0.0);
       }`;
     const fs = `#version 300 es
@@ -222,6 +226,7 @@ for (const pocket of [false, true]) test(`detail placement (${pocket ? 'in the w
       p[1] = w[1];
       p[2] = w[2];
       if (a[2] > 0) disturbVertex(sample, c.origin[0], c.origin[1], true, w, a, 0, p, c.fade);
+      if (pocket) pocketCap(inp, p);
       const o = k * 4;
       // A home exactly on a tile edge may land a tile apart on the CPU and GPU: only if shrunk to nothing.
       if (Math.abs(ga[o] - a[0]) > 1 || Math.abs(ga[o + 1] - a[1]) > 1) {
@@ -230,7 +235,7 @@ for (const pocket of [false, true]) test(`detail placement (${pocket ? 'in the w
       }
       if (a[2] > 0) shown++;
       else gone++;
-      if (Math.hypot(p[0] - w[0], p[1] - w[1], p[2] - w[2]) > 1e-3) moved++;
+      if (a[2] > 0 && Math.hypot(p[0] - w[0], p[1] - w[1], p[2] - w[2]) > 1e-3) moved++;
       worst = Math.max(
         worst,
         Math.abs(gw[o] - w[0]), Math.abs(gw[o + 1] - w[1]), Math.abs(gw[o + 2] - w[2]), Math.abs(gw[o + 3] - shade),

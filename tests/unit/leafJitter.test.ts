@@ -8,7 +8,7 @@ import { PUSHER_STRIDE } from '../../src/surface/heroBody';
 import type { Vec3 } from '../../src/core/vec';
 import { disturbVertex, packedMapSampler } from '../../src/render/leafGlsl';
 import { buildDetailLeaves, POCKET_SHARE } from '../../src/surface/detailLeaves';
-import { detailVertex, type DetailInputs } from '../../src/render/detailGlsl';
+import { detailVertex, pocketCap, type DetailInputs } from '../../src/render/detailGlsl';
 import { litterTextureData } from '../../src/render/litterTexture';
 import { groundTextureData } from '../../src/render/groundTexture';
 import { heroLeafMatrix } from '../../src/surface/heroLeafMesh';
@@ -193,12 +193,13 @@ describe('leaves over the crawling worm move smoothly (measured frame to frame)'
         l3[0] = pos.getX(v); l3[1] = pos.getY(v); l3[2] = pos.getZ(v);
         detailVertex(inp, d4, l3, leaf2.getY(v), p, a4, true);
         // Only full-size leaves: one growing or shrinking at the edge of the pocket (POCKET_NEAR
-        // to POCKET_FAR from the spine) lies under the top of the litter, where nothing shows it.
+        // to POCKET_FAR from the worm) lies under the top of the litter, where nothing shows it.
         if (a4[2] < d4[3] - 1e-9) continue;
         if (camera.position.distanceTo(v3.set(p[0], p[1], p[2])) < 0.6) continue;
         v3.project(camera);
         if (Math.abs(v3.x) > 1 || Math.abs(v3.y) > 1 || v3.z > 1) continue;
         disturbVertex(sample, m.ci * DIST_CELL, m.cj * DIST_CELL, true, p, a4, 0, moved);
+        pocketCap(inp, moved);
         if (moved[0] === p[0] && moved[1] === p[1] && moved[2] === p[2]) {
           off[v * 2] = off[v * 2 + 1] = 0;
           continue;

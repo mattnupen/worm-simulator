@@ -5,6 +5,7 @@ import { glslFloat as f } from './glslNumber';
 import { terrainHeight, TERRAIN_GLSL } from '../surface/terrain';
 import { spineDistance, SPINE_DISTANCE_GLSL } from './nearClutterGlsl';
 import { TOP_LAYER } from '../surface/litterDepth';
+import { SPINE_POINTS } from './groundUniforms';
 
 /** Side of the world tile the detail leaves repeat in (m); they fade out from 5 to 6 m. */
 export const DETAIL_BOX = 13;
@@ -16,8 +17,9 @@ export const REST_BASE = 0.008;
 /** ...on the top, plus its place (aLeaf2.y, 0..1) in this share of the loose top leaves (TOP_LAYER)... */
 const REST_SHARE = 0.6;
 /**
- * ...in the pocket, plus its place squared (most lie low, round the worm) in the litter over the
- * floor, up to this far below the top of the thinnest litter it reaches (litterAt's y)...
+ * ...in the pocket, plus its place (aLeaf2.y, 0..1, spread evenly: they step down from the top to
+ * the worm) in the litter over the floor, up to this far below the top of the thinnest litter it
+ * reaches (litterAt's y)...
  */
 export const POCKET_TOP_GAP = 0.15;
 /**
@@ -26,13 +28,35 @@ export const POCKET_TOP_GAP = 0.15;
  */
 export const POCKET_CURL = 0.55;
 /**
- * A pocket leaf shrinks to nothing as its home goes from POCKET_NEAR to POCKET_FAR from the
- * spine: only the leaves round the body are drawn, so the few the hole shows cost little (the rest
- * would be shaded under the top of the litter for nothing). Its nearest edge is then still over
- * 0.8 from the spine, outside what the hole shows at the body's level.
+ * A pocket leaf shrinks to nothing as its home goes from POCKET_NEAR to POCKET_FAR from the worm
+ * (pocketDistance): the hole over it shows the litter only close round the body, so the leaves
+ * live there, packed densely, and nowhere else (every leaf drawn costs, seen or not). Past the head
+ * the reach grows by POCKET_AHEAD and past the tail by POCKET_BEHIND, round discs that do not turn
+ * with the worm, so a leaf grows or shrinks only where the hole cannot show it: beside the body a
+ * leaf's distance to the worm's path stays put as the worm follows it, and the ends' discs reach
+ * past what the hole shows ahead of the head and behind the tail.
  */
-export const POCKET_NEAR = 1.6;
-export const POCKET_FAR = 2.0;
+export const POCKET_NEAR = 0.55;
+export const POCKET_FAR = 0.8;
+export const POCKET_AHEAD = 0.8;
+export const POCKET_BEHIND = 0.4;
+/**
+ * Side of the world tile the pocket's leaves repeat in (m), round the head snapped to 1 m (0.5 off
+ * it at most along each axis): a leaf jumps to its next copy only past the farthest a live one can
+ * be, the tail's disc (the body at most 3.4 behind the head), so it jumps only while shrunk away.
+ */
+export const POCKET_BOX = 2 * (0.5 + 3.4 + POCKET_BEHIND + POCKET_FAR);
+/**
+ * Deeper litter keeps fewer of the pocket's leaves: a leaf lives where its own random share (its
+ * yaw times POCKET_HASH, fractional part) is under POCKET_ROOM over the litter's depth at its home
+ * less POCKET_TOP_GAP, so a deep pile, whose wide hole shows many leaves stacked
+ * high near the camera, draws about as many as open ground. A fixed property of the place: no
+ * leaf ever appears or goes as the worm moves.
+ */
+export const POCKET_ROOM = 0.45;
+export const POCKET_HASH = 3.7;
+/** Draped over the body, a pocket leaf still keeps this far (m) under the drawn top (pocketCap). */
+export const POCKET_CLEAR = 0.03;
 
 /**
  * Vertex GLSL for the detail leaves. aDetail = (home x, z as 0..1 of the DETAIL_BOX tile, yaw,
@@ -42,15 +66,16 @@ export const POCKET_FAR = 2.0;
  * laid at one rest height for the whole leaf on its surface:
  * - the top leaves: on the drawn top of the litter (meshGround), in the loose top layer;
  * - with POCKET defined, the leaves in the buried worm's pocket (V2 spec 8.2), seen only through
- *   the hole over it: on the floor (terrainHeight, floorHeight's twin, where the worm rests),
- *   REST_BASE plus the layer squared times the thinnest litter it reaches less POCKET_TOP_GAP and
- *   its curl's lift (POCKET_CURL times its radius); and only round the body (POCKET_NEAR to
- *   POCKET_FAR from the spine, uSpine).
+ *   the hole over it, in a POCKET_BOX tile: on the floor (terrainHeight, floorHeight's twin, where
+ *   the worm rests), REST_BASE plus the layer times the thinnest litter it reaches less
+ *   POCKET_TOP_GAP and its curl's lift (POCKET_CURL times its radius); only round the worm
+ *   (POCKET_NEAR to POCKET_FAR from it, pocketDistance, uSpine), with no fade from the head. The
+ *   caller drapes it, then caps it under the drawn top (pocketCap).
  * Every vertex follows the surface under it and lies at or above the leaf's rest plane over it
  * (the curl only lifts), so a leaf's dip is 0. Writes the baked trunk shade to `shade` and the
  * disturbance anchor (home x, z, radius, rest) to `anchor`. A leaf shrunk to nothing returns at
  * once with radius 0, all its vertices on one point: the caller skips disturb() for it. Needs
- * aLeaf2 and uniforms uFocus, uWrapCentre, uLitter and (the top leaves) uGround.
+ * aLeaf2 and uniforms uFocus, uWrapCentre, uLitter, uGround and (the pocket) uSpine.
  */
 export const DETAIL_GLSL = /* glsl */ `
   uniform vec3 uFocus;
@@ -59,17 +84,27 @@ export const DETAIL_GLSL = /* glsl */ `
   attribute vec4 aDetail;
   ${WRAP_GLSL}
   ${LITTER_GLSL}
+  ${GROUND_GLSL}
   #ifdef POCKET
   ${TERRAIN_GLSL}
   ${SPINE_DISTANCE_GLSL}
-  #else
-  ${GROUND_GLSL}
+  float pocketDistance(vec2 p) {
+    float d = min(spineDistance(p), distance(p, uSpine[0].xz) - ${f(POCKET_AHEAD)});
+    return min(d, distance(p, uSpine[${SPINE_POINTS - 1}].xz) - ${f(POCKET_BEHIND)});
+  }
+  vec3 pocketCap(vec3 p) {
+    return vec3(p.x, min(p.y, meshGround(p.xz) - ${f(POCKET_CLEAR)}), p.z);
+  }
   #endif
   vec4 detailPosition(inout vec3 n, out float shade, out vec4 anchor) {
-    vec2 home = wrapAround(aDetail.xy, uWrapCentre, ${f(DETAIL_BOX)});
-    float fade = 1.0 - smoothstep(${f(DETAIL_FADE_IN)}, ${f(DETAIL_FADE_OUT)}, distance(home, uFocus.xz));
     #ifdef POCKET
-      if (fade > 0.0) fade *= 1.0 - smoothstep(${f(POCKET_NEAR)}, ${f(POCKET_FAR)}, spineDistance(home));
+      vec2 home = wrapAround(aDetail.xy, uWrapCentre, ${f(POCKET_BOX)});
+      vec3 lit = litterAt(home);
+      float fade = (1.0 - smoothstep(${f(POCKET_NEAR)}, ${f(POCKET_FAR)}, pocketDistance(home)))
+        * step(fract(aDetail.z * ${f(POCKET_HASH)}), ${f(POCKET_ROOM)} / max(lit.x - ${f(POCKET_TOP_GAP)}, ${f(POCKET_ROOM)}));
+    #else
+      vec2 home = wrapAround(aDetail.xy, uWrapCentre, ${f(DETAIL_BOX)});
+      float fade = 1.0 - smoothstep(${f(DETAIL_FADE_IN)}, ${f(DETAIL_FADE_OUT)}, distance(home, uFocus.xz));
     #endif
     float r = aDetail.w * fade;
     if (r <= 0.0) {
@@ -84,11 +119,13 @@ export const DETAIL_GLSL = /* glsl */ `
     vec3 p = position * r;
     p = vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z);
     n = vec3(c * n.x + s * n.z, n.y, -s * n.x + c * n.z);
-    vec3 lit = litterAt(home);
+    #ifndef POCKET
+      vec3 lit = litterAt(home);
+    #endif
     shade = lit.z;
     vec2 xz = home + p.xz;
     #ifdef POCKET
-      float rest = ${f(REST_BASE)} + aLeaf2.y * aLeaf2.y * max(0.0, lit.y - ${f(POCKET_TOP_GAP)} - r * ${f(POCKET_CURL)});
+      float rest = ${f(REST_BASE)} + aLeaf2.y * max(0.0, lit.y - ${f(POCKET_TOP_GAP)} - r * ${f(POCKET_CURL)});
       float ground = terrainHeight(xz);
     #else
       float rest = ${f(REST_BASE)} + aLeaf2.y * ${f(TOP_LAYER * REST_SHARE)};
@@ -120,16 +157,24 @@ export interface DetailInputs {
  * `position` of a leaf with `detail` (aDetail) and `layer` (aLeaf2.y), on the top of the litter
  * or (`pocket`) in the worm's pocket. Writes the world point into `out` and the disturbance anchor
  * into `anchor`; returns the trunk shade. When the anchor's radius is 0 the shader skips
- * disturb(), so callers replaying it must too.
+ * disturb(), so callers replaying it must too; a pocket leaf's vertex is then capped (pocketCap).
  */
 export function detailVertex(
   inp: DetailInputs, detail: ArrayLike<number>, position: ArrayLike<number>, layer: number,
   out: number[], anchor: number[], pocket = false,
 ): number {
-  const hx = wrapAround(detail[0], inp.wrapX, DETAIL_BOX);
-  const hz = wrapAround(detail[1], inp.wrapZ, DETAIL_BOX);
-  let fade = 1 - smooth(DETAIL_FADE_IN, DETAIL_FADE_OUT, Math.hypot(hx - inp.focusX, hz - inp.focusZ));
-  if (pocket && fade > 0) fade *= 1 - smooth(POCKET_NEAR, POCKET_FAR, spineDistance(inp.spine ?? [], hx, hz));
+  const box = pocket ? POCKET_BOX : DETAIL_BOX;
+  const hx = wrapAround(detail[0], inp.wrapX, box);
+  const hz = wrapAround(detail[1], inp.wrapZ, box);
+  let fade: number;
+  if (pocket) {
+    sampleLitter(inp.litter, hx, hz, lit);
+    const h = detail[2] * POCKET_HASH;
+    fade = (1 - smooth(POCKET_NEAR, POCKET_FAR, pocketDistance(inp.spine ?? [], hx, hz)))
+      * (POCKET_ROOM / Math.max(lit[0] - POCKET_TOP_GAP, POCKET_ROOM) >= h - Math.floor(h) ? 1 : 0);
+  } else {
+    fade = 1 - smooth(DETAIL_FADE_IN, DETAIL_FADE_OUT, Math.hypot(hx - inp.focusX, hz - inp.focusZ));
+  }
   const r = detail[3] * fade;
   if (r <= 0) {
     anchor[0] = hx;
@@ -145,9 +190,9 @@ export function detailVertex(
   const s = Math.sin(detail[2]);
   const px = position[0] * r;
   const pz = position[2] * r;
-  sampleLitter(inp.litter, hx, hz, lit);
+  if (!pocket) sampleLitter(inp.litter, hx, hz, lit);
   const rest = pocket
-    ? REST_BASE + layer * layer * Math.max(0, lit[1] - POCKET_TOP_GAP - r * POCKET_CURL)
+    ? REST_BASE + layer * Math.max(0, lit[1] - POCKET_TOP_GAP - r * POCKET_CURL)
     : REST_BASE + layer * TOP_LAYER * REST_SHARE;
   anchor[0] = hx;
   anchor[1] = hz;
@@ -158,4 +203,20 @@ export function detailVertex(
   const ground = pocket ? terrainHeight(out[0], out[2]) : bakedGroundHeight(inp.ground, out[0], out[2]);
   out[1] = ground + rest + position[1] * r;
   return lit[2];
+}
+
+/** TS twin of pocketDistance: how far (x, z) lies from the worm, for a pocket leaf's shrink. */
+export function pocketDistance(spine: ArrayLike<number>, x: number, z: number): number {
+  const t = (SPINE_POINTS - 1) * 3;
+  const d = Math.min(spineDistance(spine, x, z), Math.hypot(x - spine[0], z - spine[2]) - POCKET_AHEAD);
+  return Math.min(d, Math.hypot(x - spine[t], z - spine[t + 2]) - POCKET_BEHIND);
+}
+
+/**
+ * TS twin of pocketCap: a pocket leaf's vertex `p` (world, after the drape) kept POCKET_CLEAR under
+ * the drawn top (the baked ground, `inp.ground`), so a leaf draped over the body never shows through
+ * it. Writes p.
+ */
+export function pocketCap(inp: DetailInputs, p: number[]): void {
+  p[1] = Math.min(p[1], bakedGroundHeight(inp.ground, p[0], p[2]) - POCKET_CLEAR);
 }

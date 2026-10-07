@@ -117,3 +117,57 @@ export class IndexSplit {
   }
 }
 
+
+/**
+ * A geometry over another's vertex buffers that draws only the parts handed to it (set), in its own
+ * index buffer: IndexSplit's second geometry without the source's side, for a mesh that is never
+ * drawn whole (the worm's pocket leaves: pocketLeaves.ts). Allocates nothing after construction.
+ */
+export class IndexList {
+  readonly geometry: THREE.BufferGeometry;
+  /** The parts drawn now, ascending (the first `count`). */
+  readonly parts: Int32Array;
+  private n = 0;
+  private readonly src: Uint16Array | Uint32Array;
+  private readonly arr: Uint16Array | Uint32Array;
+  private readonly index: THREE.BufferAttribute;
+  private readonly range = { start: 0, count: 0 };
+
+  /** As IndexSplit: part p holds src's indices ends[p - 1] (0 for p = 0) to ends[p]. */
+  constructor(src: THREE.BufferGeometry, private readonly ends: ArrayLike<number>) {
+    this.src = src.index!.array as Uint16Array | Uint32Array;
+    this.arr = this.src.slice();
+    this.parts = new Int32Array(ends.length);
+    this.geometry = new THREE.BufferGeometry();
+    for (const name of Object.keys(src.attributes)) this.geometry.setAttribute(name, src.getAttribute(name));
+    this.index = new THREE.BufferAttribute(this.arr, 1).setUsage(THREE.DynamicDrawUsage);
+    this.geometry.setIndex(this.index);
+    this.geometry.setDrawRange(0, 0);
+  }
+
+  /** How many parts it draws now. */
+  get count(): number {
+    return this.n;
+  }
+
+  /** Draws parts next[0..k) (ascending, distinct). Returns false (uploading nothing) when unchanged. */
+  set(next: ArrayLike<number>, k: number): boolean {
+    let same = k === this.n;
+    for (let a = 0; same && a < k; a++) same = next[a] === this.parts[a];
+    if (same) return false;
+    const { src, arr, ends } = this;
+    let f = 0;
+    for (let a = 0; a < k; a++) {
+      const p = next[a];
+      for (let t = p > 0 ? ends[p - 1] : 0; t < ends[p]; t++) arr[f++] = src[t];
+      this.parts[a] = p;
+    }
+    this.n = k;
+    this.range.count = Math.max(1, f);
+    this.index.updateRanges.length = 0;
+    this.index.updateRanges[0] = this.range;
+    this.index.needsUpdate = true;
+    this.geometry.setDrawRange(0, f);
+    return true;
+  }
+}

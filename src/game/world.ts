@@ -15,7 +15,7 @@ import { buildTopPatch } from '../surface/topPatch';
 import { buildForestTrees } from '../surface/forestTrees';
 import { buildDistantTrees } from '../surface/distantTrees';
 import { buildLeafLitter, type LeafLitter } from '../surface/leafLitterMesh';
-import { buildDetailLayer, POCKET_SHARE, type DetailLayer } from '../surface/detailLeaves';
+import { buildDetailLayer, pocketCount, type DetailLayer } from '../surface/detailLeaves';
 import { buildPocketLeaves, type PocketLeaves } from '../surface/pocketLeaves';
 import { HeroLeafMesh } from '../surface/heroLeafMesh';
 import { buildNearClutterLayer, type NearClutterLayer } from '../surface/nearClutter';
@@ -65,7 +65,7 @@ export function buildWorld(crawl: Crawl): World {
   // Built at Ultra's counts for real-size leaves (bigger leaves, fewer of them: leafScale.ts).
   const litter = buildLeafLitter(scaledLeafCount(PRESETS.ultra.litter));
   const detail = buildDetailLayer(scaledLeafCount(PRESETS.ultra.detail));
-  const pocket = buildDetailLayer(scaledLeafCount(PRESETS.ultra.detail * POCKET_SHARE), buildPocketLeaves, 'pocketLayer');
+  const pocket = buildDetailLayer(pocketCount(PRESETS.ultra.detail), buildPocketLeaves, 'pocketLayer');
   const props = buildGroundProps();
   // The ground fills most of the screen: draw it after everything that sits on it, so the
   // depth test skips ground pixels already covered by leaves, props and trunks.
@@ -97,7 +97,7 @@ export function buildWorld(crawl: Crawl): World {
     apply(spec) {
       litter.setCount(scaledLeafCount(spec.litter));
       detail.setCount(scaledLeafCount(spec.detail));
-      pocket.setCount(scaledLeafCount(spec.detail * POCKET_SHARE));
+      pocket.setCount(pocketCount(spec.detail));
       props.setDensity(spec.clutter);
       nearClutter.show(spec.nearClutter);
       atmosphere.setLevel(spec.effects, spec.extraEffects);
@@ -137,7 +137,7 @@ export function buildWorld(crawl: Crawl): World {
       top.update(fade, camera.position.x, camera.position.z, pose.spine);
       updateFloorPatch(floor, pose.spine, view, g.uOccSeg.value, g.uOccCount.value);
       const wrap = g.uWrapCentre.value;
-      pocket.built?.update(fade, pose.spine, crawl.focus.x, crawl.focus.z, wrap.x, wrap.y);
+      pocket.built?.update(fade, pose.spine, crawl.focus.x, crawl.focus.z, wrap.x, wrap.y, crawl.disturbance);
       if (crawl.disturbed) {
         uploadDisturbance(crawl.disturbance);
         // The window the pocket's leaves read the map in.

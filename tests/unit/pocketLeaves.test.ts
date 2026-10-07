@@ -3,11 +3,13 @@ import * as THREE from 'three';
 import { buildPocketLeaves } from '../../src/surface/pocketLeaves';
 import { buildDetailLeaves, POCKET_SHARE } from '../../src/surface/detailLeaves';
 import type { FadeFrame } from '../../src/render/fadeBall';
-import { detailVertex, type DetailInputs } from '../../src/render/detailGlsl';
+import { detailVertex, pocketCap, type DetailInputs } from '../../src/render/detailGlsl';
 import { disturbVertex, packedMapSampler } from '../../src/render/leafGlsl';
-import { OCC_REACH, OCC_SEGMENTS } from '../../src/render/occlusion';
+import { occlusion, worldUpInView, OCC_REACH, OCC_SEGMENTS } from '../../src/render/occlusion';
 import { occluderSegments } from '../../src/render/occluderSegments';
 import { litterTextureData } from '../../src/render/litterTexture';
+import { groundTextureData } from '../../src/render/groundTexture';
+import { litterTopHeight } from '../../src/surface/litterDepth';
 import { POCKET_ORDER } from '../../src/render/drawOrder';
 import { PRESETS } from '../../src/render/graphics';
 import { DIST_CELL, DIST_N, DIST_SPAN, packDisturbance } from '../../src/surface/disturbance';
@@ -44,7 +46,7 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
     expect(p.mesh.geometry.drawRange.count).toBe(0);
   });
 
-  it('crawling over the real litter: every leaf left out lies wholly where the top of the litter cannot fade', () => {
+  it('crawling over the real litter: every leaf left out lies where the top cannot fade, none drawn plain would fade, none shows through the top', () => {
     const count = scaledLeafCount(PRESETS.ultra.detail * POCKET_SHARE);
     const pocket = buildPocketLeaves(count);
     pocket.setCount(count);
@@ -62,7 +64,9 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
     const near = new Uint8Array(DIST_N * DIST_N * 4);
     const trail = new Uint8Array(DIST_N * DIST_N * 2);
     const sample = packedMapSampler(near, trail);
-    const inp: DetailInputs = { focusX: 0, focusZ: 0, wrapX: 0, wrapZ: 0, litter: litterTextureData(), ground: new Float32Array(0) };
+    const inp: DetailInputs = { focusX: 0, focusZ: 0, wrapX: 0, wrapZ: 0, litter: litterTextureData(), ground: groundTextureData() };
+    const fades = new Uint8Array(count);
+    const up = new THREE.Vector3();
     const listed = new Uint8Array(count);
     const d4 = [0, 0, 0, 0];
     const p3 = [0, 0, 0];
@@ -84,6 +88,9 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
     let most = 0;
     let checked = 0;
     let closest = Infinity;
+    let fading = 0;
+    let draped = 0;
+    let plainChecked = 0;
     for (let s = 0; s < 2400; s++) {
       if (s % 300 === 0) {
         tx = (rng() * 2 - 1) * H;
@@ -101,12 +108,17 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
       const n = occluderSegments(pose.spine, view, pe[0], pe[5], seg, box);
       const fade: FadeFrame = { view, seg, count: n, far: box[4] };
       const f = crawl.focus;
-      const k = pocket.update(fade, pose.spine, f.x, f.z, Math.round(f.x), Math.round(f.z));
+      const k = pocket.update(fade, pose.spine, f.x, f.z, Math.round(f.x), Math.round(f.z), crawl.disturbance);
       frames++;
       shown += k;
       most = Math.max(most, k);
       listed.fill(0);
+      fades.fill(0);
       for (let a = 0; a < k; a++) listed[pocket.parts[a]] = 1;
+      for (let a = 0; a < pocket.fading; a++) fades[pocket.fadeParts[a]] = 1;
+      fading += pocket.fading;
+      worldUpInView(view, up);
+      const upA = up.toArray();
       // As the GPU places and drapes them.
       const m = crawl.disturbance;
       packDisturbance(m, near, trail);
@@ -116,7 +128,6 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
       inp.wrapZ = Math.round(f.z);
       inp.spine = pose.spine;
       for (let p = 0; p < count; p++) {
-        if (listed[p]) continue;
         const end = pocket.ends[p];
         for (let t = p > 0 ? pocket.ends[p - 1] : 0; t < end; t++) {
           const vi = index[t];
@@ -126,14 +137,24 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
           // Shrunk to nothing: draws nothing.
           if (a4[2] <= 0) break;
           disturbVertex(sample, m.ci * DIST_CELL, m.cj * DIST_CELL, true, at, a4, 0, moved, fadeWin);
+          pocketCap(inp, moved);
+          // Draped over the body or not, never up through the top of the litter.
+          expect(litterTopHeight(moved[0], moved[2]) - moved[1]).toBeGreaterThan(0.02);
+          if (moved[1] - at[1] > 0.1) draped++;
           v.set(moved[0], moved[1], moved[2]).applyMatrix4(camera.matrixWorldInverse);
           const d = -v.z;
           // Behind the camera or at the lens: the near plane clips it.
           if (d < 0.2) continue;
-          const miss = nearestMiss(v.x / d, v.y / d, seg, n);
-          closest = Math.min(closest, miss);
-          expect(miss).toBeGreaterThanOrEqual(OCC_REACH);
-          checked++;
+          if (!listed[p]) {
+            const miss = nearestMiss(v.x / d, v.y / d, seg, n);
+            closest = Math.min(closest, miss);
+            expect(miss).toBeGreaterThanOrEqual(OCC_REACH);
+            checked++;
+          } else if (!fades[p]) {
+            // Drawn without the fade: none of it would have faded.
+            expect(occlusion(v.x / d, v.y / d, d, seg, n, box[4], upA)).toBe(0);
+            plainChecked++;
+          }
         }
       }
     }
@@ -144,5 +165,9 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
     // ...and only a handful of the leaves round the body are drawn.
     expect(shown / frames).toBeGreaterThan(1);
     expect(most).toBeLessThan(count / 4);
+    // Some are draped high over the body, and most of those drawn need no fade.
+    expect(draped).toBeGreaterThan(1000);
+    expect(plainChecked).toBeGreaterThan(20000);
+    expect(fading).toBeLessThan(shown);
   }, 180000);
 });

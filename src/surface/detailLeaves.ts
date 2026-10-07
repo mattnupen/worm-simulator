@@ -31,8 +31,42 @@ function reach(kind: LeafKind): number {
   return r;
 }
 
-/** The pocket's leaves, as a share of a preset's detail leaves (V2 spec 8.2). */
-export const POCKET_SHARE = 0.5;
+/**
+ * The pocket's leaves, as a share of a preset's detail leaves (V2 spec 8.2): packed round the worm
+ * in a smaller tile (detailGlsl.ts POCKET_BOX), they lie far more densely than the top's.
+ */
+export const POCKET_SHARE = 1.25;
+/**
+ * How many pocket leaves a preset with `detail` detail leaves draws: Ultra's full count, falling
+ * only as the square root of the preset's detail leaves (High about 0.8 of it), as the hole must
+ * still read as full of leaves (only those it may show are drawn: pocketLeaves.ts); none without
+ * detail leaves.
+ */
+export function pocketCount(detail: number): number {
+  return scaledLeafCount(PRESETS.ultra.detail * POCKET_SHARE * Math.sqrt(Math.max(0, detail) / PRESETS.ultra.detail));
+}
+/** The pocket's leaves are this much smaller than the top's: older leaves, broken up and matted. */
+export const POCKET_SIZE = 0.65;
+/** Dark wet brown, the old leaves low in the pocket go toward (IMG_2427, IMG_2428)... */
+const WET_BROWN = new THREE.Color(0.15, 0.09, 0.05);
+/** ...and bleached tan, some of the upper ones. */
+const BLEACHED = new THREE.Color(0.55, 0.47, 0.36);
+
+/**
+ * A pocket leaf's colours (inner, edge, stem, from leafTint), aged by its place in the litter
+ * (`layer`, 0 on the floor to 1 just under the top): most go dark, wet brown, black-brown low
+ * down; some of the upper ones are bleached tan (research notes: this fall's bright leaves on top,
+ * bleached and then dark brown below). Returns its wetness.
+ */
+function agePocketLeaf(layer: number, rng: () => number, cols: THREE.Color[]): number {
+  const age = 1 - layer;
+  if (rng() < 0.25 * layer) {
+    for (const c of cols) c.lerp(BLEACHED, 0.75).multiplyScalar(0.85);
+    return 0.25;
+  }
+  for (const c of cols) c.lerp(WET_BROWN, 0.7 + 0.3 * age).multiplyScalar(0.7 - 0.3 * age);
+  return 0.6 + 0.35 * age;
+}
 
 /**
  * Smaller, more curled, higher-vertex leaves about 6 m around the worm (spec 5.5): on the top of
@@ -66,7 +100,7 @@ export function buildDetailLeaves(count = scaledLeafCount(PRESETS.ultra.detail),
   const inner = new THREE.Color();
   const edge = new THREE.Color();
   const stem = new THREE.Color();
-  const dull = new THREE.Color();
+  const cols = [inner, edge, stem];
   const n: Vec3 = { x: 0, y: 0, z: 0 };
   const form: LeafForm = { fold: 0, cup: 0, curl: 0 };
   let v0 = 0;
@@ -77,7 +111,7 @@ export function buildDetailLeaves(count = scaledLeafCount(PRESETS.ultra.detail),
     // Small (0.6x the first cut): they are many and near the camera, and a leaf's cost is its
     // area on screen (the layer is fill-bound). `size` is the leaf's scale, 0.21 to 0.39 of its
     // species' LEAF_SIZE (a third of the litter's 0.6 to 1.2), times its real-size growth.
-    const size = LEAF_SIZE[kind] * (0.21 + rng() * 0.18) * grow[kind];
+    const size = LEAF_SIZE[kind] * (0.21 + rng() * 0.18) * grow[kind] * (pocket ? POCKET_SIZE : 1);
     form.fold = 0.1 + rng() * 0.2;
     form.cup = 0.2 + rng() * (kind === 'oak' ? 0.5 : 0.3);
     form.curl = 0.2 + rng() * (kind === 'oak' ? 0.35 : 0.25);
@@ -85,14 +119,8 @@ export function buildDetailLeaves(count = scaledLeafCount(PRESETS.ultra.detail),
     const rs = reach(kind);
     const home = [rng(), rng(), rng() * Math.PI * 2, size * rs];
     const layer = rng();
-    // Its place in the pocket's litter (detailGlsl.ts): lower down, older, so darker, duller and
-    // wetter (research notes: this fall's bright leaves on top, bleached and then dark brown below).
-    const age = pocket ? 1 - layer * layer : 0;
-    for (const c of [inner, edge, stem]) {
-      const grey = (c.r + c.g + c.b) / 3;
-      c.lerp(dull.setRGB(grey, grey * 0.88, grey * 0.7), 0.6 * age).multiplyScalar(1 - 0.55 * age);
-    }
-    const wet = Math.max(fresh, 0.75 * age);
+    // Its place in the pocket's litter (detailGlsl.ts): lower down, older.
+    const wet = pocket ? agePocketLeaf(layer, rng, cols) : fresh;
     for (let p = 0; p < np; p++) {
       const u = s.points[p * 2];
       const v = s.points[p * 2 + 1];

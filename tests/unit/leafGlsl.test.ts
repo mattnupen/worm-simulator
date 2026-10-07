@@ -9,7 +9,7 @@ import { bellyHeight, wormSurface, type WormSurface } from '../../src/worm/surfa
 import { buildLeafLitter } from '../../src/surface/leafLitterMesh';
 import { mulberry32 } from '../../src/core/random';
 import { buildDetailLeaves, POCKET_SHARE } from '../../src/surface/detailLeaves';
-import { detailVertex, DETAIL_BOX, type DetailInputs } from '../../src/render/detailGlsl';
+import { detailVertex, pocketCap, POCKET_BOX, type DetailInputs } from '../../src/render/detailGlsl';
 import { wrapAround } from '../../src/render/wrap';
 import { litterTextureData } from '../../src/render/litterTexture';
 import { groundTextureData } from '../../src/render/groundTexture';
@@ -200,8 +200,8 @@ describe('the drape on the real litter and the real worm', () => {
       for (let l = 0; l < firstV.length - 1; l++) {
         const v0 = firstV[l];
         // Only a leaf whose home is within reach (radius + slide + half the body) can cover the worm.
-        const hx = wrapAround(det.getX(v0), inp.wrapX, DETAIL_BOX);
-        const hz = wrapAround(det.getY(v0), inp.wrapZ, DETAIL_BOX);
+        const hx = wrapAround(det.getX(v0), inp.wrapX, POCKET_BOX);
+        const hz = wrapAround(det.getY(v0), inp.wrapZ, POCKET_BOX);
         if (!pts.some(([x, z]) => Math.hypot(hx - x, hz - z) < reach)) continue;
         near++;
         dv[0] = det.getX(v0);
@@ -214,8 +214,9 @@ describe('the drape on the real litter and the real worm', () => {
           lp[2] = pos.getZ(v);
           detailVertex(inp, dv, lp, leaf2.getY(v), placed[v - v0], a4, true);
           // dip is 0: the curl only lifts a detail leaf off its rest plane. A leaf shrunk to
-          // nothing skips the drape, as the shader does.
+          // nothing skips the drape, as the shader does; then the shader caps it under the top.
           if (a4[2] > 0) disturbVertex(sample, ox, oz, true, placed[v - v0], a4, 0, placed[v - v0]);
+          pocketCap(inp, placed[v - v0]);
         }
         for (let t = firstT[l]; t < firstT[l + 1]; t += 3) {
           for (let c = 0; c < 3; c++) {

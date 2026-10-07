@@ -131,6 +131,10 @@ const vertexShader = /* glsl */ `
       #endif
       vNormalW = nW;
     #endif
+    #ifdef POCKET
+      // Draped over the body, never up through the top of the litter.
+      wp.xyz = pocketCap(wp.xyz);
+    #endif
     vPosW = wp.xyz;
     vColor = aColor;
     #ifdef DETAIL
@@ -250,11 +254,12 @@ const fragmentShader = /* glsl */ `
  * Which leaves: litter chunks near the worm ('litter': they fade over it), other full-leaf litter
  * chunks ('plain'), distant low-detail litter ('far'), the close-up top leaves ('detail': they
  * fade), the leaves in the buried worm's pocket ('pocket': they drape and slide by the disturbance
- * map, and fade), the falling leaves (animated), or the hero leaves (instanced, moved by their own
+ * map, and fade; 'pocketPlain': the same where they cannot fade, so hidden pixels are rejected
+ * before they are shaded), the falling leaves (animated), or the hero leaves (instanced, moved by their own
  * physics). The litter swaps between the first three per chunk, never recompiling. The top leaves
  * lie 2 to 5 cm above the worm (V2 spec 8.2), so only the pocket's leaves react to it.
  */
-export type LeafVariant = 'litter' | 'plain' | 'far' | 'falling' | 'detail' | 'pocket' | 'hero';
+export type LeafVariant = 'litter' | 'plain' | 'far' | 'falling' | 'detail' | 'pocket' | 'pocketPlain' | 'hero';
 
 const DEFINES: Record<LeafVariant, Record<string, string>> = {
   litter: { OCCLUDE: '' },
@@ -263,6 +268,7 @@ const DEFINES: Record<LeafVariant, Record<string, string>> = {
   falling: { FALLING: '' },
   detail: { DETAIL: '', OCCLUDE: '' },
   pocket: { DETAIL: '', POCKET: '', DISTURB: '', OCCLUDE: '' },
+  pocketPlain: { DETAIL: '', POCKET: '', DISTURB: '' },
   hero: { HERO: '', OCCLUDE: '' },
 };
 
@@ -272,7 +278,7 @@ export function createLeafMaterial(variant: LeafVariant = 'litter'): THREE.Shade
       ...sharedLighting,
       ...groundUniforms,
       // Only the detail layers need the baked litter and ground, so only they pay for building them.
-      ...(variant === 'detail' || variant === 'pocket'
+      ...(variant === 'detail' || variant === 'pocket' || variant === 'pocketPlain'
         ? { uLitter: { value: getLitterTexture() }, uGround: { value: getGroundTexture() } } : {}),
     },
     defines: { ...DEFINES[variant] },

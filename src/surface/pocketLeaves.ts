@@ -1,53 +1,89 @@
 import * as THREE from 'three';
 import { buildDetailLeaves, type DetailLeaves } from './detailLeaves';
-import { IndexSplit } from '../render/indexSplit';
-import { ballInHole, type FadeFrame } from '../render/fadeBall';
-import { detailVertex, DETAIL_BOX, POCKET_FAR, type DetailInputs } from '../render/detailGlsl';
-import { DRAPE_FLAT, DRAPE_FOOT, DRAPE_HEIGHT, PUSH_SLIDE } from '../render/leafGlsl';
+import { IndexList } from '../render/indexSplit';
+import { ballInHole, ballMayFade, type FadeFrame } from '../render/fadeBall';
+import {
+  detailVertex, POCKET_AHEAD, POCKET_BEHIND, POCKET_BOX, POCKET_FAR, type DetailInputs,
+} from '../render/detailGlsl';
+import { DRAPE_FLAT, DRAPE_FOOT, DRAPE_HEIGHT, FURROW_HALF, PUSH_SLIDE } from '../render/leafGlsl';
+import { DIST_CELL, DIST_N, DIST_REACH, type DisturbanceMap } from './disturbance';
 import { FLOOR_SLOPE } from '../render/floorMaterial';
 import { SPINE_POINTS } from '../render/groundUniforms';
 import { getLitterTexture } from '../render/litterTexture';
-import { spineDistance } from '../render/nearClutterGlsl';
+import { createLeafMaterial } from '../render/leafMaterial';
 import { wrapAround } from '../render/wrap';
 
+/** Far above the map's 16-bit packing (0.06 mm) and float rounding (m). */
+const MAP_SLACK = 0.005;
+const near2 = [0, 0];
+
 /**
- * The disturbance map reads the body up to this much (m) farther than it is (leafGlsl.ts DRAPE_FLAT's
- * note: 9 cm), plus a margin: a leaf whose near edge lies within DRAPE_FOOT plus this of the spine
- * may be draped over the body.
+ * The most the map's path and body nearness (channels 0 and 2) can read at world (x, z), as the
+ * shader filters them (bilinear between four cells, clamped at the edges): the largest of the four.
+ * Writes out[0] (path), out[1] (body). Allocates nothing.
  */
-const MAP_SLACK = 0.15;
+function nearnessMax(m: DisturbanceMap, x: number, z: number, out: number[]): void {
+  const tx = (x - m.ci * DIST_CELL) / DIST_CELL - 0.5;
+  const tz = (z - m.cj * DIST_CELL) / DIST_CELL - 0.5;
+  const i = Math.floor(tx);
+  const j = Math.floor(tz);
+  out[0] = 0;
+  out[1] = 0;
+  for (let c = 0; c < 4; c++) {
+    const a = Math.min(DIST_N - 1, Math.max(0, i + (c & 1)));
+    const b = Math.min(DIST_N - 1, Math.max(0, j + (c >> 1)));
+    const k = (b * DIST_N + a) * 4;
+    out[0] = Math.max(out[0], m.data[k]);
+    out[1] = Math.max(out[1], m.data[k + 2]);
+  }
+}
 
 export interface PocketLeaves extends DetailLeaves {
-  /** How many leaves the last update listed (drawn this frame). */
+  /** How many leaves the last update listed (drawn this frame)... */
   readonly listed: number;
-  /** Which leaves (ascending; the first `listed`). */
+  /** ...which (ascending; the first `listed`)... */
   readonly parts: Int32Array;
+  /** ...and how many of them carry the fade (the rest are drawn without it), which (ascending). */
+  readonly fading: number;
+  readonly fadeParts: Int32Array;
   /**
    * Once per rendered frame, after the fade's segments are set (`fade`): lists only the leaves the
-   * hole over the worm may show, from the rendered `spine`, the head (uFocus x, z) and the wrap
-   * centre (uWrapCentre), as the shader places them. Returns how many. Allocates nothing.
+   * hole over the worm may show, from the rendered `spine`, the head (uFocus x, z), the wrap
+   * centre (uWrapCentre) and the disturbance map (`map`, as uploaded), as the shader places and
+   * drapes them. Returns how many. Allocates nothing.
    */
-  update(fade: FadeFrame, spine: ArrayLike<number>, focusX: number, focusZ: number, wrapX: number, wrapZ: number): number;
+  update(
+    fade: FadeFrame, spine: ArrayLike<number>, focusX: number, focusZ: number, wrapX: number, wrapZ: number,
+    map: DisturbanceMap,
+  ): number;
 }
 
 /**
  * The leaves in the buried worm's pocket (V2 spec 8.2): detail leaves placed on the floor round the
  * body (detailGlsl.ts POCKET), drawn after the top of the litter, which hides them everywhere but
- * the hole over the worm. Every pixel a draw covers costs, even one the top hides (and with the
- * fade's discard, occlusion.ts, hidden pixels can be shaded too). So each frame the CPU lists only
- * the leaves the hole may show (ballInHole: a ball holding the whole leaf as the shader lays, drapes
- * and slides it) into the index buffer of one draw (indexSplit.ts; the full mesh it splits from is
- * never drawn). A leaf left out is hidden by the top on every pixel, so leaving it out changes
- * nothing on screen (tests/unit/pocketLeaves.test.ts).
+ * the hole over the worm. Every pixel a draw covers costs, even one the top hides, and the fade's
+ * discard keeps hidden pixels from being rejected before they are shaded. So each frame the CPU
+ * lists only the leaves the hole may show (ballInHole: a ball holding the whole leaf as the shader
+ * lays, drapes and slides it), and of those only the ones the fade may thin (ballMayFade) carry it:
+ * two draws over the full mesh's buffers (IndexList; the full mesh is never drawn). A leaf left out
+ * is hidden by the top on every pixel, and one drawn without the fade has no pixel the fade would
+ * drop, so neither changes anything on screen (tests/unit/pocketLeaves.test.ts).
+ * `mesh` draws the leaves without the fade; its child, the ones with it.
  */
 export function buildPocketLeaves(count: number, seed = 5): PocketLeaves {
   const src = buildDetailLeaves(count, seed, true);
   const g = src.mesh.geometry;
-  const split = new IndexSplit(g, src.ends, count);
-  const mesh = new THREE.Mesh(split.fade, src.mesh.material);
-  mesh.frustumCulled = false;
-  mesh.renderOrder = src.mesh.renderOrder;
+  const plainList = new IndexList(g, src.ends);
+  const fadeList = new IndexList(g, src.ends);
+  const mesh = new THREE.Mesh(plainList.geometry, createLeafMaterial('pocketPlain'));
+  const faded = new THREE.Mesh(fadeList.geometry, src.mesh.material);
+  for (const m of [mesh, faded]) {
+    m.frustumCulled = false;
+    m.renderOrder = src.mesh.renderOrder;
+  }
   mesh.name = 'pocketLeaves';
+  faded.name = 'pocketLeavesFaded';
+  mesh.add(faded);
   // Per leaf: its aDetail (home in the tile, yaw, radius) and its layer (aLeaf2.y).
   const homes = new Float32Array(count * 4);
   const layers = new Float32Array(count);
@@ -61,17 +97,24 @@ export function buildPocketLeaves(count: number, seed = 5): PocketLeaves {
   }
   const inp: DetailInputs = {
     focusX: 0, focusZ: 0, wrapX: 0, wrapZ: 0, litter: getLitterTexture().image.data as Uint8Array,
-    // The pocket's leaves lie on the floor (terrainHeight), not the baked top: never read.
+    // Placing a pocket leaf reads the floor (terrainHeight), not the baked top: never read here.
     ground: new Float32Array(0),
   };
-  const next = new Int32Array(count);
+  const all = new Int32Array(count);
+  const plain = new Int32Array(count);
+  const fading = new Int32Array(count);
   const d4 = [0, 0, 0, 0];
   const zero = [0, 0, 0];
   const centre = [0, 0, 0];
   const anchor = [0, 0, 0, 0];
-  // The first frame after it is built draws it (empty, if nothing is listed), so its shader compiles
-  // with the top's detail leaves rather than whenever a leaf first enters the hole.
+  let listed = 0;
+  // The first frame after it is built draws both (empty, if nothing is listed), so their shaders
+  // compile with the top's detail leaves rather than whenever a leaf first enters the hole.
   let warm = true;
+  const show = () => {
+    mesh.visible = src.drawn > 0 && (listed > 0 || warm);
+    faded.visible = fadeList.count > 0 || warm;
+  };
   return {
     mesh,
     max: count,
@@ -80,20 +123,25 @@ export function buildPocketLeaves(count: number, seed = 5): PocketLeaves {
       return src.drawn;
     },
     get listed() {
-      return split.count;
+      return listed;
     },
-    parts: split.parts,
+    parts: all,
+    get fading() {
+      return fadeList.count;
+    },
+    fadeParts: fadeList.parts,
     setCount(n: number) {
       src.setCount(n);
-      mesh.visible = src.drawn > 0 && (split.count > 0 || warm);
+      show();
     },
-    update(fade, spine, focusX, focusZ, wrapX, wrapZ) {
+    update(fade, spine, focusX, focusZ, wrapX, wrapZ, map) {
       inp.focusX = focusX;
       inp.focusZ = focusZ;
       inp.wrapX = wrapX;
       inp.wrapZ = wrapZ;
       inp.spine = spine;
-      // The spine's box grown by POCKET_FAR: a leaf whose home lies outside it is shrunk to nothing.
+      // The spine's box grown by the most a live leaf's home lies off it (pocketDistance): a leaf
+      // whose home lies outside it is shrunk to nothing.
       let x0 = Infinity;
       let x1 = -Infinity;
       let z0 = Infinity;
@@ -104,12 +152,15 @@ export function buildPocketLeaves(count: number, seed = 5): PocketLeaves {
         z0 = Math.min(z0, spine[i + 2]);
         z1 = Math.max(z1, spine[i + 2]);
       }
+      const m = POCKET_FAR + Math.max(POCKET_AHEAD, POCKET_BEHIND);
       let k = 0;
+      let kp = 0;
+      let kf = 0;
       for (let p = 0; fade.count > 0 && p < src.drawn; p++) {
         const o = p * 4;
-        const hx = wrapAround(homes[o], wrapX, DETAIL_BOX);
-        const hz = wrapAround(homes[o + 1], wrapZ, DETAIL_BOX);
-        if (hx < x0 - POCKET_FAR || hx > x1 + POCKET_FAR || hz < z0 - POCKET_FAR || hz > z1 + POCKET_FAR) continue;
+        const hx = wrapAround(homes[o], wrapX, POCKET_BOX);
+        const hz = wrapAround(homes[o + 1], wrapZ, POCKET_BOX);
+        if (hx < x0 - m || hx > x1 + m || hz < z0 - m || hz > z1 + m) continue;
         d4[0] = homes[o];
         d4[1] = homes[o + 1];
         d4[2] = homes[o + 2];
@@ -118,16 +169,26 @@ export function buildPocketLeaves(count: number, seed = 5): PocketLeaves {
         detailVertex(inp, d4, zero, layers[p], centre, anchor, true);
         const r = anchor[2];
         if (r <= 0) continue;
-        // Every vertex lies within r across of its centre, slid up to PUSH_SLIDE, and from the
-        // floor's slope below its rest to its curl (r) and the slope above; draped over the body,
-        // up to the drape's height and its own reach more.
-        const lift = spineDistance(spine, hx, hz) - r < DRAPE_FOOT + MAP_SLACK ? DRAPE_HEIGHT + r + DRAPE_FLAT : 0;
+        // Every vertex lies within r across of its centre, slid out of the worm's path up to
+        // FURROW_HALF + r less how far the map reads the path (at most PUSH_SLIDE), and from the
+        // floor's slope below its rest to its curl (r) and the slope above; draped (only where the
+        // map reads the body within DRAPE_FOOT of its near edge), up to the drape's height and its
+        // own reach more (pocketCap only lowers it).
+        nearnessMax(map, hx, hz, near2);
+        const slide = Math.min(PUSH_SLIDE, Math.max(0, FURROW_HALF + r - (1 - near2[0]) * DIST_REACH + MAP_SLACK));
+        const lift = (1 - near2[1]) * DIST_REACH - r < DRAPE_FOOT + MAP_SLACK ? DRAPE_HEIGHT + r + DRAPE_FLAT : 0;
         const half = (r + lift) / 2 + r * FLOOR_SLOPE;
-        const R = Math.hypot(r + PUSH_SLIDE, half);
-        if (ballInHole(fade, hx, centre[1] + (r + lift) / 2, hz, R)) next[k++] = p;
+        const R = Math.hypot(r + slide, half);
+        const cy = centre[1] + (r + lift) / 2;
+        if (!ballInHole(fade, hx, cy, hz, R)) continue;
+        all[k++] = p;
+        if (ballMayFade(fade, hx, cy, hz, R)) fading[kf++] = p;
+        else plain[kp++] = p;
       }
-      split.setParts(next, k);
-      mesh.visible = src.drawn > 0 && (k > 0 || warm);
+      listed = k;
+      plainList.set(plain, kp);
+      fadeList.set(fading, kf);
+      show();
       if (mesh.visible) warm = false;
       return k;
     },

@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { detailVertex, DETAIL_BOX, DETAIL_FADE_OUT, DETAIL_GLSL, POCKET_FAR, type DetailInputs } from '../../src/render/detailGlsl';
-import { spineDistance } from '../../src/render/nearClutterGlsl';
+import {
+  detailVertex, pocketDistance, DETAIL_BOX, DETAIL_FADE_OUT, DETAIL_GLSL, POCKET_AHEAD, POCKET_BEHIND, POCKET_BOX, POCKET_FAR,
+  POCKET_NEAR, type DetailInputs,
+} from '../../src/render/detailGlsl';
 import { litterTextureData } from '../../src/render/litterTexture';
 import { bakedGroundHeight, groundTextureData } from '../../src/render/groundTexture';
 import { buildDetailLeaves } from '../../src/surface/detailLeaves';
-import { floorHeight, litterTopHeight } from '../../src/surface/litterDepth';
+import { floorHeight, litterTopHeight, PILES } from '../../src/surface/litterDepth';
 import { BELLY_UNDER } from '../../src/worm/surfaceHeight';
 
 describe('detail leaf placement (TS twin of detailPosition)', () => {
@@ -161,7 +163,7 @@ describe('the pocket\'s leaves (round the buried worm, V2 spec 8.2)', () => {
   /** A straight spine from the head at (x, z) heading +z. */
   const straight = (x: number, z: number) => Float32Array.from({ length: 48 }, (_, k) => (k % 3 === 0 ? x : k % 3 === 1 ? 0 : z - Math.floor(k / 3) * 0.22));
 
-  it('are only round the body: shrunk to nothing past POCKET_FAR from the spine', () => {
+  it('are only round the worm: shrunk to nothing past POCKET_FAR from it (pocketDistance)', () => {
     inp.focusX = 0.3; inp.focusZ = -0.2; inp.wrapX = 0; inp.wrapZ = 0;
     inp.spine = straight(0.3, -0.2);
     let kept = 0;
@@ -169,12 +171,43 @@ describe('the pocket\'s leaves (round the buried worm, V2 spec 8.2)', () => {
       d4[0] = det.getX(v); d4[1] = det.getY(v); d4[2] = det.getZ(v); d4[3] = det.getW(v);
       p3[0] = pos.getX(v); p3[1] = pos.getY(v); p3[2] = pos.getZ(v);
       detailVertex(inp, d4, p3, leaf2.getY(v), out, anchor, true);
-      const d = spineDistance(inp.spine, anchor[0], anchor[1]);
+      const d = pocketDistance(inp.spine, anchor[0], anchor[1]);
       if (d >= POCKET_FAR) expect(anchor[2]).toBe(0);
       else if (anchor[2] > 0) kept++;
     }
     expect(kept).toBeGreaterThan(20);
-    expect(DETAIL_GLSL).toContain('spineDistance(home)');
+    expect(DETAIL_GLSL).toContain('pocketDistance(home)');
+  });
+
+  it('reach past the head and the tail by round discs, and repeat in a tile no live leaf crosses', () => {
+    const sp = straight(0.3, -0.2);
+    // Beside the body, ahead of the head, behind the tail.
+    expect(pocketDistance(sp, 0.3 + 0.5, -2)).toBeCloseTo(0.5, 6);
+    expect(pocketDistance(sp, 0.3, -0.2 + POCKET_AHEAD + 0.1)).toBeCloseTo(0.1, 6);
+    expect(pocketDistance(sp, 0.3, -0.2 - 15 * 0.22 - POCKET_BEHIND - 0.1)).toBeCloseTo(0.1, 6);
+    // The farthest a live leaf's home lies from the head, along an axis, plus the 1 m snap.
+    expect(POCKET_BOX / 2).toBeGreaterThanOrEqual(0.5 + 15 * 0.22 + POCKET_BEHIND + POCKET_FAR);
+  });
+
+  it('are fewer where the litter is deep (a fixed share of the place, never moving with the worm)', () => {
+    const share = (fx: number, fz: number) => {
+      inp.focusX = fx; inp.focusZ = fz; inp.wrapX = Math.round(fx); inp.wrapZ = Math.round(fz);
+      inp.spine = straight(fx, fz);
+      let near = 0;
+      let kept = 0;
+      for (let v = 0; v < pos.count; v++) {
+        if (v > 0 && det.getX(v) === det.getX(v - 1)) continue;
+        d4[0] = det.getX(v); d4[1] = det.getY(v); d4[2] = det.getZ(v); d4[3] = det.getW(v);
+        detailVertex(inp, d4, [0, 0, 0], leaf2.getY(v), out, anchor, true);
+        if (pocketDistance(inp.spine, anchor[0], anchor[1]) > POCKET_NEAR) continue;
+        near++;
+        if (anchor[2] > 0) kept++;
+      }
+      return kept / near;
+    };
+    // Open ground at the spawn, and the body along a pile's middle.
+    expect(share(0.3, -0.2)).toBeGreaterThan(0.8);
+    expect(share(PILES[3].x, PILES[3].z + 1.6)).toBeLessThan(0.7);
   });
 
   it('lie in the litter over the floor, from the worm\'s belly up, and never show through its top', () => {
@@ -202,8 +235,8 @@ describe('the pocket\'s leaves (round the buried worm, V2 spec 8.2)', () => {
         if (anchor[3] > 0.2) high++;
       }
     }
-    // Most lie low, round the worm; some higher, over it.
-    expect(low).toBeGreaterThan(high);
-    expect(high).toBeGreaterThan(10);
+    // They step down from under the top to the worm: many low, many higher.
+    expect(low).toBeGreaterThan(50);
+    expect(high).toBeGreaterThan(50);
   });
 });
