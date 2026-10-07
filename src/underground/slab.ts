@@ -53,9 +53,24 @@ export interface Slab {
   readonly bounds: Float32Array;
 }
 
-/** A seed for the slab dug at (x, z): the same spot always gives the same slab. */
+/** murmur3's 32-bit finalizer: a bijection that spreads every input bit over the result. */
+function mix32(v: number): number {
+  let h = v >>> 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
+/**
+ * A seed for the slab dug at (x, z): the same spot always gives the same slab. Spots are taken on a
+ * 0.5 u grid (digs closer than that share a slab); distinct cells get well-mixed, distinct seeds
+ * (each cell number is mixed in turn, so neighbouring cells share no bits).
+ */
 export function slabSeed(x: number, z: number): number {
-  return (Math.imul(Math.round(x * 2), 73856093) ^ Math.imul(Math.round(z * 2), 19349663)) >>> 0;
+  return mix32(mix32(Math.round(x * 2) + 0x9e3779b9) + Math.round(z * 2));
 }
 
 /** The u interval where the line ox + tx u, oz + tz u stays within |x|, |z| <= half. */
@@ -80,6 +95,9 @@ function clipLine(ox: number, oz: number, tx: number, tz: number, half: number, 
  * the F top is floorHeight and the L band is exactly litterTopHeight - floorHeight (spec 8.2).
  */
 export function createSlab(x: number, z: number, heading: number, side: 1 | -1, seed: number): Slab {
+  if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(heading)) {
+    throw new Error(`createSlab needs a finite entry and heading, got (${x}, ${z}) heading ${heading}`);
+  }
   const tx = Math.sin(heading);
   const tz = Math.cos(heading);
   const nx = side * tz;
@@ -89,7 +107,9 @@ export function createSlab(x: number, z: number, heading: number, side: 1 | -1, 
   const playLo = Math.max(-SLAB_HALF, span[0]);
   const playHi = Math.min(SLAB_HALF, span[1]);
   clipLine(x, z, tx, tz, WORLD_HALF - 0.05, span);
-  const faceLo = Math.max(-SLAB_HALF - FACE_EXTRA, span[0]);
+  // Snapped to the column grid so that u = 0 (the entry) is always a column and the entry's
+  // boundaries are exact, even when the world edge clips the back end.
+  const faceLo = Math.ceil(Math.max(-SLAB_HALF - FACE_EXTRA, span[0]) / COLUMN_STEP) * COLUMN_STEP;
   const faceHi = Math.min(SLAB_HALF + FACE_EXTRA, span[1]);
   const cols = Math.floor((faceHi - faceLo) / COLUMN_STEP) + 1;
   const bounds = new Float32Array(cols * BOUNDS);

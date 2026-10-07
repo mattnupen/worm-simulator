@@ -3,7 +3,7 @@ import {
   createSlab, boundaryAt, layerAt, slabSeed, slabU, slabX, slabZ,
   B_TOP, B_F, B_H, B_A, B_E, B_B, SLAB_HALF, SLAB_DEPTH, COLUMN_STEP,
 } from '../../src/underground/slab';
-import { LAYER, THICKNESS_CM } from '../../src/underground/layers';
+import { LAYER, EAT_SPEED, THICKNESS_CM } from '../../src/underground/layers';
 import { UNITS_PER_CM } from '../../src/surface/realScale';
 import { floorHeight, litterTopHeight } from '../../src/surface/litterDepth';
 import { PLAY_HALF, WORLD_HALF } from '../../src/surface/terrain';
@@ -52,7 +52,7 @@ describe('the slab (spec 4.1, 5.1)', () => {
   });
 
   it('the L band at the entry is exactly the surface litter, its F top the floor (spec 8.2)', () => {
-    for (const [x, z, h] of [[0, 0, 0], [5.3, -7.1, 2.2], [-11, 9, -1]]) {
+    for (const [x, z, h] of [[0, 0, 0], [5.3, -7.1, 2.2], [-11, 9, -1], [9, 10.5, -2.7]]) {
       const s = createSlab(x, z, h, 1, 3);
       expect(boundaryAt(s, B_F, 0)).toBeCloseTo(floorHeight(x, z), 5);
       expect(boundaryAt(s, B_TOP, 0) - boundaryAt(s, B_F, 0)).toBeCloseTo(litterTopHeight(x, z) - floorHeight(x, z), 5);
@@ -102,5 +102,24 @@ describe('the slab (spec 4.1, 5.1)', () => {
         expect(boundaryAt(s, B_B, u)).toBeGreaterThan(s.bottom);
       }
     }
+  });
+
+  it('the boundary indices line up with the layer ids (layerAt relies on it)', () => {
+    expect([B_F, B_H, B_A, B_E, B_B]).toEqual([LAYER.F, LAYER.H, LAYER.A, LAYER.E, LAYER.B]);
+    expect(Object.keys(EAT_SPEED).length).toBe(6);
+  });
+
+  it('slabSeed gives every 0.5 u cell its own seed', () => {
+    const seen = new Set<number>();
+    let n = 0;
+    for (let i = -20; i <= 20; i++) for (let j = -20; j <= 20; j++) { seen.add(slabSeed(i / 2, j / 2)); n++; }
+    expect(seen.size).toBe(n);
+    expect(seen.has(0)).toBe(false);
+    expect(slabSeed(0, 0)).toBe(slabSeed(0.2, -0.2)); // the same 0.5 u cell: the same slab
+  });
+
+  it('refuses a non-finite entry or heading', () => {
+    expect(() => createSlab(NaN, 0, 0, 1, 1)).toThrow();
+    expect(() => createSlab(0, 0, Infinity, 1, 1)).toThrow();
   });
 });

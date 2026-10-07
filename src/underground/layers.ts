@@ -27,7 +27,9 @@ export const THICKNESS_U: readonly (readonly [number, number])[] = [
 ].map(([lo, hi]) => [lo * UNITS_PER_CM, hi * UNITS_PER_CM] as const);
 
 /** Speed (units per second) eating into fresh soil of each layer (spec 6): easy L, F, H; A slower; E and B slowest. */
-export const EAT_SPEED: Readonly<Record<LayerId, number>> = { 0: 1.0, 1: 0.9, 2: 0.85, 3: 0.6, 4: 0.45, 5: 0.42 };
+export const EAT_SPEED: Readonly<Record<LayerId, number>> = {
+  [LAYER.L]: 1.0, [LAYER.F]: 0.9, [LAYER.H]: 0.85, [LAYER.A]: 0.6, [LAYER.E]: 0.45, [LAYER.B]: 0.42,
+};
 /** Speed through the worm's own open tunnel: the fastest way to move. */
 export const TUNNEL_SPEED = 1.4;
 /** Speed eating back through castings (loose, soft). */
