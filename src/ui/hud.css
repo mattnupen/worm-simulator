@@ -16,6 +16,8 @@
 .fps:empty { display: none; }
 /* While crawling the Pause button owns the top-right corner. */
 [data-ui="crawl"] > .fps { top: 84px; }
+/* Narrow screens: the hint card sits under Pause (parchment.css), so the tag goes beside Pause. */
+@media (max-width: 560px) { [data-ui="crawl"] > .fps { top: 22px; right: 165px; } }
 
 /* ---------- Pause button (crawl only) ---------- */
 .pause-btn.btn {

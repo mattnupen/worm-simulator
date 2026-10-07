@@ -102,6 +102,26 @@ test('with a keyboard: icon, word and a Space chip; Space presses Action once pe
   await expect(btn).toBeHidden();
 });
 
+test('Space on a focused Crawl or Resume button starts or resumes, and is never also an Action press', async ({ page }) => {
+  await page.goto(PAGE + '?prompt=digDown');
+  const crawling = page.getByRole('region', { name: 'Crawling' });
+  await expect(page.getByRole('button', { name: 'Crawl', exact: true })).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(crawling).toBeVisible();
+  // Let the first crawling frames (and their steps) run: still no press.
+  await page.waitForTimeout(1500);
+  expect(await presses(page)).toBeNull();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Resume' })).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(crawling).toBeVisible();
+  await page.waitForTimeout(800);
+  expect(await presses(page)).toBeNull();
+  // A real Space press while crawling (focus on the card) is one press.
+  await page.keyboard.press('Space');
+  await expect.poll(() => presses(page)).toBe('1');
+});
+
 test('no prompt shows while crawling unless the game sets one', async ({ page }) => {
   await page.goto(PAGE);
   await crawl(page);

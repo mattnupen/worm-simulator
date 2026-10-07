@@ -69,7 +69,8 @@ canvas { display: block; }
 /* Small top-left cards while the scene is the point. */
 .panel[data-state="running"],
 .panel[data-state="crawl"] { left: var(--edge); top: 16px; width: min(400px, calc(100vw - 32px)); padding: 18px 24px 20px; }
-.panel[data-state="crawl"] { width: min(440px, calc(100vw - 140px)); }
+/* Clear of the Pause button (141px wide, 12px from the edge) with a 12px gap. */
+.panel[data-state="crawl"] { width: min(440px, calc(100vw - var(--edge) - 165px)); }
 .panel[data-state="results"] {
   left: var(--edge); bottom: var(--edge-y); width: min(700px, calc(100vw - 32px));
   /* Top stays below the fps tag, which it would otherwise cover on narrow screens. */
@@ -236,10 +237,12 @@ canvas { display: block; }
 }
 @media (max-width: 560px) {
   .panel[data-state] { left: 16px; right: 16px; width: auto; }
-  .panel[data-state="crawl"] { right: 128px; }
+  /* Under the Pause button (12px from the top, 60px tall), not beside it: beside it the card is too
+     narrow for its words. */
+  .panel[data-state="crawl"] { top: 84px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
-  .btn:active { transform: none; }
+  .btn:active, .action-prompt.btn.held { transform: none; }
 }
