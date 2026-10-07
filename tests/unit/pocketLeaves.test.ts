@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { buildPocketLeaves } from '../../src/surface/pocketLeaves';
-import { buildDetailLeaves, POCKET_SHARE } from '../../src/surface/detailLeaves';
+import { buildDetailLeaves, pocketCount } from '../../src/surface/detailLeaves';
 import type { FadeFrame } from '../../src/render/fadeBall';
 import { detailVertex, pocketCap, type DetailInputs } from '../../src/render/detailGlsl';
 import { disturbVertex, packedMapSampler } from '../../src/render/leafGlsl';
@@ -13,7 +13,6 @@ import { litterTopHeight } from '../../src/surface/litterDepth';
 import { POCKET_ORDER } from '../../src/render/drawOrder';
 import { PRESETS } from '../../src/render/graphics';
 import { DIST_CELL, DIST_N, DIST_SPAN, packDisturbance } from '../../src/surface/disturbance';
-import { scaledLeafCount } from '../../src/surface/leafScale';
 import { LOCOMOTION } from '../../src/game/drive';
 import { mulberry32 } from '../../src/core/random';
 import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
@@ -50,7 +49,7 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
   });
 
   it('crawling over the real litter: every leaf left out lies where the top cannot fade, none drawn plain would fade, none shows through the top', () => {
-    const count = scaledLeafCount(PRESETS.ultra.detail * POCKET_SHARE);
+    const count = pocketCount(PRESETS.ultra.detail);
     const pocket = buildPocketLeaves(count);
     pocket.setCount(count);
     // The same leaves, with their index buffer in leaf order (the pocket's own lists only the drawn).

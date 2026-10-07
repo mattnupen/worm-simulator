@@ -8,7 +8,7 @@ import { HeroWorm, type WormPose } from '../../src/worm/wormMesh';
 import { bellyHeight, wormSurface, type WormSurface } from '../../src/worm/surfaceHeight';
 import { buildLeafLitter } from '../../src/surface/leafLitterMesh';
 import { mulberry32 } from '../../src/core/random';
-import { buildDetailLeaves, POCKET_SHARE } from '../../src/surface/detailLeaves';
+import { buildDetailLeaves, pocketCount } from '../../src/surface/detailLeaves';
 import { detailVertex, pocketCap, POCKET_BOX, type DetailInputs } from '../../src/render/detailGlsl';
 import { wrapAround } from '../../src/render/wrap';
 import { litterTextureData } from '../../src/render/litterTexture';
@@ -161,7 +161,7 @@ describe('the drape on the real litter and the real worm', () => {
   }, 120000);
 
   it('every leaf in the worm\'s pocket clears its body by 5 mm, placed round the head and draped as the GPU does (400 placements)', () => {
-    const count = scaledLeafCount(PRESETS.ultra.detail * POCKET_SHARE);
+    const count = pocketCount(PRESETS.ultra.detail);
     const detail = buildDetailLeaves(count, 5, true);
     // A detail leaf's radius is at most 0.385 m at base size, times the biggest real-size growth.
     const reach = 0.9 + 0.39 * Math.max(...Object.values(REAL_SCALE.leaf));

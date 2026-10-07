@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { buildDetailLeaves, buildDetailLayer } from '../../src/surface/detailLeaves';
+import {
+  buildDetailLeaves, buildDetailLayer, pocketCount, POCKET_REFERENCE_DETAIL, POCKET_SHARE,
+} from '../../src/surface/detailLeaves';
 import { DETAIL_BOX, DETAIL_FADE_OUT } from '../../src/render/detailGlsl';
 import { PRESETS } from '../../src/render/graphics';
 import { scaledLeafCount } from '../../src/surface/leafScale';
@@ -104,6 +106,19 @@ describe('the lazily built detail layer', () => {
 describe('the pocket\'s leaves (round the buried worm, V2 spec 8.2)', () => {
   const p = buildDetailLeaves(200, 5, true);
   const top = buildDetailLeaves(200, 5);
+
+  it('keep High\'s and Medium\'s count when Ultra\'s top layer is cut (scaled against the pinned 1600)', () => {
+    expect(POCKET_REFERENCE_DETAIL).toBe(1600);
+    expect(PRESETS.ultra.detail).toBeLessThan(POCKET_REFERENCE_DETAIL);
+    // The counts before V2's cut, when the reference was Ultra's own 1600.
+    const before = (detail: number) => scaledLeafCount(1600 * POCKET_SHARE * Math.sqrt(detail / 1600));
+    expect(pocketCount(PRESETS.high.detail)).toBe(before(1000));
+    expect(pocketCount(PRESETS.medium.detail)).toBe(before(900));
+    expect(pocketCount(PRESETS.low.detail)).toBe(0);
+    // Ultra's pocket still holds the most: the square root of its new top count.
+    expect(pocketCount(PRESETS.ultra.detail)).toBe(before(PRESETS.ultra.detail));
+    expect(pocketCount(PRESETS.ultra.detail)).toBeGreaterThan(pocketCount(PRESETS.high.detail));
+  });
 
   it('react to the worm and fade over it, and draw after the top of the litter', () => {
     expect(p.mesh.material).toHaveProperty('defines.POCKET');

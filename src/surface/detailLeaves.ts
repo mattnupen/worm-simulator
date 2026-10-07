@@ -39,13 +39,20 @@ function reach(kind: LeafKind): number {
  */
 export const POCKET_SHARE = 1.25;
 /**
- * How many pocket leaves a preset with `detail` detail leaves draws: Ultra's full count, falling
- * only as the square root of the preset's detail leaves (High about 0.8 of it), as the hole must
- * still read as full of leaves (only those it may show are drawn: pocketLeaves.ts); none without
- * detail leaves.
+ * The detail count the pocket is scaled against: Ultra's top detail leaves before V2 cut them to
+ * 1250 for the perf gates. Pinned so that cut thins only Ultra's layers, not High's or Medium's
+ * pocket (which a reference of PRESETS.ultra.detail would have lowered too).
+ */
+export const POCKET_REFERENCE_DETAIL = 1600;
+/**
+ * How many pocket leaves a preset with `detail` detail leaves draws: POCKET_SHARE of the
+ * reference, falling only as the square root of the preset's detail leaves (High about 0.8 of it,
+ * Ultra about 0.88), as the hole must still read as full of leaves (only those it may show are
+ * drawn: pocketLeaves.ts); none without detail leaves.
  */
 export function pocketCount(detail: number): number {
-  return scaledLeafCount(PRESETS.ultra.detail * POCKET_SHARE * Math.sqrt(Math.max(0, detail) / PRESETS.ultra.detail));
+  const ref = POCKET_REFERENCE_DETAIL;
+  return scaledLeafCount(ref * POCKET_SHARE * Math.sqrt(Math.max(0, detail) / ref));
 }
 /** The pocket's leaves are this much smaller than the top's: older leaves, broken up and matted. */
 export const POCKET_SIZE = 0.65;

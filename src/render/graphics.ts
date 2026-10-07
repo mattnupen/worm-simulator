@@ -46,12 +46,14 @@ export const PRESETS: Readonly<Record<PresetId, PresetSpec>> = {
     id: 'medium', resolution: 0.75, maxDpr: 1, litter: 1500, detail: 900, hero: 12, reaction: true,
     effects: true, extraEffects: false, clutter: 1, nearClutter: false, rim: true,
   },
+  // High renders at 0.9 and Ultra keeps 1250 top detail leaves (not 1600): V2's buried-worm
+  // litter costs fill, and these pass the section 6 gates (plan A Task 10, cut ladder rung 2).
   high: {
-    id: 'high', resolution: 1, maxDpr: 1, litter: 1500, detail: 1000, hero: 24, reaction: true,
+    id: 'high', resolution: 0.9, maxDpr: 1, litter: 1500, detail: 1000, hero: 24, reaction: true,
     effects: true, extraEffects: false, clutter: 1, nearClutter: false, rim: true,
   },
   ultra: {
-    id: 'ultra', resolution: 1, maxDpr: 1.5, litter: 1500, detail: 1600, hero: 32, reaction: true,
+    id: 'ultra', resolution: 1, maxDpr: 1.5, litter: 1500, detail: 1250, hero: 32, reaction: true,
     effects: true, extraEffects: true, clutter: 1, nearClutter: true, rim: true,
   },
 };

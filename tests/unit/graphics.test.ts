@@ -21,8 +21,8 @@ describe('PRESETS', () => {
   it('matches the spec table (counts tuned to the section 6 gates)', () => {
     expect(PRESETS.low).toMatchObject({ resolution: 0.6, litter: 1500, detail: 0, hero: 0, reaction: false, effects: false, clutter: 0.5, rim: false });
     expect(PRESETS.medium).toMatchObject({ resolution: 0.75, litter: 1500, detail: 900, hero: 12, reaction: true, effects: true, clutter: 1, rim: true });
-    expect(PRESETS.high).toMatchObject({ resolution: 1, maxDpr: 1, litter: 1500, detail: 1000, hero: 24, extraEffects: false, nearClutter: false });
-    expect(PRESETS.ultra).toMatchObject({ resolution: 1, maxDpr: 1.5, litter: 1500, detail: 1600, hero: 32, extraEffects: true, nearClutter: true });
+    expect(PRESETS.high).toMatchObject({ resolution: 0.9, maxDpr: 1, litter: 1500, detail: 1000, hero: 24, extraEffects: false, nearClutter: false });
+    expect(PRESETS.ultra).toMatchObject({ resolution: 1, maxDpr: 1.5, litter: 1500, detail: 1250, hero: 32, extraEffects: true, nearClutter: true });
   });
 
   it('never costs less going from Low up to Ultra, and costs more at every step', () => {
@@ -58,13 +58,13 @@ describe('type guards', () => {
 });
 
 describe('pixelRatioFor', () => {
-  it('uses CSS pixels up to High and the device ratio (max 1.5) on Ultra', () => {
+  it('uses CSS pixels (times the render scale) up to High and the device ratio (max 1.5) on Ultra', () => {
     expect(pixelRatioFor(PRESETS.low, 2)).toBeCloseTo(0.6);
     expect(pixelRatioFor(PRESETS.medium, 1)).toBeCloseTo(0.75);
-    expect(pixelRatioFor(PRESETS.high, 2)).toBe(1);
+    expect(pixelRatioFor(PRESETS.high, 2)).toBeCloseTo(0.9);
     expect(pixelRatioFor(PRESETS.ultra, 2)).toBe(1.5);
     expect(pixelRatioFor(PRESETS.ultra, 1)).toBe(1);
-    expect(pixelRatioFor(PRESETS.high, 0.5)).toBe(0.5);
+    expect(pixelRatioFor(PRESETS.high, 0.5)).toBeCloseTo(0.45);
   });
 
   it('treats non-finite or non-positive DPR as 1', () => {
@@ -174,14 +174,14 @@ describe('tierSpec', () => {
   });
   it('lowers resolution, then rim and effects, then leaf counts, like the Step 0 tiers', () => {
     const t1 = tierSpec(PRESETS.high, TIERS[1]);
-    expect(t1.resolution).toBeCloseTo(0.75);
+    expect(t1.resolution).toBeCloseTo(0.9 * 0.75);
     expect(t1.rim).toBe(true);
     const t2 = tierSpec(PRESETS.high, TIERS[2]);
     expect(t2.rim).toBe(false);
     expect(t2.effects).toBe(false);
     expect(t2.litter).toBe(PRESETS.high.litter);
     const t3 = tierSpec(PRESETS.high, TIERS[3]);
-    expect(t3.resolution).toBeCloseTo(0.6);
+    expect(t3.resolution).toBeCloseTo(0.9 * 0.6);
     expect(t3.litter).toBe(PRESETS.high.litter / 2);
     expect(t3.detail).toBe(PRESETS.high.detail / 2);
     expect(t3.hero).toBe(PRESETS.high.hero / 2);
