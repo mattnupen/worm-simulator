@@ -1,8 +1,8 @@
 # V2 · Underground: Design
 
 Date: 2026-10-04
-Status: Draft for Matt's review. The questions in section 11 are to be settled at the start of
-the build session.
+Status: Matt answered every open question on 2026-10-06 (sections 2 and 11). Ready for his final
+OK at the start of the build session. V1 is frozen at `/v1/` (released 2026-10-06).
 Parent spec: `docs/superpowers/specs/2026-09-30-worm-simulator-design.md`. Relevant sections:
 - 3.1, the camera and the two views;
 - 3.4, Chapter 2;
@@ -44,6 +44,13 @@ two views, not a jump into a different-looking game.
 | Main vote on V2's form | **Which native forest-floor life should we add next?** (section 9) |
 | Extra form question | Camera view underground: close and following, or wide (both shipped as a setting) |
 | Litter realism | **Must** be realistic, following the research notes and photos |
+| World size (2026-10-06) | **Real (True) size for all future work.** V1 ran well on student Chromebooks, and most handled the highest quality. **V2 removes World scale** (button, screen and setting); V1 keeps it, frozen at `/v1/` |
+| Our worm (2026-10-06) | **The nightcrawler, *Lumbricus terrestris***, the classic Minnesota fishing worm: a deep burrower (anecic), reddish-brown, 8–15 cm, so our 15 cm worm is a big one (section 6) |
+| Underground camera default | **Wide** |
+| Layer names | **Always shown**, at the two far ends of the playable slab only, each with a small tick line at the layer boundary. Nothing in the middle (section 5.3) |
+| Controls underground | **Point:** the joystick or arrows point the way the head should go |
+| Surface litter depth | **Deepen it** to a realistic leaf layer (section 8.2) |
+| Photo IMG_2438 | **Not castings**: just soil and decomposing material. Matt thinks there are no worms where the photos were taken, so the photos show a worm-free forest floor |
 
 ## 2b. Taken from the Step 1b spec's Part B (which moved to V3)
 
@@ -72,6 +79,8 @@ V2 needs these first, so it builds them. Part B (V3) then reuses them:
 ## 3. Scope tiers (one-week build)
 
 - **Must have:**
+  - World scale removed: the game is real size only (10, "World scale");
+  - a deeper, realistic surface leaf layer (8.2);
   - the layered cutaway with its life details (5);
   - digging down and coming back up, with the camera transition (4);
   - free digging: tunnels, eating through soil, castings, stones and roots (6);
@@ -85,7 +94,6 @@ V2 needs these first, so it builds them. Part B (V3) then reuses them:
   - mossy logs and stones with puffballs and shelf fungi;
   - a burrow opening with castings where the worm went down.
 - **Could have:**
-  - a deeper surface litter, which changes the crawl-under system and costs speed;
   - a conifer patch with a needle and moss mat (mor).
 - Anything in Should or Could that doesn't fit the week moves to V3, and the version doc says so.
 
@@ -113,8 +121,8 @@ V2 needs these first, so it builds them. Part B (V3) then reuses them:
 - Steering the head up out of the top of the litter layer, into open air above the slab, starts
   the reverse move.
 - The worm comes out at that point along the cut line, facing along the cut.
-- A **burrow opening** stays on the surface for the session: a dark hole with a small ring of
-  castings (Should; section 8.1).
+- A **burrow opening** stays on the surface for the session: a dark hole with a nightcrawler
+  midden around it (castings mixed with leaf bits; section 6) (Should; section 8.1).
 
 ### 4.3 State and memory
 - **Underground state:** one slab at a time. Its tunnels last until the worm digs down somewhere
@@ -169,8 +177,12 @@ None of these are creatures with behaviour in V2; that's what the vote decides.
 - **Lighting:** it gets darker with depth. Tunnels are darker inside, with a soft edge.
 - **Colour is never the only signal:** layers also differ in texture and pattern (fragments in L
   and F, crumbs in H, grain in A, B and E). This is parent spec 7, colour-blind safe.
-- **Optional labels:** layer names (Leaf litter, Old leaves, Humus, Topsoil, Subsoil) as a small
-  toggle in the wide camera. Off by default; see section 11.
+- **Layer names (always on):** Leaf litter, Old leaves, Humus, Topsoil, Subsoil.
+  - They sit at the two far ends of the playable slab only, each with a small tick line marking
+    the layer boundary. Nothing goes in the middle, so the cut face stays clear.
+  - Real DOM text, or text drawn crisply at 18 px or more with 7:1 contrast against a soft
+    backing. The words come from `src/content/` as `ui` lines.
+  - They show in both camera views whenever an end of the slab is on screen.
 
 ## 6. Digging
 
@@ -198,8 +210,22 @@ None of these are creatures with behaviour in V2; that's what the vote decides.
   more crumbly, a first visible hint of worm soil (mull). This is cheap if it comes from the dig
   mask (section 10).
 - **No meter, no failing:** Moisture arrives in V3, so nothing drains underground in V2.
-- **Which worm?** The slides teach the three ecological groups. In-game the worm stays the same
-  worm. See section 11 for the species question.
+- **Our worm is a nightcrawler** (*Lumbricus terrestris*; Worm Watch, *Earthworm Ecological
+  Groups*):
+  - a deep burrower that makes "vertical, unbranching burrows down to 2 meters";
+  - it feeds on fresh surface litter that it pulls down into its burrow;
+  - it is 8–15 cm long and strongly pigmented reddish-brown, like our worm now;
+  - it leaves **middens** at the burrow entrance: piles of casts mixed with leaf bits, about
+    5 cm across and 1–2 cm high.
+- **In game:**
+  - The burrow opening on the surface gets a **midden**, castings mixed with leaf bits, instead
+    of a plain ring of castings (4.2, 8.1).
+  - The bottom of the slab darkens away, so the burrow can read as going deeper than the slab
+    (real burrows reach about 2 m).
+- **Game choice label** (in `src/content/` as `gameChoice`): "Game choice: real nightcrawlers dig
+  one deep up-and-down burrow. In the game you can dig any way you like."
+- **Slides:** they teach all three groups and say which one ours is (the deep burrower). Leave
+  the fishing-bait connection for the slides: it's how many nightcrawlers spread (Minnesota DNR).
 
 ## 7. Camera underground (the V2 form's extra question)
 
@@ -212,7 +238,7 @@ None of these are creatures with behaviour in V2; that's what the vote decides.
 - **Setting:**
   - Lives under Graphics or Settings (decide in the plan). It is saved only when the player
     picks one, the V1 save rule.
-  - Default: **Wide** (section 11), because the lesson is the layers.
+  - Default: **Wide** (Matt, 2026-10-06), because the lesson is the layers.
   - Switching is instant, with an eased move.
 - Both views must:
   - keep the worm on screen;
@@ -239,19 +265,30 @@ From the research notes and the photos:
   - mossy tops, puffballs, shelf and crust fungi on sticks and logs;
   - a few seedlings in the litter.
 - **Burrow openings and castings** from section 4.2.
-- **Classic must stay Step 1a's world.**
-  - These additions live in their own meshes, and the V1 hash tests stay green.
-  - If an addition shows in every mode, the Classic hashes cover only the existing geometry.
-  - Record it in the as-built section.
+- **Real size only:** Classic and Hybrid are gone in V2 (section 10), so there's no Classic
+  layout to protect. Keep new things in their own meshes anyway, to keep shader and draw costs
+  clear.
 
-### 8.2 Deeper surface litter (Could)
-- V1 keeps litter depth at about 1 cm real. Real fall litter (the L layer) is 2–5 cm.
+### 8.2 Deeper surface litter (Must; Matt chose it 2026-10-06)
+- V1 keeps litter depth at about 1 cm real. Real fall litter (the L layer) is 2–5 cm, so V2
+  deepens it.
 - **Coherence rule:** the 3D ground surface is the top of the F layer, and the surface litter is
   the L layer. So the cut face's L thickness must match the surface litter's depth where the cut
   is made.
-- If the surface depth stays ~1 cm in V2, the cut's L layer near the entry matches that and
-  thickens away from it within the range. Or deepen the surface litter, a V1 under/over system
-  change with a performance cost. Decide in the plan.
+- **Deepen the surface L layer to about 2–5 cm real** (0.5–1.2 u), varying with the existing
+  litter-depth field (piles and drifts deeper, hollows thinner):
+  - The worm still slips under thin litter and climbs over piles (V1's under/over system).
+  - Leaves are stacked in more layers, so the worm can tunnel through the litter, with leaves
+    above and below it.
+- **Coherence:** the cut face's L thickness at the entry equals the surface depth there.
+- **Costs:**
+  - more leaf layers mean more leaves or taller stacks: recheck leaf counts, the disturbance
+    stamp (on-top offset, stamp limit) and the clearance and jitter tests;
+  - the drape and lid behaviour must still keep leaves off the worm (V1 tests);
+  - this is the riskiest item for performance. If a gate fails, apply V1's cut order (leaf
+    counts, then clutter, then distant detail) and record the cuts.
+- **Stack colours:** following the research notes, the top of the stack is this fall's bright
+  leaves, and leaves lower in the stack are darker and more bleached.
 
 ## 9. V2's form vote and its link to V3
 
@@ -303,10 +340,21 @@ from Great Lakes Worm Watch (research notes).
     upload and hero-leaf physics, while the forest stays drawn and dimmed;
   - no per-frame allocation.
   - `scripts/perf-gates.mjs` gains an underground run: the speed test drives a scripted dig.
-  - The gates pass in True (the default) underground and on the surface, plus Classic on the
-    surface.
+  - The gates pass on the surface and underground at real size. Classic and Hybrid no longer
+    exist.
 - **Settings:** the underground camera choice follows the V1 save rule (stored only when
   picked). Old saves must keep loading.
+- **World scale removed** (Matt, 2026-10-06):
+  - Delete the Start screen's World scale button, the World scale screen, `ScalePicker`, and
+    Classic and Hybrid from the scale table, with their tests (`docs/codev/README.md`: delete
+    losing modes once settled). True is the only world.
+  - The plan decides how far to simplify: remove the table entirely, or keep a one-entry table.
+    Either way, nothing else may still branch on a mode.
+  - Remove `?scale=` and the perf gates' `--scale` option, or keep them for True only.
+  - `wormsim.settings` may still hold a `scale` value from V1. Ignore it, never repurpose the
+    key, and keep it on save (unknown fields are kept).
+  - `/v1/` keeps working, because it is a frozen file. Players on V1 still see World scale.
+  - The spec record notes that Classic's Step 1a hash tests are retired with Classic.
 - **Accessibility:**
   - Same commands everywhere, keyboard, touch and gamepad.
   - The "Dig down" and "Come up" hints are icon plus word.
@@ -316,24 +364,20 @@ from Great Lakes Worm Watch (research notes).
   - Switch access is still the later sub-project 5. V2 must not make it harder: no
     timing-critical input.
 
-## 11. Open questions for Matt (settle at the start of the build session)
+## 11. Answers (Matt, 2026-10-06)
 
-1. **Underground camera default.** Recommendation: **Wide**, because the lesson is the layers.
-2. **Layer name labels in Wide.** Off by default, with a toggle. Or always on? Recommendation:
-   a toggle, off.
-3. **Controls underground.**
-   - Recommendation: direct screen-direction steering, because a side view reads that way.
-   - Alternatively, forward/turn like the surface.
-4. **Which worm?**
-   - The slides teach three groups. *Lumbricus rubellus* lives in the litter and upper soil
-     (epi-endogeic), and Hale et al. (2005) found it removed the forest floor fastest.
-   - Recommendation: make our worm that species, red-brown as now, with its size labelled
-     "Game choice". Or keep it generic.
-5. **Surface litter depth (8.2).** Keep ~1 cm in V2, or deepen it (Could, slower)?
-6. **Photo IMG_2438.** Are the black crumbly granules worm castings? If so, it makes a great
-   slide.
-7. **V1 release.** Cut `/v1/` with `npm run release -- 1` before V2 merges to `main`, because the
-   root preview will change.
+1. **Underground camera default:** Wide.
+2. **Layer names:** always shown, at the two far ends of the playable slab only, each with a small
+   tick line. Nothing in the middle (5.3).
+3. **Controls underground:** point the way to go.
+4. **Which worm:** the classic Minnesota fishing worm, the nightcrawler *Lumbricus terrestris*
+   (sections 2 and 6).
+5. **Surface litter depth:** deepen it (8.2, now Must).
+6. **Photo IMG_2438:** not castings. The photos come from a place Matt thinks has no worms, so
+   they show a worm-free forest floor.
+7. **V1:** frozen at `/v1/` on 2026-10-06.
+
+Also decided: **real (True) size for all future work, and V2 removes World scale** (section 10).
 
 ## 12. Testing
 
@@ -363,7 +407,8 @@ from Great Lakes Worm Watch (research notes).
   - stones and roots;
   - the surface with an opening.
   - They go in `docs/codev/versions/v02-underground/` for the slides and Matt.
-- **Classic hash tests** stay green.
+- **Retired with Classic:** the Classic hash tests (`propPlacement.test.ts`, `scaledProps.test.ts`).
+  Replace them with True-only layout guards where they still protect something useful.
 
 ## 13. Version materials
 

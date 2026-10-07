@@ -40,6 +40,14 @@ checked before it goes on a ballot.
 - **Racing the frost:** the frost line moves down the cross-section; adults die, but cocoons
   deeper down survive. Needs "Growing up" and a source check.
 
+## Decisions after V1 (Matt, 2026-10-06)
+- V1 ran well on student Chromebooks; most handled the highest quality. It is frozen at `/v1/`.
+- **Real (True) size for all future work.** V2 removes World scale.
+- **Our worm is the nightcrawler** (*Lumbricus terrestris*), the classic Minnesota fishing worm,
+  a deep burrower.
+- V2 answers (camera Wide, layer names at the slab ends, point steering, deeper surface litter)
+  are in the V2 spec, section 11.
+
 ## V2 decisions (Matt, 2026-10-04)
 - **Entry:** the worm digs down from the 3D forest floor into the cross-section, and back up.
   The two modes are joined from the start.

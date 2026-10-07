@@ -75,7 +75,9 @@ all stages of decomposition" (Minnesota DNR, *Humus Types*). The layers are:
 - **Under the top leaves (2427, 2428, 2438):**
   - dark, wet, blackened leaves with moss creeping over them;
   - a tangle of fine roots and hyphae;
-  - in 2438, black crumbly granules on the soil surface, possibly worm castings (ask Matt).
+  - in 2438, black crumbly granules on the soil surface. Matt says these are not castings, just
+    soil and decomposing material. He thinks there are no worms where these photos were taken,
+    so they show a **worm-free** forest floor.
 - **Fungi:**
   - pale gilled mushrooms in the litter (2414);
   - puffballs on moss and on mossy logs, some with open spore holes (2426, 2439);

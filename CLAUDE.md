@@ -107,8 +107,10 @@ Step 0 build side by side rather than absolute fps.
   changed because of them.
 
 ### How co-development shapes the code
-- **Ballot choices ship as settings behind one default.** World scale (Classic, Hybrid, True) is
-  the pattern: students try each option, then vote.
+- **Real size always (Matt, 2026-10-06):** every version from V2 on uses real (True) size. World
+  scale was retired in V2; V1 keeps it, frozen at `/v1/`.
+- **Ballot choices ship as settings behind one default.** World scale (Classic, Hybrid, True) was
+  the first example: students try each option, then vote.
   - One table holds every option (`src/surface/worldScale.ts`); nothing else knows which is on.
   - Switching rebuilds in place through one entry point (`World.switchForest`), with no shader
     compiles.

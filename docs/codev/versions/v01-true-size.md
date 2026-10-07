@@ -1,7 +1,7 @@
 # V1 · True Size
 
-- **Live:** YYYY-MM-DD (Mon), set on release day. **Form closes:** YYYY-MM-DD (Thu night).
-- **Build:** https://wormsimulator.com/v1/ (commit `<sha>`, set on release)
+- **Released:** 2026-10-06. **Live for students:** the day Matt posts it in Canvas. **Form closes:** that Thursday night.
+- **Build:** https://wormsimulator.com/v1/ (release commit `865ce75`)
 - **Topic chosen by:** Matt (Matt picks V1's and V2's topics)
 
 ## Topic
@@ -44,17 +44,11 @@ This matches the "V1 · True Size" entry in `CHANGELOG.md`.
 - How to switch: Start screen → **World scale** → pick one → **Back** → **Crawl**.
 
 ## Ballot
-### Design vote (Q5): Which World scale should the game use?
-All three are already in the build as a setting, so students vote on something they tried.
-
-| Option (as students read it) | What we'd build | In the build as a toggle? |
-|---|---|---|
-| Classic: The forest as it is now. | Classic becomes the default for everyone. Hybrid and True may be removed, unless students vote to keep the choice. | Yes |
-| Hybrid: Small things real size, big things half. | Hybrid becomes the default for everyone. Classic and True may be removed, unless students vote to keep the choice. | Yes |
-| True: Everything real size, next to a real worm. | True stays the default. Classic and Hybrid may be removed, unless students vote to keep the choice. | Yes |
-
-Applying the vote is a one-line change (`DEFAULT_SCALE` in `src/surface/worldScale.ts`). Close
-call (top two within 10 points): both stay as a toggle, and a runoff goes on V2's form.
+### Q5 is a reflection, not a vote (changed 2026-10-06)
+Matt tested V1 on student Chromebooks. Real size worked best and ran well, so **every version
+from V2 on uses real (True) size**, and V2 has no World scale button. A World scale vote would
+break the rule that every option on a form must be something we will build, so Q5 asks students
+to explain instead. Their answers feed the "You said, we did" slide in V2.
 
 ### Next topic (Q7)
 Not on V1's form. Matt picks V1's and V2's topics. The first student topic vote starts on V2's
@@ -95,11 +89,11 @@ Results so the weeks line up.
 - 1 = Not well at all
 - 4 = Really well
 
-**Q5. Which World scale should the game use?** (Multiple choice)
+**Q5. Which World scale helped you understand a worm's world the best?** (Multiple choice; not
+a vote. From V2 on, the game uses real size.)
 - Classic: The forest as it is now.
 - Hybrid: Small things real size, big things half.
 - True: Everything real size, next to a real worm.
-- Other: ____
 
 **Q6. Why did you choose that?** (Short answer)
 Help text: Try this starter: "In the game I noticed ___, and real worms ___."
@@ -175,8 +169,9 @@ Deck title: **Worm Simulator V1 · True Size**
      scale." / "The same spot in True scale."
 
 7. **Now fill out the form**
-   - Text: "The form is in Canvas. It takes about 10 minutes. Your vote on World scale decides
-     how big the forest is in V2."
+   - Text: "The form is in Canvas. It takes about 10 minutes. Real worms live in a real-size
+     world, so from V2 on the game stays at True size. Tell us what you noticed. Your answers
+     help decide what we build next."
 
 ## Canvas announcement
 > **Worm Simulator V1 · True Size is ready!**
@@ -196,7 +191,7 @@ Deck title: **Worm Simulator V1 · True Size**
 - **Turnout:**
 - **Fact check:**
 - **How well the game showed the topic:**
-- **Design vote:**
+- **Q5 reflection (not a vote):**
 - **Next topic:** not on V1's form.
 - **Ideas from last version:** not on V1's form.
 - **Write-in themes (new):**
@@ -217,9 +212,7 @@ Deck title: **Worm Simulator V1 · True Size**
   - Distant trees are plain columns.
   - In Hybrid, the ends of the fallen log look cut off.
   - Turning beside a giant fern can put the camera inside the fronds for about a second.
-  - Trying every World scale stores a pick on that device, so a later default change won't reach
-    it unless V2 plans for that (see CLAUDE.md).
   - Q9's first three checkboxes are there to catch these and the rebuild wait.
-- **Release:** cut the frozen build at `/v1/` with `npm run release -- 1` only after you approve
-  it. Then fill in the Live, Form closes and commit lines above.
+- **Released:** frozen at `/v1/` on 2026-10-06, after Matt's Chromebook test (it ran well, most
+  devices handled the highest quality).
 - **Before class:** re-check every fact row against its source page (parent spec section 5).
