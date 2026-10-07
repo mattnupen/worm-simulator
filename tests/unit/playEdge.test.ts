@@ -23,7 +23,8 @@ function driveTo(c: Crawl, tx: number, tz: number, steps: number, each: (c: Craw
 /**
  * The fallen log runs across the world and out past both play edges. A slide along its side into
  * the edge must stop in the notch where the two meet: the play edges are fixed edges for the slide
- * (obstacles.ts slideMove), so the head never leaves the play area or speeds up.
+ * (obstacles.ts slideMove), so the head never leaves the play area or speeds up, and once wedged
+ * it stays put while the wave settles to its breath.
  */
 describe('where the fallen log crosses the play edge', () => {
   it('the log does cross both play edges (the case is real)', () => {
@@ -33,7 +34,7 @@ describe('where the fallen log crosses the play edge', () => {
     expect(log.x + log.half).toBeGreaterThan(PLAY_HALF);
   });
 
-  it('a worm crawling along the log into the edge never leaves the play area, speeds up or enters the log', () => {
+  it('a worm crawling along the log into the edge never leaves the play area, speeds up or enters the log, and stops cleanly', () => {
     for (const side of [1, -1]) {
       const c = new Crawl();
       const { log } = footprints();
@@ -55,6 +56,24 @@ describe('where the fallen log crosses the play edge', () => {
       const h = c.motion.head;
       expect(Math.abs(h.x)).toBeCloseTo(PLAY_HALF, 2);
       expect(log.z - h.z - log.r - BODY_RADIUS).toBeLessThan(0.01);
+
+      // Pushing on into the corner moves the head nowhere (no chatter, no reversals), and the wave
+      // advances as it does standing still (its breath).
+      const still = new Crawl();
+      const rest = { x: 0, y: 0 };
+      for (let s = 0; s < 300; s++) still.step(DT, rest);
+      const phase0 = c.wave.phase;
+      const stillPhase0 = still.wave.phase;
+      let moved = 0;
+      last = { x: h.x, z: h.z };
+      driveTo(c, side * 25, log.z, 300, (cc) => {
+        const p = cc.motion.head;
+        moved = Math.max(moved, Math.hypot(p.x - last.x, p.z - last.z));
+        last = { x: p.x, z: p.z };
+        still.step(DT, rest);
+      });
+      expect(moved).toBeLessThan(1e-4);
+      expect(c.wave.phase - phase0).toBeCloseTo(still.wave.phase - stillPhase0, 3);
     }
   }, 60_000);
 });
