@@ -5,7 +5,7 @@ import {
 import { pushOutTall, sightReach } from '../surface/obstacles';
 import { litterTop } from '../worm/surfaceHeight';
 
-/** The follow camera's settings at full reach: distance behind and height above the head. */
+/** The follow camera's settings at full reach: distance behind and height above the point it follows over the head. */
 export const CAM_OPTS: Readonly<FollowCamOptions> = {
   distance: 2.6, height: 1.1, yawSmoothTime: 0.5, posRate: 10, maxYawSpeed: 1.8,
 };
@@ -41,11 +41,11 @@ export const CAM_GROUND_MARGIN = 0.5;
 const GROUND_EASE = 0.1;
 /** The camera stops this far (m) short of a trunk, rock or log in its way (spec 4.4)... */
 const CAM_PROP_MARGIN = 0.35;
-/** Half the angle (rad) of the fan of sight lines the camera checks behind the head. */
+/** Half the angle (rad) of the fan of sight lines the camera checks behind the follow point. */
 const CAM_FAN = 0.5;
 /**
  * A side line only looks ahead: a prop on it pulls the camera in at most to this share of what
- * the middle line (its real line to the head) allows, unless the camera is swinging toward it
+ * the middle line (its real line to the follow point) allows, unless the camera is swinging toward it
  * (CAM_LOOK). Only the middle line, or a side line the camera is about to reach, pulls it all the
  * way in. The trade-off: brushing past a trunk barely pulls the camera in, but when the worm slides
  * round a big trunk, the trunk can cut the middle line near its middle within a fifth of a second
@@ -67,10 +67,11 @@ const CAM_IN_TIME = 0.25;
 const CAM_OUT_TIME = 1;
 
 /**
- * Keeps the follow camera out of tall props (spec 4.4): if the line from the head to where the
- * camera wants to be (behind it, along its yaw) runs into a trunk, rock or log taller than the
- * line there, the camera's distance shrinks so it stops just short, easing in and back out, and
- * it cranes up to look down at the worm (cameraAim). Allocates nothing.
+ * Keeps the follow camera out of tall props (spec 4.4): if the line from the point it follows over
+ * the head (Crawl's view: CAM_OVER_TOP above the top of the litter) to where the camera wants to
+ * be (behind it, along its yaw) runs into a trunk, rock or log taller than the line there, the
+ * camera's distance shrinks so it stops just short, easing in and back out, and it cranes up to
+ * look down at the worm (cameraAim). Allocates nothing.
  */
 export class CameraClearance {
   /** How much of its full distance the camera keeps (1 clear; less when a prop is in its way), and how fast that changes. */
@@ -90,16 +91,19 @@ export class CameraClearance {
     this.opts.height = CAM_OPTS.height;
   }
 
-  /** Eases the reach toward what the sight lines behind the head allow, and sets `opts` from it. */
-  update(head: Vec3, cam: FollowCamState, dt: number): void {
-    // Three sight lines fanning out behind the head. The middle one is the camera's own line: a
-    // prop on it pulls the camera in short of it. A prop on a side line is one the camera may meet
-    // soon: it starts the pull-in early, in full only when the camera is swinging toward it.
-    const mid = sightAt(head, cam.yaw);
+  /**
+   * Eases the reach toward what the sight lines behind `follow` allow, and sets `opts` from it.
+   * `follow` is the point the camera follows (Crawl's view over the buried head), not the head.
+   */
+  update(follow: Vec3, cam: FollowCamState, dt: number): void {
+    // Three sight lines fanning out behind the follow point. The middle one is the camera's own
+    // line: a prop on it pulls the camera in short of it. A prop on a side line is one the camera
+    // may meet soon: it starts the pull-in early, in full only when the camera is swinging toward it.
+    const mid = sightAt(follow, cam.yaw);
     let reach = mid;
     for (let k = -1; k <= 1; k += 2) {
       const toward = Math.max(0, Math.min(1, (k * cam.yawVel * CAM_LOOK) / CAM_FAN));
-      reach = Math.min(reach, Math.max(sightAt(head, cam.yaw + k * CAM_FAN), mid * CAM_SIDE_FLOOR * (1 - toward)));
+      reach = Math.min(reach, Math.max(sightAt(follow, cam.yaw + k * CAM_FAN), mid * CAM_SIDE_FLOOR * (1 - toward)));
     }
     const r = this.spring;
     smoothDampInto(r, reach, reach < r.value ? CAM_IN_TIME : CAM_OUT_TIME, dt);
@@ -115,7 +119,7 @@ export class CameraClearance {
    * The eased camera can trail a hard turn, or a prop that swings in beside the head: never let the
    * camera at `pos` itself into a prop. It is pushed sideways, straight out of any trunk (or rock or
    * log taller than it) it has come within CAM_HARD_MARGIN of, so it slides along the prop's edge.
-   * Its line to the head may briefly cross a prop's edge while the reach eases in; it is never
+   * Its line to the follow point may briefly cross a prop's edge while the reach eases in; it is never
    * moved along that line, which jumped (and shook, step to step) when the line's first blocked
    * point jumped. Then it is kept CAM_GROUND_MARGIN above the litter.
    */
@@ -129,9 +133,9 @@ export class CameraClearance {
 }
 
 /**
- * sightReach of the line from the head to the camera's full-distance spot along `yaw`. It checks
- * at the full, uncraned height on purpose: the craned camera stands higher, so a prop this line
- * clears, it clears too (conservative).
+ * sightReach of the line from the follow point `h` to the camera's full-distance spot along `yaw`.
+ * It checks at the full, uncraned height on purpose: the craned camera stands higher, so a prop
+ * this line clears, it clears too (conservative).
  */
 function sightAt(h: Vec3, yaw: number): number {
   return sightReach(

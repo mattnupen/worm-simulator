@@ -4,6 +4,9 @@ import { floorHeight, litterTopHeight, LITTER_MIN, PILES } from '../../src/surfa
 import { PLAY_HALF } from '../../src/surface/terrain';
 import { CAM_GROUND_MARGIN } from '../../src/game/cameraClearance';
 import { wormExtent } from '../../src/worm/wormMesh';
+import { obstacleDepth, ROCK_FOOT } from '../../src/surface/obstacles';
+import { rocks } from '../../src/surface/propPlacement';
+import { BODY_RADIUS } from '../../src/game/crawl';
 
 const grid = (half: number, step: number): [number, number][] => {
   const pts: [number, number][] = [];
@@ -53,11 +56,23 @@ describe('bellyHeight and litterTop', () => {
     const ext = { top: 0, half: 0, fall: 0, probe: 0 };
     let tallest = 0;
     for (let m = 0; m <= 1; m += 0.01) tallest = Math.max(tallest, wormExtent(m, 0.05, ext).top);
-    for (const [x, z] of grid(PLAY_HALF, 0.47)) {
+    // Everywhere the body can be (it is pushed out of trunks, rocks and the log), and all round
+    // each rock as close as it gets, where the litter banks thinnest.
+    const hit = { nx: 0, nz: 0 };
+    const pts = grid(PLAY_HALF, 0.47).filter(([x, z]) => !(obstacleDepth(x, z, BODY_RADIUS, hit) > 0));
+    for (const k of rocks()) {
+      const r = k.size * ROCK_FOOT + BODY_RADIUS + 1e-6;
+      for (let a = 0; a < Math.PI * 2; a += 0.05) pts.push([k.x + Math.cos(a) * r, k.z + Math.sin(a) * r]);
+    }
+    let checked = 0;
+    for (const [x, z] of pts) {
+      if (obstacleDepth(x, z, BODY_RADIUS, hit) > 0) continue;
+      checked++;
       const belly = bellyHeight(wormSurface(x, z));
       // The body's top with a full swell (and a quarter more for the probing head): still under the top.
       expect(litterTopHeight(x, z) - (belly + tallest * 1.25)).toBeGreaterThan(0.06);
     }
+    expect(checked).toBeGreaterThan(pts.length * 0.9);
   });
 
   it('the litter top is the drawn top, and the camera floor clears it', () => {

@@ -5,6 +5,7 @@ import { treeSites, trunkRadiusOf } from './treeSites';
 import { heroLog, rocks } from './propPlacement';
 import type { LogSite } from './realScale';
 import { gridLines, sampleGrid } from './meshGrid';
+import { rockRise, rockSeed } from './propGeometry';
 
 /**
  * The forest floor's loose leaves (the L layer) over the matted old leaves (the F layer), V2 spec
@@ -15,10 +16,13 @@ import { gridLines, sampleGrid } from './meshGrid';
  * LITTER_MIN to LITTER_MAX (2 to 5 cm real). Pure, deterministic, bounded and continuous:
  * - about 2.4 cm in the open, a little less on rises;
  * - deeper in terrain hollows (positive curvature of terrainHeight);
- * - drifts against trunks, rocks and the fallen log, deeper on their downwind side; against a
- *   rock it banks up to about half the rock's height, never burying it;
+ * - drifts against trunks, rocks and the fallen log, deeper on their downwind side;
+ * - against a rock it banks, never burying it: its top stays under the level that leaves more than
+ *   half the drawn rock showing (rockCap), so against a small rock it may be thinner than
+ *   LITTER_MIN, down to ROCK_BANK_MIN;
  * - a few windblown piles.
  */
+/** The thinnest the litter is, except banked against a small rock (ROCK_BANK_MIN). */
 export const LITTER_MIN = 0.45;
 export const LITTER_MAX = 1.2;
 /** Open ground. */
@@ -47,16 +51,20 @@ const smoothstep = (a: number, b: number, v: number): number => {
 
 /** The deepest drift against a trunk (V1's metres). */
 const TRUNK_DRIFT = 0.17;
-/** A drawn rock stands at least this share of its size above the soil (0.36 to 0.53 measured). */
-const ROCK_RISE = 0.36;
-/** Against a rock the litter banks up to this share of the rock's height. */
-const ROCK_BANK = 0.5;
+/**
+ * Against a rock the litter's top stays under this share of the drawn rock's height over the soil
+ * at its centre (rockRise), so more than half of it shows. The margin covers a lumpy rock's edge
+ * reaching a little past its 1.05-size footprint, where the bank starts to relax.
+ */
+const ROCK_BANK = 0.45;
+/** The thinnest the litter gets banked against a rock (about 9 mm: the worm is 1 cm thick). */
+export const ROCK_BANK_MIN = 0.2;
 
 interface Drifts {
   /** Round obstacles that leaves drift against: trunks (with their root flare) and rocks. */
   round: readonly { x: number; z: number; r: number; peak: number }[];
-  /** Rocks: centre, footprint radius and the deepest the litter may be against it. */
-  banks: readonly { x: number; z: number; r: number; cap: number }[];
+  /** Rocks: centre, footprint radius and the highest the litter's top may reach against it. */
+  banks: readonly { x: number; z: number; r: number; level: number }[];
   log: LogSite;
   logDx: number;
   logDz: number;
@@ -72,7 +80,9 @@ function driftSources(): Drifts {
       ...treeSites().map((t) => ({ x: t.x, z: t.z, r: trunkRadiusOf(t) * 1.3, peak: TRUNK_DRIFT })),
       ...rocks().map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05, peak: TRUNK_DRIFT })),
     ],
-    banks: rocks().map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05, cap: Math.max(LITTER_MIN, ROCK_BANK * ROCK_RISE * k.size) })),
+    banks: rocks().map((k, i) => ({
+      x: k.x, z: k.z, r: k.size * 1.05, level: terrainHeight(k.x, k.z) + ROCK_BANK * rockRise(k.size, rockSeed(i)),
+    })),
     log,
     logDx: Math.cos(log.yaw),
     logDz: Math.sin(log.yaw),
@@ -143,12 +153,21 @@ export function hollowAmount(x: number, z: number): number {
   return smoothstep(0.01, 0.08, curvature(x, z));
 }
 
-/** The deepest the litter may be at (x, z): about half a rock's height against it, no limit away from rocks. */
+/**
+ * The deepest the litter may be at (x, z): against a rock, up to its bank level (less than half the
+ * drawn rock's height) over the floor right here, so a floor that rises toward the rock's edge
+ * lowers it. From the rock's edge it relaxes to no limit 1.5 away, so where the worm can reach
+ * (the rock's footprint is wider) the leaves still cover it.
+ */
 function rockCap(x: number, z: number): number {
   let cap = LITTER_MAX;
+  let floor = NaN;
   for (const b of driftSources().banks) {
     const gap = Math.hypot(x - b.x, z - b.z) - b.r;
-    if (gap < 1.5) cap = Math.min(cap, b.cap + (LITTER_MAX - b.cap) * smoothstep(0.3, 1.5, gap));
+    if (gap >= 1.5) continue;
+    if (Number.isNaN(floor)) floor = terrainHeight(x, z);
+    const bank = Math.max(ROCK_BANK_MIN, b.level - floor);
+    cap = Math.min(cap, bank + (LITTER_MAX - bank) * smoothstep(0, 1.5, gap));
   }
   return cap;
 }

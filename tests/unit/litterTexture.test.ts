@@ -54,16 +54,24 @@ describe('baked litter texture', () => {
   });
 
   it('G is the thinnest litter within THIN_REACH: no depth sampled near a texel is thinner', () => {
-    for (let j = 3; j < n; j += 11) {
-      for (let i = 3; i < n; i += 13) {
-        const g = (data[(j * n + i) * 4 + 1] / 255) * LITTER_MAX;
+    // At the game's own resolution: 64 texels a side (0.6 m apart) can step over the thinnest
+    // point of a rock's bank, which follows the floor's shape. The map covers the world only.
+    const N = LITTER_TEX_N;
+    const real = litterTextureData(N);
+    let checked = 0;
+    for (let j = 3; j < N; j += 11) {
+      for (let i = 3; i < N; i += 13) {
+        const g = (real[(j * N + i) * 4 + 1] / 255) * LITTER_MAX;
         for (let a = 0; a < 16; a++) {
           const r = THIN_REACH * (a % 2 ? 1 : 0.5);
-          const x = texelCentre(i, n) + Math.cos(a) * r;
-          const z = texelCentre(j, n) + Math.sin(a) * r;
+          const x = texelCentre(i, N) + Math.cos(a) * r;
+          const z = texelCentre(j, N) + Math.sin(a) * r;
+          if (Math.abs(x) > LITTER_SPAN / 2 || Math.abs(z) > LITTER_SPAN / 2) continue;
           expect(litterDepth(x, z)).toBeGreaterThanOrEqual(g - LITTER_MAX / 255);
+          checked++;
         }
       }
     }
+    expect(checked).toBeGreaterThan(5000);
   });
 });

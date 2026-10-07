@@ -19,8 +19,9 @@ export { setHeroCount } from './heroSpawn';
 export { settleHeroLeaves } from './heroRide';
 
 /**
- * Hero leaves (spec 5.4): a small pool of loose leaves lying on top of the litter near the
- * worm's head, with simple damped physics run every step.
+ * Hero leaves (spec 5.4): a small pool of loose leaves near the worm's head, with simple damped
+ * physics run every step. In V2 they lie on the floor in the worm's pocket, under the top of the
+ * litter (their surface is floorHeight), so the body is always under them (under 1).
  *
  * The worm and the leaves. The head always shoves a leaf it overlaps, and a strong shove from
  * it lifts the leaf's near edge so it flips over. The body depends on how deep the worm is:

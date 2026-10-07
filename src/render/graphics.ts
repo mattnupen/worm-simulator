@@ -21,7 +21,7 @@ export interface PresetSpec {
   detail: number;
   /** Hero physics leaves near the head. */
   hero: number;
-  /** Leaves react to the worm (drape, trail, under/over). Off: the worm rides on top. */
+  /** Leaves react to the worm (drape, trail, under/over). Off: they stay still (the worm is still buried). */
   reaction: boolean;
   /** Light shafts, dust motes and falling leaves. */
   effects: boolean;

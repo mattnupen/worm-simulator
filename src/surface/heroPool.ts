@@ -16,7 +16,7 @@ export const HERO_Y_BIAS = 0.0006;
 /** A leaf that appears (scattered or recycled) grows in from nothing over this long (s), so it never pops in. */
 export const HERO_GROW_IN = 0.3;
 
-/** Height (m) of the rendered litter top at (x, z): `litterTop` (src/worm/surfaceHeight.ts) in the game. */
+/** Height (m) of the surface the hero leaves lie on at (x, z): in the game the floor the buried worm rests on (`floorHeight`, src/surface/litterDepth.ts). */
 export type SurfaceFn = (x: number, z: number) => number;
 
 export interface HeroLeaves {

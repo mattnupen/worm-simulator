@@ -73,7 +73,7 @@ export class Crawl {
   readonly focus: Vec3 = { x: 0, y: 0, z: 0 };
   /** Per segment, head first: how far under the litter (for the leaves it disturbs). Always 1: buried. */
   readonly under = new Float32Array(WORM_SEGMENTS).fill(1);
-  /** Leaves react to the worm (off on Low: it always rides on top). */
+  /** Leaves react to the worm (off on Low: they stay still, though the worm is still buried). */
   reaction = true;
   /** The leaves the worm has disturbed: stamped every step, decaying back. */
   readonly disturbance: DisturbanceMap = createDisturbance();

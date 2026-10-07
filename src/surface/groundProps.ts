@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { createPropMaterial } from '../render/propMaterial';
 import { MeshWriter } from './meshWriter';
 import { clutterGrow, heroLog, rocks, placeClutter, type ClutterItem } from './propPlacement';
-import { writeFern, writeMushrooms, writeRock, writeSedge } from './propGeometry';
+import { rockSeed, writeFern, writeMushrooms, writeRock, writeSedge } from './propGeometry';
 import { meshGroundHeight } from './terrainMesh';
 import { terrainHeight } from './terrain';
 import { makeShadeAt } from './treeShadows';
@@ -36,7 +36,7 @@ export interface GroundProps {
 export function buildGroundProps(): GroundProps {
   const w = new MeshWriter('aProp', 4);
   const rng = mulberry32(31);
-  rocks().forEach((r, i) => writeRock(w, r.x, r.z, r.size, (i * 0.37 + 0.11) % 1));
+  rocks().forEach((r, i) => writeRock(w, r.x, r.z, r.size, rockSeed(i)));
   const rockIndices = w.idx.length;
   const ends: number[] = [];
   for (const c of placeClutter()) {

@@ -20,6 +20,31 @@ export const CLUTTER_SINK = 0.02;
 
 const code = (kind: number, param: number) => kind + Math.min(0.99, Math.max(0, param));
 
+/** The seed the `i`th rock (propPlacement's rocks()) is drawn with: its shape, yaw and colour. */
+export function rockSeed(i: number): number {
+  return (i * 0.37 + 0.11) % 1;
+}
+
+/** How much a rock's unit icosphere vertex (dx, dy, dz) bulges out for `seed`. */
+function rockLump(dx: number, dy: number, dz: number, seed: number): number {
+  return 1 + 0.16 * Math.sin(2.7 * dx + 1.9 * dz + seed * 17) * Math.cos(2.1 * dy + seed * 5) + 0.07 * Math.sin(6.1 * dx - 5.3 * dz);
+}
+
+/** A rock vertex's height over the rock's sunken middle: flattened, with a flat-ish bottom hidden in the soil. */
+function rockLy(dy: number, size: number, lump: number): number {
+  return Math.max(dy, -0.35) * size * lump * 0.62;
+}
+
+/** How high a drawn rock (writeRock with `size` and `seed`) stands over the soil at its centre. */
+export function rockRise(size: number, seed: number): number {
+  const { pos } = icosphere();
+  let top = -Infinity;
+  for (let i = 0; i < pos.length; i += 3) {
+    top = Math.max(top, rockLy(pos[i + 1], size, rockLump(pos[i], pos[i + 1], pos[i + 2], seed)));
+  }
+  return top - size * 0.18;
+}
+
 /** A lumpy granite boulder, settled into the ground. */
 export function writeRock(w: MeshWriter, x: number, z: number, size: number, seed: number): void {
   const { pos, index } = icosphere();
@@ -34,12 +59,10 @@ export function writeRock(w: MeshWriter, x: number, z: number, size: number, see
     const dx = pos[i];
     const dy = pos[i + 1];
     const dz = pos[i + 2];
-    const lump = 1 + 0.16 * Math.sin(2.7 * dx + 1.9 * dz + seed * 17) * Math.cos(2.1 * dy + seed * 5) + 0.07 * Math.sin(6.1 * dx - 5.3 * dz);
+    const lump = rockLump(dx, dy, dz, seed);
     const lx = dx * size * lump * 1.15;
     const lz = dz * size * lump * 0.9;
-    // Flattened, with a flat-ish bottom hidden in the soil.
-    const ly = Math.max(dy, -0.35) * size * lump * 0.62;
-    w.vertex(x + lx * c - lz * s, g - size * 0.18 + ly, z + lx * s + lz * c, 0, 1, 0, [col.r, col.g, col.b, code(PROP.stone, 0)]);
+    w.vertex(x + lx * c - lz * s, g - size * 0.18 + rockLy(dy, size, lump), z + lx * s + lz * c, 0, 1, 0, [col.r, col.g, col.b, code(PROP.stone, 0)]);
   }
   for (let i = 0; i < index.length; i += 3) w.tri(first + index[i], first + index[i + 1], first + index[i + 2]);
   w.smoothNormals(first, firstIdx);
