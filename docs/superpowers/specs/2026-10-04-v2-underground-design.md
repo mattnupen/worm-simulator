@@ -1,8 +1,8 @@
 # V2 · Underground: Design
 
 Date: 2026-10-04
-Status: Matt answered every open question on 2026-10-06 (sections 2 and 11). Ready for his final
-OK at the start of the build session. V1 is frozen at `/v1/` (released 2026-10-06).
+Status: Matt answered every open question on 2026-10-06 (sections 2 and 11) and approved the spec
+at the start of the build session (2026-10-06), with two more answers (11.8 and 11.9). V1 is frozen at `/v1/` (released 2026-10-06).
 Parent spec: `docs/superpowers/specs/2026-09-30-worm-simulator-design.md`. Relevant sections:
 - 3.1, the camera and the two views;
 - 3.4, Chapter 2;
@@ -49,6 +49,8 @@ two views, not a jump into a different-looking game.
 | Underground camera default | **Wide** |
 | Layer names | **Always shown**, at the two far ends of the playable slab only, each with a small tick line at the layer boundary. Nothing in the middle (section 5.3) |
 | Controls underground | **Point:** the joystick or arrows point the way the head should go |
+| One Action button (2026-10-06, build session) | **Space / the touch Action button does what fits where you are:** on the surface it digs down; underground near the surface it brings you out; deeper in the soil it switches the camera between Close and Wide (sections 4 and 7) |
+| Surface worm in deep litter (2026-10-06, build session) | **Buried inside the litter:** on the surface the worm travels inside the 2–5 cm leaf layer, with leaves above and below it; the leaves above fade so it stays visible (section 8.2) |
 | Surface litter depth | **Deepen it** to a realistic leaf layer (section 8.2) |
 | Photo IMG_2438 | **Not castings**: just soil and decomposing material. Matt thinks there are no worms where the photos were taken, so the photos show a worm-free forest floor |
 
@@ -102,9 +104,9 @@ V2 needs these first, so it builds them. Part B (V3) then reuses them:
 ### 4.1 Digging down
 - **Where:** on the 3D floor, on open ground: not on a log, rock or trunk footprint, and not on
   the play edge.
-- **How:** an on-screen hint, an icon plus "Dig down", appears when the worm can dig. Action
-  starts digging.
-  - **Hold** Action, or tap it once to toggle (parent spec 7: no holding required).
+- **How:** an on-screen hint, an icon plus "Dig down", appears when the worm can dig. One press
+  of Action (Space, or the touch Action button) starts digging; no holding is needed (parent
+  spec 7).
   - The worm's head turns down and its front sinks into the litter over about 1 s. Then the
     camera moves.
 - **The cut:** a vertical plane through the head along the worm's heading at that moment.
@@ -118,8 +120,10 @@ V2 needs these first, so it builds them. Part B (V3) then reuses them:
   - With reduced motion, it becomes a short cross-fade instead.
 
 ### 4.2 Coming back up
-- Steering the head up out of the top of the litter layer, into open air above the slab, starts
-  the reverse move.
+- **Action near the surface** (Matt, 2026-10-06): when the head is close to the top of the litter
+  layer, the hint changes to an icon plus "Come up", and one press of Action starts the reverse
+  move. Steering into the top of the litter does not pop the worm out on its own, so tunnelling
+  along just under the leaves never ends the visit by accident.
 - The worm comes out at that point along the cut line, facing along the cut.
 - A **burrow opening** stays on the surface for the session: a dark hole with a nightcrawler
   midden around it (castings mixed with leaf bits; section 6) (Should; section 8.1).
@@ -236,8 +240,10 @@ None of these are creatures with behaviour in V2; that's what the vote decides.
   - follows gently only when the slab is wider than the view;
   - shows the layers' story at a glance.
 - **Setting:**
-  - Lives under Graphics or Settings (decide in the plan). It is saved only when the player
-    picks one, the V1 save rule.
+  - **Switched with Action** (Matt, 2026-10-06): deeper in the soil (not near the surface, where
+    Action means "Come up"), one press of Action switches Close and Wide. The hint shows the
+    view it will switch to, as an icon plus word. It is saved only when the player picks one,
+    the V1 save rule.
   - Default: **Wide** (Matt, 2026-10-06), because the lesson is the layers.
   - Switching is instant, with an eased move.
 - Both views must:
@@ -277,9 +283,10 @@ From the research notes and the photos:
   is made.
 - **Deepen the surface L layer to about 2–5 cm real** (0.5–1.2 u), varying with the existing
   litter-depth field (piles and drifts deeper, hollows thinner):
-  - The worm still slips under thin litter and climbs over piles (V1's under/over system).
-  - Leaves are stacked in more layers, so the worm can tunnel through the litter, with leaves
-    above and below it.
+  - **The worm travels buried inside the litter** (Matt, 2026-10-06): inside the leaf layer,
+    with leaves above and below it, not on top of it. The leaves above it fade (V1's occlusion
+    fade, extended) so the worm stays visible, and leaves never cut through its body.
+  - Leaves are stacked in more layers, so the worm tunnels through the litter.
 - **Coherence:** the cut face's L thickness at the entry equals the surface depth there.
 - **Costs:**
   - more leaf layers mean more leaves or taller stacks: recheck leaf counts, the disturbance
@@ -376,6 +383,11 @@ from Great Lakes Worm Watch (research notes).
 6. **Photo IMG_2438:** not castings. The photos come from a place Matt thinks has no worms, so
    they show a worm-free forest floor.
 7. **V1:** frozen at `/v1/` on 2026-10-06.
+8. **One Action button** (build session): surface → Dig down; underground near the surface →
+   Come up; deeper → switch Close/Wide (sections 4 and 7).
+9. **Surface worm in deep litter** (build session): buried inside the litter, with the leaves
+   above it faded so it shows (section 8.2). Matt chose this knowing it is the bigger
+   performance risk.
 
 Also decided: **real (True) size for all future work, and V2 removes World scale** (section 10).
 
