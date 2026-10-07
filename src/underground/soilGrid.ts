@@ -1,14 +1,21 @@
 import { LAYER, isOrganic, type LayerId } from './layers';
-import { layerAt, SLAB_HALF, SLAB_DEPTH, type Slab } from './slab';
+import { layerAt, SLAB_HALF, type Slab } from './slab';
 
 /**
  * The soil of one slab as a grid of 0.1 u cells (V2 spec 10): 160 across the playable 16 u and
- * 120 down its 12 u. Typed arrays only: built once, refilled for each new slab, never resized.
+ * 136 up from the slab's bottom (the 12 u slab plus room for rising ground). Typed arrays only: built once, refilled for each new slab, never resized.
  * Rows that change are tracked so the renderer uploads only those (cutFace.ts).
  */
 export const CELL = 0.1;
+/** Castings use this shade when asked for a non-finite one. */
+const DEFAULT_SHADE = 128;
 export const GRID_W = Math.round((2 * SLAB_HALF) / CELL);
-export const GRID_H = Math.round(SLAB_DEPTH / CELL);
+/**
+ * 136 rows = 13.6 u: the slab's 12 u below the litter top at the entry, plus 1.6 u above it, for
+ * ground that rises along the cut (measured over 600 slabs: at most about 0.94 u). The grid's
+ * bottom row is the slab's bottom (v0); litter cells must never fall above the top row.
+ */
+export const GRID_H = 136;
 /** Layer byte of a cell above the litter top: nothing to dig. */
 export const AIR = 255;
 /** solid byte: a stone, a big root (both block the worm). */
@@ -18,8 +25,12 @@ export const SOLID_ROOT = 2;
 const DAMP: Readonly<Record<LayerId, number>> = { 0: 90, 1: 210, 2: 180, 3: 130, 4: 100, 5: 90 };
 /** Walls this far beyond an eaten F or H cell turn darker and crumbly (spec 6, mixing). */
 export const MIX_RING = 0.12;
-/** A casting refills this share of the tunnel cells it covers (spec 6: "partly refills"). */
-const CAST_FILL = 0.7;
+/** Share of the fringe cells of a casting that fill (spec 6: "partly refills"). */
+const CAST_FILL = 0.85;
+/** Heights in the cast disc as a share of its radius (0 = centre line, up is +): below CAST_FULL it
+ *  fills solid, up to CAST_TOP it fills at random (CAST_FILL), above that it stays open. */
+const CAST_FULL = -0.1;
+const CAST_TOP = 0.2;
 
 export interface SoilGrid {
   /** Layer per cell (LAYER ids), AIR above the litter. */
@@ -90,7 +101,7 @@ export function fillSoilGrid(g: SoilGrid, s: Slab): void {
   g.dirtyHi = GRID_H - 1;
 }
 
-function touch(g: SoilGrid, r: number): void {
+export function touch(g: SoilGrid, r: number): void {
   if (r < g.dirtyLo) g.dirtyLo = r;
   if (r > g.dirtyHi) g.dirtyHi = r;
 }
@@ -180,76 +191,34 @@ function mixRing(g: SoilGrid, u: number, v: number, r: number): void {
 }
 
 /**
- * Leaves a casting of radius r at (u, v) (spec 6): a granular blob that partly refills the
- * tunnel. `shade` 1..255: how dark (organic food makes darker casts). Allocates nothing.
+ * Leaves a casting of radius r at (u, v) (spec 6): a dark granular blob that partly refills the
+ * tunnel. Castings settle at the bottom: cells well below the centre line fill, a fringe around
+ * it fills at random (grain), and the upper part always stays open, so a cast never seals a
+ * 2 to 3 cell tunnel crosswise (about 50% of an aligned 2-row tunnel, up to about 65% of a
+ * 3-row one). `shade` 1..255: how dark (organic food makes darker casts); NaN gives a default.
+ * Allocates nothing. Note for the burrower: the tail's own dig at the plan's cast spacing eats
+ * about 44% of each new cast on the next step. That is expected.
  */
 export function castBlob(g: SoilGrid, u: number, v: number, r: number, shade: number): void {
   const c0 = Math.max(0, colOf(u - r));
   const c1 = Math.min(GRID_W - 1, colOf(u + r));
   const r0 = Math.max(0, rowOf(g, v - r));
   const r1 = Math.min(GRID_H - 1, rowOf(g, v + r));
-  const s = Math.max(1, Math.min(255, Math.round(shade)));
+  const s = Number.isFinite(shade) ? Math.max(1, Math.min(255, Math.round(shade))) : DEFAULT_SHADE;
   for (let row = r0; row <= r1; row++) {
     const dv = cellV(g, row) - v;
+    const t = dv / r;
+    if (t >= CAST_TOP) continue;
     let changed = false;
     for (let c = c0; c <= c1; c++) {
       const du = cellU(c) - u;
       if (du * du + dv * dv > r * r) continue;
       const i = row * GRID_W + c;
-      if (!g.open[i] || g.cast[i] || cellHash(i) >= CAST_FILL) continue;
+      if (!g.open[i] || g.cast[i]) continue;
+      if (t >= CAST_FULL && cellHash(i) >= CAST_FILL) continue;
       g.cast[i] = s;
       changed = true;
     }
     if (changed) touch(g, row);
-  }
-}
-
-/** Marks a blocker's cells (a disc) so they are never dug. */
-export function markSolid(g: SoilGrid, u: number, v: number, r: number, kind: number): void {
-  const c0 = Math.max(0, colOf(u - r));
-  const c1 = Math.min(GRID_W - 1, colOf(u + r));
-  const r0 = Math.max(0, rowOf(g, v - r));
-  const r1 = Math.min(GRID_H - 1, rowOf(g, v + r));
-  for (let row = r0; row <= r1; row++) {
-    const dv = cellV(g, row) - v;
-    for (let c = c0; c <= c1; c++) {
-      const du = cellU(c) - u;
-      if (du * du + dv * dv <= r * r) g.solid[row * GRID_W + c] = kind;
-    }
-  }
-}
-
-/** Raises the moisture of soil within r of (u, v) by `add` (damp under stones and logs). */
-export function dampen(g: SoilGrid, u: number, v: number, r: number, add: number): void {
-  const c0 = Math.max(0, colOf(u - r));
-  const c1 = Math.min(GRID_W - 1, colOf(u + r));
-  const r0 = Math.max(0, rowOf(g, v - r));
-  const r1 = Math.min(GRID_H - 1, rowOf(g, v + r));
-  for (let row = r0; row <= r1; row++) {
-    const dv = cellV(g, row) - v;
-    for (let c = c0; c <= c1; c++) {
-      const du = cellU(c) - u;
-      const d2 = du * du + dv * dv;
-      if (d2 > r * r) continue;
-      const i = row * GRID_W + c;
-      if (g.layer[i] !== AIR) g.damp[i] = Math.min(255, g.damp[i] + Math.round(add * (1 - Math.sqrt(d2) / r)));
-    }
-  }
-}
-
-/**
- * Packs rows lo..hi into RGBA bytes for the face's data texture: R open, G castings, B mixed,
- * A moisture. Allocates nothing.
- */
-export function packRows(g: SoilGrid, bytes: Uint8Array, lo: number, hi: number): void {
-  for (let r = Math.max(0, lo); r <= Math.min(GRID_H - 1, hi); r++) {
-    for (let c = 0; c < GRID_W; c++) {
-      const i = r * GRID_W + c;
-      const o = i * 4;
-      bytes[o] = g.open[i] && !g.cast[i] ? 255 : 0;
-      bytes[o + 1] = g.cast[i];
-      bytes[o + 2] = g.mixed[i] ? 255 : 0;
-      bytes[o + 3] = g.damp[i];
-    }
   }
 }
