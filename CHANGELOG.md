@@ -16,7 +16,7 @@ How to write an entry (for Matt and Claude):
 ## Coming next: V2 · Underground
 
 ### New
-- (to be filled in as V2 is built)
+- The Start screen shows which version you are playing: V2 · Underground.
 
 ## V1 · True Size (2026-10-06)
 
