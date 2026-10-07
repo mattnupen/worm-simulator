@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
-import { CAM_GROUND_MARGIN } from '../../src/game/cameraClearance';
+import { CAM_GROUND_MARGIN, CAM_OPTS } from '../../src/game/cameraClearance';
 import { bellyHeight, litterTop, wormSurface } from '../../src/worm/surfaceHeight';
-import { floorHeight, litterDepth } from '../../src/surface/litterDepth';
+import { floorHeight, groundHeight } from '../../src/surface/litterDepth';
+import { followY } from './cameraPress';
 import type { WormPose } from '../../src/worm/wormMesh';
 
 const DT = 1 / 60;
@@ -57,10 +58,18 @@ describe('Crawl', () => {
   it('frames its camera over the top of the litter, not the buried worm', () => {
     const c = new Crawl();
     for (let i = 0; i < 300; i++) c.step(DT, { x: 0, y: 1 });
+    // Stopped a moment, so the follow point's eased height has settled.
+    for (let i = 0; i < 90; i++) c.step(DT, { x: 0, y: 0 });
     const h = c.motion.head;
-    // About the follow height (1.1) over the top of the litter above the head: 2 to 5 cm higher
-    // than over the worm itself.
-    expect(c.cam.pos.y - h.y).toBeGreaterThan(1.1 + litterDepth(h.x, h.z) - 0.2);
+    // It follows a point about 4 mm (0.1) over the top of the litter above the head...
+    const top = groundHeight(h.x, h.z);
+    expect(c.follow.x).toBe(h.x);
+    expect(c.follow.z).toBe(h.z);
+    expect(followY(c) - top).toBeGreaterThan(0.08);
+    expect(followY(c) - top).toBeLessThan(0.12);
+    // ...and stands its follow height over that: 2 to 5 cm higher than over the worm itself.
+    expect(c.cam.pos.y - followY(c)).toBeCloseTo(CAM_OPTS.height, 1);
+    expect(c.cam.pos.y - top).toBeGreaterThan(CAM_OPTS.height + 0.05);
   });
 
   it('interpolates between the last two steps by alpha', () => {

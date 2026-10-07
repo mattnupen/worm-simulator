@@ -12,7 +12,7 @@ import {
 } from '../worm/wormMesh';
 import { probeReach, type HeadProbe } from '../worm/wormShape';
 import { bellyHeight, wormSurface, type WormSurface } from '../worm/surfaceHeight';
-import { floorHeight, groundHeight } from '../surface/litterDepth';
+import { floorHeight } from '../surface/litterDepth';
 import {
   createDisturbance, recentre, stampBody, decay, clearDisturbance, type DisturbanceMap,
 } from '../surface/disturbance';
@@ -23,7 +23,7 @@ import {
 import { LOCOMOTION } from './drive';
 import { disturbReach, type DisturbReach } from '../surface/leafScale';
 import { pushOut, slideMove } from '../surface/obstacles';
-import { CAM_OPTS, CAM_OVER_TOP, CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
+import { CAM_OPTS, CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
 
 export const WORM_SEGMENTS = 16;
 const SPACING = 0.22;
@@ -98,8 +98,6 @@ export class Crawl {
   private readonly swell = { min: 1, max: 1 };
   private readonly probe: HeadProbe = { lift: 0, sway: 0 };
   private readonly surf: WormSurface = { y: 0, under: 1 };
-  /** Where the camera follows: over the head, near the top of the litter the worm is buried in. */
-  private readonly view: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly prevBody: Vec3[] = blank(WORM_SEGMENTS);
   private readonly prevCam: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly prevHead: Vec3 = { x: 0, y: 0, z: 0 };
@@ -112,6 +110,10 @@ export class Crawl {
   /** How much of its full distance the camera keeps (1 clear; less when a prop is in its way). */
   get cameraReach(): number {
     return this.clearance.reach;
+  }
+  /** The point the camera follows over the head, near the top of the litter (CameraClearance.follow). */
+  get follow(): Readonly<Vec3> {
+    return this.clearance.view;
   }
 
   constructor() {
@@ -141,7 +143,7 @@ export class Crawl {
       copy(this.prevBody[i], body[i]);
     }
     this.clearance.reset();
-    this.cam = createFollowCam(this.viewOf(head), 0, CAM_OPTS);
+    this.cam = createFollowCam(this.clearance.follow(head, 0), 0, CAM_OPTS);
     copy(this.prevCam, this.cam.pos);
     copy(this.prevHead, head);
     this.prevYaw = this.cam.yaw;
@@ -253,15 +255,6 @@ export class Crawl {
     return bellyHeight(wormSurface(x, z, this.surf));
   }
 
-  /** The camera's anchor for the head: right over it, CAM_OVER_TOP above the litter's top there. */
-  private viewOf(head: Vec3): Vec3 {
-    const v = this.view;
-    v.x = head.x;
-    v.z = head.z;
-    v.y = groundHeight(head.x, head.z) + CAM_OVER_TOP;
-    return v;
-  }
-
   /** One fixed step. `move`: x turns right, y crawls forward (backward input is ignored). */
   step(dt: number, move: Vec2): void {
     const { body, prevBody, wave } = this;
@@ -299,7 +292,7 @@ export class Crawl {
       pushOut(s, BODY_RADIUS);
       s.y = this.rest(s.x, s.z);
     }
-    const view = this.viewOf(head);
+    const view = this.clearance.follow(head, dt);
     this.clearance.update(view, this.cam, dt);
     this.cam = stepFollowCam(this.cam, view, this.motion.heading, dt, this.clearance.opts);
     const c = this.cam.pos;

@@ -3,7 +3,7 @@ import {
   litterDepth, driftDepth, pileDepth, hollowAmount, floorHeight, groundHeight, litterTopHeight,
   LITTER_MIN, LITTER_MAX, LITTER_OPEN, ROCK_BANK_MIN, WIND, PILES,
 } from '../../src/surface/litterDepth';
-import { rockRise, rockSeed } from '../../src/surface/propGeometry';
+import { rockRise, rockSeed } from '../../src/surface/rockShape';
 import { treeSites, trunkRadiusOf } from '../../src/surface/treeSites';
 import { heroLog, rocks } from '../../src/surface/propPlacement';
 import { PLAY_HALF, WORLD_HALF, terrainHeight } from '../../src/surface/terrain';

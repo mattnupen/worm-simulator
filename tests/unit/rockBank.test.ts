@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { MeshWriter } from '../../src/surface/meshWriter';
-import { rockRise, rockSeed, writeRock } from '../../src/surface/propGeometry';
+import { MeshWriter, icosphere } from '../../src/surface/meshWriter';
+import { writeRock } from '../../src/surface/propGeometry';
+import { rockRise, rockSeed } from '../../src/surface/rockShape';
 import { rocks } from '../../src/surface/propPlacement';
 import { terrainHeight } from '../../src/surface/terrain';
 import { litterTopHeight } from '../../src/surface/litterDepth';
@@ -83,6 +84,41 @@ describe('the litter banks against every rock as drawn, never burying it (V2 spe
       expect(b.rise).toBeCloseTo(rockRise(k.size, rockSeed(i)), 9);
       // Even where the litter rises highest against it (its contact line), half the rock stands clear.
       expect((b.top - b.level) / b.rise, `rock ${i} (size ${k.size})`).toBeGreaterThanOrEqual(0.5 - 0.005);
+    });
+  });
+});
+
+describe('rockShape: the drawn rock\'s shape as pure maths', () => {
+  it('writeRock lays every vertex exactly as before the shape moved out (bit for bit)', () => {
+    const { pos } = icosphere();
+    rocks().forEach((k, i) => {
+      const seed = rockSeed(i);
+      const w = new MeshWriter('aProp', 4);
+      writeRock(w, k.x, k.z, k.size, seed);
+      const g = terrainHeight(k.x, k.z);
+      const c = Math.cos(seed * Math.PI * 2);
+      const s = Math.sin(seed * Math.PI * 2);
+      for (let v = 0; v < pos.length; v += 3) {
+        const [dx, dy, dz] = [pos[v], pos[v + 1], pos[v + 2]];
+        // The formula as it stood inline in writeRock.
+        const lump = 1 + 0.16 * Math.sin(2.7 * dx + 1.9 * dz + seed * 17) * Math.cos(2.1 * dy + seed * 5) + 0.07 * Math.sin(6.1 * dx - 5.3 * dz);
+        const lx = dx * k.size * lump * 1.15;
+        const lz = dz * k.size * lump * 0.9;
+        const ly = Math.max(dy, -0.35) * k.size * lump * 0.62;
+        expect(w.pos[v]).toBe(k.x + lx * c - lz * s);
+        expect(w.pos[v + 1]).toBe(g - k.size * 0.18 + ly);
+        expect(w.pos[v + 2]).toBe(k.z + lx * s + lz * c);
+      }
+    });
+  });
+
+  it('rockRise is the drawn rock\'s top over the soil at its centre, from the same 42 vertices, without three.js', () => {
+    rocks().forEach((k, i) => {
+      const w = new MeshWriter('aProp', 4);
+      writeRock(w, k.x, k.z, k.size, rockSeed(i));
+      let top = -Infinity;
+      for (let v = 1; v < w.pos.length; v += 3) top = Math.max(top, w.pos[v]);
+      expect(rockRise(k.size, rockSeed(i))).toBeCloseTo(top - terrainHeight(k.x, k.z), 12);
     });
   });
 });

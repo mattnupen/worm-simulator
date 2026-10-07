@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { icosphere, type MeshWriter } from './meshWriter';
 import { terrainHeight } from './terrain';
+import { rockLump, rockLy } from './rockShape';
 
 /**
  * Low-poly, solid forest-floor props written into a shared MeshWriter ('aProp': linear rgb
@@ -19,31 +20,6 @@ export type GroundAt = (x: number, z: number) => number;
 export const CLUTTER_SINK = 0.02;
 
 const code = (kind: number, param: number) => kind + Math.min(0.99, Math.max(0, param));
-
-/** The seed the `i`th rock (propPlacement's rocks()) is drawn with: its shape, yaw and colour. */
-export function rockSeed(i: number): number {
-  return (i * 0.37 + 0.11) % 1;
-}
-
-/** How much a rock's unit icosphere vertex (dx, dy, dz) bulges out for `seed`. */
-function rockLump(dx: number, dy: number, dz: number, seed: number): number {
-  return 1 + 0.16 * Math.sin(2.7 * dx + 1.9 * dz + seed * 17) * Math.cos(2.1 * dy + seed * 5) + 0.07 * Math.sin(6.1 * dx - 5.3 * dz);
-}
-
-/** A rock vertex's height over the rock's sunken middle: flattened, with a flat-ish bottom hidden in the soil. */
-function rockLy(dy: number, size: number, lump: number): number {
-  return Math.max(dy, -0.35) * size * lump * 0.62;
-}
-
-/** How high a drawn rock (writeRock with `size` and `seed`) stands over the soil at its centre. */
-export function rockRise(size: number, seed: number): number {
-  const { pos } = icosphere();
-  let top = -Infinity;
-  for (let i = 0; i < pos.length; i += 3) {
-    top = Math.max(top, rockLy(pos[i + 1], size, rockLump(pos[i], pos[i + 1], pos[i + 2], seed)));
-  }
-  return top - size * 0.18;
-}
 
 /** A lumpy granite boulder, settled into the ground. */
 export function writeRock(w: MeshWriter, x: number, z: number, size: number, seed: number): void {

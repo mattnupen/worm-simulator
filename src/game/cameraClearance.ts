@@ -4,6 +4,7 @@ import {
 } from '../surface/followCamera';
 import { pushOutTall, sightReach } from '../surface/obstacles';
 import { litterTop } from '../worm/surfaceHeight';
+import { groundHeight } from '../surface/litterDepth';
 
 /** The follow camera's settings at full reach: distance behind and height above the point it follows over the head. */
 export const CAM_OPTS: Readonly<FollowCamOptions> = {
@@ -15,6 +16,11 @@ export const CAM_OPTS: Readonly<FollowCamOptions> = {
  * framed a worm crawling at the top of the leaves, looking down into the hole over it.
  */
 export const CAM_OVER_TOP = 0.1;
+/**
+ * The point it follows eases its height toward that over this (s), a backstop so a change in the
+ * litter's depth under the head never makes the camera nod.
+ */
+const FOLLOW_EASE = 0.3;
 /** The camera aims a little ahead of the head, so the worm sits low in frame and the forest looms. */
 const LOOK_AHEAD = 1.0;
 const LOOK_UP = 0.6;
@@ -78,6 +84,10 @@ export class CameraClearance {
   private readonly spring: Spring = { value: 1, velocity: 0 };
   /** CAM_OPTS with the distance cut to the reach and the height craned: what the follow camera steps with. */
   readonly opts: FollowCamOptions = { ...CAM_OPTS };
+  /** The point the camera follows (follow): over the head, near the top of the litter the worm is buried in. */
+  readonly view: Vec3 = { x: 0, y: 0, z: 0 };
+  /** The follow point's eased height, and how fast it changes. */
+  private readonly lift: Spring = { value: 0, velocity: 0 };
 
   get reach(): number {
     return this.spring.value;
@@ -89,6 +99,29 @@ export class CameraClearance {
     this.spring.velocity = 0;
     this.opts.distance = CAM_OPTS.distance;
     this.opts.height = CAM_OPTS.height;
+  }
+
+  /**
+   * The point the camera follows over `head` (written into `view`): right over it, CAM_OVER_TOP
+   * above the top of the litter there, its height eased over FOLLOW_EASE. Climbing a steep pile it
+   * may lag under the top for a moment: it is only an anchor (sight lines check props, not the
+   * ground), and keepOut still holds the camera itself CAM_GROUND_MARGIN over the litter. `dt` 0
+   * settles it there at once (the spawn).
+   */
+  follow(head: Vec3, dt: number): Vec3 {
+    const v = this.view;
+    const target = groundHeight(head.x, head.z) + CAM_OVER_TOP;
+    const l = this.lift;
+    if (dt > 0) {
+      smoothDampInto(l, target, FOLLOW_EASE, dt);
+    } else {
+      l.value = target;
+      l.velocity = 0;
+    }
+    v.x = head.x;
+    v.y = l.value;
+    v.z = head.z;
+    return v;
   }
 
   /**
