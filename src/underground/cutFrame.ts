@@ -34,6 +34,13 @@ const WIDE_MIN_W = 7;
 /** No frame is taller than this (the narrowest phones). */
 const MAX_H = 13;
 /**
+ * Neither view shows more along the cut than on a 16:9 screen (the face's ends are reckoned for
+ * it: slab.ts FACE_END_ROOM). A wider screen, such as a maximised browser on a 1366 x 768
+ * Chromebook (about 2.1:1), frames the same width and a little less height: Wide 7.0 u tall at
+ * 2.17:1, Close 4.9 u. Continuous in the aspect, so a resize eases like any change of target.
+ */
+const WIDEST = 16 / 9;
+/**
  * Wide keeps the head at least this far inside the screen's sides, so the layer names beyond the
  * playable end (LABEL_ROOM) stay on screen when the head is at the end: it stops 0.2 short of
  * the end, easing over the last 0.35 (burrowMotion), so it can come to rest up to 0.55 short...
@@ -41,7 +48,7 @@ const MAX_H = 13;
 const WIDE_KEEP = LABEL_ROOM + NAME_PAD + 0.6;
 /** ...or this share of its width, if more (it holds still while the head is in the middle). */
 const WIDE_KEEP_SHARE = 0.25;
-/** Close: the screen's shorter side spans this (about 1.7 worm lengths). */
+/** Close: the screen's shorter side spans this (about 1.7 worm lengths), up to 16:9 (WIDEST). */
 const CLOSE_SPAN = 6;
 /** Close keeps this share of the frame ahead of the head... */
 const CLOSE_AHEAD = 0.18;
@@ -56,16 +63,16 @@ const KEEP_IN = 0.2;
 /**
  * Near the slab's bottom the frame goes below it as far as it must to keep the head at most this
  * far down the screen (NDC), clear of the Action prompt on phones (Wide's follow lags the head
- * by up to 0.07 more while it digs down)...
+ * by up to 0.1 more while it digs down)...
  */
-const HEAD_LOW = 0.65;
+const HEAD_LOW = 0.62;
 /**
  * ...but the screen's bottom edge never shows more than this below the slab's bottom: the face
  * must be drawn (fading dark) at least this deep. What each frame needs at most (the head stops
- * 0.3 above the bottom): on 1366 x 768 Wide 1.56 u and Close 0.89 u; on 360 x 640 Wide 2.42 u
- * and Close 1.82 u; a 13 u tall frame (the narrowest phones) Wide 2.55 u.
+ * 0.3 above the bottom): Wide 1.71 u on 1366 x 768 (less on wider screens, whose frames are
+ * shorter), 2.78 u on a 13 u tall frame (the narrowest phones); Close 0.98 u and 2.50 u.
  */
-export const FACE_BELOW = 2.6;
+export const FACE_BELOW = 2.8;
 /**
  * Every frame keeps its projected corners within the face's ends. Only a view switched back
  * mid-switch (faster than once a second), carried on by its own speed, can show past them, by up
@@ -117,7 +124,7 @@ function halfAt(ny: number, h: number, aspect: number, pitch: number): number {
 }
 
 function wideHeight(aspect: number): number {
-  return Math.min(MAX_H, Math.max(WIDE_H, WIDE_MIN_W / aspect));
+  return Math.min(MAX_H, Math.max(WIDE_H, WIDE_MIN_W / aspect), (WIDE_H * WIDEST) / aspect);
 }
 
 /**
@@ -161,7 +168,7 @@ export function frameTarget(
     // From just above the highest litter; deeper than that reaches, it follows the head down.
     cv = Math.min(s.topMax + WIDE_ABOVE - h / 2, hv + h / 2 - h * KEEP_IN);
   } else {
-    h = Math.min(MAX_H, a >= 1 ? CLOSE_SPAN : CLOSE_SPAN / a);
+    h = Math.min(MAX_H, a >= 1 ? CLOSE_SPAN : CLOSE_SPAN / a, (CLOSE_SPAN * WIDEST) / a);
     const w = h * a;
     cu = hu + au * w * CLOSE_AHEAD;
     cv = hv + av * h * CLOSE_AHEAD;
@@ -176,11 +183,14 @@ export function frameTarget(
     }
     cv = Math.min(s.topMax + 2 - h / 2, cv);
   }
+  // The head is never lower on screen than HEAD_LOW, even to fit the body (a short Close frame on
+  // a wide screen, the worm digging straight down), so the Action prompt never covers it.
+  const headTop = hv - below(-HEAD_LOW, pitch) * (h / 2);
+  cv = Math.min(cv, headTop);
   // The bottom edge stays on the slab, unless the head is near the bottom: then the frame goes
   // only as far below as keeps the head off the screen's bottom edge, and FACE_BELOW at most.
-  const drop = -below(-1, pitch) * (h / 2);
-  const floor = s.bottom + drop;
-  cv = Math.max(cv, floor - FACE_BELOW, Math.min(floor, hv - below(-HEAD_LOW, pitch) * (h / 2)));
+  const floor = s.bottom - below(-1, pitch) * (h / 2);
+  cv = Math.max(cv, floor - FACE_BELOW, Math.min(floor, headTop));
   // The bottom corners reach farthest along the cut: they stay on the face. A face narrower than
   // that (the world's edge clips it) is shown whole, centred.
   const half = halfAt(-1, h, a, pitch);

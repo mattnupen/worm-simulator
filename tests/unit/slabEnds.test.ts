@@ -11,6 +11,8 @@ describe("the playable slab and the face's ends", () => {
   it('the playable range stays FACE_END_ROOM inside the face, the room Wide needs on 9:16 to 16:9 screens', () => {
     expect(FACE_END_ROOM).toBeCloseTo(Math.max(faceEndRoom(16 / 9), faceEndRoom(9 / 16)), 9);
     expect(FACE_END_ROOM).toBeGreaterThan(faceEndRoom(3 / 2));
+    // Wider screens show no more along the cut than 16:9 (cutFrame.ts WIDEST).
+    for (const aspect of [1366 / 640, 1366 / 600, 1920 / 800]) expect(faceEndRoom(aspect)).toBeCloseTo(faceEndRoom(16 / 9), 9);
     const rand = mulberry32(5);
     const out: [number, number, number, number] = [0, 0, 0, 0];
     for (let k = 0; k < 2000; k++) {

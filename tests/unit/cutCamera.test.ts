@@ -1,23 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createCutCam, frameTarget, snapCutCam, stepCutCam, cutPose, LABEL_ROOM,
+  createCutCam, frameTarget, snapCutCam, stepCutCam, cutPose,
 } from '../../src/underground/cutCamera';
 import { createSlab, boundaryAt, B_H } from '../../src/underground/slab';
-import { DT, SCREENS, frame, pose, project, world, sweep } from './cutWorld';
+import { DT, SCREENS, frame, pose, project, screenOnCut, world, sweep } from './cutWorld';
 
 describe('the camera facing the cut (spec 7)', () => {
-  it('Wide frames from just above the surface down into B; on a wide screen, the whole slab and its names', () => {
+  it('Wide frames from just above the surface down into B; a wider screen shows no more width than 16:9', () => {
     const s = createSlab(0, 0, 0.4, 1, 2);
     const a = 1366 / 768;
     frameTarget('wide', s, 0, -2, 1, 0, a, frame);
     cutPose(s, frame.cu, frame.cv, frame.h, frame.pitch, pose);
     expect(project(pose, a, ...world(s, 0, s.topMax + 0.3)).ny).toBeLessThan(1);
     expect(project(pose, a, ...world(s, 0, boundaryAt(s, B_H, 0) - 1.5)).ny).toBeGreaterThan(-1);
-    const wide = 1600 / 500;
-    frameTarget('wide', s, 0, -2, 1, 0, wide, frame);
-    cutPose(s, frame.cu, frame.cv, frame.h, frame.pitch, pose);
-    for (const u of [s.playLo - LABEL_ROOM + 0.1, s.playHi + LABEL_ROOM - 0.1]) {
-      expect(Math.abs(project(pose, wide, ...world(s, u, s.topMax)).nx)).toBeLessThanOrEqual(1);
+    // A wider screen (a maximised browser, a wide monitor) shows no more along the cut than
+    // 16:9 (the face's ends are reckoned for it): the same width, a little less height.
+    const width = (aspect: number, row: number) => {
+      frameTarget('wide', s, 0, -2, 1, 0, aspect, frame);
+      cutPose(s, frame.cu, frame.cv, frame.h, frame.pitch, pose);
+      return Math.abs(screenOnCut(pose, s, aspect, 1, row).u - screenOnCut(pose, s, aspect, -1, row).u);
+    };
+    for (const aspect of [1366 / 600, 1600 / 500]) {
+      for (const row of [-1, 1]) expect(width(aspect, row)).toBeCloseTo(width(a, row), 6);
+      expect(frameTarget('wide', s, 0, -2, 1, 0, aspect, frame).h).toBeCloseTo((8.5 * 16) / 9 / aspect, 9);
+      expect(frameTarget('close', s, 0, -2, 1, 0, aspect, frame).h).toBeCloseTo((6 * 16) / 9 / aspect, 9);
     }
   });
 

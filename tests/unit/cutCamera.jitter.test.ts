@@ -54,7 +54,8 @@ function watchSweep(view: ViewAt, w: number, h: number, seed: number, steer?: (k
     still = headStep < 1e-3 && facing < 0.01 ? still + 1 : 0;
     if (still > 2) {
       m.rest++;
-      m.lurch = Math.max(m.lurch, step - lastStep);
+      // In pixels a frame per frame: the screen's height spans the frame's height.
+      m.lurch = Math.max(m.lurch, ((step - lastStep) * h) / cam.h.value);
       const dx = p.px - q.px; const dy = p.py - q.py; const dz = p.pz - q.pz;
       if (headStep < 1e-5 && step > 1e-6 && lastStep > 1e-6 && dx * side[0] + dy * side[1] + dz * side[2] < 0) m.reversals++;
       side[0] = dx; side[1] = dy; side[2] = dz;
@@ -120,7 +121,8 @@ describe('the cut camera frame to frame (Matt notices jitter)', () => {
             // It came to rest (a stone may stop it first: still a stop; or it slides along one).
             if (m.rest > 60) stopped++;
             worst = Math.max(worst, m.lurch);
-            expect(m.lurch, `${view} ${name} seed ${seed}`).toBeLessThan(2e-5);
+            // A hundredth of a pixel per frame per frame: following a creep, never a lurch.
+            expect(m.lurch, `${view} ${name} seed ${seed}`).toBeLessThan(0.01);
             expect(m.reversals, `${view} ${name} seed ${seed}`).toBe(0);
             expect(m.d3).toBeLessThan(5e-4);
             expect(m.past).toBeLessThan(1e-6);

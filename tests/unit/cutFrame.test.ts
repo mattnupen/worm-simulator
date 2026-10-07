@@ -95,6 +95,7 @@ describe('the cut camera frames the whole worm, and keeps the head off the botto
     for (const side of [1, -1] as const) {
       ats.push([15.2, 0, Math.PI / 2, side], [-12, -9, -Math.PI / 2, side], [3, 15.2, 0, side], [-14, 14, -Math.PI / 4, side]);
       ats.push([16.4, 3, 0, side], [-3, 16.4, Math.PI / 2, side], [-16.4, -12, 0.3, side]);
+      ats.push([14, -2, Math.PI / 2, side], [13, 13, Math.PI / 4, side]);
     }
     for (const [x, z, heading] of ats) {
       const s = createSlab(x, z, heading, 1, 1);
@@ -153,6 +154,19 @@ describe('the cut camera frames the whole worm, and keeps the head off the botto
           expect(checked).toBeGreaterThan(5000);
           expect(names).toBeGreaterThanOrEqual(-0.005);
         }
+      }
+    }
+  });
+
+  it('the frame changes continuously with the shape of the screen, so a resize eases rather than snaps', () => {
+    const s = createSlab(0, 0, 0, 1, 2);
+    const hv = boundaryAt(s, B_H, 0);
+    for (const view of ['wide', 'close'] as const) {
+      let last = { ...frameTarget(view, s, 2, hv, 1, 0, 0.3, frame) };
+      for (let aspect = 0.3; aspect <= 3; aspect += 0.001) {
+        const f = frameTarget(view, s, 2, hv, 1, 0, aspect, frame);
+        expect(Math.abs(f.h - last.h) + Math.abs(f.cu - last.cu) + Math.abs(f.cv - last.cv)).toBeLessThan(0.05);
+        last = { ...f };
       }
     }
   });
