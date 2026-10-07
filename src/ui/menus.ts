@@ -2,6 +2,7 @@ import { el, button, cardHead, menu } from './dom';
 import { icon } from './icons';
 import type { Shell } from './shell';
 import { VERSION_LABEL } from '../version';
+import { TEXT, shown } from '../content/text';
 
 export interface StartActions { onCrawl(): void; onGraphics(): void; onSpeedTest(): void }
 
@@ -26,7 +27,7 @@ export function showCrawl(shell: Shell): void {
   const hint = el('p', '', 'hint');
   hint.append(
     icon('drive', 'hint-icon'),
-    el('span', 'Crawl with the arrow keys, W A S D, or the joystick. Press Esc or P to pause.'),
+    el('span', shown(TEXT.crawlHint)),
   );
   shell.show('crawl', 'Crawling', [hint]);
   shell.panel.focus({ preventScroll: true });
