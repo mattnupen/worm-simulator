@@ -53,14 +53,16 @@ export const CUT_FRAGMENT = /* glsl */ `
     vec2 p = vPlane;
     float top = vBoundsA.x;
     // One broad noise read: the boundaries wander (no ruler lines) and the paint varies.
-    vec4 br = texture2D(uNoise, p * 0.23);
-    // The same read bends the tiles a little, so their repeats never line up.
-    vec2 q = p + (br.ra - 0.5) * vec2(0.45, 0.12);
-    vec4 lit = texture2D(uLitter, q / vec2(${f(LITTER_TILE_U[0])}, ${f(LITTER_TILE_U[1])}));
-    vec4 old = texture2D(uOldLeaves, q / vec2(${f(OLD_TILE_U[0])}, ${f(OLD_TILE_U[1])}));
+    // Its period (1 / 0.19 = 5.26 u) shares no small multiple with the tiles' 2 and 4 u.
+    vec4 br = texture2D(uNoise, p * 0.19);
+    // The same read bends the tiles, and the 4 u tiles are sheared a little (each repeat sits
+    // 0.24 or 0.2 u higher or lower than the last), so their repeats never line up in a row.
+    vec2 q = p + (br.ra - 0.5) * vec2(0.5, 0.12);
+    vec4 lit = texture2D(uLitter, vec2(q.x, q.y + q.x * 0.06) / vec2(${f(LITTER_TILE_U[0])}, ${f(LITTER_TILE_U[1])}));
+    vec4 old = texture2D(uOldLeaves, vec2(q.x, q.y - q.x * 0.05) / vec2(${f(OLD_TILE_U[0])}, ${f(OLD_TILE_U[1])}));
     // H rides in the litter tile's alpha: black, crumbs, fine roots, white hyphae along a ramp.
-    vec3 hum = mix(vec3(0.02, 0.014, 0.01), vec3(0.14, 0.095, 0.065), smoothstep(0.03, 0.36, lit.a));
-    hum = mix(hum, vec3(0.44, 0.31, 0.19), smoothstep(0.4, 0.62, lit.a));
+    vec3 hum = mix(vec3(0.018, 0.013, 0.01), vec3(0.3, 0.21, 0.14), smoothstep(0.05, 0.42, lit.a));
+    hum = mix(hum, vec3(0.52, 0.38, 0.24), smoothstep(0.44, 0.6, lit.a));
     hum = mix(hum, vec3(0.85, 0.83, 0.76), smoothstep(0.75, 0.98, lit.a));
     // A, E and B share the grain tile at the same place (no seams where they meet): each layer
     // uses its channels its own way.
@@ -103,7 +105,7 @@ export const CUT_FRAGMENT = /* glsl */ `
         // B: brown to rust, mottled, with pebbles.
         col = vec3(0.45, 0.27, 0.14) * (0.8 + 0.4 * gr.r);
         col = mix(col, vec3(0.62, 0.33, 0.11), smoothstep(0.5, 0.75, mot) * 0.7);
-        col = mix(col, vec3(0.36, 0.27, 0.2), smoothstep(0.45, 0.2, mot) * 0.4);
+        col = mix(col, vec3(0.36, 0.27, 0.2), (1.0 - smoothstep(0.2, 0.45, mot)) * 0.4);
         col = mix(col, pebCol * 0.85, peb);
       } else if (y < vBoundsB.x) {
         // E: pale grey-white, in thin plates.
@@ -118,7 +120,7 @@ export const CUT_FRAGMENT = /* glsl */ `
     }
 
     // Moss creeping in at F's top, in patches along the cut.
-    float moss = smoothstep(0.24, 0.04, abs(p.y - vBoundsA.y + 0.08)) * smoothstep(0.3, 0.55, br.g) * old.a;
+    float moss = (1.0 - smoothstep(0.04, 0.24, abs(p.y - vBoundsA.y + 0.08))) * smoothstep(0.3, 0.55, br.g) * old.a;
     col = mix(col, vec3(0.3, 0.46, 0.1) * (0.6 + 0.6 * old.a), moss);
     col *= 1.0 - 0.22 * damp;
     // Mixed walls: darker and crumbly (H's crumbs).
@@ -139,12 +141,12 @@ export const CUT_FRAGMENT = /* glsl */ `
     // Warm light from the surface fades with depth; the bottom darkens away (burrows go deeper).
     float below = top - p.y;
     col *= mix(1.0, 0.45, smoothstep(0.0, 6.0, below));
-    col += col * uLightColor * 0.3 * smoothstep(1.2, 0.0, below);
-    col = mix(col, vec3(0.012, 0.008, 0.005), smoothstep(uBottom + 2.0, uBottom - ${f(FACE_BELOW)}, p.y));
+    col += col * uLightColor * 0.3 * (1.0 - smoothstep(0.0, 1.2, below));
+    col = mix(col, vec3(0.012, 0.008, 0.005), (1.0 - smoothstep(uBottom - ${f(FACE_BELOW)}, uBottom + 2.0, p.y)));
     // Beyond the playable slab the soil dims a little; past the face's ends it fades to dark.
     float beyond = max(uPlay.x - p.x, p.x - uPlay.y);
     col *= mix(1.0, 0.55, smoothstep(0.0, 2.0, beyond));
-    col *= smoothstep(uFace.x - ${f(FACE_PAST)}, uFace.x, p.x) * smoothstep(uFace.y + ${f(FACE_PAST)}, uFace.y, p.x);
+    col *= smoothstep(uFace.x - ${f(FACE_PAST)}, uFace.x, p.x) * (1.0 - smoothstep(uFace.y, uFace.y + ${f(FACE_PAST)}, p.x));
     // Painted variation: broad value patches and a warm/cool drift.
     col *= 0.9 + 0.2 * br.r;
     col *= mix(vec3(1.05, 0.99, 0.9), vec3(0.93, 0.98, 1.04), br.a);

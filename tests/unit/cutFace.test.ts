@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type * as THREE from 'three';
 import { createCutFace } from '../../src/underground/cutFace';
 import { createSlab, slabU } from '../../src/underground/slab';
-import { createSoilGrid, fillSoilGrid, digDisc, GRID_W } from '../../src/underground/soilGrid';
+import { createSoilGrid, fillSoilGrid, digDisc, castBlob, cellU, cellV, colOf, rowOf, GRID_W } from '../../src/underground/soilGrid';
 import { FACE_BELOW, FACE_PAST } from '../../src/underground/cutFrame';
 
 const eaten = { cells: 0, organic: 0 };
@@ -65,6 +65,43 @@ describe('the cut face\'s soil texture (spec 10: only changed rows are uploaded)
     face.setSlab(next, g);
     face.upload(g);
     expect(tex.updateRanges.length).toBe(0);
+  });
+});
+
+describe('the cut face\'s tunnel channel (soft round bores)', () => {
+  it('blurs a tunnel\'s edge: full inside, part-way at its rim, none beyond', () => {
+    const { face, g, tex } = setUp();
+    // A disc 3.5 cells round a cell's centre: open out to 3 cells along its row.
+    const c = colOf(1);
+    const row = rowOf(g, -3);
+    digDisc(g, cellU(c), cellV(g, row), 0.35, eaten);
+    face.upload(g);
+    const bytes = tex.image.data as Uint8Array;
+    const at = (dc: number): number => bytes[(row * GRID_W + c + dc) * 4];
+    expect(at(0)).toBe(255);
+    // The last open cell and the first closed one are both part-way: the edge is softened.
+    expect(at(3)).toBeLessThan(255);
+    expect(at(3)).toBeGreaterThan(127);
+    expect(at(4)).toBeGreaterThan(0);
+    expect(at(4)).toBeLessThan(128);
+    expect(at(5)).toBe(0);
+  });
+
+  it('does not count castings as tunnel: a casting cell reads as wall', () => {
+    const { face, g, tex } = setUp();
+    digDisc(g, 1, -3, 0.35, eaten);
+    castBlob(g, 1, -3, 0.3, 200, 1, 0);
+    face.upload(g);
+    const bytes = tex.image.data as Uint8Array;
+    let checked = 0;
+    for (let i = 0; i < g.cast.length; i++) {
+      if (!g.cast[i]) continue;
+      // Its own weight (4 of 16) is gone, whatever its neighbours.
+      expect(bytes[i * 4]).toBeLessThanOrEqual(192);
+      expect(bytes[i * 4 + 1]).toBe(200);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(3);
   });
 });
 

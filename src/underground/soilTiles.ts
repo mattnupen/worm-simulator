@@ -9,7 +9,8 @@ import { band, blendChannel, createCanvas, crumb, fill, lens, smooth, thread, to
  * patterns (measured: computed patterns halved the frame rate in software GL). 128 texels per
  * unit; every tile wraps at its edges, so it repeats seamlessly.
  *  - litter, L (4 u x 2 u): this fall's leaves edge-on (red, orange, yellow, green, bleached tan,
- *    brown), some cut at a slant, twigs, grass and needles, dark air gaps between (rgb); and
+ *    brown), some cut at a slant, twigs, grass and needles, dark air gaps between (rgb), with no
+ *    lone landmark that would show where the tile repeats; and
  *    humus, H (a): black crumbs, dense fine roots, a few hyphae, as a value the face colours.
  *  - old leaves, F (4 u x 2 u): dark matted fragments, white hyphae, pale fine roots (rgb); moss
  *    stems (a), which the face shows at F's top.
@@ -77,14 +78,6 @@ function paintLitter(): Canvas {
         col: leafColour(rand), relief: 0.55, seed: rand() });
     }
   }
-  // Twigs cut across: bark round pale wood.
-  for (let i = 0; i < 6; i++) {
-    const x = rand() * c.w;
-    const y = rand() * c.h;
-    const r = 3 + rand() * 3.5;
-    crumb(c, x, y, r, [0.3, 0.2, 0.13], 0.05, rand() * 6);
-    crumb(c, x, y + 0.3, r * 0.7, [0.66, 0.55, 0.38], 0, 0);
-  }
   const hum = paintHumus(c.w, c.h);
   for (let i = 0; i < c.w * c.h; i++) c.px[i * 4 + 3] = hum.px[i * 4];
   return c;
@@ -144,7 +137,7 @@ function paintOldLeaves(): Canvas {
 
 /**
  * Humus, H, as one value per texel, which the face turns into colour along a ramp: black (0),
- * crumbs (0.1 to 0.35, lit on top), fine roots (0.5 to 0.62), white hyphae (1). It rides in the
+ * crumbs (0.1 to 0.4, lit on top, dark at the rim), fine roots (0.5 to 0.62), white hyphae (1). It rides in the
  * litter tile's alpha, so the face reads one texture fewer.
  */
 function paintHumus(w: number, h: number): Canvas {
@@ -154,14 +147,14 @@ function paintHumus(w: number, h: number): Canvas {
     o[0] = 0.04 + 0.05 * vn(c, x, y, 8, 83);
   });
   // Black crumbs, nothing recognisable left.
-  for (let i = 0; i < 2600; i++) {
-    const k = 0.2 + rand() * 0.1;
-    crumb(c, rand() * c.w, rand() * c.h, 1.4 + rand() * rand() * 4.5, [k, k, k], 0.25, rand() * 6.3);
+  for (let i = 0; i < 2400; i++) {
+    const k = 0.16 + rand() * 0.2;
+    crumb(c, rand() * c.w, rand() * c.h, 1.6 + rand() * rand() * 5, [k, k, k], 0.25, rand() * 6.3);
   }
   // Dense fine roots and a few hyphae.
-  for (let i = 0; i < 52; i++) {
-    const v = rand() < 0.5 ? 0.62 : 0.5;
-    thread(c, rand() * c.w, rand() * c.h, { steps: 50 + rand() * 120, r: 0.55 + rand() * 0.3, dir: (rand() - 0.5) * 3, wander: 0.45,
+  for (let i = 0; i < 90; i++) {
+    const v = rand() < 0.5 ? 0.62 : 0.52;
+    thread(c, rand() * c.w, rand() * c.h, { steps: 40 + rand() * 110, r: 0.5 + rand() * 0.3, dir: (rand() - 0.5) * 3, wander: 0.45,
       aim: (rand() - 0.5) * 2, pull: 0.02, branch: 0.03, col: [v, v, v], alpha: 0.85 }, rand);
   }
   for (let i = 0; i < 16; i++) {
