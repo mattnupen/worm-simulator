@@ -34,15 +34,12 @@ export const NEAR_CLUTTER_REACH = 0.8;
  * Writes the baked trunk shade at the home to `shade`. Needs aWrap and uniforms uFocus, uWrapCentre,
  * uLitter, uGround and uSpine.
  */
-export const NEAR_CLUTTER_GLSL = /* glsl */ `
-  uniform vec3 uFocus;
-  uniform vec2 uWrapCentre;
-  uniform sampler2D uLitter;
+/**
+ * GLSL: spineDistance(p), the x, z distance from p to the rendered spine (uniform uSpine,
+ * SPINE_POINTS points head first), and that uniform. TS twin: spineDistance below.
+ */
+export const SPINE_DISTANCE_GLSL = /* glsl */ `
   uniform vec3 uSpine[${SPINE_POINTS}];
-  attribute vec2 aWrap;
-  ${WRAP_GLSL}
-  ${LITTER_GLSL}
-  ${GROUND_GLSL}
   float spineDistance(vec2 p) {
     float d2 = 1e9;
     for (int i = 0; i < ${SPINE_POINTS - 1}; i++) {
@@ -54,6 +51,17 @@ export const NEAR_CLUTTER_GLSL = /* glsl */ `
     }
     return sqrt(d2);
   }
+`;
+
+export const NEAR_CLUTTER_GLSL = /* glsl */ `
+  uniform vec3 uFocus;
+  uniform vec2 uWrapCentre;
+  uniform sampler2D uLitter;
+  attribute vec2 aWrap;
+  ${WRAP_GLSL}
+  ${LITTER_GLSL}
+  ${GROUND_GLSL}
+  ${SPINE_DISTANCE_GLSL}
   vec4 nearClutterPosition(vec3 position, out float shade) {
     vec2 home = wrapAround(aWrap, uWrapCentre, ${f(NEAR_CLUTTER_BOX)});
     float s = 1.0 - smoothstep(${f(NEAR_CLUTTER_FADE_IN)}, ${f(NEAR_CLUTTER_FADE_OUT)}, distance(home, uFocus.xz));

@@ -9,6 +9,7 @@ import { leafLift, leafNormal, type LeafForm } from './leafForm';
 import { leafTint, LEAF_SIZE, LATERAL_VEINS } from './leafPalette';
 import { REAL_SCALE } from './realScale';
 import { scaledLeafCount } from './leafScale';
+import { POCKET_ORDER } from '../render/drawOrder';
 
 export interface DetailLeaves {
   mesh: THREE.Mesh;
@@ -16,6 +17,8 @@ export interface DetailLeaves {
   readonly max: number;
   /** Leaves drawn right now (0 while hidden). */
   readonly drawn: number;
+  /** Per leaf, where its indices end in the index buffer (leaf p holds ends[p - 1] to ends[p]). */
+  readonly ends: Uint32Array;
   /** Draws the first `n` leaves; hides the mesh at 0. */
   setCount(n: number): void;
 }
@@ -28,15 +31,20 @@ function reach(kind: LeafKind): number {
   return r;
 }
 
+/** The pocket's leaves, as a share of a preset's detail leaves (V2 spec 8.2). */
+export const POCKET_SHARE = 0.5;
+
 /**
- * Smaller, more curled, higher-vertex leaves covering about 6 m around the worm (spec 5.5). One
+ * Smaller, more curled, higher-vertex leaves about 6 m around the worm (spec 5.5): on the top of
+ * the litter, or (`pocket`) in the litter round the buried worm, seen only through the hole over
+ * it, older and darker the lower they lie (V2 spec 8.2). One
  * static mesh in leaf-local space, built once: each leaf's home in a DETAIL_BOX world tile, its yaw
  * and radius are attributes, and the vertex shader places the copy nearest the worm (snapped to a
  * 1 m grid), so the CPU does no work as the worm moves. Positions are scaled so each leaf's
  * farthest vertex is 1 out, which makes aDetail.w its radius: the disturbance map moves it as one
  * piece of that radius, as it does the litter.
  */
-export function buildDetailLeaves(count = scaledLeafCount(PRESETS.ultra.detail), seed = 3): DetailLeaves {
+export function buildDetailLeaves(count = scaledLeafCount(PRESETS.ultra.detail), seed = 3, pocket = false): DetailLeaves {
   const rng = mulberry32(seed);
   // Real leaf sizes (realScale.ts). Pass the real-size count (scaledLeafCount).
   const grow = REAL_SCALE.leaf;
@@ -58,6 +66,7 @@ export function buildDetailLeaves(count = scaledLeafCount(PRESETS.ultra.detail),
   const inner = new THREE.Color();
   const edge = new THREE.Color();
   const stem = new THREE.Color();
+  const dull = new THREE.Color();
   const n: Vec3 = { x: 0, y: 0, z: 0 };
   const form: LeafForm = { fold: 0, cup: 0, curl: 0 };
   let v0 = 0;
@@ -72,11 +81,18 @@ export function buildDetailLeaves(count = scaledLeafCount(PRESETS.ultra.detail),
     form.fold = 0.1 + rng() * 0.2;
     form.cup = 0.2 + rng() * (kind === 'oak' ? 0.5 : 0.3);
     form.curl = 0.2 + rng() * (kind === 'oak' ? 0.35 : 0.25);
-    // The top of the litter: drier than the damp bottom layer.
-    const wet = leafTint(kind, 0.03 + rng() * 0.03, rng, inner, edge, stem);
+    const fresh = leafTint(kind, 0.03 + rng() * 0.03, rng, inner, edge, stem);
     const rs = reach(kind);
     const home = [rng(), rng(), rng() * Math.PI * 2, size * rs];
     const layer = rng();
+    // Its place in the pocket's litter (detailGlsl.ts): lower down, older, so darker, duller and
+    // wetter (research notes: this fall's bright leaves on top, bleached and then dark brown below).
+    const age = pocket ? 1 - layer * layer : 0;
+    for (const c of [inner, edge, stem]) {
+      const grey = (c.r + c.g + c.b) / 3;
+      c.lerp(dull.setRGB(grey, grey * 0.88, grey * 0.7), 0.6 * age).multiplyScalar(1 - 0.55 * age);
+    }
+    const wet = Math.max(fresh, 0.75 * age);
     for (let p = 0; p < np; p++) {
       const u = s.points[p * 2];
       const v = s.points[p * 2 + 1];
@@ -103,14 +119,17 @@ export function buildDetailLeaves(count = scaledLeafCount(PRESETS.ultra.detail),
   g.setAttribute('aLeaf2', new THREE.BufferAttribute(leaf2, 2));
   g.setAttribute('aDetail', new THREE.BufferAttribute(detail, 4));
   g.setIndex(new THREE.BufferAttribute(index, 1));
-  const mesh = new THREE.Mesh(g, createLeafMaterial('detail'));
+  const mesh = new THREE.Mesh(g, createLeafMaterial(pocket ? 'pocket' : 'detail'));
   // Placed around the worm in the shader.
   mesh.frustumCulled = false;
-  mesh.name = 'detailLeaves';
+  // The pocket is under the top of the litter: drawn after it (drawOrder.ts).
+  if (pocket) mesh.renderOrder = POCKET_ORDER;
+  mesh.name = pocket ? 'pocketLeaves' : 'detailLeaves';
   let drawn = count;
   return {
     mesh,
     max: count,
+    ends,
     get drawn() {
       return drawn;
     },
@@ -124,11 +143,11 @@ export function buildDetailLeaves(count = scaledLeafCount(PRESETS.ultra.detail),
 }
 
 /** The detail layer as the world holds it: built only when a preset first draws it. */
-export interface DetailLayer {
+export interface DetailLayer<T extends DetailLeaves = DetailLeaves> {
   /** Always in the scene; holds the detail mesh once it is built. */
   readonly group: THREE.Group;
   /** The built layer, or null until the first setCount(n > 0). */
-  readonly built: DetailLeaves | null;
+  readonly built: T | null;
   /** Leaves it builds: the most it can draw. */
   readonly max: number;
   /** Leaves drawn right now: 0 until the layer is first built and shown. */
@@ -141,12 +160,16 @@ export interface DetailLayer {
  * The detail layer, built lazily: on Low (no detail leaves) neither the mesh, its material nor the
  * baked litter and ground textures it reads are ever made, which saves memory and start-up time on
  * the weakest machines. Switching up to a preset that draws it builds it then (a one-time hitch
- * while its shader compiles).
+ * while its shader compiles). `build` makes the leaves (the top's detail leaves by default; the
+ * pocket's: pocketLeaves.ts).
  */
-export function buildDetailLayer(count = scaledLeafCount(PRESETS.ultra.detail), seed = 3): DetailLayer {
+export function buildDetailLayer<T extends DetailLeaves = DetailLeaves>(
+  count = scaledLeafCount(PRESETS.ultra.detail), build: (count: number) => T = (c) => buildDetailLeaves(c) as T,
+  name = 'detailLayer',
+): DetailLayer<T> {
   const group = new THREE.Group();
-  group.name = 'detailLayer';
-  let built: DetailLeaves | null = null;
+  group.name = name;
+  let built: T | null = null;
   return {
     group,
     max: count,
@@ -159,11 +182,10 @@ export function buildDetailLayer(count = scaledLeafCount(PRESETS.ultra.detail), 
     setCount(n: number) {
       if (!built) {
         if (n <= 0) return;
-        built = buildDetailLeaves(count, seed);
+        built = build(count);
         group.add(built.mesh);
       }
       built.setCount(n);
     },
   };
 }
-

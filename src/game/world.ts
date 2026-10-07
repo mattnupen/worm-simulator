@@ -15,7 +15,8 @@ import { buildTopPatch } from '../surface/topPatch';
 import { buildForestTrees } from '../surface/forestTrees';
 import { buildDistantTrees } from '../surface/distantTrees';
 import { buildLeafLitter, type LeafLitter } from '../surface/leafLitterMesh';
-import { buildDetailLayer, type DetailLayer } from '../surface/detailLeaves';
+import { buildDetailLayer, POCKET_SHARE, type DetailLayer } from '../surface/detailLeaves';
+import { buildPocketLeaves, type PocketLeaves } from '../surface/pocketLeaves';
 import { HeroLeafMesh } from '../surface/heroLeafMesh';
 import { buildNearClutterLayer, type NearClutterLayer } from '../surface/nearClutter';
 import { buildGroundProps, writeHeroLog, type GroundProps } from '../surface/groundProps';
@@ -32,6 +33,8 @@ export interface World {
   readonly litter: LeafLitter;
   /** The close-up leaf layer around the worm, on the top of the litter (built when a preset first draws it). */
   readonly detail: DetailLayer;
+  /** The leaves in the litter round the buried worm, seen through the hole over it (built with the detail layer). */
+  readonly pocket: DetailLayer<PocketLeaves>;
   /** The loose physics leaves near the head (one instanced draw; the crawl's pool sets the count). */
   hero: HeroLeafMesh;
   /** Rocks and ground clutter. */
@@ -62,6 +65,7 @@ export function buildWorld(crawl: Crawl): World {
   // Built at Ultra's counts for real-size leaves (bigger leaves, fewer of them: leafScale.ts).
   const litter = buildLeafLitter(scaledLeafCount(PRESETS.ultra.litter));
   const detail = buildDetailLayer(scaledLeafCount(PRESETS.ultra.detail));
+  const pocket = buildDetailLayer(scaledLeafCount(PRESETS.ultra.detail * POCKET_SHARE), buildPocketLeaves, 'pocketLayer');
   const props = buildGroundProps();
   // The ground fills most of the screen: draw it after everything that sits on it, so the
   // depth test skips ground pixels already covered by leaves, props and trunks.
@@ -73,7 +77,7 @@ export function buildWorld(crawl: Crawl): World {
   const floor = buildFloorPatch();
   forest.add(
     terrain, top.mesh, floor, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.group, detail.group,
-    props.mesh,
+    pocket.group, props.mesh,
   );
   const hero = new HeroLeafMesh(crawl.hero);
   const nearClutter = buildNearClutterLayer();
@@ -89,10 +93,11 @@ export function buildWorld(crawl: Crawl): World {
 
   scene.add(forest, hero.mesh, nearClutter.group, worm.group, buildSky(), atmosphere.group);
   return {
-    scene, litter, detail, props, hero, nearClutter, atmosphere, worm,
+    scene, litter, detail, pocket, props, hero, nearClutter, atmosphere, worm,
     apply(spec) {
       litter.setCount(scaledLeafCount(spec.litter));
       detail.setCount(scaledLeafCount(spec.detail));
+      pocket.setCount(scaledLeafCount(spec.detail * POCKET_SHARE));
       props.setDensity(spec.clutter);
       nearClutter.show(spec.nearClutter);
       atmosphere.setLevel(spec.effects, spec.extraEffects);
@@ -104,7 +109,8 @@ export function buildWorld(crawl: Crawl): World {
       worm.update(pose);
       hero.update(crawl.hero, alpha, timeSec);
       setFocus(crawl.focus.x, crawl.focus.y, crawl.focus.z);
-      // The near clutter keeps clear of the spine, and the floor patch centres on it.
+      // The near clutter keeps clear of the spine, the floor patch centres on it, and the pocket's
+      // leaves keep round it.
       setSpine(pose.spine);
       // The leaf fade (every preset): the body as this frame's camera sees it.
       camera.updateMatrixWorld();
@@ -130,6 +136,8 @@ export function buildWorld(crawl: Crawl): World {
       fade.far = occBox[4];
       top.update(fade, camera.position.x, camera.position.z, pose.spine);
       updateFloorPatch(floor, pose.spine, view, g.uOccSeg.value, g.uOccCount.value);
+      const wrap = g.uWrapCentre.value;
+      pocket.built?.update(fade, pose.spine, crawl.focus.x, crawl.focus.z, wrap.x, wrap.y);
       if (crawl.disturbed) {
         uploadDisturbance(crawl.disturbance);
         // The window the pocket's leaves read the map in.

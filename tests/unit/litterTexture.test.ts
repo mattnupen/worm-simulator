@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { litterTextureData, texelCentre, getLitterTexture, sampleLitter, LITTER_TEX_N, LITTER_SPAN, THIN_REACH } from '../../src/render/litterTexture';
+import {
+  litterTextureData, texelCentre, getLitterTexture, sampleLitter, EDGE_REACH, LITTER_TEX_N, LITTER_SPAN, THIN_REACH,
+} from '../../src/render/litterTexture';
+import { POCKET_FAR } from '../../src/render/detailGlsl';
+import { PLAY_HALF, WORLD_HALF } from '../../src/surface/terrain';
 import { litterDepth, LITTER_MAX, PILES } from '../../src/surface/litterDepth';
 
 describe('baked litter texture', () => {
@@ -73,5 +77,32 @@ describe('baked litter texture', () => {
       }
     }
     expect(checked).toBeGreaterThan(5000);
+  });
+
+  it('past the world\'s edge, where lookups read the outermost texels, G is still the thinnest within THIN_REACH', () => {
+    // A pocket leaf's home lies at most POCKET_FAR from a spine kept within PLAY_HALF.
+    expect(EDGE_REACH).toBeGreaterThanOrEqual(POCKET_FAR - (WORLD_HALF - PLAY_HALF) + THIN_REACH);
+    const N = LITTER_TEX_N;
+    const real = litterTextureData(N);
+    const out = [0, 0, 0];
+    const past = EDGE_REACH - THIN_REACH;
+    let checked = 0;
+    for (let t = -WORLD_HALF - past; t <= WORLD_HALF + past; t += 0.37) {
+      for (let side = 0; side < 4; side++) {
+        // A home from the edge out to `past` beyond it, along each side.
+        for (const o of [0, past / 2, past]) {
+          const e = WORLD_HALF + o;
+          const x = side === 0 ? e : side === 1 ? -e : t;
+          const z = side === 2 ? e : side === 3 ? -e : t;
+          sampleLitter(real, x, z, out, N);
+          for (let a = 0; a < 12; a++) {
+            const r = THIN_REACH * (a % 2 ? 1 : 0.5);
+            expect(litterDepth(x + Math.cos(a) * r, z + Math.sin(a) * r)).toBeGreaterThanOrEqual(out[1] - LITTER_MAX / 255);
+            checked++;
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(10000);
   });
 });

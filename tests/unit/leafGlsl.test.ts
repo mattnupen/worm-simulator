@@ -8,7 +8,7 @@ import { HeroWorm, type WormPose } from '../../src/worm/wormMesh';
 import { bellyHeight, wormSurface, type WormSurface } from '../../src/worm/surfaceHeight';
 import { buildLeafLitter } from '../../src/surface/leafLitterMesh';
 import { mulberry32 } from '../../src/core/random';
-import { buildDetailLeaves } from '../../src/surface/detailLeaves';
+import { buildDetailLeaves, POCKET_SHARE } from '../../src/surface/detailLeaves';
 import { detailVertex, DETAIL_BOX, type DetailInputs } from '../../src/render/detailGlsl';
 import { wrapAround } from '../../src/render/wrap';
 import { litterTextureData } from '../../src/render/litterTexture';
@@ -22,7 +22,7 @@ import { leafReach, maxLeafRadius, onTopDistance, scaledLeafCount, stampLimit } 
 type Tri = [number[], number[], number[]];
 
 /** One worm placement: its spine (x, z), the map as the GPU sees it, and where the map's corner is. */
-interface Placement { pts: number[][]; sample: MapSampler; ox: number; oz: number }
+interface Placement { pts: number[][]; sample: MapSampler; ox: number; oz: number; spine: Float32Array }
 
 /**
  * Lays the real worm, `count` times, anywhere (random place, heading and curve: it is always buried
@@ -41,7 +41,7 @@ function clearance(count: number, leaves: (pl: Placement, emit: (t: Tri) => void
   const m = createDisturbance();
   const near = new Uint8Array(DIST_N * DIST_N * 4);
   const trail = new Uint8Array(DIST_N * DIST_N * 2);
-  const pl: Placement = { pts, sample: packedMapSampler(near, trail), ox: 0, oz: 0 };
+  const pl: Placement = { pts, sample: packedMapSampler(near, trail), ox: 0, oz: 0, spine };
   const buckets = new Map<string, number[]>();
   let placements = 0;
   let failed = 0;
@@ -157,9 +157,9 @@ describe('the drape on the real litter and the real worm', () => {
     expect(r.worst).toBeLessThan(-0.1);
   }, 120000);
 
-  it('so does every detail leaf, placed around the head as the GPU places it (400 placements)', () => {
-    const count = scaledLeafCount(PRESETS.ultra.detail);
-    const detail = buildDetailLeaves(count);
+  it('every leaf in the worm\'s pocket clears its body by 5 mm, placed round the head and draped as the GPU does (400 placements)', () => {
+    const count = scaledLeafCount(PRESETS.ultra.detail * POCKET_SHARE);
+    const detail = buildDetailLeaves(count, 5, true);
     // A detail leaf's radius is at most 0.385 m at base size, times the biggest real-size growth.
     const reach = 0.9 + 0.39 * Math.max(...Object.values(REAL_SCALE.leaf));
     const g = detail.mesh.geometry;
@@ -190,8 +190,9 @@ describe('the drape on the real litter and the real worm', () => {
     const lp = [0, 0, 0];
     const dv = [0, 0, 0, 0];
     let near = 0;
-    const r = clearance(400, ({ pts, sample, ox, oz }, emit) => {
+    const r = clearance(400, ({ pts, sample, ox, oz, spine }, emit) => {
       // The head is the focus; the layer wraps around it snapped to the 1 m grid.
+      inp.spine = spine;
       inp.focusX = pts[0][0];
       inp.focusZ = pts[0][1];
       inp.wrapX = Math.round(pts[0][0]);
@@ -211,7 +212,7 @@ describe('the drape on the real litter and the real worm', () => {
           lp[0] = pos.getX(v);
           lp[1] = pos.getY(v);
           lp[2] = pos.getZ(v);
-          detailVertex(inp, dv, lp, leaf2.getY(v), placed[v - v0], a4);
+          detailVertex(inp, dv, lp, leaf2.getY(v), placed[v - v0], a4, true);
           // dip is 0: the curl only lifts a detail leaf off its rest plane. A leaf shrunk to
           // nothing skips the drape, as the shader does.
           if (a4[2] > 0) disturbVertex(sample, ox, oz, true, placed[v - v0], a4, 0, placed[v - v0]);
@@ -228,7 +229,7 @@ describe('the drape on the real litter and the real worm', () => {
       }
     });
     expect(r.placements).toBe(400);
-    expect(near).toBeGreaterThan(400 * 12);
+    expect(near).toBeGreaterThan(400 * 6);
     expect(r.covered).toBeGreaterThan(10000);
     expect({ failed: r.failed, worst: r.worst }).toEqual({ failed: 0, worst: expect.any(Number) });
   }, 180000);

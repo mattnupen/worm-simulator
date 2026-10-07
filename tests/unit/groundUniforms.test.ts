@@ -30,6 +30,14 @@ describe('groundUniforms', () => {
 });
 
 describe('createLeafMaterial', () => {
+  it('the leaves in the worm\'s pocket read the shared disturbance map (both textures)', () => {
+    const m = createLeafMaterial('pocket');
+    expect(m.defines).toHaveProperty('DISTURB');
+    expect(m.defines).toHaveProperty('POCKET');
+    expect(m.uniforms.uDisturbTrail).toBe(groundUniforms.uDisturbTrail);
+    expect(m.uniforms.uLightDir).toBe(sharedLighting.uLightDir);
+    expect(m.vertexShader).toContain('disturb(wp.xyz, anchor');
+  });
   it('the top leaves (litter and detail) lie above the buried worm: they fade over it, but never move', () => {
     for (const v of ['litter', 'detail'] as const) {
       const m = createLeafMaterial(v);
@@ -47,7 +55,7 @@ describe('createLeafMaterial', () => {
 describe('leaf occluder fade', () => {
   it('is on for every leaf layer over or round the worm, the ground (the top of the litter) and Ultra\'s near clutter, off for the falling leaves', () => {
     const faded = [
-      ...(['litter', 'detail', 'hero'] as const).map((v) => createLeafMaterial(v)), createPropMaterial(true),
+      ...(['litter', 'detail', 'pocket', 'hero'] as const).map((v) => createLeafMaterial(v)), createPropMaterial(true),
       createPaintedMaterial({ color: '#ffffff', occlude: true }),
     ];
     for (const m of faded) {
@@ -61,7 +69,7 @@ describe('leaf occluder fade', () => {
   });
   it('takes every derivative before the fade\'s discard (after a discard they are undefined on some drivers)', () => {
     const faded = [
-      ...(['litter', 'detail', 'hero'] as const).map((v) => createLeafMaterial(v)), createPropMaterial(true),
+      ...(['litter', 'detail', 'pocket', 'hero'] as const).map((v) => createLeafMaterial(v)), createPropMaterial(true),
       createPaintedMaterial({ color: '#ffffff', occlude: true }),
     ];
     for (const m of faded) {

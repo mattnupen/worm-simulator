@@ -23,7 +23,8 @@ import { OCCLUDE_GLSL } from './occlusion';
  * each as a rigid piece about aAnchor (centre x, centre z, radius, rest height above the ground);
  * aDip is how far a vertex lies below its leaf's rest plane.
  * With DETAIL defined, aDetail (home x, z in the wrap tile, yaw, radius) places each leaf of the
- * close-up layer around the worm in the vertex shader, which also gives its anchor (and no dip).
+ * close-up layer around the worm in the vertex shader, which also gives its anchor (and no dip):
+ * on the top of the litter, or with POCKET in the litter round the buried worm (detailGlsl.ts).
  * With HERO defined it is the instanced hero-leaf mesh (instanceMatrix, instanceColor tint).
  * With OCCLUDE defined, leaf pixels between the camera and the worm's body drop out in a fixed
  * screen-space dither (occlusion.ts), so the worm stays readable without a transparent pass.
@@ -248,11 +249,12 @@ const fragmentShader = /* glsl */ `
 /**
  * Which leaves: litter chunks near the worm ('litter': they fade over it), other full-leaf litter
  * chunks ('plain'), distant low-detail litter ('far'), the close-up top leaves ('detail': they
- * fade), the falling leaves (animated), or the hero leaves (instanced, moved by their own physics).
- * The litter swaps between the first three per chunk, never recompiling. The top leaves lie 2 to
- * 5 cm above the worm (V2 spec 8.2), so the disturbance map no longer moves them.
+ * fade), the leaves in the buried worm's pocket ('pocket': they drape and slide by the disturbance
+ * map, and fade), the falling leaves (animated), or the hero leaves (instanced, moved by their own
+ * physics). The litter swaps between the first three per chunk, never recompiling. The top leaves
+ * lie 2 to 5 cm above the worm (V2 spec 8.2), so only the pocket's leaves react to it.
  */
-export type LeafVariant = 'litter' | 'plain' | 'far' | 'falling' | 'detail' | 'hero';
+export type LeafVariant = 'litter' | 'plain' | 'far' | 'falling' | 'detail' | 'pocket' | 'hero';
 
 const DEFINES: Record<LeafVariant, Record<string, string>> = {
   litter: { OCCLUDE: '' },
@@ -260,6 +262,7 @@ const DEFINES: Record<LeafVariant, Record<string, string>> = {
   far: { LOD: '' },
   falling: { FALLING: '' },
   detail: { DETAIL: '', OCCLUDE: '' },
+  pocket: { DETAIL: '', POCKET: '', DISTURB: '', OCCLUDE: '' },
   hero: { HERO: '', OCCLUDE: '' },
 };
 
@@ -268,8 +271,9 @@ export function createLeafMaterial(variant: LeafVariant = 'litter'): THREE.Shade
     uniforms: {
       ...sharedLighting,
       ...groundUniforms,
-      // Only the detail layer needs the baked litter and ground, so only it pays for building them.
-      ...(variant === 'detail' ? { uLitter: { value: getLitterTexture() }, uGround: { value: getGroundTexture() } } : {}),
+      // Only the detail layers need the baked litter and ground, so only they pay for building them.
+      ...(variant === 'detail' || variant === 'pocket'
+        ? { uLitter: { value: getLitterTexture() }, uGround: { value: getGroundTexture() } } : {}),
     },
     defines: { ...DEFINES[variant] },
     vertexShader,

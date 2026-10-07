@@ -33,7 +33,7 @@ const STRIDE = 16;
 /** Float32 on the GPU, approximate sin/cos: 0.2 mm is far below anything visible. */
 const TOLERANCE = 2e-4;
 
-interface Case { focus: [number, number]; dist: number[]; trail: number[]; origin: [number, number]; fade: number[] }
+interface Case { focus: [number, number]; dist: number[]; trail: number[]; origin: [number, number]; fade: number[]; spine: number[] }
 
 /**
  * A narrower window (uDistFade) than the game's, where leaves fade out from 3.4 to 3.88 m (V1's
@@ -65,15 +65,15 @@ function worm(hx: number, hz: number, yaw: number, curve: number, fade: readonly
   // The head a little off the 1 m snap, so the wrap centre and the focus differ.
   return {
     focus: [hx + 0.13, hz - 0.27], dist: Array.from(near), trail: Array.from(trail), origin: [m.ci * DIST_CELL, m.cj * DIST_CELL],
-    fade: [...fade],
+    fade: [...fade], spine: pts.flatMap(([x, z]) => [x, 0.03, z]),
   };
 }
 
 
-test('detail placement, meshGround and disturb run on the GPU as their TS twins say', async ({ page }) => {
+for (const pocket of [false, true]) test(`detail placement (${pocket ? 'in the worm\'s pocket, on the floor' : 'on the top of the litter, meshGround'}) and disturb run on the GPU as their TS twins say`, async ({ page }) => {
   const litter = litterTextureData();
   const ground = groundTextureData();
-  const g = buildDetailLeaves(2500).mesh.geometry;
+  const g = buildDetailLeaves(2500, pocket ? 5 : 3, pocket).mesh.geometry;
   const pos = g.getAttribute('position');
   const det = g.getAttribute('aDetail');
   const leaf2 = g.getAttribute('aLeaf2');
@@ -176,6 +176,7 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
       gl.uniform2f(U('uDistFade'), c.fade[0], c.fade[1]);
       gl.uniform3f(U('uFocus'), c.focus[0], 0, c.focus[1]);
       gl.uniform2f(U('uWrapCentre'), Math.round(c.focus[0]), Math.round(c.focus[1]));
+      if (U('uSpine[0]')) gl.uniform3fv(U('uSpine[0]'), new Float32Array(c.spine));
       const bufs = [0, 1, 2].map((i) => {
         const b = gl.createBuffer();
         gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, b);
@@ -195,7 +196,7 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
       });
     });
   }, {
-    glsl: `${DETAIL_GLSL}\n${DISTURB_GLSL}`, litter: Array.from(litter), litterN: LITTER_TEX_N,
+    glsl: `${pocket ? '#define POCKET\n' : ''}${DETAIL_GLSL}\n${DISTURB_GLSL}`, litter: Array.from(litter), litterN: LITTER_TEX_N,
     ground: Array.from(ground), groundN: GROUND_TEX_N, inputs, cases, stride: STRIDE, distN: DIST_N,
   });
 
@@ -208,6 +209,7 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
     const sample = packedMapSampler(c.dist, c.trail);
     const inp: DetailInputs = {
       focusX: c.focus[0], focusZ: c.focus[1], wrapX: Math.round(c.focus[0]), wrapZ: Math.round(c.focus[1]), litter, ground,
+      spine: c.spine,
     };
     let worst = 0;
     let shown = 0;
@@ -215,7 +217,7 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
     let gone = 0;
     for (let k = 0; k < n; k++) {
       const I = inputs.slice(k * STRIDE, k * STRIDE + STRIDE);
-      const shade = detailVertex(inp, I.slice(0, 4), I.slice(4, 7), I[9], w, a);
+      const shade = detailVertex(inp, I.slice(0, 4), I.slice(4, 7), I[9], w, a, pocket);
       p[0] = w[0];
       p[1] = w[1];
       p[2] = w[2];
@@ -238,8 +240,9 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
     }
     expect(Number.isFinite(worst), `case ${ci}`).toBe(true);
     expect(worst, `case ${ci}: worst |GPU - TS|`).toBeLessThan(TOLERANCE);
-    // The sample is real: leaves near and far, and the drape moved some.
-    expect(shown, `case ${ci}`).toBeGreaterThan(n / 2);
+    // The sample is real: leaves near and far (the pocket keeps only those round the body), and the
+    // drape moved some.
+    expect(shown, `case ${ci}`).toBeGreaterThan(pocket ? n / 20 : n / 2);
     expect(gone, `case ${ci}`).toBeGreaterThan(n / 10);
     expect(moved, `case ${ci}`).toBeGreaterThan(200);
   });

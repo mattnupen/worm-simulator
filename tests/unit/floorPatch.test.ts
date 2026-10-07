@@ -127,7 +127,7 @@ describe('the floor under the buried worm (V2 spec 8.2)', () => {
     expect(POCKET_ORDER).toBeLessThan(FLOOR_ORDER);
   });
 
-  it('is in the world, with the worm and the hero leaves drawn after the top of the litter', () => {
+  it('is in the world, with the worm, the hero leaves and the pocket\'s leaves drawn after the top of the litter', () => {
     const crawl = new Crawl();
     const world = buildWorld(crawl);
     world.apply(PRESETS.ultra);
@@ -140,6 +140,7 @@ describe('the floor under the buried worm (V2 spec 8.2)', () => {
     expect(named('floorPatch').renderOrder).toBe(FLOOR_ORDER);
     expect(named('worm').renderOrder).toBe(POCKET_ORDER);
     expect(named('heroLeaves').renderOrder).toBe(POCKET_ORDER);
+    expect(world.pocket.built!.mesh.renderOrder).toBe(POCKET_ORDER);
     // The top leaves lie on the top of the litter: drawn before it, as in V1.
     expect(world.detail.built!.mesh.renderOrder).toBeLessThan(GROUND_ORDER);
   });

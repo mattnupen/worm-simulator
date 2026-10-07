@@ -3,6 +3,7 @@ import { buildDetailLeaves, buildDetailLayer } from '../../src/surface/detailLea
 import { DETAIL_BOX, DETAIL_FADE_OUT } from '../../src/render/detailGlsl';
 import { PRESETS } from '../../src/render/graphics';
 import { scaledLeafCount } from '../../src/surface/leafScale';
+import { GROUND_ORDER, POCKET_ORDER } from '../../src/render/drawOrder';
 
 describe('detail leaves', () => {
   const d = buildDetailLeaves(300);
@@ -97,5 +98,35 @@ describe('the lazily built detail layer', () => {
     expect(d.built).toBe(built);
     expect(g.drawRange.count).toBe(g.index!.count);
     expect(d.group.children).toHaveLength(1);
+  });
+});
+
+describe('the pocket\'s leaves (round the buried worm, V2 spec 8.2)', () => {
+  const p = buildDetailLeaves(200, 5, true);
+  const top = buildDetailLeaves(200, 5);
+
+  it('react to the worm and fade over it, and draw after the top of the litter', () => {
+    expect(p.mesh.material).toHaveProperty('defines.POCKET');
+    expect(p.mesh.material).toHaveProperty('defines.DISTURB');
+    expect(p.mesh.material).toHaveProperty('defines.OCCLUDE');
+    expect(p.mesh.renderOrder).toBe(POCKET_ORDER);
+    expect(POCKET_ORDER).toBeGreaterThan(GROUND_ORDER);
+    expect(top.mesh.renderOrder).toBeLessThan(GROUND_ORDER);
+  });
+
+  it('are older the lower they lie: darker than the same leaves on top', () => {
+    const lum = (m: typeof p) => {
+      const c = m.mesh.geometry.getAttribute('aColor');
+      const layer = m.mesh.geometry.getAttribute('aLeaf2');
+      let low = 0;
+      let n = 0;
+      for (let v = 0; v < c.count; v++) {
+        if (layer.getY(v) > 0.3) continue;
+        low += c.getX(v) + c.getY(v) + c.getZ(v);
+        n++;
+      }
+      return low / n;
+    };
+    expect(lum(p)).toBeLessThan(lum(top) * 0.6);
   });
 });

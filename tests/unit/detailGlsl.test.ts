@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { detailVertex, DETAIL_BOX, DETAIL_FADE_OUT, DETAIL_GLSL, type DetailInputs } from '../../src/render/detailGlsl';
+import { detailVertex, DETAIL_BOX, DETAIL_FADE_OUT, DETAIL_GLSL, POCKET_FAR, type DetailInputs } from '../../src/render/detailGlsl';
+import { spineDistance } from '../../src/render/nearClutterGlsl';
 import { litterTextureData } from '../../src/render/litterTexture';
 import { bakedGroundHeight, groundTextureData } from '../../src/render/groundTexture';
 import { buildDetailLeaves } from '../../src/surface/detailLeaves';
+import { floorHeight, litterTopHeight } from '../../src/surface/litterDepth';
+import { BELLY_UNDER } from '../../src/worm/surfaceHeight';
 
 describe('detail leaf placement (TS twin of detailPosition)', () => {
   const inp: DetailInputs = { focusX: 0, focusZ: 0, wrapX: 0, wrapZ: 0, litter: litterTextureData(), ground: groundTextureData() };
@@ -137,7 +140,70 @@ describe('detail leaf placement (TS twin of detailPosition)', () => {
 
   it('has a GLSL twin that reads the same textures and gives the same anchor', () => {
     expect(DETAIL_GLSL).toContain('wrapAround(aDetail.xy, uWrapCentre, 13.0000000)');
-    expect(DETAIL_GLSL).toContain('meshGround(xz) + rest + p.y');
+    expect(DETAIL_GLSL).toContain('float ground = meshGround(xz);');
+    expect(DETAIL_GLSL).toContain('float ground = terrainHeight(xz);');
+    expect(DETAIL_GLSL).toContain('return vec4(xz.x, ground + rest + p.y, xz.y, 1.0);');
     expect(DETAIL_GLSL).toContain('anchor = vec4(home, r, rest)');
+  });
+});
+
+describe('the pocket\'s leaves (round the buried worm, V2 spec 8.2)', () => {
+  const inp: DetailInputs = { focusX: 0, focusZ: 0, wrapX: 0, wrapZ: 0, litter: litterTextureData(), ground: groundTextureData() };
+  const g = buildDetailLeaves(300, 5, true).mesh.geometry;
+  const pos = g.getAttribute('position');
+  const det = g.getAttribute('aDetail');
+  const leaf2 = g.getAttribute('aLeaf2');
+  const out = [0, 0, 0];
+  const anchor = [0, 0, 0, 0];
+  const d4 = [0, 0, 0, 0];
+  const p3 = [0, 0, 0];
+
+  /** A straight spine from the head at (x, z) heading +z. */
+  const straight = (x: number, z: number) => Float32Array.from({ length: 48 }, (_, k) => (k % 3 === 0 ? x : k % 3 === 1 ? 0 : z - Math.floor(k / 3) * 0.22));
+
+  it('are only round the body: shrunk to nothing past POCKET_FAR from the spine', () => {
+    inp.focusX = 0.3; inp.focusZ = -0.2; inp.wrapX = 0; inp.wrapZ = 0;
+    inp.spine = straight(0.3, -0.2);
+    let kept = 0;
+    for (let v = 0; v < pos.count; v++) {
+      d4[0] = det.getX(v); d4[1] = det.getY(v); d4[2] = det.getZ(v); d4[3] = det.getW(v);
+      p3[0] = pos.getX(v); p3[1] = pos.getY(v); p3[2] = pos.getZ(v);
+      detailVertex(inp, d4, p3, leaf2.getY(v), out, anchor, true);
+      const d = spineDistance(inp.spine, anchor[0], anchor[1]);
+      if (d >= POCKET_FAR) expect(anchor[2]).toBe(0);
+      else if (anchor[2] > 0) kept++;
+    }
+    expect(kept).toBeGreaterThan(20);
+    expect(DETAIL_GLSL).toContain('spineDistance(home)');
+  });
+
+  it('lie in the litter over the floor, from the worm\'s belly up, and never show through its top', () => {
+    let low = 0;
+    let high = 0;
+    // The last four lie along the world's edges, where the leaves reach past them (litterTexture.ts EDGE_REACH).
+    for (const [fx, fz] of [[0.3, -0.2], [2.2, 6.5], [-12.4, 9.8], [15.2, -16.7], [18.9, 4], [-18.9, -12], [7, 18.9], [-3, -15.7]]) {
+      inp.focusX = fx;
+      inp.focusZ = fz;
+      inp.wrapX = Math.round(fx);
+      inp.wrapZ = Math.round(fz);
+      inp.spine = straight(fx, fz);
+      for (let v = 0; v < pos.count; v++) {
+        d4[0] = det.getX(v); d4[1] = det.getY(v); d4[2] = det.getZ(v); d4[3] = det.getW(v);
+        p3[0] = pos.getX(v); p3[1] = pos.getY(v); p3[2] = pos.getZ(v);
+        detailVertex(inp, d4, p3, leaf2.getY(v), out, anchor, true);
+        if (anchor[2] === 0) continue;
+        // On the floor (where the worm's belly rests), at or above the leaf's rest plane.
+        expect(out[1] - floorHeight(out[0], out[2]) - anchor[3]).toBeGreaterThanOrEqual(-1e-9);
+        expect(anchor[3]).toBeGreaterThan(0.007);
+        // Below the top of the litter as drawn (whose grid can sit up to 0.17 under the depth
+        // the leaves read): never showing through it.
+        expect(litterTopHeight(out[0], out[2]) - out[1]).toBeGreaterThan(0.02);
+        if (anchor[3] < BELLY_UNDER + 0.1) low++;
+        if (anchor[3] > 0.2) high++;
+      }
+    }
+    // Most lie low, round the worm; some higher, over it.
+    expect(low).toBeGreaterThan(high);
+    expect(high).toBeGreaterThan(10);
   });
 });

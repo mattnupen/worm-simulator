@@ -21,11 +21,27 @@ export interface FadeFrame {
  * nothing.
  */
 export function ballMayFade(f: FadeFrame, x: number, y: number, z: number, r: number): boolean {
+  if (f.count === 0) return false;
+  const v = f.view;
+  const d = -(v[2] * x + v[6] * y + v[10] * z + v[14]);
+  // Wholly behind the whole body: nothing to fade.
+  if (d - r >= f.far - OCC_FRONT) return false;
+  return ballInHole(f, x, y, z, r);
+}
+
+/**
+ * Whether the ball at world (x, y, z), radius r, may show through the hole over the worm: some
+ * point of it lies, on screen, within OCC_REACH of one of the body's segments in occlusion()'s
+ * measure, where the top of the litter in front of it may fade, at any depth (ballMayFade without
+ * its depth test). What lies under the top of the litter (the worm's pocket) and is rejected here
+ * is hidden by it on every pixel. Conservative, as ballMayFade. Allocates nothing.
+ */
+export function ballInHole(f: FadeFrame, x: number, y: number, z: number, r: number): boolean {
   const { view, seg, count } = f;
   if (count === 0) return false;
   const d = -(view[2] * x + view[6] * y + view[10] * z + view[14]);
-  // Wholly behind the camera, or wholly behind the whole body: nothing to fade.
-  if (d + r < 0.05 || d - r >= f.far - OCC_FRONT) return false;
+  // Wholly behind the camera.
+  if (d + r < 0.05) return false;
   const near = d - r;
   if (near < 0.05) return true;
   const tx = (view[0] * x + view[4] * y + view[8] * z + view[12]) / d;
