@@ -17,6 +17,16 @@ How to write an entry (for Matt and Claude):
 
 ### New
 - The Start screen shows which version you are playing: V2 · Underground.
+- **Deeper leaves.** The fallen leaves are 2 to 5 cm deep now, more like a real forest floor in
+  fall. They pile up deeper in hollows, against logs and trees and where the wind blew them, and
+  they are thinner on bumps.
+- **Your worm travels inside the leaves**, not on top of them. The leaves above it fade so you can
+  still see it, down in the dark, damp old leaves where it crawls.
+- **The Action button.** When your worm can do something special, a big button shows up in the
+  bottom right corner with a picture and a word. Press Space, or tap the button on a touch screen.
+- **Real size for good.** After V1, your teacher chose to keep True size, so the World scale
+  button is gone. Every leaf, rock and tree is as big as it really is next to your worm. (V1 still
+  has the button.)
 
 ## V1 · True Size (2026-10-06)
 
