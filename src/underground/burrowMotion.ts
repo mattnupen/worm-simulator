@@ -33,6 +33,22 @@ const BODY_DIG = TUNNEL_R * 0.85;
  * eats it (at the tail itself the next step's dig ate about 44% of each one).
  */
 const CAST_BACK = BODY_DIG + CAST_R + 0.02;
+/**
+ * Where a casting finds no open tunnel to settle in (the tail swinging round a sharp turn, or an
+ * earlier casting already there), it is tried again as the tail moves on, for up to this far,
+ * until at least CAST_MIN cells fill.
+ */
+const CAST_WINDOW = 0.8;
+const CAST_MIN = 2;
+/**
+ * The head eases to a stop within this of the slab's ends, its bottom and the line TOP_KEEP under
+ * the leaves' top: only its motion toward that limit slows (smoothly, from nothing at the band's
+ * edge), so it still slides along it. A one-frame stop there read as a glass wall.
+ */
+const WALL_BAND = 0.35;
+/** The head's limits: this far inside the playable slab's ends, and above the slab's bottom. */
+const END_KEEP = 0.2;
+const BOTTOM_KEEP = 0.3;
 const MAX_NECK_BEND = 1.3;
 /** Peristalsis runs this much faster per unit moved while eating (spec 6). */
 const EAT_WAVES = 1.9;
@@ -72,6 +88,8 @@ export interface Burrower {
   eat: number;
   /** Distance moved since the last casting. */
   sinceCast: number;
+  /** How much farther the latest casting may still be tried (0: it landed, or none is due). */
+  castLeft: number;
   /** How much of what it ate lately was leaves (0..1): darker castings. */
   gut: number;
   /** The head is near the litter (Action = Come up). */
@@ -84,7 +102,7 @@ export function createBurrower(): Burrower {
     u: new Float64Array(n), v: new Float64Array(n), prevU: new Float64Array(n), prevV: new Float64Array(n),
     dir: -Math.PI / 2, prevDir: -Math.PI / 2, speed: 0, want: 0,
     wave: { phase: 0, activity: 0 }, prevWave: { phase: 0, activity: 0 },
-    eating: false, eat: 0, sinceCast: 0, gut: 0.5, nearTop: false,
+    eating: false, eat: 0, sinceCast: 0, castLeft: 0, gut: 0.5, nearTop: false,
   };
 }
 
@@ -101,10 +119,16 @@ export function placeBurrower(b: Burrower, us: ArrayLike<number>, vs: ArrayLike<
   b.eating = false;
   b.eat = 0;
   b.sinceCast = 0;
+  b.castLeft = 0;
   b.nearTop = false;
 }
 
 const wrap = (a: number): number => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
+/** How much of a move toward a limit `room` away is kept: 1 from WALL_BAND out, easing to 0 at it. */
+function roomFor(room: number): number {
+  const t = Math.min(1, Math.max(0, room / WALL_BAND));
+  return t * t * (3 - 2 * t);
+}
 const p = { u: 0, v: 0 };
 const ate: Eaten = { cells: 0, organic: 0 };
 /** What soilAhead felt: the speed it allows, and the share of it that is fresh soil. */
@@ -172,9 +196,17 @@ export function stepBurrower(b: Burrower, s: Slab, g: SoilGrid, o: Solids, du: n
   b.speed += (b.want - b.speed) * (1 - Math.exp(-SPEED_RATE * dt));
   b.eat += (fresh - b.eat) * (1 - Math.exp(-EAT_RATE * dt));
   b.eating = b.eat > 0.5;
-  // Inside the slab, under the leaves' top, out of stones and roots.
-  b.u[0] = Math.max(s.playLo + 0.2, Math.min(s.playHi - 0.2, b.u[0] + Math.cos(b.dir) * b.speed * dt));
-  b.v[0] = Math.max(s.bottom + 0.3, b.v[0] + Math.sin(b.dir) * b.speed * dt);
+  // Inside the slab and under the leaves' top, easing to a stop at them; out of stones and roots.
+  const lo = s.playLo + END_KEEP;
+  const hi = s.playHi - END_KEEP;
+  const h0 = b.u[0];
+  const v0 = b.v[0];
+  let mu = Math.cos(b.dir) * b.speed * dt;
+  let mv = Math.sin(b.dir) * b.speed * dt;
+  mu *= roomFor(mu > 0 ? hi - h0 : h0 - lo);
+  mv *= roomFor(mv > 0 ? boundaryAt(s, B_TOP, h0) - TOP_KEEP - v0 : v0 - s.bottom - BOTTOM_KEEP);
+  b.u[0] = Math.max(lo, Math.min(hi, h0 + mu));
+  b.v[0] = Math.max(s.bottom + BOTTOM_KEEP, v0 + mv);
   keepOut(s, o, b, 0, true);
   const moved = Math.hypot(b.u[0] - b.prevU[0], b.v[0] - b.prevV[0]);
   digDisc(g, b.u[0], b.v[0], TUNNEL_R, ate);
@@ -194,10 +226,17 @@ export function stepBurrower(b: Burrower, s: Slab, g: SoilGrid, o: Solids, du: n
   b.sinceCast += moved;
   if (b.sinceCast >= CAST_EVERY) {
     b.sinceCast = 0;
+    b.castLeft = CAST_WINDOW;
+  } else if (b.castLeft > 0) {
+    // The window is measured by the tail: a head turning back moves without pulling it along.
+    b.castLeft = Math.max(0, b.castLeft - Math.hypot(b.u[n - 1] - b.prevU[n - 1], b.v[n - 1] - b.prevV[n - 1]));
+  }
+  if (b.castLeft > 0) {
     const tu = b.u[n - 1] - b.u[n - 2];
     const tv = b.v[n - 1] - b.v[n - 2];
     const tl = Math.hypot(tu, tv) || 1;
-    castBlob(g, b.u[n - 1] + (tu / tl) * CAST_BACK, b.v[n - 1] + (tv / tl) * CAST_BACK, CAST_R, 90 + 160 * b.gut, tu, tv);
+    const filled = castBlob(g, b.u[n - 1] + (tu / tl) * CAST_BACK, b.v[n - 1] + (tv / tl) * CAST_BACK, CAST_R, 90 + 160 * b.gut, tu, tv);
+    if (filled >= CAST_MIN) b.castLeft = 0;
   }
   const full = Math.max(0.3, target);
   advanceWave(b.wave, moved * (1 + (EAT_WAVES - 1) * b.eat), dt, full, WAVES_PER_UNIT, BREATH_HZ);

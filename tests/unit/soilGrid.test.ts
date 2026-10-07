@@ -328,6 +328,19 @@ describe('the soil grid (spec 10)', () => {
     expect([dirty.lo, dirty.hi]).toEqual([lo, hi]);
   });
 
+  it('castBlob returns how many cells it filled: none in fresh soil or over an earlier cast', () => {
+    const v = mid(B_A, 1);
+    expect(castBlob(g, 1, v, 0.15, 100, 1, 0)).toBe(0);
+    for (let u = 0; u <= 2; u += 0.05) digDisc(g, u, v, 0.14, eaten);
+    const before = g.cast.slice();
+    const n = castBlob(g, 1, v, 0.15, 100, 1, 0);
+    let filled = 0;
+    for (let i = 0; i < g.cast.length; i++) if (g.cast[i] && !before[i]) filled++;
+    expect(n).toBeGreaterThanOrEqual(2);
+    expect(n).toBe(filled);
+    expect(castBlob(g, 1, v, 0.15, 100, 1, 0)).toBe(0);
+  });
+
   it('packs rows as RGBA: open, castings, mixed, damp', () => {
     const bytes = new Uint8Array(GRID_W * GRID_H * 4);
     const v = mid(B_H, 0);

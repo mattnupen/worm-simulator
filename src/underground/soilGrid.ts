@@ -198,10 +198,11 @@ function mixRing(g: SoilGrid, u: number, v: number, r: number): void {
  * its cell centres always form a 4-connected path at any angle: a cast never seals a 2 to 3 cell
  * tunnel. Below the band the cells fill, with a grainy fringe at its edge: about 45 to 65% of the
  * tunnel's cells in the cast. A vertical tunnel keeps its -u side open. `shade` 1..255: how dark (organic food makes darker casts); NaN gives a default.
- * Allocates nothing. The burrower leaves each cast just past its tail's own dig
- * (burrowMotion.ts CAST_BACK), so its body never eats a new one.
+ * Returns how many cells it filled (0 where no open tunnel lies under it). Allocates nothing. The
+ * burrower leaves each cast just past its tail's own dig (burrowMotion.ts CAST_BACK), so its body
+ * never eats a new one.
  */
-export function castBlob(g: SoilGrid, u: number, v: number, r: number, shade: number, dirU: number, dirV: number): void {
+export function castBlob(g: SoilGrid, u: number, v: number, r: number, shade: number, dirU: number, dirV: number): number {
   // Unit normal pointing UP off the tunnel's axis, so "up" is the open side: (mu, mv) with mv >= 0
   // (for a vertical tunnel, the -u side is open). The filled side is the opposite.
   // Only cells on the open side of `open` (distance across the axis) stay open.
@@ -221,6 +222,7 @@ export function castBlob(g: SoilGrid, u: number, v: number, r: number, shade: nu
   const c1 = Math.min(GRID_W - 1, colOf(u + r));
   const r0 = Math.max(0, rowOf(g, v - r));
   const r1 = Math.min(GRID_H - 1, rowOf(g, v + r));
+  let filled = 0;
   const s = Number.isFinite(shade) ? Math.max(1, Math.min(255, Math.round(shade))) : DEFAULT_SHADE;
   for (let row = r0; row <= r1; row++) {
     const dv = cellV(g, row) - v;
@@ -234,8 +236,10 @@ export function castBlob(g: SoilGrid, u: number, v: number, r: number, shade: nu
       if (!g.open[i] || g.cast[i]) continue;
       if (d >= open - CAST_FRINGE && cellHash(i) >= CAST_FILL) continue;
       g.cast[i] = s;
+      filled++;
       changed = true;
     }
     if (changed) touch(g, row);
   }
+  return filled;
 }
