@@ -237,6 +237,19 @@ export function disturbVertex(
 }
 
 /**
+ * The most disturb() (disturbVertex) moves any vertex within `r` across of the centre of a leaf
+ * of radius `r` (dip 0, rest 0 or more), when the map's path and body nearness read at most `path`
+ * and `body` at its centre, with `slack` for the map's packing and rounding. out[0]: the slide out
+ * of the worm's path in x, z (FURROW_HALF + r less how far the path reads, at most PUSH_SLIDE).
+ * out[1]: the rise, only where the body reads within DRAPE_FOOT of the leaf's near edge: the
+ * drape's height plus up to r + DRAPE_FLAT more from the tilt about its far edge. Writes `out`.
+ */
+export function disturbBound(r: number, path: number, body: number, slack: number, out: number[]): void {
+  out[0] = Math.min(PUSH_SLIDE, Math.max(0, FURROW_HALF + r - (1 - path) * DIST_REACH + slack));
+  out[1] = (1 - body) * DIST_REACH - r < DRAPE_FOOT + slack ? DRAPE_HEIGHT + r + DRAPE_FLAT : 0;
+}
+
+/**
  * Fragment GLSL for the ground: trailShade(xz) darkens the soil within FURROW_HALF of a fresh path
  * (seen where the leaves have parted), fading with the trail. One fetch, taken before any branch
  * (so its filtering never depends on neighbouring pixels' branches); none when leaves do not react.

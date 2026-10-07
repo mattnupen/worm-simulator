@@ -5,8 +5,8 @@ import { ballInHole, ballMayFade, type FadeFrame } from '../render/fadeBall';
 import {
   detailVertex, POCKET_AHEAD, POCKET_BEHIND, POCKET_BOX, POCKET_FAR, type DetailInputs,
 } from '../render/detailGlsl';
-import { DRAPE_FLAT, DRAPE_FOOT, DRAPE_HEIGHT, FURROW_HALF, PUSH_SLIDE } from '../render/leafGlsl';
-import { DIST_CELL, DIST_N, DIST_REACH, type DisturbanceMap } from './disturbance';
+import { disturbBound } from '../render/leafGlsl';
+import { DIST_CELL, DIST_N, type DisturbanceMap } from './disturbance';
 import { FLOOR_SLOPE } from '../render/floorMaterial';
 import { SPINE_POINTS } from '../render/groundUniforms';
 import { getLitterTexture } from '../render/litterTexture';
@@ -16,6 +16,7 @@ import { wrapAround } from '../render/wrap';
 /** Far above the map's 16-bit packing (0.06 mm) and float rounding (m). */
 const MAP_SLACK = 0.005;
 const near2 = [0, 0];
+const bound = [0, 0];
 
 /**
  * The most the map's path and body nearness (channels 0 and 2) can read at world (x, z), as the
@@ -170,14 +171,13 @@ export function buildPocketLeaves(count: number, seed = 5): PocketLeaves {
         detailVertex(inp, d4, zero, layers[p], centre, anchor, true);
         const r = anchor[2];
         if (r <= 0) continue;
-        // Every vertex lies within r across of its centre, slid out of the worm's path up to
-        // FURROW_HALF + r less how far the map reads the path (at most PUSH_SLIDE), and from the
-        // floor's slope below its rest to its curl (r) and the slope above; draped (only where the
-        // map reads the body within DRAPE_FOOT of its near edge), up to the drape's height and its
-        // own reach more (pocketCap only lowers it).
+        // Every vertex lies within r across of its centre, slid out of the worm's path and draped
+        // over its body by at most disturbBound (pocketCap only lowers it), and from the floor's
+        // slope below its rest to its curl (r) and the slope above.
         nearnessMax(map, hx, hz, near2);
-        const slide = Math.min(PUSH_SLIDE, Math.max(0, FURROW_HALF + r - (1 - near2[0]) * DIST_REACH + MAP_SLACK));
-        const lift = (1 - near2[1]) * DIST_REACH - r < DRAPE_FOOT + MAP_SLACK ? DRAPE_HEIGHT + r + DRAPE_FLAT : 0;
+        disturbBound(r, near2[0], near2[1], MAP_SLACK, bound);
+        const slide = bound[0];
+        const lift = bound[1];
         const half = (r + lift) / 2 + r * FLOOR_SLOPE;
         const R = Math.hypot(r + slide, half);
         const cy = centre[1] + (r + lift) / 2;
