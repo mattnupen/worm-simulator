@@ -6,6 +6,8 @@ import { rocks } from '../../src/surface/propPlacement';
 import { terrainHeight } from '../../src/surface/terrain';
 import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
 import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
+import { CAM_OPTS } from '../../src/game/cameraClearance';
+import { pastTrunk } from './cameraPress';
 
 const DT = 1 / 60;
 const hit = { nx: 0, nz: 0 };
@@ -167,13 +169,39 @@ describe('the camera stays out of props', () => {
 });
 
 describe('the camera eases in gently past a trunk', () => {
-  /** A slanted pass by trunk `n`: aimed 3 m past it, half its footprint to one side. */
-  const pastTrunk = (n: number) => {
-    const { round } = footprints();
-    const [x, z, r] = [round[4 * n], round[4 * n + 1], round[4 * n + 2]];
-    const a = Math.atan2(x, z);
-    return { x: x + Math.sin(a) * 3 + Math.cos(a) * r * 0.5, z: z + Math.cos(a) * 3 - Math.sin(a) * r * 0.5 };
+  /** Its full distance from the head, and whether its own line to the head (at its yaw) is clear. */
+  const FREE = Math.hypot(CAM_OPTS.distance, CAM_OPTS.height);
+  const midClear = (c: Crawl) => {
+    const h = c.motion.head;
+    const y = c.cam.yaw;
+    return sightReach(
+      h.x, h.y, h.z, h.x - Math.sin(y) * CAM_OPTS.distance, h.y + CAM_OPTS.height, h.z - Math.cos(y) * CAM_OPTS.distance, 0.35,
+    ) === 1;
   };
+
+  it('brushing past a trunk with its own line clear, it barely pulls in', () => {
+    // A slanted pass by the birch, nine tenths of its footprint to the side: the birch slides past
+    // the head's side, where a side line meets it and the middle one does not.
+    const t = pastTrunk(0, -0.9);
+    const c = new Crawl();
+    let blocked = false;
+    let nearest = Infinity;
+    let pulled = 0;
+    driveTo(c, t.x, t.z, 1200, (cc) => {
+      if (!midClear(cc)) blocked = true;
+      if (blocked) return;
+      const h = cc.motion.head;
+      const p = cc.cam.pos;
+      nearest = Math.min(nearest, Math.hypot(p.x - h.x, p.y - h.y, p.z - h.z) / FREE);
+      if (cc.cameraReach < 0.99) pulled++;
+    });
+    // The case is real: a side line did pull the camera in, while its own line was clear.
+    expect(pulled).toBeGreaterThan(30);
+    // At least three quarters of its full distance (it fell to about a third before side lines
+    // were held to a floor).
+    expect(nearest).toBeGreaterThanOrEqual(0.75);
+  });
+
 
   it('a pull-in starts gently, and never snaps', () => {
     // Slanted passes by both trunks (the birch and the maple).

@@ -24,6 +24,17 @@ export function driveTo(c: Crawl, tx: number, tz: number, steps: number, each: (
 }
 
 /**
+ * Where to steer for a slanted pass by trunk `n` (0 the birch, 1 the maple): 3 m past it, seen
+ * from the spawn, and `side` times its footprint off to one side (negative: the other side).
+ */
+export function pastTrunk(n: number, side = 0.5): { x: number; z: number } {
+  const { round } = footprints();
+  const [x, z, r] = [round[4 * n], round[4 * n + 1], round[4 * n + 2]];
+  const a = Math.atan2(x, z);
+  return { x: x + Math.sin(a) * 3 + Math.cos(a) * r * side, z: z + Math.cos(a) * 3 - Math.sin(a) * r * side };
+}
+
+/**
  * Watches the camera step by step: the largest change in its step (a snap or shake shows here),
  * and the largest turn of the view from one step to the next, as drawn on the classroom's
  * 1366 x 768 screen (a flip or spin shows here).
