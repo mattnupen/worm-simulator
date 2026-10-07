@@ -54,11 +54,10 @@ describe('scene tiers', () => {
       for (const c of litter.chunks) {
         // Low detail: 6 triangles a leaf, no petiole.
         expect(c.far.geometry.index!.count).toBe(c.leaves.length * LOD_POINTS * 3);
-        // Both carry the drape's attributes.
+        // Neither carries drape attributes: the litter lies over the worm and never reacts.
         for (const m of [c.near, c.far]) {
-          const n = m.geometry.getAttribute('position').count;
-          expect(m.geometry.getAttribute('aAnchor').count).toBe(n);
-          expect(m.geometry.getAttribute('aDip').count).toBe(n);
+          expect(m.geometry.getAttribute('aAnchor')).toBeUndefined();
+          expect(m.geometry.getAttribute('aDip')).toBeUndefined();
         }
       }
     });

@@ -22,9 +22,6 @@ export const DRAPE_FLOOR_LAYER = 0.1;
 /** Everything about one litter leaf except its silhouette, worked out once at build time. */
 export interface LeafLook {
   kind: LeafKind;
-  /** World x, z of the leaf's centre: the disturbance moves the leaf as one piece about it. */
-  x: number;
-  z: number;
   /** Height of the leaf's rest plane above the rendered ground (litterTopHeight). */
   rest: number;
   /** Leaf-local (u, lift, -v) to world. */
@@ -45,8 +42,9 @@ const n: Vec3 = { x: 0, y: 0, z: 0 };
 
 /**
  * Typed buffers for a merged leaf mesh with the leaf material's attributes (position, normal,
- * aColor, aLeaf, aLeaf2, and the drape's aAnchor and aDip), filled one leaf at a time. Positions
- * are relative to an origin (a chunk's centre); aAnchor and aDip are worked out in world space.
+ * aColor, aLeaf, aLeaf2), filled one leaf at a time. Positions are relative to an origin (a
+ * chunk's centre). The litter never reacts to the worm (it lies over it), so it carries no drape
+ * attributes: only the pocket's leaves drape, from their own anchors (detailGlsl.ts).
  * `ends[i]` is the index count after leaf i, so a draw range can show any prefix of whole leaves.
  * Also keeps the world x, z box of every vertex written. Build-time only.
  */
@@ -56,8 +54,6 @@ export class LeafBuffers {
   readonly colr: Float32Array;
   readonly leaf: Float32Array;
   readonly leaf2: Float32Array;
-  readonly anchor: Float32Array;
-  readonly dip: Float32Array;
   readonly index: Uint16Array | Uint32Array;
   readonly ends: Uint32Array;
   /** World x, z box of the written vertices (min x, min z, max x, max z); empty until a write. */
@@ -72,8 +68,6 @@ export class LeafBuffers {
     this.colr = new Float32Array(verts * 4);
     this.leaf = new Float32Array(verts * 4);
     this.leaf2 = new Float32Array(verts * 2);
-    this.anchor = new Float32Array(verts * 4);
-    this.dip = new Float32Array(verts);
     this.index = verts > 65535 ? new Uint32Array(indices) : new Uint16Array(indices);
     this.ends = new Uint32Array(leaves);
   }
@@ -146,14 +140,10 @@ export class LeafBuffers {
       this.index[this.ii++] = v0 + np + 1;
       added += PETIOLE_VERTS;
     }
-    // The disturbance moves each leaf as one piece about its centre, as far out as the farthest
-    // vertex written for this shape (a low-detail leaf is not the full leaf).
-    let radius = 0;
     const box = this.box;
     for (let k = v0; k < v0 + added; k++) {
       const wx = this.pos[k * 3] + ox;
       const wz = this.pos[k * 3 + 2] + oz;
-      radius = Math.max(radius, Math.hypot(wx - look.x, wz - look.z));
       box[0] = Math.min(box[0], wx);
       box[1] = Math.min(box[1], wz);
       box[2] = Math.max(box[2], wx);
@@ -168,12 +158,6 @@ export class LeafBuffers {
       const wz = this.pos[k * 3 + 2] + oz;
       const ground = litterTopHeight(wx, wz);
       if (this.pos[k * 3 + 1] < ground) this.pos[k * 3 + 1] = ground + floor;
-      this.anchor[k * 4] = look.x;
-      this.anchor[k * 4 + 1] = look.z;
-      this.anchor[k * 4 + 2] = radius;
-      this.anchor[k * 4 + 3] = look.rest;
-      // How far this vertex lies below the leaf's rest plane over its own ground (tilt, curl, slope).
-      this.dip[k] = Math.max(0, look.rest - (this.pos[k * 3 + 1] - ground));
     }
     this.v0 += added;
     this.ends[this.count++] = this.ii;
@@ -186,8 +170,6 @@ export class LeafBuffers {
     g.setAttribute('aColor', new THREE.BufferAttribute(this.colr, 4));
     g.setAttribute('aLeaf', new THREE.BufferAttribute(this.leaf, 4));
     g.setAttribute('aLeaf2', new THREE.BufferAttribute(this.leaf2, 2));
-    g.setAttribute('aAnchor', new THREE.BufferAttribute(this.anchor, 4));
-    g.setAttribute('aDip', new THREE.BufferAttribute(this.dip, 1));
     g.setIndex(new THREE.BufferAttribute(this.index, 1));
     return g;
   }

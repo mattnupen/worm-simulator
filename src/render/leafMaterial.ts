@@ -19,12 +19,11 @@ import { OCCLUDE_GLSL } from './occlusion';
  * vein weight), aLeaf2 (lateral-vein strength, per-leaf seed).
  * With FALLING defined, aFall (seed, spin rate, box x, box z) animates each leaf down
  * through the light around the camera, looping, entirely in the vertex shader.
- * With DISTURB defined, leaves near the worm drape, slide and settle by the disturbance map,
- * each as a rigid piece about aAnchor (centre x, centre z, radius, rest height above the ground);
- * aDip is how far a vertex lies below its leaf's rest plane.
  * With DETAIL defined, aDetail (home x, z in the wrap tile, yaw, radius) places each leaf of the
- * close-up layer around the worm in the vertex shader, which also gives its anchor (and no dip):
- * on the top of the litter, or with POCKET in the litter round the buried worm (detailGlsl.ts).
+ * close-up layer around the worm in the vertex shader: on the top of the litter, or with POCKET in
+ * the litter round the buried worm (detailGlsl.ts). With DISTURB defined too (only the pocket's
+ * leaves react to the worm), each drapes, slides and settles by the disturbance map as a rigid
+ * piece about the anchor the placement gives (centre x, centre z, radius, rest height).
  * With HERO defined it is the instanced hero-leaf mesh (instanceMatrix, instanceColor tint).
  * With OCCLUDE defined, leaf pixels between the camera and the worm's body drop out in a fixed
  * screen-space dither (occlusion.ts), so the worm stays readable without a transparent pass.
@@ -73,10 +72,6 @@ const vertexShader = /* glsl */ `
   ${HERO_GLSL}
   #endif
 
-  #if defined(DISTURB) && !defined(DETAIL)
-  attribute vec4 aAnchor;
-  attribute float aDip;
-  #endif
   #ifdef DISTURB
   ${DISTURB_GLSL}
   #endif
@@ -124,11 +119,7 @@ const vertexShader = /* glsl */ `
     #endif
     #ifdef DISTURB
       vec3 nW = vNormalW;
-      #ifdef DETAIL
-        if (anchor.z > 0.0) wp.xyz = disturb(wp.xyz, anchor, 0.0, nW);
-      #else
-        wp.xyz = disturb(wp.xyz, aAnchor, aDip, nW);
-      #endif
+      if (anchor.z > 0.0) wp.xyz = disturb(wp.xyz, anchor, 0.0, nW);
       vNormalW = nW;
     #endif
     #ifdef POCKET

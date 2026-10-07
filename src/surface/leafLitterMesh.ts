@@ -145,7 +145,7 @@ function looks(leaves: readonly LeafPlacement[], seed: number): LeafLook[] {
         m.copy(flatM);
       }
     }
-    return { kind: l.kind, x: l.x, z: l.z, rest, m, q, form, inner, edge, petiole, wet, lateral, seed: seedValue };
+    return { kind: l.kind, rest, m, q, form, inner, edge, petiole, wet, lateral, seed: seedValue };
   });
 }
 

@@ -16,6 +16,9 @@ import { groundTextureData } from '../../src/render/groundTexture';
 import { PRESETS } from '../../src/render/graphics';
 import { REAL_SCALE } from '../../src/surface/realScale';
 import { leafReach, maxLeafRadius, onTopDistance, scaledLeafCount, stampLimit } from '../../src/surface/leafScale';
+import { placeLeaves } from '../../src/surface/leafLitter';
+import { litterDepth } from '../../src/surface/litterDepth';
+import { WORLD_HALF } from '../../src/surface/terrain';
 
 
 /** Where a leaf triangle near the worm lands, after placement and the drape: three moved points. */
@@ -121,23 +124,23 @@ describe('the drape on the real litter and the real worm', () => {
 
   it('every top leaf over the buried worm stays clear of it unmoved: 5 mm or more (400 placements)', () => {
     // The chunked litter's full leaves, as the chunk writer wrote them: positions relative to each
-    // chunk's mesh, anchors in world space. They lie on the top of the litter, 2 cm or more over
+    // chunk's mesh. They lie on the top of the litter, 2 cm or more over
     // the floor, and the disturbance map never moves them (V2 spec 8.2). Thousands of worm
     // vertices end up under a leaf triangle, so the coverage floor below is far from vacuous.
     const litter = buildLeafLitter(scaledLeafCount(PRESETS.ultra.litter));
-    // A leaf can cover the head (1.54 m from body point 7) if its centre is within its radius of it.
-    const reach = Math.max(3.5, 1.8 + maxLeafRadius());
+    // A leaf can cover the head (1.54 m from body point 7) if a vertex of it is within its diameter
+    // of the head.
+    const reach = Math.max(3.5, 1.8 + 2 * maxLeafRadius());
     const tri: Tri = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
     const r = clearance(400, ({ pts }, emit) => {
       for (const ch of litter.chunks) {
         const g = ch.near.geometry;
         const pos = g.getAttribute('position');
-        const anc = g.getAttribute('aAnchor');
         const idx = g.getIndex()!;
         const { x: mx, y: my, z: mz } = ch.near.position;
         for (let t = 0; t < idx.count; t += 3) {
           const a = idx.getX(t);
-          if (Math.hypot(anc.getX(a) - pts[7][0], anc.getY(a) - pts[7][1]) > reach) continue;
+          if (Math.hypot(pos.getX(a) + mx - pts[7][0], pos.getZ(a) + mz - pts[7][1]) > reach) continue;
           for (let c = 0; c < 3; c++) {
             const v = idx.getX(t + c);
             tri[c][0] = pos.getX(v) + mx;
@@ -244,41 +247,33 @@ describe('drapeProfile', () => {
   });
 });
 
-describe('litter leaf anchors', () => {
+describe('litter leaf sizes', () => {
 
-  it('every vertex of both chunk shapes lies within its leaf radius, which a vertex reaches, and the map reaches the biggest leaf', () => {
+  it('every vertex of both chunk shapes lies within maxLeafRadius of its leaf\'s centre, and the map reaches the biggest leaf', () => {
     // Many more than any preset draws, so the biggest leaf is about as big as any can be.
     const litter = buildLeafLitter(6000);
+    const placed = placeLeaves(6000, WORLD_HALF, 1, litterDepth);
     let biggest = 0;
     let leaves = 0;
     for (const ch of litter.chunks) {
-      for (const mesh of [ch.near, ch.far]) {
-        const g = mesh.geometry;
-        const pos = g.getAttribute('position');
-        const a = g.getAttribute('aAnchor');
-        const dip = g.getAttribute('aDip');
-        let reach = 0;
-        for (let v = 0; v < pos.count; v++) {
-          const r = a.getZ(v);
-          biggest = Math.max(biggest, r);
-          // World x, z (the anchor) against the vertex, which is relative to the chunk's mesh.
-          const d = Math.hypot(pos.getX(v) + mesh.position.x - a.getX(v), pos.getZ(v) + mesh.position.z - a.getY(v));
-          expect(d).toBeLessThanOrEqual(r + 1e-4);
-          expect(a.getW(v)).toBeGreaterThan(0);
-          expect(dip.getX(v)).toBeGreaterThanOrEqual(0);
-          reach = Math.max(reach, d);
-          // Each leaf's radius is its own shape's farthest written vertex (the far shape's own).
-          const last = v === pos.count - 1 || a.getX(v + 1) !== a.getX(v) || a.getY(v + 1) !== a.getY(v);
-          if (last) {
-            expect(reach).toBeGreaterThan(r - 1e-4);
-            reach = 0;
-            leaves++;
+      for (const [mesh, ends] of [[ch.near, ch.nearEnds], [ch.far, ch.farEnds]] as const) {
+        const pos = mesh.geometry.getAttribute('position');
+        const idx = mesh.geometry.getIndex()!;
+        for (let i = 0; i < ch.leaves.length; i++) {
+          const { x, z } = placed[ch.leaves[i]];
+          let reach = 0;
+          for (let t = i > 0 ? ends[i - 1] : 0; t < ends[i]; t++) {
+            const v = idx.getX(t);
+            // The vertex is relative to the chunk's mesh.
+            reach = Math.max(reach, Math.hypot(pos.getX(v) + mesh.position.x - x, pos.getZ(v) + mesh.position.z - z));
           }
+          biggest = Math.max(biggest, reach);
+          leaves++;
         }
       }
     }
     expect(leaves).toBe(12000);
-    // A leaf whose edge reaches the drape's foot is still on the map (and stamped), so it never pops.
+    // maxLeafRadius bounds every leaf, and the reach built on it (plus the drape's foot) stays on the map.
     expect(biggest).toBeLessThanOrEqual(maxLeafRadius());
     expect(biggest).toBeGreaterThan(maxLeafRadius() * 0.85);
     expect(biggest + DRAPE_FOOT).toBeLessThanOrEqual(leafReach());
