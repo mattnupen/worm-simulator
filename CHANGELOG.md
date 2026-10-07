@@ -13,7 +13,12 @@ How to write an entry (for Matt and Claude):
   "## VN · Name (YYYY-MM-DD)" and start a new "Coming next" above it.
 -->
 
-## Coming next: V1 · True Size
+## Coming next: V2 · Underground
+
+### New
+- (to be filled in as V2 is built)
+
+## V1 · True Size (2026-10-06)
 
 ### New
 - **World scale:** a new button on the Start screen. Pick Classic, Hybrid or True to see the
