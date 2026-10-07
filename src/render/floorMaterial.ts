@@ -4,17 +4,39 @@ import { sharedLighting, PAINTED_VERTEX_GLSL, PAINTED_LIGHT_GLSL, GRADE_GLSL } f
 import { groundUniforms, SPINE_POINTS } from './groundUniforms';
 import { TRAIL_GROUND_GLSL } from './leafGlsl';
 import { glslFloat as f } from './glslNumber';
+import { OCC_REACH, OCC_SEGMENTS } from './occlusion';
 
 /**
- * Side of the floor patch (m), centred on the middle of the body: half the body (1.65) plus what
- * the hole shows round it, at a slant, either way. Small, as even its rejected pixels cost.
+ * Side of the floor's grid (m), centred on the middle of the body: half the body (1.76 to the tail)
+ * plus FLOOR_KEEP, and a cell for the snap, either way. Only the cells the hole can show draw.
  */
-export const FLOOR_SIZE = 7;
+export const FLOOR_SIZE = 9.5;
 /** Quads per side: 0.25 m cells, fine enough that the patch follows the floor within a millimetre. */
-export const FLOOR_SEGS = 28;
+export const FLOOR_SEGS = 38;
 /** The spine point the patch centres on (of SPINE_POINTS, head first): the middle of the body. */
 export const FLOOR_CENTRE = 7;
-const CELL = FLOOR_SIZE / FLOOR_SEGS;
+export const FLOOR_CELL = FLOOR_SIZE / FLOOR_SEGS;
+/**
+ * How far from the spine (m, along the floor) the hole over the worm can show the floor: 2.16 at
+ * most, measured by casting rays through the hole (litter 0.2 to 1.2 deep over the real floor at
+ * eight places, the body straight, curved and curled, the camera at full reach or craned, from
+ * behind or side-on), plus a margin (tests/unit/floorCoverage.test.ts). Even the floor's
+ * depth-rejected pixels cost, so a cell whose centre lies farther than this plus half its diagonal
+ * from the spine draws nothing; nor does one the hole cannot show on screen (floorCellShown).
+ */
+export const FLOOR_REACH = 2.4;
+export const FLOOR_KEEP = FLOOR_REACH + FLOOR_CELL * Math.SQRT1_2;
+/** The floor's slope stays under this anywhere in the world (0.17 at most: tests/unit/floorPatch.test.ts). */
+export const FLOOR_SLOPE = 0.25;
+/**
+ * A cell (its corners on the floor, its triangles between them) lies within this (m) of its centre
+ * on the floor: half its diagonal, tilted by the steepest slope, plus a hair. A cell whose ball of
+ * this radius is seen wholly outside the hole draws nothing: farther than OCC_REACH, as
+ * occlusion() measures it, from every segment of the body (uOccSeg), no pixel of the top of the
+ * litter fades, so none shows the floor.
+ */
+export const FLOOR_CELL_BALL = FLOOR_CELL * Math.SQRT1_2 * Math.hypot(1, FLOOR_SLOPE) + 0.01;
+const CELL = FLOOR_CELL;
 /**
  * How much of the light reaches the floor under 2 to 5 cm of leaves: the pocket the worm travels
  * in reads as shaded, damp and deep.
@@ -22,17 +44,59 @@ const CELL = FLOOR_SIZE / FLOOR_SEGS;
 export const FLOOR_LIGHT = 0.6;
 
 /**
+ * floorCellShown(c): whether the floor's cell centred at world (x, z) = c is drawn (TS twin:
+ * floorCellShown in floorPatch.ts). Needs uSpine, uOccSeg, uOccCount, viewMatrix and
+ * TERRAIN_GLSL declared.
+ */
+export const FLOOR_CELL_GLSL = /* glsl */ `
+  float floorSpineDistance(vec2 p) {
+    float d2 = 1e9;
+    for (int i = 0; i < ${SPINE_POINTS - 1}; i++) {
+      vec2 a = uSpine[i].xz;
+      vec2 ab = uSpine[i + 1].xz - a;
+      vec2 q = p - a - ab * clamp(dot(p - a, ab) / max(dot(ab, ab), 1e-8), 0.0, 1.0);
+      d2 = min(d2, dot(q, q));
+    }
+    return sqrt(d2);
+  }
+  // Whether the hole can show any of the cell centred at c (floorCellShown in floorPatch.ts is the
+  // twin): near the spine, and its ball, as seen, within OCC_REACH of a segment of the body in
+  // occlusion()'s measure (tan-space miss times the segment's depth), so the top may fade there.
+  bool floorCellShown(vec2 c) {
+    if (floorSpineDistance(c) > ${f(FLOOR_KEEP)}) return false;
+    vec4 p = viewMatrix * vec4(c.x, terrainHeight(c), c.y, 1.0);
+    float near = -p.z - ${f(FLOOR_CELL_BALL)};
+    if (near < 0.05) return true;
+    vec2 t = p.xy / -p.z;
+    float r = ${f(FLOOR_CELL_BALL)} / near;
+    for (int i = 0; i < ${OCC_SEGMENTS}; i++) {
+      if (i >= uOccCount) break;
+      vec4 a = uOccSeg[2 * i];
+      vec4 b = uOccSeg[2 * i + 1];
+      vec2 ab = b.xy - a.xy;
+      vec2 q = t - a.xy - ab * clamp(dot(t - a.xy, ab) * a.w, 0.0, 1.0);
+      if ((length(q) - r) / max(a.z, b.z) < ${f(OCC_REACH)}) return true;
+    }
+    return false;
+  }
+`;
+
+/**
  * The F layer's top round the worm (V2 spec 5.1 and 8.2; Matt's photos IMG_2427 and IMG_2428):
  * dark brown to black, wet, matted fragments of last years' leaves, white fungal threads, a sprig
- * of moss here and there, and the worm's fresh trail darker still. One square patch of FLOOR_SIZE
+ * of moss here and there, and the worm's fresh trail darker still. A square grid of FLOOR_SIZE
  * that the vertex shader keeps under the middle of the body (uSpine's FLOOR_CENTRE point, snapped
- * to its cells, so nothing swims), each vertex
- * on the floor (TERRAIN_GLSL, the twin of floorHeight). It is drawn after the litter top, so only
- * what the hole over the worm shows is shaded: everywhere else the depth test rejects it.
- * Position attribute: (x, z) in cells from the patch's centre (y unused).
+ * to its cells, so nothing swims), each vertex on the floor (TERRAIN_GLSL, the twin of
+ * floorHeight); of it, only the cells the hole over the worm can show draw (FLOOR_CELL_GLSL).
+ * It is drawn after the litter top, so only what the hole shows is shaded: everywhere else the
+ * depth test rejects it.
+ * Attributes: position (x, z), in cells from the grid's centre (y unused); aCell, the centre of
+ * the vertex's cell, in cells from the grid's centre.
  */
 const vertexShader = /* glsl */ `
   uniform vec3 uSpine[${SPINE_POINTS}];
+  uniform vec4 uOccSeg[${OCC_SEGMENTS * 2}];
+  uniform int uOccCount;
   uniform vec3 uLightDir;
   uniform vec3 uLightColor;
   uniform vec3 uFogColor;
@@ -41,10 +105,22 @@ const vertexShader = /* glsl */ `
   varying vec3 vPosW;
   varying vec3 vNoise;
   varying vec4 vFog;
+  attribute vec2 aCell;
   ${PAINTED_VERTEX_GLSL}
   ${TERRAIN_GLSL}
+  ${FLOOR_CELL_GLSL}
   void main() {
-    vec2 xz = floor(uSpine[${FLOOR_CENTRE}].xz / ${f(CELL)} + 0.5) * ${f(CELL)} + position.xz * ${f(CELL)};
+    vec2 base = floor(uSpine[${FLOOR_CENTRE}].xz / ${f(CELL)} + 0.5) * ${f(CELL)};
+    if (!floorCellShown(base + aCell * ${f(CELL)})) {
+      // The hole cannot show it: all four corners of the cell land on one point outside the
+      // view, so it draws nothing.
+      vPosW = vec3(0.0);
+      vNoise = vec3(0.0);
+      vFog = vec4(0.0);
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+    vec2 xz = base + position.xz * ${f(CELL)};
     vec3 wp = vec3(xz.x, terrainHeight(xz), xz.y);
     vPosW = wp;
     vec3 toCam = cameraPosition - wp;
@@ -107,6 +183,8 @@ export function createFloorMaterial(): THREE.ShaderMaterial {
     uniforms: {
       ...sharedLighting,
       uSpine: groundUniforms.uSpine,
+      uOccSeg: groundUniforms.uOccSeg,
+      uOccCount: groundUniforms.uOccCount,
       uDisturbTrail: groundUniforms.uDisturbTrail,
       uDistOrigin: groundUniforms.uDistOrigin,
       uDistFade: groundUniforms.uDistFade,

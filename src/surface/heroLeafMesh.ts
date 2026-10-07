@@ -97,10 +97,12 @@ export function heroLeafMatrix(p: HeroLeaves, i: number, alpha: number, out: THR
  */
 export class HeroLeafMesh {
   readonly mesh: THREE.InstancedMesh;
-  /** Per leaf, 0 (dim, in the pocket) to 1 (bright, heaved up through the top): eased (easeLit). */
+  /** Per slot, 0 (dim, in the pocket) to 1 (bright, heaved up through the top): eased (easeLit). */
   readonly lit: Float32Array;
-  /** Per leaf, how long (s) its target has stayed under `lit` (easeLit). */
+  /** Per slot, how long (s) its target has stayed under `lit` (easeLit). */
   private readonly held: Float32Array;
+  /** Per slot, its leaf's growth at the last update: a drop means a new leaf took the slot. */
+  private readonly grown: Float32Array;
   private readonly m = new THREE.Matrix4();
   /** Per leaf, its random brightness (fixed at build). */
   private readonly shade: Float32Array;
@@ -175,6 +177,7 @@ export class HeroLeafMesh {
     // and duller than this fall's on top, until the worm heaves one up through the top.
     this.lit = new Float32Array(pool.max);
     this.held = new Float32Array(pool.max);
+    this.grown = new Float32Array(pool.max);
     this.shade = new Float32Array(pool.max);
     const tint = new THREE.Color();
     for (let i = 0; i < pool.max; i++) {
@@ -208,7 +211,14 @@ export class HeroLeafMesh {
       let top = e[13];
       for (let a = 0; a < 3; a++) top += Math.max(e[1 + a * 4] * this.box[b + a], e[1 + a * 4] * this.box[b + 3 + a]);
       const target = topShare(top - litterTopHeight(e[12], e[14]));
-      if (easeLit(this.lit, this.held, i, target, dt)) {
+      // A recycled slot (its new leaf grows in from nothing) starts dim, in the pocket, as a new leaf.
+      const fresh = p.grow[i] < this.grown[i] && this.lit[i] > 0;
+      this.grown[i] = p.grow[i];
+      if (fresh) {
+        this.lit[i] = 0;
+        this.held[i] = 0;
+      }
+      if (easeLit(this.lit, this.held, i, target, dt) || fresh) {
         this.writeColour(i);
         recoloured = true;
       }

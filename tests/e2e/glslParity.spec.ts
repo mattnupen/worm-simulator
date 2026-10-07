@@ -412,6 +412,28 @@ test('near clutter placement, meshGround and the worm keep-clear run on the GPU 
   });
 });
 
+/**
+ * Whether two of occlusion()'s segments tie for nearest to the pixel (tx, ty): their misses (screen
+ * distance over inverse depth, as occlusion() compares them) agree to within 1e-4 of the nearest.
+ */
+function segmentTie(tx: number, ty: number, seg: ArrayLike<number>, count: number): boolean {
+  let best = Infinity;
+  let next = Infinity;
+  for (let i = 0; i < count; i++) {
+    const o = i * 8;
+    const abx = seg[o + 4] - seg[o];
+    const aby = seg[o + 5] - seg[o + 1];
+    const u = Math.min(1, Math.max(0, ((tx - seg[o]) * abx + (ty - seg[o + 1]) * aby) * seg[o + 3]));
+    const inv = seg[o + 2] + (seg[o + 6] - seg[o + 2]) * u;
+    const miss = Math.hypot(tx - seg[o] - abx * u, ty - seg[o + 1] - aby * u) / inv;
+    if (miss < best) {
+      next = best;
+      best = miss;
+    } else if (miss < next) next = miss;
+  }
+  return next - best <= 1e-4 * Math.max(best, 1e-6);
+}
+
 test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', async ({ page }) => {
   // Three worm poses seen by three cameras; leaves along rays through the screen near each.
   const poses = [
@@ -525,24 +547,33 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
 
   cases.forEach((c, ci) => {
     let worst = 0;
+    let worstTie = 0;
+    let ties = 0;
     let off = 0;
     let faded = 0;
     let clear = 0;
     for (let k = 0; k < c.points.length / 4; k++) {
       const ts = occlusion(c.points[k * 4], c.points[k * 4 + 1], c.points[k * 4 + 2], c.seg, c.count, c.far, c.up);
       const d = Math.abs(gpu.occ[ci][k] - ts);
-      worst = Math.max(worst, d);
+      if (segmentTie(c.points[k * 4], c.points[k * 4 + 1], c.seg, c.count)) {
+        ties++;
+        worstTie = Math.max(worstTie, d);
+      } else worst = Math.max(worst, d);
       if (d > 1e-3) off++;
       if (ts > 0.01) faded++;
       else clear++;
     }
     expect(c.count, `case ${ci}`).toBeGreaterThan(3);
     expect(Number.isFinite(worst), `case ${ci}`).toBe(true);
-    // Float32 against float64: nearly every pixel agrees to 1e-3 of its drop share. Where two
-    // segments tie for nearest, the GPU may take the other one's line for the touch and the
-    // funnel's height above it: a few hundredths of the share, on under 0.5% of pixels.
+    // Float32 against float64: nearly every pixel agrees to 1e-3 of its drop share, and every
+    // pixel to 0.01, except where two segments tie for nearest (beyond a joint, both reach it at
+    // their shared end): there the GPU may take the other one's line for the touch and the
+    // funnel's height above it, a few hundredths of the share, on under 0.5% of pixels.
     expect(off, `case ${ci}: pixels off by more than 1e-3`).toBeLessThan(c.points.length / 4 / 200);
-    expect(worst, `case ${ci}: worst |GPU - TS|`).toBeLessThan(0.06);
+    expect(worst, `case ${ci}: worst |GPU - TS| away from ties`).toBeLessThan(0.01);
+    expect(worstTie, `case ${ci}: worst |GPU - TS| where two segments tie`).toBeLessThan(0.06);
+    // Ties stay a small share of the sample (a wedge beyond each joint), so the looser bound covers few pixels.
+    expect(ties, `case ${ci}: tie pixels`).toBeLessThan(c.points.length / 4 / 10);
     // The sample is real: pixels in the fade and pixels out of it.
     expect(faded, `case ${ci}`).toBeGreaterThan(40);
     expect(clear, `case ${ci}`).toBeGreaterThan(1000);
