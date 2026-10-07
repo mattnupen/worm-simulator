@@ -2,15 +2,12 @@ import { mulberry32 } from '../core/random';
 import * as THREE from 'three';
 import { createPropMaterial } from '../render/propMaterial';
 import { MeshWriter } from './meshWriter';
-import { clutterGrow, heroLog, rocks, placeClutter, type ClutterItem } from './propPlacement';
+import { clutterGrow, rocks, placeClutter, type ClutterItem } from './propPlacement';
 import { writeFern, writeMushrooms, writeRock, writeSedge } from './propGeometry';
 import { rockSeed } from './rockShape';
-import { terrainHeight } from './terrain';
 import { litterTopHeight } from './litterDepth';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
-import { BARK, writeLog } from './trunkGeometry';
-import { REAL_SCALE } from './realScale';
 
 /**
  * One clutter item, at real size. Clutter rests on the terrain mesh exactly as
@@ -62,8 +59,5 @@ export function buildGroundProps(): GroundProps {
   };
 }
 
-/** The hero fallen birch log, written into the shared bark mesh (no extra draw). */
-export function writeHeroLog(w: MeshWriter): void {
-  const log = heroLog();
-  writeLog(w, log.x, log.z, log.yaw, log.length, log.radius, BARK.birch, 1.62, terrainHeight, REAL_SCALE.log);
-}
+/** The hero fallen birch log (trunkGeometry.ts, where the underground's log section reads it too). */
+export { writeHeroLog } from './trunkGeometry';

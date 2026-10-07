@@ -1,7 +1,9 @@
 import type { Vec3 } from '../core/vec';
 import type { MeshWriter } from './meshWriter';
 import { trunkAxis, trunkRadius, RING_HEIGHTS, type TrunkParams } from './trunkShape';
-import { LOG_END } from './propPlacement';
+import { heroLog, LOG_END } from './propPlacement';
+import { REAL_SCALE } from './realScale';
+import { terrainHeight } from './terrain';
 
 /** Bark surface kinds, read by the bark shader from aBark.z. */
 export const BARK = { birch: 0, maple: 1, curlOuter: 2, curlInner: 3, wood: 4 } as const;
@@ -206,4 +208,13 @@ export function writeLog(
     ));
     for (let k = 0; k < rim.length - 1; k++) w.triFacing(mid, rim[k], rim[k + 1], d.x * sgn, 0, d.z * sgn);
   });
+}
+
+/**
+ * The hero fallen birch log, written into the shared bark mesh (no extra draw). The one place its
+ * seed and shape are chosen: the underground's log section (sections.ts) cuts this same mesh.
+ */
+export function writeHeroLog(w: MeshWriter): void {
+  const log = heroLog();
+  writeLog(w, log.x, log.z, log.yaw, log.length, log.radius, BARK.birch, 1.62, terrainHeight, REAL_SCALE.log);
 }

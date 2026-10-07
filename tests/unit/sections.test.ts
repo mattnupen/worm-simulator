@@ -5,10 +5,10 @@ import { createSlab, slabU, type Slab } from '../../src/underground/slab';
 import { createSolids, placeSolids } from '../../src/underground/solids';
 import { MeshWriter } from '../../src/surface/meshWriter';
 import { writeRock } from '../../src/surface/propGeometry';
-import { BARK, writeLog } from '../../src/surface/trunkGeometry';
+import { writeHeroLog } from '../../src/surface/trunkGeometry';
+import { mulberry32 } from '../../src/core/random';
 import { heroLog, rocks, ROCK_FOOT } from '../../src/surface/propPlacement';
 import { rockRise, rockSeed } from '../../src/surface/rockShape';
-import { REAL_SCALE } from '../../src/surface/realScale';
 import { terrainHeight } from '../../src/surface/terrain';
 
 const hit = { nu: 0, nv: 0 };
@@ -49,7 +49,7 @@ const outlineOk = (sec: Section) => {
     const k2 = (k + 2) % sec.count;
     const turn = (sec.pts[j * 2] - sec.pts[k * 2]) * (sec.pts[k2 * 2 + 1] - sec.pts[k * 2 + 1])
       - (sec.pts[j * 2 + 1] - sec.pts[k * 2 + 1]) * (sec.pts[k2 * 2] - sec.pts[k * 2]);
-    expect(turn).toBeGreaterThan(-1e-9); // convex, counter-clockwise
+    expect(turn).toBeGreaterThan(-1e-5); // convex, counter-clockwise (to the float32 points)
   }
 };
 
@@ -86,33 +86,52 @@ describe('rocks and the log in section match the drawn props (spec 5.2)', () => 
     expect(rockSection(s, 0, createSection())).toBe(false);
   });
 
-  it('the log\'s section follows the drawn log, square across or slanting', () => {
+  it('the log\'s section is the drawn log cut by the plane: square across, slanting, and past its ends', () => {
     const log = heroLog();
-    for (const heading of [0, 0.8, 1.15, Math.PI - 0.5]) {
-      const s = slabThrough(log.x + 1.5, log.z, heading, log.radius * 1.15 + 1.2 + 0.3, 0);
+    const w = new MeshWriter('aBark', 4);
+    writeHeroLog(w);
+    const rand = mulberry32(21);
+    let found = 0;
+    let pastEnd = 0;
+    let shallow = 0;
+    for (let n = 0; n < 1500; n++) {
+      // Spots off the log (its footprint plus 0.5), heading any way; half of them near its broken ends.
+      const x = n % 2 ? (rand() < 0.5 ? -1 : 1) * (12 + rand() * 6.5) : rand() * 36 - 18;
+      const z = log.z - (log.radius * 1.15 + 0.5 + rand() * 6); // the far side is past the play edge
+      const s = createSlab(x, z, rand() * Math.PI * 2, 1, 7);
       const cut = { u: 0, v: 0, rx: 0, ry: 0 };
       const sec = createSection();
-      expect(logSection(s, cut, sec)).toBe(true);
+      const pts = meshCut(s, w).filter(([u]) => u > s.faceLo && u < s.faceHi);
+      const has = logSection(s, cut, sec);
+      // Wherever the drawn log meets the face, there is a section.
+      if (pts.length > 2 && Math.max(...pts.map((p) => p[0])) - Math.min(...pts.map((p) => p[0])) > 0.05) expect(has).toBe(true);
+      if (!has) continue;
+      found++;
       outlineOk(sec);
-      const slant = Math.abs(Math.cos(heading));
-      expect(cut.ry).toBeGreaterThan(log.radius * 0.85);
-      expect(cut.ry).toBeLessThan(log.radius * 1.15);
-      expect(cut.rx).toBeCloseTo(cut.ry / slant, 6);
-      const w = new MeshWriter('aBark', 4);
-      writeLog(w, log.x, log.z, log.yaw, log.length, log.radius, BARK.birch, 1.62, terrainHeight, REAL_SCALE.log);
-      // The drawn log is 12-sided: its section lies on the outline or just inside (by its flat faces).
-      const pts = meshCut(s, w);
-      expect(pts.length).toBeGreaterThan(12);
-      for (const [u, v] of pts) {
-        const d = depth(sec, u, v);
-        expect(d).toBeGreaterThan(-0.02);
-        expect(d).toBeLessThan((0.04 * log.radius) / slant);
+      // No bark outside the outline; every corner of the outline is where the plane cuts the bark.
+      const all = meshCut(s, w);
+      for (const [u, v] of all) expect(depth(sec, u, v)).toBeGreaterThan(-0.02);
+      for (let c = 0; c < sec.count; c++) {
+        const near = Math.min(...all.map(([u, v]) => Math.hypot(u - sec.pts[c * 2], v - sec.pts[c * 2 + 1])));
+        expect(near).toBeLessThan(1e-4);
       }
-      // And it reaches as far: the outline's ends and top match the mesh's.
-      expect(Math.max(...pts.map((p) => p[1]))).toBeCloseTo(sec.vHi, 0);
-      expect(Math.max(...pts.map((p) => p[0]))).toBeGreaterThan(sec.uHi - 0.2 / slant);
-      expect(Math.min(...pts.map((p) => p[0]))).toBeLessThan(sec.uLo + 0.2 / slant);
+      const dx = Math.cos(log.yaw);
+      const dz = Math.sin(log.yaw);
+      const sin = dx * s.tz - dz * s.tx;
+      const slant = Math.abs(sin);
+      // Where the cut crosses the log's middle line, well between its ends, it is the log's whole
+      // ellipse (its radius varies 0.87-1.15 of the log's along it, as drawn).
+      const a = -((log.x - s.ox) * s.tz - (log.z - s.oz) * s.tx) / sin;
+      if (Math.abs(a) < log.length / 2 - (1.2 * log.radius * Math.sqrt(1 - slant * slant)) / slant - 0.5) {
+        expect(cut.ry).toBeGreaterThan(log.radius * 0.8);
+        expect(cut.ry).toBeLessThan(log.radius * 1.2);
+        expect(Math.abs(cut.rx * slant - cut.ry) / cut.ry).toBeLessThan(0.15);
+      } else pastEnd++;
+      if (slant < 0.45) shallow++;
     }
+    expect(found).toBeGreaterThan(200);
+    expect(pastEnd).toBeGreaterThan(20);
+    expect(shallow).toBeGreaterThan(20);
   });
 
   it('a slab heading across the log shows its section (and collides with it)', () => {
