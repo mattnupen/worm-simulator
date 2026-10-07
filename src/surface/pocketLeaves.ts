@@ -68,7 +68,8 @@ export interface PocketLeaves extends DetailLeaves {
  * two draws over the full mesh's buffers (IndexList; the full mesh is never drawn). A leaf left out
  * is hidden by the top on every pixel, and one drawn without the fade has no pixel the fade would
  * drop, so neither changes anything on screen (tests/unit/pocketLeaves.test.ts).
- * `mesh` draws the leaves without the fade; its child, the ones with it.
+ * `mesh` draws the leaves without the fade; its sibling `beside`, the ones with it. Each hides when
+ * it holds no leaves (no empty draw).
  */
 export function buildPocketLeaves(count: number, seed = 5): PocketLeaves {
   const src = buildDetailLeaves(count, seed, true);
@@ -83,7 +84,6 @@ export function buildPocketLeaves(count: number, seed = 5): PocketLeaves {
   }
   mesh.name = 'pocketLeaves';
   faded.name = 'pocketLeavesFaded';
-  mesh.add(faded);
   // Per leaf: its aDetail (home in the tile, yaw, radius) and its layer (aLeaf2.y).
   const homes = new Float32Array(count * 4);
   const layers = new Float32Array(count);
@@ -112,11 +112,12 @@ export function buildPocketLeaves(count: number, seed = 5): PocketLeaves {
   // compile with the top's detail leaves rather than whenever a leaf first enters the hole.
   let warm = true;
   const show = () => {
-    mesh.visible = src.drawn > 0 && (listed > 0 || warm);
-    faded.visible = fadeList.count > 0 || warm;
+    mesh.visible = src.drawn > 0 && (plainList.count > 0 || warm);
+    faded.visible = src.drawn > 0 && (fadeList.count > 0 || warm);
   };
   return {
     mesh,
+    beside: faded,
     max: count,
     ends: src.ends,
     get drawn() {

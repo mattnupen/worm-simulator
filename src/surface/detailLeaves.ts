@@ -13,6 +13,8 @@ import { POCKET_ORDER } from '../render/drawOrder';
 
 export interface DetailLeaves {
   mesh: THREE.Mesh;
+  /** A second draw beside `mesh` (its sibling, shown and hidden on its own): the pocket's fading leaves. */
+  readonly beside?: THREE.Mesh;
   /** Leaves built: the most it can draw. */
   readonly max: number;
   /** Leaves drawn right now (0 while hidden). */
@@ -212,6 +214,7 @@ export function buildDetailLayer<T extends DetailLeaves = DetailLeaves>(
         if (n <= 0) return;
         built = build(count);
         group.add(built.mesh);
+        if (built.beside) group.add(built.beside);
       }
       built.setCount(n);
     },

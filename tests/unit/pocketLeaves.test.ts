@@ -39,11 +39,14 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
     expect(p.mesh.renderOrder).toBe(POCKET_ORDER);
     expect((p.mesh.material as THREE.ShaderMaterial).defines).toHaveProperty('POCKET');
     expect(p.mesh.geometry.getAttribute('aDetail').count).toBeGreaterThan(60 * 20);
-    // Nothing listed before the first frame, but shown (empty) so its shader compiles with the layer.
+    // Nothing listed before the first frame, but both draws shown (empty) so their shaders compile
+    // with the layer. The fading draw is a sibling, not a child, so each hides on its own.
     p.setCount(60);
     expect(p.listed).toBe(0);
     expect(p.mesh.visible).toBe(true);
+    expect(p.beside!.visible).toBe(true);
     expect(p.mesh.geometry.drawRange.count).toBe(0);
+    expect(p.mesh.children).toHaveLength(0);
   });
 
   it('crawling over the real litter: every leaf left out lies where the top cannot fade, none drawn plain would fade, none shows through the top', () => {
@@ -92,7 +95,8 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
     let draped = 0;
     let plainChecked = 0;
     // Failures are counted (one expect per vertex is slow), with the first of each kind.
-    const failures: Record<string, number> = { pokesThrough: 0, leftOutInHole: 0, plainWouldFade: 0 };
+    const failures: Record<string, number> = { pokesThrough: 0, leftOutInHole: 0, plainWouldFade: 0, emptyDraw: 0 };
+    let allFading = 0;
     const firstFailure: string[] = [];
     const fail = (kind: string, leaf: number, step: number) => {
       if (failures[kind]++ === 0) firstFailure.push(`${kind}: leaf ${leaf} at step ${step}`);
@@ -116,6 +120,9 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
       const f = crawl.focus;
       const k = pocket.update(fade, pose.spine, f.x, f.z, Math.round(f.x), Math.round(f.z), crawl.disturbance);
       frames++;
+      // Each draw shows only when it holds leaves (or none listed: both hidden).
+      if (pocket.mesh.visible !== k - pocket.fading > 0 || pocket.beside!.visible !== pocket.fading > 0) fail('emptyDraw', -1, s);
+      if (k > 0 && pocket.fading === k) allFading++;
       shown += k;
       most = Math.max(most, k);
       listed.fill(0);
@@ -164,7 +171,9 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
         }
       }
     }
-    expect(failures, firstFailure.join('; ')).toEqual({ pokesThrough: 0, leftOutInHole: 0, plainWouldFade: 0 });
+    expect(failures, firstFailure.join('; ')).toEqual({ pokesThrough: 0, leftOutInHole: 0, plainWouldFade: 0, emptyDraw: 0 });
+    // Frames where every listed leaf fades: the plain draw hides (the case is real).
+    expect(allFading).toBeGreaterThan(0);
     expect(frames).toBeGreaterThan(150);
     expect(checked).toBeGreaterThan(40000);
     // Left-out leaves come close to the hole (the test is not vacuous)...
