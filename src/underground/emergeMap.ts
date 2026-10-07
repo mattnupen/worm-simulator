@@ -42,6 +42,11 @@ function pointSeg(px: number, pz: number, ax: number, az: number, bx: number, bz
   return Math.hypot(px - ax - dx * f, pz - az - dz * f);
 }
 
+/** Which side of the line p..q the point s lies on (the sign), and how far times |q - p|. */
+function cross(px: number, pz: number, qx: number, qz: number, sx: number, sz: number): number {
+  return (qx - px) * (sz - pz) - (qz - pz) * (sx - px);
+}
+
 /**
  * Whether the stretch of the cut through (ox, oz) along (tx, tz) from u = a to u = b keeps the body
  * (BODY_RADIUS) off every footprint and inside the play area. Exact (segments, not samples), so the
@@ -64,7 +69,6 @@ function stretchClear(ox: number, oz: number, tx: number, tz: number, a: number,
   const mx = log.x + log.dx * log.half;
   const mz = log.z + log.dz * log.half;
   const r = log.r + BODY_RADIUS;
-  const cross = (px: number, pz: number, qx: number, qz: number, sx: number, sz: number) => (qx - px) * (sz - pz) - (qz - pz) * (sx - px);
   const d1 = cross(ax, az, bx, bz, lx, lz);
   const d2 = cross(ax, az, bx, bz, mx, mz);
   const d3 = cross(lx, lz, mx, mz, ax, az);

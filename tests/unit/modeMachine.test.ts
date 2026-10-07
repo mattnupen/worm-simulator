@@ -146,11 +146,14 @@ describe('the surface / underground state machine (spec 4, 10)', () => {
       const m = createModeMachine();
       m.step(true, true, false, reduced, DT);
       expect(moveDuration(m.state)).toBeCloseTo(down, 9);
+      // The worm's own move runs through the whole dig-down; the camera holds for the first 1.0 s.
       m.state.t = 0.999;
       expect(cameraProgress(m.state)).toBe(0);
-      expect(bodyProgress(m.state)).toBeCloseTo(0.999, 9);
-      m.state.t = 1.0;
+      expect(bodyProgress(m.state)).toBeCloseTo(0.999 / down, 9);
+      m.state.t = down;
+      expect(cameraProgress(m.state)).toBe(1);
       expect(bodyProgress(m.state)).toBe(1);
+      m.state.t = 0;
       runMove(m, false);
       m.step(true, false, true, reduced, DT);
       expect(moveDuration(m.state)).toBeCloseTo(up, 9);
@@ -191,6 +194,29 @@ describe('the surface / underground state machine (spec 4, 10)', () => {
       runMove(m, false);
       m.step(true, false, true, reduced, DT);
       expect(moveDuration(s)).toBeCloseTo(reduced ? RISE_S + OUT_S : RISE_S + SWING_S, 9);
+    }
+  });
+
+  it('digging down takes the length the game sets for a big turn; the swing ends with it', () => {
+    for (const reduced of [false, true]) {
+      const m = createModeMachine();
+      m.setMoveTime(9); // settled: ignored
+      m.step(true, true, false, reduced, DT);
+      const s = m.state;
+      const least = SINK_S + (reduced ? FADE_S : SWING_S);
+      m.setMoveTime(1.2); // never shorter than the hold and the camera's move
+      expect(s.moveS).toBe(least);
+      m.setMoveTime(4);
+      expect(moveDuration(s)).toBe(4);
+      s.t = 2;
+      expect(bodyProgress(s)).toBeCloseTo(0.5, 9);
+      s.t = 4 - (reduced ? FADE_S : SWING_S);
+      expect(cameraProgress(s)).toBe(0);
+      s.t = 4;
+      expect(cameraProgress(s)).toBe(1);
+      s.t = 0;
+      const { n } = runMove(m, false);
+      expect(Math.abs(n * DT - 4)).toBeLessThan(2 * DT);
     }
   });
 

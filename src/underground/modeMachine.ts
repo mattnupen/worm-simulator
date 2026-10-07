@@ -6,7 +6,7 @@ import { createPressEdge } from '../input/actionEdge';
  * One Action press does what fits (spec 11.8): on the surface where allowed it digs down;
  * underground near the top it comes up; deeper it switches the camera view.
  *
- *   surface --Action, canDig--> diggingDown --(sink, then camera)--> underground
+ *   surface --Action, canDig--> diggingDown --(turn and sink; the camera swings at the end)--> underground
  *   underground --Action, nearTop--> comingUp --(rise, then camera)--> surface
  *   underground --Action, deeper--> underground (view switched)
  *
@@ -16,16 +16,21 @@ import { createPressEdge } from '../input/actionEdge';
  * down first. A press on a step that ends a move is dropped with the rest of the move's presses.
  * `canDig` must come from `canDigAt(x, z, heading, crawl.body)` (the heading is required there).
  * `nearTop` must be `burrower.nearTop && canEmergeAt(map, head u)` (emergeMap.ts): near the top
- * where the body could not lie out on the surface, Action stays the view switch. On `startUp`,
- * give the machine the path's length (`setMoveTime(path.seconds)`). Nothing here allocates per step.
+ * where the body could not lie out on the surface, Action stays the view switch. On `startDig`
+ * and on `startUp`, give the machine the path's length (`setMoveTime(path.seconds)`): a big turn
+ * or a long way out takes longer, so no part of the worm outruns the speed caps (bodyPath.ts).
+ * Nothing here allocates per step.
  */
 export type Mode = 'surface' | 'diggingDown' | 'underground' | 'comingUp';
 export type UndergroundView = 'wide' | 'close';
 export const DEFAULT_UNDERGROUND_VIEW: UndergroundView = 'wide';
 
-/** Digging down: the head turns down and the front sinks for this long... */
+/**
+ * Digging down: the camera holds for at least this long while the worm turns and starts to sink...
+ * (the worm's own move runs through the whole dig-down, at least SINK_S plus the camera's move)
+ */
 export const SINK_S = 1.0;
-/** ...then the camera swings to side-on for this long (spec 4.1). */
+/** ...then swings to side-on for this long, ending with the worm's move (spec 4.1). */
 export const SWING_S = 1.5;
 /** With reduced motion the swing is a short cross-fade instead. */
 export const FADE_S = 0.7;
@@ -34,8 +39,8 @@ export const RISE_S = 1.0;
 export const OUT_S = 1.1;
 /**
  * Coming up, the worm's own move (rise and crawl out) lasts at least RISE_S + OUT_S. The game sets
- * its real length once the path is built (`setMoveTime`, from emergePath's `emergeSeconds`, which
- * caps the head's speed); the camera swing then ends with it, and never starts before RISE_S.
+ * its real length once the path is built (`setMoveTime(p.seconds)`, which keeps every point under
+ * the speed caps); the camera swing then ends with it, and never starts before RISE_S.
  */
 const UP_S = RISE_S + OUT_S;
 
@@ -45,23 +50,30 @@ export interface ModeState {
   t: number;
   /** The move in progress uses the cross-fade (prefers-reduced-motion, read when it starts). */
   reduced: boolean;
-  /** Seconds of the worm's own move in the move in progress: SINK_S, or coming up UP_S or more. */
+  /**
+   * Seconds of the worm's own move in the move in progress: digging down SINK_S plus the camera's
+   * move or more (the whole move), coming up UP_S or more.
+   */
   moveS: number;
 }
 
 export type ModeEvent = 'none' | 'startDig' | 'arrive' | 'startUp' | 'emerge' | 'switchView';
 
 export function createModeState(): ModeState {
-  return { mode: 'surface', t: 0, reduced: false, moveS: SINK_S };
+  return { mode: 'surface', t: 0, reduced: false, moveS: SINK_S + SWING_S };
 }
 
 const camTime = (s: ModeState): number => (s.reduced ? FADE_S : SWING_S);
-/** Coming up, the camera's move starts here: after the rise, and so a full swing ends with the body's move. */
-const camFrom = (s: ModeState): number => Math.max(RISE_S, s.moveS - SWING_S);
+/**
+ * When the camera's move starts. Digging down: so that it ends with the worm's move. Coming up:
+ * after the rise, and so that a full swing ends with the worm's move.
+ */
+const camFrom = (s: ModeState): number =>
+  (s.mode === 'diggingDown' ? s.moveS - camTime(s) : Math.max(RISE_S, s.moveS - SWING_S));
 
 /** How long the current move lasts (0 on the surface and underground). */
 export function moveDuration(s: ModeState): number {
-  if (s.mode === 'diggingDown') return s.moveS + camTime(s);
+  if (s.mode === 'diggingDown') return s.moveS;
   if (s.mode === 'comingUp') return Math.max(s.moveS, camFrom(s) + camTime(s));
   return 0;
 }
@@ -82,8 +94,9 @@ export interface ModeMachine {
    */
   hold(action: boolean): void;
   /**
-   * Coming up: the worm's own move lasts `seconds` (at least RISE_S + OUT_S; ignored otherwise, or
-   * when not a finite number). Call it on the `startUp` step, once the path is built.
+   * The worm's own move in progress lasts `seconds`: digging down at least SINK_S plus the camera's
+   * move, coming up at least RISE_S + OUT_S. Ignored when settled, or when not a finite number.
+   * Call it on the `startDig` or `startUp` step, once the path is built.
    */
   setMoveTime(seconds: number): void;
 }
@@ -97,7 +110,9 @@ export function createModeMachine(): ModeMachine {
       edge.update(action);
     },
     setMoveTime(seconds: number): void {
-      if (state.mode === 'comingUp' && Number.isFinite(seconds)) state.moveS = Math.max(UP_S, seconds);
+      if (!Number.isFinite(seconds)) return;
+      if (state.mode === 'comingUp') state.moveS = Math.max(UP_S, seconds);
+      if (state.mode === 'diggingDown') state.moveS = Math.max(SINK_S + camTime(state), seconds);
     },
     step(action, canDig, nearTop, reduced, dt): ModeEvent {
       const pressed = edge.update(action);
@@ -108,7 +123,7 @@ export function createModeMachine(): ModeMachine {
           s.mode = 'diggingDown';
           s.t = 0;
           s.reduced = reduced;
-          s.moveS = SINK_S;
+          s.moveS = SINK_S + camTime(s);
           return 'startDig';
         case 'underground':
           if (!pressed) return 'none';
@@ -143,7 +158,7 @@ export function bodyProgress(s: ModeState): number {
 
 /** Linear 0..1 progress of the camera's move from the surface view (0) to the cut (1). */
 export function cameraProgress(s: ModeState): number {
-  if (s.mode === 'diggingDown') return Math.max(0, Math.min(1, (s.t - s.moveS) / camTime(s)));
+  if (s.mode === 'diggingDown') return Math.max(0, Math.min(1, (s.t - camFrom(s)) / camTime(s)));
   if (s.mode === 'comingUp') return 1 - Math.max(0, Math.min(1, (s.t - camFrom(s)) / camTime(s)));
   return s.mode === 'underground' ? 1 : 0;
 }

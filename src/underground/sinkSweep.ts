@@ -3,7 +3,7 @@ import { BODY_RADIUS, SPACING, WORM_SEGMENTS } from '../game/crawl';
 import { footprints } from '../surface/obstacles';
 
 /**
- * Digging down, the body on the surface turns to lie along the cut (bodyPath.ts buildSink). This is
+ * Digging down, the body on the surface turns to lie along the cut (sinkPath.ts buildSink). This is
  * the cheap, allocation-free check digSpot.ts makes for each candidate cut, every step: that turn
  * must keep the body off every trunk, rock and log footprint. Call `bodyFan` once for the body,
  * then `sweepClear` per cut direction.
@@ -14,11 +14,13 @@ const angleOf = (dx: number, dz: number): number => Math.atan2(dx, dz);
 const wrapPi = (a: number): number => a - TAU * Math.round(a / TAU);
 
 /**
- * The body's sweep as it turns into the cut (bodyPath.ts buildSink): each segment keeps its length
- * and turns from its own direction to straight back along the cut, so every body point stays
- * within `reach` of the head and within the fan of directions from the most to the least turned
- * segment (a sum of segments pointing within a fan under half a turn points within it too). The
- * fan's directions point tailward: lo..hi, unwrapped down the body from the first segment.
+ * The body's sweep as it turns into the cut (sinkPath.ts): each point stays within `reach` of the
+ * head (its distance from the hole moves steadily between where it lay and where it will lie, both
+ * no more than its distance along the body) and its direction from the hole turns steadily from where
+ * it lay to straight back along the cut. A point's direction from the hole lies within the fan of
+ * its segments' directions (a sum of segments pointing within a fan under half a turn points within
+ * it too), so every point stays inside the fan from the most to the least turned segment and the
+ * cut. The fan's directions point tailward: lo..hi, unwrapped down the body from the first segment.
  */
 const fan = { lo: 0, hi: 0, first: 0, reach: 0 };
 /**
@@ -26,6 +28,19 @@ const fan = { lo: 0, hi: 0, first: 0, reach: 0 };
  * against a footprint's edge (the crawl pushes it out to exactly BODY_RADIUS) still counts as clear.
  */
 const SWEEP_PAD = BODY_RADIUS - 0.02;
+
+/**
+ * A body curled further than this, counting the turn into the cut, may not dig: it must uncurl a
+ * little first (sinkPath.ts swings each point round the hole in polar terms, which keeps a body
+ * this open evenly spaced, but would crush a coil).
+ */
+export const MAX_FAN = (170 * Math.PI) / 180;
+
+/** After `bodyFan`: the fan's width (radians) for the cut along `heading` (the turn included). */
+export function fanWidth(heading: number): number {
+  const back = fan.first + wrapPi(heading + Math.PI - fan.first);
+  return Math.max(fan.hi, back) - Math.min(fan.lo, back);
+}
 
 /** The body's fan (no body: lying straight behind the head, as a settled crawl does). */
 export function bodyFan(heading: number, body?: ArrayLike<Vec3>): void {
@@ -57,7 +72,9 @@ function circleInFan(x: number, z: number, lo: number, width: number, reach: num
   const dz = pz - z;
   const d = Math.hypot(dx, dz);
   if (d > reach + r) return false;
-  if (d <= r || width >= TAU) return true;
+  // A fan of half a turn or more is no longer a convex wedge (its points need not stay inside it):
+  // treat it as the whole disc, so the test stays safe by construction.
+  if (d <= r || width >= Math.PI) return true;
   const rel = angleOf(dx, dz) - lo;
   if (rel - TAU * Math.floor(rel / TAU) <= width) return true;
   for (let e = 0; e < 2; e++) {
@@ -71,11 +88,13 @@ function circleInFan(x: number, z: number, lo: number, width: number, reach: num
 /**
  * Whether the body (its fan, `bodyFan`) turning to lie back along the cut `heading` keeps off every
  * trunk, rock and log footprint, by the body's radius. Conservative: the whole fan must be clear.
+ * False for a fan wider than MAX_FAN.
  */
 export function sweepClear(x: number, z: number, heading: number): boolean {
   const back = fan.first + wrapPi(heading + Math.PI - fan.first);
   const lo = Math.min(fan.lo, back);
   const width = Math.max(fan.hi, back) - lo;
+  if (width > MAX_FAN) return false;
   const reach = fan.reach;
   const { round, log } = footprints();
   for (let k = 0; k < round.length; k += 4) {

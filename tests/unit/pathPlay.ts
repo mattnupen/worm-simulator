@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import { poseAt, type BodyPath } from '../../src/underground/bodyPath';
+import { poseAt, POINT_SPEED, SHORT, TURN_RATE, type BodyPath } from '../../src/underground/bodyPath';
 import { slabX, slabZ, type Slab } from '../../src/underground/slab';
 import { Crawl, SPACING } from '../../src/game/crawl';
 
@@ -9,12 +9,13 @@ export const DT = 1 / 60;
 export const DEG = Math.PI / 180;
 /** A joint never bends more than this during a move, unless the body was already bent more. */
 export const KINK = 45 * DEG;
-/**
- * The most a point's per-frame step may change between frames (u): a snap or a sudden stop shows as
- * far more. Sweeping the tail (3.3 u behind the head) through an 80 degree turn within the 1 s sink
- * needs about 0.023.
- */
-export const MAX_ACCEL = 0.03;
+/** The most a point's per-frame step may change between frames (u): a snap or a sudden stop shows as far more. */
+export const MAX_ACCEL = 0.02;
+
+/** A point never turns its way by this much from one visible step to the next (a stall between or not). */
+export const REVERSE = 90 * (Math.PI / 180);
+/** A step a frame this small (0.03 u/s, about 1 mm/s) does not show. */
+export const SEEN = 5e-4;
 
 export type P3 = [number, number, number];
 
@@ -46,45 +47,72 @@ export function maxBend(b: P3[]): number {
   return m;
 }
 
-export interface Played { first: P3[]; last: P3[]; frames: P3[][] }
+export interface Played { first: P3[]; last: P3[]; frames: P3[][]; topSpeed: number; topHead: number; topTurn: number; topWay: number }
 
 /**
- * Plays the move at 60 Hz and checks it frame by frame: every point moves smoothly (its step and the
- * change in its step bounded, still at both ends), the head never doubles back, no joint kinks and
- * no segment stretches.
+ * Plays the move over `seconds` at 60 Hz and checks it frame by frame:
+ * - no point moves faster than POINT_SPEED, nor the head than `headSpeed` (u/s);
+ * - no segment turns faster than TURN_RATE;
+ * - every point moves smoothly (the change in its step bounded, still at both ends) and never
+ *   doubles back: while it moves visibly (over SEEN a frame) its way changes by under REVERSE from
+ *   one such frame to the next, across a stall too;
+ * - no joint kinks and no segment stretches (past SPACING, or the longest it started at).
+ * Returns the end poses, the fastest point, head and segment turn seen (per second) and the largest
+ * change of way.
  */
-export function play(s: Slab, p: BodyPath, seconds: number, maxStep: number, maxHeadTurn: number): Played {
+export function play(s: Slab, p: BodyPath, seconds: number, headSpeed: number): Played {
   const u = new Float64Array(N);
   const v = new Float64Array(N);
   const w = new Float64Array(N);
   const n = Math.round(seconds / DT);
+  const dt = seconds / n;
   const frames: P3[][] = [];
   for (let k = 0; k <= n; k++) frames.push(world(s, p, k / n, u, v, w));
   const bend0 = maxBend(frames[0]);
+  let span0 = 0;
+  for (let i = 1; i < N; i++) span0 = Math.max(span0, len(sub(frames[0][i], frames[0][i - 1])));
+  const lastWay: (P3 | null)[] = Array.from({ length: N }, () => null);
+  let topSpeed = 0;
+  let topHead = 0;
+  let topTurn = 0;
+  let topWay = 0;
   for (let k = 1; k <= n; k++) {
     const a = frames[k - 1];
     const b = frames[k];
     for (let i = 0; i < N; i++) {
       const d = sub(b[i], a[i]);
-      expect(len(d)).toBeLessThanOrEqual(maxStep);
+      const speed = len(d) / dt;
+      if (i === 0) topHead = Math.max(topHead, speed);
+      else topSpeed = Math.max(topSpeed, speed);
+      expect(speed).toBeLessThanOrEqual((i === 0 ? Math.min(headSpeed, POINT_SPEED) : POINT_SPEED) * 1.02);
       // No snap: a point's step changes only a little from one frame to the next.
       if (k >= 2) expect(len(sub(d, sub(a[i], frames[k - 2][i])))).toBeLessThanOrEqual(MAX_ACCEL);
-      if (i > 0) expect(len(sub(b[i], b[i - 1]))).toBeLessThanOrEqual(SPACING * 1.04);
+      if (len(d) > SEEN) {
+        const before = lastWay[i];
+        if (before) {
+          const way = angle(before, d);
+          expect(way).toBeLessThan(REVERSE);
+          topWay = Math.max(topWay, way);
+        }
+        lastWay[i] = d;
+      }
+      if (i > 0) {
+        expect(len(sub(b[i], b[i - 1]))).toBeLessThanOrEqual(Math.max(SPACING, span0) * 1.04);
+        const sa = sub(a[i], a[i - 1]);
+        const sb = sub(b[i], b[i - 1]);
+        const turn = len(sa) > SHORT && len(sb) > SHORT ? angle(sa, sb) / dt : 0;
+        topTurn = Math.max(topTurn, turn);
+        expect(turn).toBeLessThanOrEqual(TURN_RATE * 1.02);
+      }
     }
     expect(maxBend(b)).toBeLessThanOrEqual(Math.max(bend0, KINK) + 1e-9);
-    if (k >= 2) {
-      // The head never reverses or jerks sideways: its way changes a little from frame to frame.
-      const h1 = sub(a[0], frames[k - 2][0]);
-      const h2 = sub(b[0], a[0]);
-      if (len(h1) > 1e-4 && len(h2) > 1e-4) expect(angle(h1, h2)).toBeLessThan(maxHeadTurn);
-    }
   }
   // Starts and stops gently: no jump from or into a still worm.
   for (let i = 0; i < N; i++) {
     expect(len(sub(frames[1][i], frames[0][i]))).toBeLessThan(2e-3);
     expect(len(sub(frames[n][i], frames[n - 1][i]))).toBeLessThan(2e-3);
   }
-  return { first: frames[0], last: frames[n], frames };
+  return { first: frames[0], last: frames[n], frames, topSpeed, topHead, topTurn, topWay };
 }
 
 /** A burrower body in the plane: the head at (hu, hv) facing `dir`, the body trailing in a gentle curve. */

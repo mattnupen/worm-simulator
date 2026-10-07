@@ -5,7 +5,8 @@ import {
 import { footprints, obstacleDepth } from '../../src/surface/obstacles';
 import { BODY_RADIUS, Crawl, SPACING } from '../../src/game/crawl';
 import { canEmergeNearEntry } from '../../src/underground/emergeMap';
-import { createBodyPath, buildSink, poseAt } from '../../src/underground/bodyPath';
+import { createBodyPath, poseAt } from '../../src/underground/bodyPath';
+import { buildSink } from '../../src/underground/sinkPath';
 import { floorHeight } from '../../src/surface/litterDepth';
 import { mulberry32 } from '../../src/core/random';
 import { rocks } from '../../src/surface/propPlacement';

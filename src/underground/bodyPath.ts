@@ -1,42 +1,39 @@
-import type { Vec3 } from '../core/vec';
 import { SPACING, WORM_SEGMENTS } from '../game/crawl';
 import { OCC_AXIS_UP } from '../render/occlusion';
 import { bellyHeight, wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import { cruise, smootherstep } from './easing';
-import { SINK_S } from './modeMachine';
-import { boundaryAt, B_F, type Slab } from './slab';
+import type { Slab } from './slab';
 
 /**
  * The worm's own moves in and out of the cut (V2 spec 4.1, 4.2). Poses are written in the slab's
  * frame: u along the cut, v the height of the body's axis, w off the plane toward the camera's
  * side (0 in the cut). Pure; the moves are built once each, and posing allocates nothing.
  *
- * Going down: the head turns down in a short arc and sinks below the F top, in the cut's plane,
- * while the body still on the surface turns from the way the worm lay to lie along the cut (up to
- * 90 degrees off; digSpot.ts makes sure the turn misses every footprint): each segment keeps its
- * length and turns smoothly, neck first, tail last. Frame 0 is the crawl's last frame exactly; the
- * last frame lies wholly in the plane.
- *
- * Coming up (emergePath.ts builds it): a path in the plane from the tail through the head, up to
- * the floor and along it under the litter far enough that the whole body comes out, lying along
- * the cut. Every body point slides along it.
+ * Going down (sinkPath.ts builds it): the body on the surface swings round to lie along the cut
+ * while the head turns down and sinks in the cut's plane. Coming up (emergePath.ts): a path in the
+ * plane from the tail through the head, up to the floor and along it under the litter, that every
+ * body point slides along. Each move's length (`seconds`) is fitted so that no point outruns
+ * POINT_SPEED, the head its own cap, and no segment turns faster than TURN_RATE (`fitSeconds`).
  */
 const N = WORM_SEGMENTS;
-const MAX_POINTS = 224;
+const MAX_POINTS = 256;
 /** The axis rides this far above the belly line the crawl rests on the floor (the drawn tube's middle). */
 export const AXIS_UP = OCC_AXIS_UP;
-/** Every bend of a path is an arc this wide (the digging worm turns about as tightly)... */
+/** Bends of a path are arcs this wide where there is room (the digging worm turns about as tightly)... */
 export const TURN_RADIUS = 0.45;
 /** ...drawn as a polyline this fine, so a point sliding along it turns a few degrees at a vertex. */
 const FINE = 0.02;
-/** How far below the F top the head ends going down. */
-export const SINK_DEPTH = 0.85;
-/**
- * Going down, each segment of the body on the surface turns into the plane over up to TURN_S of
- * the move, neck first; it has finished by the time the hole reaches it, so the body bends into
- * the hole without a kink.
- */
-const TURN_S = 0.65;
+/** No body point moves faster than this (u/s; the crawl's top speed is 1.6)... */
+export const POINT_SPEED = 2.5;
+/** ...and no segment turns faster than this (radians a second: 4 degrees a frame at 60 fps). */
+export const TURN_RATE = (4 * Math.PI) / 180 * 60;
+/** Segments shorter than this (bunched up, within the tube's width) are not held to TURN_RATE. */
+export const SHORT = 0.1;
+/** Progress samples `fitSeconds` measures a move at (finer than its frames). */
+const FIT_STEPS = 400;
+
+/** Poses a built move at progress t (see poseAt). */
+export type Posing = (p: BodyPath, t: number, outU: Float64Array, outV: Float64Array, outW: Float64Array) => void;
 
 export interface BodyPath {
   /** The path in the plane (u, v) and the arc length at each point. */
@@ -47,25 +44,25 @@ export interface BodyPath {
   /** Coming up: the head's way along the cut at the end (+1 along u, -1 against), where it comes
    * out of the ground (u: the burrow opening) and that point's arc length. */
   exitSign: number; exitU: number; exitAt: number;
-  /** Going down (the body turns into the plane) or coming up (everything slides along the path). */
-  sink: boolean;
-  /**
-   * The move's natural length in seconds (going down SINK_S; coming up set by its length, for the
-   * mode machine's `setMoveTime`), and the share of it spent speeding up and slowing down (coming
-   * up: the head cruises in between, `cruise`; 0: smootherstep all the way).
-   */
-  seconds: number; ramp: number;
-  /** Each body point's distance behind the head along the body at the start (head first). */
+  /** How the move is posed: going down, sinkPath's; null, coming up (`slidePose`). */
+  posing: Posing | null;
+  /** The move's length in seconds, for the mode machine's `setMoveTime` (`fitSeconds`). */
+  seconds: number;
+  /** Each body point's distance behind the head along the path at the start (head first). */
   readonly back: Float64Array;
-  /** Going down: the body as it lay (u, w); each segment's angle from straight back along -u, and length. */
+  /**
+   * Coming up: where each point really lay, less where the path puts it at the start, and whether
+   * that matters (the head first turns where it lies, the front bending round onto the path).
+   */
+  readonly offU: Float64Array; readonly offV: Float64Array;
+  turnFirst: boolean;
+  /** Going down: the body as it lay (u, w); each point's distance from the hole and its angle there from straight back along -u. */
   readonly bu: Float64Array; readonly bw: Float64Array;
-  readonly beta: Float64Array; readonly len: Float64Array;
+  readonly rad: Float64Array; readonly ang: Float64Array;
   /** Going down: each point's height over where the floor rests it (0 for a settled crawl), eased out. */
   readonly lift: Float64Array;
-  /** Going down: when (0..1 of the move) each segment starts and ends its turn into the plane. */
-  readonly turnOn: Float64Array; readonly turnOff: Float64Array;
-  /** Scratch: the turning body's points at the current progress. */
-  readonly cu: Float64Array; readonly cw: Float64Array;
+  /** Scratch: two poses for `fitSeconds`. */
+  readonly fit: readonly Float64Array[];
   /** The slab's frame (world x, z of a plane point; posing needs the floor). */
   ox: number; oz: number; tx: number; tz: number; nx: number; nz: number;
 }
@@ -74,9 +71,8 @@ export function createBodyPath(): BodyPath {
   const f = (n: number) => new Float64Array(n);
   return {
     u: f(MAX_POINTS), v: f(MAX_POINTS), s: f(MAX_POINTS), count: 0, headFrom: 0, headTo: 0,
-    exitSign: 1, exitU: 0, exitAt: 0, sink: true, seconds: SINK_S, ramp: 0, back: f(N),
-    bu: f(N), bw: f(N), beta: f(N - 1), len: f(N - 1), lift: f(N),
-    turnOn: f(N - 1), turnOff: f(N - 1), cu: f(N), cw: f(N),
+    exitSign: 1, exitU: 0, exitAt: 0, posing: null, seconds: 0, back: f(N), offU: f(N), offV: f(N), turnFirst: false,
+    bu: f(N), bw: f(N), rad: f(N), ang: f(N), lift: f(N), fit: [f(N), f(N), f(N), f(N), f(N), f(N)],
     ox: 0, oz: 0, tx: 0, tz: 1, nx: 1, nz: 0,
   };
 }
@@ -106,90 +102,19 @@ export function push(p: BodyPath, u: number, v: number): void {
   p.s[i] = i === 0 ? 0 : p.s[i - 1] + Math.hypot(u - p.u[i - 1], v - p.v[i - 1]);
 }
 
-/**
- * Digging down from the crawl's body (head first, belly heights, as `Crawl.body`), into slab `s`
- * dug at the head: the dive is an arc turning the head down, then straight down to SINK_DEPTH below
- * the F top. The head ends facing straight down.
- */
-export function buildSink(p: BodyPath, s: Slab, body: ArrayLike<Vec3>): void {
-  frame(p, s);
-  p.sink = true;
-  p.seconds = SINK_S;
-  p.ramp = 0;
-  for (let i = 0; i < N; i++) {
-    const x = body[i].x - s.ox;
-    const z = body[i].z - s.oz;
-    p.bu[i] = x * s.tx + z * s.tz;
-    p.bw[i] = x * s.nx + z * s.nz;
-    p.lift[i] = body[i].y + AXIS_UP - restAxis(body[i].x, body[i].z);
-  }
-  // Each segment's angle from straight back along the cut, unwrapped down the body so the whole
-  // body turns one way (a curled body never untwists through itself).
-  p.back[0] = 0;
-  for (let k = 0; k < N - 1; k++) {
-    const du = p.bu[k + 1] - p.bu[k];
-    const dw = p.bw[k + 1] - p.bw[k];
-    const l = Math.hypot(du, dw);
-    const prev = k > 0 ? p.beta[k - 1] : 0;
-    const a = l > 1e-9 ? Math.atan2(dw, -du) : prev;
-    p.beta[k] = k > 0 ? prev + wrap(a - prev) : a;
-    p.len[k] = l;
-    p.back[k + 1] = p.back[k] + l;
-  }
-  p.count = 0;
-  const u0 = p.bu[0];
-  const v0 = body[0].y + AXIS_UP;
-  push(p, u0, v0);
-  arc(p, 0, -1, Math.PI / 2);
-  const ue = p.u[p.count - 1];
-  push(p, ue, Math.min(p.v[p.count - 1] - 0.05, boundaryAt(s, B_F, ue) - SINK_DEPTH));
-  p.headFrom = 0;
-  p.headTo = p.exitAt = p.s[p.count - 1];
-  p.exitSign = 1;
-  p.exitU = u0;
-  // Segment k must lie along the cut when its back end, point k + 1, reaches the hole (when the
-  // head has dived back[k + 1]); before that the neck leads and the tail follows evenly.
-  const first = reachAt(p.back[1] / p.headTo);
-  for (let k = 0; k < N - 1; k++) {
-    const off = Math.min(reachAt(p.back[k + 1] / p.headTo), first + ((1 - first) * k) / (N - 2));
-    p.turnOff[k] = off;
-    p.turnOn[k] = Math.max(0, off - TURN_S);
-  }
-}
-
-/** The progress at which the head has dived share `f` of the dive (1 if never): smootherstep's inverse. */
-function reachAt(f: number): number {
-  if (f >= 1) return 1;
-  let lo = 0;
-  let hi = 1;
-  for (let k = 0; k < 40; k++) {
-    const mid = (lo + hi) / 2;
-    if (smootherstep(mid) < f) lo = mid;
-    else hi = mid;
-  }
-  return lo;
-}
-
-/** How far segment k has turned into the plane at progress t (0..1). */
-function turnShare(p: BodyPath, t: number, k: number): number {
-  const on = p.turnOn[k];
-  const off = p.turnOff[k];
-  return off > on ? smootherstep((t - on) / (off - on)) : t >= off ? 1 : 0;
-}
-
-/** Appends the arc from the path's end, facing a0, turning `rho` through `sweep`, finely enough to look round. */
-export function arc(p: BodyPath, a0: number, rho: number, sweep: number): void {
+/** Appends the arc of radius `r` from the path's end, facing a0, turning `rho` through `sweep`, finely enough to look round. */
+export function arc(p: BodyPath, a0: number, rho: number, sweep: number, r = TURN_RADIUS): void {
   const pu = p.u[p.count - 1];
   const pv = p.v[p.count - 1];
-  const n = Math.ceil((sweep * TURN_RADIUS) / FINE);
+  const n = Math.ceil((sweep * r) / FINE);
   for (let k = 1; k <= n; k++) {
     const a = a0 + (rho * sweep * k) / n;
-    push(p, pu + TURN_RADIUS * rho * (Math.sin(a) - Math.sin(a0)), pv - TURN_RADIUS * rho * (Math.cos(a) - Math.cos(a0)));
+    push(p, pu + r * rho * (Math.sin(a) - Math.sin(a0)), pv - r * rho * (Math.cos(a) - Math.cos(a0)));
   }
 }
 
 /** The point at arc length `at` along the path (held at its ends). */
-function sampleAt(p: BodyPath, at: number, outU: Float64Array, outV: Float64Array, i: number): void {
+export function sampleAt(p: BodyPath, at: number, outU: Float64Array, outV: Float64Array, i: number): void {
   let lo = 0;
   let hi = p.count - 1;
   if (at <= 0 || at >= p.s[hi]) {
@@ -208,38 +133,35 @@ function sampleAt(p: BodyPath, at: number, outU: Float64Array, outV: Float64Arra
   outV[i] = p.v[lo] + (p.v[hi] - p.v[lo]) * f;
 }
 
-/** Going down at progress t: the dive in the plane, the rest on the surface turning into it. */
-function sinkPose(p: BodyPath, t: number, outU: Float64Array, outV: Float64Array, outW: Float64Array): void {
-  const st = smootherstep(t);
-  const dived = (p.headTo - p.headFrom) * st;
-  // The body still on the surface: each segment keeps its length and turns toward the cut.
-  const shift = p.bw[0] * (1 - turnShare(p, t, 0));
-  p.cu[0] = p.bu[0];
-  p.cw[0] = shift;
-  for (let k = 0; k < N - 1; k++) {
-    const b = p.beta[k] * (1 - turnShare(p, t, k));
-    p.cu[k + 1] = p.cu[k] - p.len[k] * Math.cos(b);
-    p.cw[k + 1] = p.cw[k] + p.len[k] * Math.sin(b);
-  }
-  const ease = 1 - st;
-  // The dive meets the surface part at the hole, so it rides with the hole's height.
-  const hole = restAt(p, p.bu[0], shift) + p.lift[0] * ease - p.v[0];
-  let k = 0;
+/** Coming up, the share of the move the head spends speeding up (and slowing down)... */
+const SLIDE_EASE = 0.25;
+/**
+ * ...and, when the head first turns where it lies (`turnFirst`), the share over which the front
+ * bends round onto the path; the slide starts SLIDE_FROM of the way through it (the offsets, fixed
+ * where the body lay, all but gone, so sliding under them cannot stretch it).
+ */
+const TURN_SHARE = 0.3;
+const SLIDE_FROM = 0.5;
+/** Otherwise the front's small offsets (it lay not quite on the path's arc) ease out over this share. */
+const SETTLE_SHARE = 0.12;
+
+/**
+ * Coming up at progress t: every point slides along the path with the head's easing; a body
+ * bunched up in a turn stretches out to its full spacing over the whole move (never sliding back).
+ */
+function slidePose(p: BodyPath, t: number, outU: Float64Array, outV: Float64Array, outW: Float64Array): void {
+  const pre = p.turnFirst ? TURN_SHARE : SETTLE_SHARE;
+  const off = 1 - smootherstep(t / pre);
+  const go = pre * SLIDE_FROM;
+  const st = cruise((t - go) / (1 - go), SLIDE_EASE);
+  const head = p.headFrom + (p.headTo - p.headFrom) * st;
   for (let i = 0; i < N; i++) {
-    const d = p.back[i] - dived;
-    if (d <= 0) {
-      sampleAt(p, -d, outU, outV, i);
-      outV[i] += hole;
-      outW[i] = shift;
-      continue;
-    }
-    while (k < N - 2 && p.back[k + 1] < d) k++;
-    const f = p.len[k] > 1e-12 ? (d - p.back[k]) / p.len[k] : 0;
-    const u = p.cu[k] + (p.cu[k + 1] - p.cu[k]) * f;
-    const w = p.cw[k] + (p.cw[k + 1] - p.cw[k]) * f;
-    outU[i] = u;
-    outW[i] = w;
-    outV[i] = restAt(p, u, w) + (p.lift[k] + (p.lift[k + 1] - p.lift[k]) * f) * ease;
+    const at = head - p.back[i] - (i * SPACING - p.back[i]) * st;
+    sampleAt(p, at, outU, outV, i);
+    if (at >= p.exitAt) outV[i] = restAt(p, outU[i], 0);
+    outU[i] += p.offU[i] * off;
+    outV[i] += p.offV[i] * off;
+    outW[i] = 0;
   }
 }
 
@@ -248,18 +170,75 @@ function sinkPose(p: BodyPath, t: number, outU: Float64Array, outV: Float64Array
  * the plane; 0 in it). Exactly as it lay at 0; at rest at both ends. Allocates nothing.
  */
 export function poseAt(p: BodyPath, t: number, outU: Float64Array, outV: Float64Array, outW: Float64Array): void {
-  if (p.sink) {
-    sinkPose(p, t, outU, outV, outW);
-    return;
+  (p.posing ?? slidePose)(p, t, outU, outV, outW);
+}
+
+/** World position of point i of the scratch pose starting at fit[o] (u, v, w) into `pt`. */
+const pt = { x: 0, y: 0, z: 0 };
+function worldOf(p: BodyPath, o: number, i: number): void {
+  const u = p.fit[o][i];
+  const w = p.fit[o + 2][i];
+  pt.x = p.ox + p.tx * u + p.nx * w;
+  pt.y = p.fit[o + 1][i];
+  pt.z = p.oz + p.tz * u + p.nz * w;
+}
+
+/**
+ * The shortest the built move may last (at least `least` seconds) so that, played at linear progress,
+ * no body point moves faster than POINT_SPEED, the head than `headSpeed`, and no segment turns
+ * faster than TURN_RATE. Measured on FIT_STEPS samples (a little margin over the fastest). Once per
+ * move; allocates nothing.
+ */
+export function fitSeconds(p: BodyPath, least: number, headSpeed: number): number {
+  // Measured at least twice a frame (at 60 fps) of the length it comes to.
+  let need = fitOnce(p, least, headSpeed, FIT_STEPS);
+  if (need * 120 > FIT_STEPS) need = fitOnce(p, least, headSpeed, Math.ceil(need * 120));
+  return need;
+}
+
+function fitOnce(p: BodyPath, least: number, headSpeed: number, steps: number): number {
+  const f = p.fit;
+  let need = least;
+  let o = 0;
+  poseAt(p, 0, f[0], f[1], f[2]);
+  for (let k = 1; k <= steps; k++) {
+    const n = 3 - o;
+    poseAt(p, k / steps, f[n], f[n + 1], f[n + 2]);
+    let px = 0;
+    let py = 0;
+    let pz = 0;
+    let qx = 0;
+    let qy = 0;
+    let qz = 0;
+    for (let i = 0; i < N; i++) {
+      worldOf(p, o, i);
+      const ax = pt.x;
+      const ay = pt.y;
+      const az = pt.z;
+      worldOf(p, n, i);
+      const d = Math.hypot(pt.x - ax, pt.y - ay, pt.z - az) * steps;
+      need = Math.max(need, d / (i === 0 ? Math.min(headSpeed, POINT_SPEED) : POINT_SPEED));
+      if (i > 0) {
+        // The segment from point i - 1 to i, before and after: how far it turned.
+        const ux = ax - px;
+        const uy = ay - py;
+        const uz = az - pz;
+        const vx = pt.x - qx;
+        const vy = pt.y - qy;
+        const vz = pt.z - qz;
+        const lu = Math.hypot(ux, uy, uz);
+        const lv = Math.hypot(vx, vy, vz);
+        const l = lu * lv;
+        // A segment bunched up shorter than SHORT turns within the tube's own width: it does not show.
+        if (lu > SHORT && lv > SHORT) {
+          const c = Math.max(-1, Math.min(1, (ux * vx + uy * vy + uz * vz) / l));
+          need = Math.max(need, (Math.acos(c) * steps) / TURN_RATE);
+        }
+      }
+      px = ax; py = ay; pz = az;
+      qx = pt.x; qy = pt.y; qz = pt.z;
+    }
+    o = n;
   }
-  // Coming up: every point slides along the path with the head's easing; a body bunched up in a
-  // turn stretches out to its full spacing over the whole move (never sliding backward).
-  const st = p.ramp > 0 ? cruise(t, p.ramp) : smootherstep(t);
-  const head = p.headFrom + (p.headTo - p.headFrom) * st;
-  for (let i = 0; i < N; i++) {
-    const at = head - p.back[i] - (i * SPACING - p.back[i]) * st;
-    sampleAt(p, at, outU, outV, i);
-    if (at >= p.exitAt) outV[i] = restAt(p, outU[i], 0);
-    outW[i] = 0;
-  }
+  return need * 1.03;
 }

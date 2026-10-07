@@ -1,13 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createBodyPath, buildSink, poseAt, smootherstep, cruise, restAxis, SINK_DEPTH, AXIS_UP,
+  createBodyPath, poseAt, smootherstep, cruise, restAxis, AXIS_UP, POINT_SPEED, TURN_RATE,
 } from '../../src/underground/bodyPath';
+import { buildSink, SINK_DEPTH } from '../../src/underground/sinkPath';
+import { bodyFan, fanWidth, MAX_FAN } from '../../src/underground/sinkSweep';
+import { Crawl } from '../../src/game/crawl';
+import { mulberry32 } from '../../src/core/random';
 import { createSlab, boundaryAt, slabX, slabZ, B_F } from '../../src/underground/slab';
 import { SPACING } from '../../src/game/crawl';
-import { SINK_S } from '../../src/underground/modeMachine';
+import { SINK_S, SWING_S, FADE_S } from '../../src/underground/modeMachine';
 import { OCC_AXIS_UP } from '../../src/render/occlusion';
 import { floorHeight } from '../../src/surface/litterDepth';
 import { N, DEG, crawled, world, play } from './pathPlay';
+
+/** The head sinks no faster than the crawl's top speed (sinkPath.ts). */
+const SINK_SPEED = 1.6;
 
 describe('digging down and coming up: the worm\'s own move (spec 4.1, 4.2)', () => {
   it('rests the axis where the crawl rests the body: its belly on the floor, under the litter', () => {
@@ -45,7 +52,10 @@ describe('digging down and coming up: the worm\'s own move (spec 4.1, 4.2)', () 
       for (const turn of [-90, -80, -60, -35, -10, 0, 15, 40, 65, 80, 90]) {
         const s = createSlab(h.x, h.z, c.motion.heading + turn * DEG, seed % 2 ? 1 : -1, seed);
         buildSink(p, s, c.body);
-        const { last } = play(s, p, SINK_S, 0.22, 8 * DEG);
+        // It runs at least the whole dig-down; longer only when the turn needs it.
+        expect(p.seconds).toBeGreaterThanOrEqual(SINK_S + FADE_S);
+        if (Math.abs(turn) <= 10) expect(p.seconds).toBeLessThanOrEqual(SINK_S + SWING_S);
+        const { last } = play(s, p, p.seconds, SINK_SPEED);
         const u = new Float64Array(N);
         const v = new Float64Array(N);
         const w = new Float64Array(N);
@@ -63,6 +73,51 @@ describe('digging down and coming up: the worm\'s own move (spec 4.1, 4.2)', () 
         expect(last[0][1]).toBeCloseTo(v[0], 9);
       }
     }
+  });
+
+  it('never whips, stalls or doubles back: random bodies, bent ones too, at any turn digSpot allows', () => {
+    // Bodies from wandering, and from a run then a tight turn of varying length (bent, nearly curled).
+    const shapes: { heading: number; rel: { x: number; z: number }[] }[] = [];
+    for (let seed = 0; seed < 12; seed++) {
+      const c = new Crawl();
+      for (let k = 0; k < 120; k++) c.step(1 / 60, { x: 0, y: 1 });
+      const curl = seed >= 4 ? 10 + (seed - 4) * 8 : 0;
+      for (let k = 0; k < 60 + 25 * (seed % 4); k++) {
+        if (seed < 4) c.step(1 / 60, { x: 0.9 * Math.sin(k * 0.05 * seed + seed), y: 1 });
+        else c.step(1 / 60, { x: k < curl ? (seed % 2 ? 1 : -1) : 0, y: k < curl ? 1 : 0 });
+      }
+      const hd = c.motion.head;
+      shapes.push({ heading: c.motion.heading, rel: c.body.map((b) => ({ x: b.x - hd.x, z: b.z - hd.z })) });
+    }
+    const rand = mulberry32(17);
+    const p = createBodyPath();
+    let topSpeed = 0;
+    let topTurn = 0;
+    let longest = 0;
+    let played = 0;
+    for (let k = 0; k < 240; k++) {
+      const shape = shapes[k % shapes.length];
+      const x = (rand() - 0.5) * 20;
+      const z = (rand() - 0.5) * 20;
+      const body = shape.rel.map((q) => ({ x: x + q.x, y: floorHeight(x + q.x, z + q.z) + 0.01, z: z + q.z }));
+      const cut = shape.heading + (rand() * 2 - 1) * 90 * DEG;
+      // Only what canDigAt can offer: a body (with the turn) curled no further than MAX_FAN.
+      bodyFan(shape.heading, body);
+      if (fanWidth(cut) > MAX_FAN) continue;
+      const s = createSlab(x, z, cut, rand() < 0.5 ? 1 : -1, k);
+      buildSink(p, s, body);
+      const r = play(s, p, p.seconds, SINK_SPEED);
+      // Spacing never collapses (a bent body closes up a little mid-swing, never by a fifth).
+      for (const f of r.frames) for (let i = 1; i < N; i++) expect(Math.hypot(f[i][0] - f[i - 1][0], f[i][1] - f[i - 1][1], f[i][2] - f[i - 1][2])).toBeGreaterThan(0.8 * SPACING);
+      topSpeed = Math.max(topSpeed, r.topSpeed);
+      topTurn = Math.max(topTurn, r.topTurn);
+      longest = Math.max(longest, p.seconds);
+      played++;
+    }
+    expect(played).toBeGreaterThan(200);
+    expect(topSpeed).toBeLessThanOrEqual(POINT_SPEED * 1.02);
+    expect(topTurn).toBeLessThanOrEqual(TURN_RATE * 1.02);
+    expect(longest).toBeLessThan(8);
   });
 
   it('a body bunched up in a turn starts exactly where it lay, and keeps its own spacing', () => {
@@ -86,7 +141,7 @@ describe('digging down and coming up: the worm\'s own move (spec 4.1, 4.2)', () 
     const p = createBodyPath();
     buildSink(p, s, c.body);
     // A curled body swings further as it uncurls into the plane.
-    const { first } = play(s, p, SINK_S, 0.3, 8 * DEG);
+    const { first } = play(s, p, p.seconds, SINK_SPEED);
     for (let i = 0; i < N; i++) {
       expect(first[i][0]).toBeCloseTo(c.body[i].x, 9);
       expect(first[i][1]).toBeCloseTo(c.body[i].y + AXIS_UP, 9);

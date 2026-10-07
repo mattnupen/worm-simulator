@@ -8,6 +8,7 @@ import { createSlab, boundaryAt, slabX, slabZ, B_F, B_TOP, type Slab } from '../
 import { canDigAt, chooseSide, cutHeading } from '../../src/underground/digSpot';
 import { BODY_RADIUS, SPACING } from '../../src/game/crawl';
 import { RISE_S, OUT_S } from '../../src/underground/modeMachine';
+import { TOP_KEEP } from '../../src/underground/burrowMotion';
 import { footprints, obstacleDepth } from '../../src/surface/obstacles';
 import { PLAY_HALF } from '../../src/surface/terrain';
 import { mulberry32 } from '../../src/core/random';
@@ -21,6 +22,29 @@ function mapped(s: Slab): EmergeMap {
   return m;
 }
 
+/** The path turns by under 3 degrees where the rise meets the floor (it arrives at the floor's slope). */
+function expectSmoothExit(p: ReturnType<typeof createBodyPath>): void {
+  let k = 1;
+  while (k < p.count - 1 && p.s[k] < p.exitAt - 1e-9) k++;
+  const a1 = Math.atan2(p.v[k] - p.v[k - 1], p.u[k] - p.u[k - 1]);
+  const a2 = Math.atan2(p.v[k + 1] - p.v[k], p.u[k + 1] - p.u[k]);
+  expect(Math.abs(Math.atan2(Math.sin(a2 - a1), Math.cos(a2 - a1)))).toBeLessThan(3 * DEG);
+}
+
+/** The body kept under the line TOP_KEEP below the litter's top, as the burrower keeps it. */
+function underTheTop(s: Slab, b: { us: Float64Array; vs: Float64Array }) {
+  for (let i = 0; i < N; i++) b.vs[i] = Math.min(b.vs[i], boundaryAt(s, B_TOP, b.us[i]) - TOP_KEEP);
+  return b;
+}
+
+/** Whether the body doubles back on itself anywhere (neighbouring segments over 90 degrees apart). */
+function folded(us: Float64Array, vs: Float64Array): boolean {
+  for (let i = 1; i < N - 1; i++) {
+    if ((us[i - 1] - us[i]) * (us[i] - us[i + 1]) + (vs[i - 1] - vs[i]) * (vs[i] - vs[i + 1]) < 0) return true;
+  }
+  return false;
+}
+
 /** The end pose: where the crawl will start, on the surface. */
 function endPose(p: ReturnType<typeof createBodyPath>) {
   const u = new Float64Array(N);
@@ -31,7 +55,7 @@ function endPose(p: ReturnType<typeof createBodyPath>) {
 }
 
 describe('coming up out of the cut (spec 4.2)', () => {
-  it('comes up smoothly from any facing, no faster than HEAD_SPEED, onto the floor along the cut', () => {
+  it('comes up smoothly from any facing, within the speed caps, onto the floor along the cut', () => {
     const p = createBodyPath();
     const rand = mulberry32(11);
     for (const seed of [1, 2, 3]) {
@@ -41,15 +65,17 @@ describe('coming up out of the cut (spec 4.2)', () => {
         for (let a = 0; a < 360; a += 20) {
           const dir = a * DEG;
           const floor = boundaryAt(s, B_F, hu);
-          // Near the top: just under the F top, at it, or up in the litter.
-          const hv = floor + [-0.18, 0.05, 0.6][Math.floor(rand() * 3)];
-          if (hv > boundaryAt(s, B_TOP, hu) - 0.12) continue;
-          const { us, vs } = burrowerBody(hu, hv, dir, (rand() - 0.5) * 0.3);
+          // Near the top: just under the F top, at it, up in the litter, or right at the top.
+          // (Right at the top it can only face up or level: a neck above the top cannot be.)
+          const pick = Math.floor(rand() * 4);
+          const top = pick === 3 && Math.sin(dir) > -1e-9;
+          const hv = top ? boundaryAt(s, B_TOP, hu) - TOP_KEEP : floor + [-0.18, 0.05, 0.6][pick % 3];
+          if (hv > boundaryAt(s, B_TOP, hu) - TOP_KEEP) continue;
+          const { us, vs } = underTheTop(s, burrowerBody(hu, hv, dir, (rand() - 0.5) * 0.3));
+          if (folded(us, vs)) continue; // a body the top pressed flat onto itself: not one the burrower makes
           buildEmerge(p, s, m, us, vs, dir);
-          // Long enough that the head never outruns HEAD_SPEED (a frame's step, give or take the frame count's
-          // rounding), never shorter than spec.
           expect(p.seconds).toBeGreaterThanOrEqual(RISE_S + OUT_S);
-          const { first, last } = play(s, p, p.seconds, (HEAD_SPEED / 60) * 1.01, 8 * DEG);
+          const { first, last } = play(s, p, p.seconds, HEAD_SPEED);
           for (let i = 0; i < N; i++) {
             expect(first[i][0]).toBeCloseTo(slabX(s, us[i]), 9);
             expect(first[i][1]).toBeCloseTo(vs[i], 9);
@@ -68,22 +94,54 @@ describe('coming up out of the cut (spec 4.2)', () => {
           // The tail is past the burrow opening.
           expect((u[N - 1] - p.exitU) * p.exitSign).toBeGreaterThanOrEqual(0);
           expect(last[0][1]).toBeCloseTo(v[0], 9);
+          expectSmoothExit(p);
         }
       }
     }
   });
 
-  it('takes as long as its path needs at HEAD_SPEED, speeding up and slowing down smoothly', () => {
+  it('never loops out of the leaves: from the top, facing any way it can, the rise stays under it', () => {
+    const p = createBodyPath();
+    let rises = 0;
+    for (const seed of [1, 2, 3, 4]) {
+      const s = createSlab(-3 + seed * 2.5, 4 - seed * 3, seed * 1.1, seed % 2 ? 1 : -1, seed);
+      const m = mapped(s);
+      for (const hu of [-5, -2, 0.5, 3, 5]) {
+        if (!canEmergeAt(m, hu)) continue;
+        // Every facing a head right at the top can have (up, level, and all between).
+        for (let a = 0; a <= 180; a += 10) {
+          const dir = a * DEG;
+          const hv = boundaryAt(s, B_TOP, hu) - TOP_KEEP;
+          const { us, vs } = underTheTop(s, burrowerBody(hu, hv, dir, 0));
+          buildEmerge(p, s, m, us, vs, dir);
+          const floorAtExit = restAxis(slabX(s, p.exitU), slabZ(s, p.exitU));
+          for (let k = 0; k < p.count && p.s[k] <= p.exitAt + 1e-9; k++) {
+            if (p.s[k] < p.headFrom) continue;
+            const roof = Math.max(boundaryAt(s, B_TOP, p.u[k]) - TOP_KEEP, floorAtExit);
+            expect(p.v[k]).toBeLessThanOrEqual(roof + 1e-6);
+          }
+          play(s, p, p.seconds, HEAD_SPEED);
+          rises++;
+        }
+      }
+    }
+    expect(rises).toBeGreaterThan(150);
+  });
+
+  it('takes longer for a longer way out, never shorter than spec', () => {
     const s = createSlab(1, -2, 0.7, 1, 4);
     const m = mapped(s);
     const p = createBodyPath();
-    for (const a of [0, 90, 180, 270]) {
-      const { us, vs } = burrowerBody(0, boundaryAt(s, B_F, 0) - 0.1, a * DEG, 0);
-      buildEmerge(p, s, m, us, vs, a * DEG);
-      const length = p.headTo - p.headFrom;
-      expect(p.seconds).toBeCloseTo(Math.max(RISE_S + OUT_S, length / HEAD_SPEED + 0.6), 9);
-      expect(p.ramp).toBeCloseTo(0.6 / p.seconds, 9);
-    }
+    const { us, vs } = burrowerBody(0, boundaryAt(s, B_F, 0) - 0.1, 0, 0);
+    buildEmerge(p, s, m, us, vs, 0);
+    const straight = p.seconds;
+    const length = p.headTo - p.headFrom;
+    // Facing straight back: a long way round.
+    const back = burrowerBody(0, boundaryAt(s, B_F, 0) - 0.1, Math.PI * 0.97, 0);
+    buildEmerge(p, s, m, back.us, back.vs, Math.PI * 0.97);
+    if (p.exitSign > 0) expect(p.headTo - p.headFrom).toBeGreaterThan(length);
+    expect(straight).toBeGreaterThanOrEqual(RISE_S + OUT_S);
+    expect(straight).toBeGreaterThanOrEqual(length / HEAD_SPEED);
   });
 
   it('comes out toward the slab\'s middle when both ways are clear but one would leave the slab', () => {

@@ -13,9 +13,13 @@ export function smootherstep(t: number): number {
  */
 export function cruise(t: number, r: number): number {
   const x = Math.min(1, Math.max(0, t));
-  const ramp = (y: number): number => r * y * y * y * (1 - y / 2);
-  const g = x < r ? ramp(x / r) : x > 1 - r ? 1 - r - ramp((1 - x) / r) : r / 2 + (x - r);
+  const g = x < r ? cruiseRamp(x / r, r) : x > 1 - r ? 1 - r - cruiseRamp((1 - x) / r, r) : r / 2 + (x - r);
   return g / (1 - r);
+}
+
+/** Distance covered over a ramp of length r whose speed rises as smoothstep, at y (0..1) of it. */
+function cruiseRamp(y: number, r: number): number {
+  return r * y * y * y * (1 - y / 2);
 }
 
 /**
