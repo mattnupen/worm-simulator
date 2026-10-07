@@ -79,13 +79,15 @@ interface CrawlInternals {
 /**
  * Resets the crawl as the game does, but with the worm at (x, z) heading h (0 is +z), straight
  * and still with its camera settled behind it: the spawn, moved. (Test only: the game always
- * starts at the origin.)
+ * starts at the origin.) Fails loudly if the stand-in is not what reset() placed, e.g. once
+ * Crawl.placeAtSpawn is renamed (every view would silently become the spawn).
  */
 function spawnAt(crawl: Crawl, x: number, z: number, h: number): void {
   const c = crawl as unknown as CrawlInternals;
-  const place = Object.getPrototypeOf(crawl).placeAtSpawn as () => void;
+  const place = Object.getPrototypeOf(crawl).placeAtSpawn as (() => void) | undefined;
+  expect(place, 'Crawl.placeAtSpawn').toBeTypeOf('function');
   c.placeAtSpawn = () => {
-    place.call(crawl);
+    place!.call(crawl);
     const spacing = Math.hypot(crawl.body[1].x - crawl.body[0].x, crawl.body[1].z - crawl.body[0].z);
     const head = { x, y: c.rest(x, z), z };
     crawl.motion = { head, heading: h };
@@ -101,6 +103,9 @@ function spawnAt(crawl: Crawl, x: number, z: number, h: number): void {
     Object.assign(crawl.focus, head);
   };
   crawl.reset();
+  expect(Math.hypot(crawl.motion.head.x - x, crawl.motion.head.z - z), 'head at the view').toBeLessThan(1e-9);
+  expect(crawl.motion.heading).toBe(h);
+  expect(crawl.cam.yaw, 'camera yaw').toBeCloseTo(h, 9);
 }
 
 /**
@@ -123,31 +128,37 @@ for (const [name, sx, sz] of [['SW', -1, -1], ['SE', 1, -1], ['NW', -1, 1], ['NE
   }
 }
 
+/** The worst views measured after the merge (a corner, and beside a rock), for a wide window. */
+const WIDE_VIEWS = new Set(['SW 16 0', 'rock 1 2.5 6']);
+
 describe('draw-call budget', () => {
   let crawl: Crawl;
   let world: World;
+  // As main.ts: 60 degrees vertical, the window's aspect (the bench's 1366 x 768; and 21:9).
   const camera = new THREE.PerspectiveCamera(60, 1366 / 768, 0.2, 120);
+  const wide = new THREE.PerspectiveCamera(60, 21 / 9, 0.2, 120);
   beforeAll(() => {
     crawl = new Crawl();
     world = buildWorld(crawl);
   });
 
   /** The most draws over `frames` idle frames at a view, as the game steps and syncs them. */
-  function worstFrame(x: number, z: number, h: number, frames: number): number {
+  function worstFrame(x: number, z: number, h: number, frames: number, cam = camera): number {
     spawnAt(crawl, x, z, h);
     let most = 0;
     for (let f = 0; f < frames; f++) {
       crawl.step(1 / 60, { x: 0, y: 0 });
-      world.sync(crawl, 1, f / 60, camera);
-      most = Math.max(most, countDraws(world.scene, camera));
+      world.sync(crawl, 1, f / 60, cam);
+      most = Math.max(most, countDraws(world.scene, cam));
     }
     return most;
   }
 
   for (const id of ['low', 'medium', 'high', 'ultra'] as PresetId[]) {
-    it(`${id}: at most ${BUDGET} draws at the spawn, round every rock and from every corner`, () => {
+    it(`${id}: at most ${BUDGET} draws at the spawn, round every rock and from every corner (and wide)`, () => {
       const spec = PRESETS[id];
       // As main.ts applies a preset.
+      expect(VIEWS.filter(([name]) => WIDE_VIEWS.has(name))).toHaveLength(WIDE_VIEWS.size);
       world.apply(spec);
       crawl.setReaction(spec.reaction);
       crawl.setHeroCount(scaledLeafCount(spec.hero));
@@ -155,6 +166,7 @@ describe('draw-call budget', () => {
         expect(worstFrame(x, z, h, 20), name).toBeLessThanOrEqual(BUDGET);
         // Not vacuous: from a corner most of the litter lies ahead, low detail in its one draw.
         if (/^[NS][EW] /.test(name)) expect(world.litter.far.drawn).toBeGreaterThan(world.litter.drawn / 2);
+        if (WIDE_VIEWS.has(name)) expect(worstFrame(x, z, h, 20, wide), `${name} at 21:9`).toBeLessThanOrEqual(BUDGET);
       }
     });
   }

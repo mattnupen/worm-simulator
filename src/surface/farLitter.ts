@@ -32,7 +32,7 @@ export class FarLitter {
   /** `ends[p]` is the index count of `all` after its leaf p. */
   readonly ends: Uint32Array;
   /** Per chunk, its first leaf in `all` (its leaves follow, in its own order). */
-  readonly first = new Uint32Array(CHUNKS * CHUNKS);
+  readonly first: ArrayLike<number>;
   private readonly list: IndexList;
   /** Leaf (part) ids handed to the list, in draw order. */
   private readonly next: Int32Array;
@@ -52,12 +52,14 @@ export class FarLitter {
       indices += b.indices;
     }
     const buf = new LeafBuffers(verts, indices, looks.length);
+    const first = new Uint32Array(chunks.length);
     let p = 0;
     chunks.forEach((ids, c) => {
-      this.first[c] = p;
+      first[c] = p;
       p += ids.length;
       for (const i of ids) buf.write(looks[i], lodShape(looks[i].kind), false, 0, 0);
     });
+    this.first = first;
     this.all = buf.toGeometry();
     this.ends = buf.ends;
     this.list = new IndexList(this.all, this.ends);
