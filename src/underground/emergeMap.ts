@@ -12,8 +12,8 @@ import { SLAB_HALF, type Slab } from './slab';
 /** The rise lands on the floor within this far along the cut from the head (emergePath.ts holds it to that)... */
 export const LAND_MIN = 0.2;
 export const LAND_MAX = 1.6;
-/** ...then the worm crawls this far along it: the body's length and a little more, so it is all out. */
-export const OUT_LENGTH = 3.8;
+/** ...then the worm crawls this far along it: the body's length (3.3) and a little more, so it is all out. */
+export const OUT_LENGTH = 3.45;
 /** The map's sample spacing along the cut, and its most samples. */
 const MAP_STEP = 0.05;
 const MAP_MAX = Math.ceil((2 * SLAB_HALF) / MAP_STEP) + 2;

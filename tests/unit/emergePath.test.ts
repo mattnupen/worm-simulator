@@ -12,7 +12,7 @@ import { TOP_KEEP } from '../../src/underground/burrowMotion';
 import { footprints, obstacleDepth } from '../../src/surface/obstacles';
 import { PLAY_HALF } from '../../src/surface/terrain';
 import { mulberry32 } from '../../src/core/random';
-import { N, DEG, burrowerBody, play } from './pathPlay';
+import { N, DEG, bodyUnderTop, burrowerBody, play } from './pathPlay';
 
 const hit = { nx: 0, nz: 0 };
 
@@ -29,20 +29,6 @@ function expectSmoothExit(p: ReturnType<typeof createBodyPath>): void {
   const a1 = Math.atan2(p.v[k] - p.v[k - 1], p.u[k] - p.u[k - 1]);
   const a2 = Math.atan2(p.v[k + 1] - p.v[k], p.u[k + 1] - p.u[k]);
   expect(Math.abs(Math.atan2(Math.sin(a2 - a1), Math.cos(a2 - a1)))).toBeLessThan(3 * DEG);
-}
-
-/** The body kept under the line TOP_KEEP below the litter's top, as the burrower keeps it. */
-function underTheTop(s: Slab, b: { us: Float64Array; vs: Float64Array }) {
-  for (let i = 0; i < N; i++) b.vs[i] = Math.min(b.vs[i], boundaryAt(s, B_TOP, b.us[i]) - TOP_KEEP);
-  return b;
-}
-
-/** Whether the body doubles back on itself anywhere (neighbouring segments over 90 degrees apart). */
-function folded(us: Float64Array, vs: Float64Array): boolean {
-  for (let i = 1; i < N - 1; i++) {
-    if ((us[i - 1] - us[i]) * (us[i] - us[i + 1]) + (vs[i - 1] - vs[i]) * (vs[i] - vs[i + 1]) < 0) return true;
-  }
-  return false;
 }
 
 /** The end pose: where the crawl will start, on the surface. */
@@ -71,10 +57,12 @@ describe('coming up out of the cut (spec 4.2)', () => {
           const top = pick === 3 && Math.sin(dir) > -1e-9;
           const hv = top ? boundaryAt(s, B_TOP, hu) - TOP_KEEP : floor + [-0.18, 0.05, 0.6][pick % 3];
           if (hv > boundaryAt(s, B_TOP, hu) - TOP_KEEP) continue;
-          const { us, vs } = underTheTop(s, burrowerBody(hu, hv, dir, (rand() - 0.5) * 0.3));
-          if (folded(us, vs)) continue; // a body the top pressed flat onto itself: not one the burrower makes
+          const { us, vs } = bodyUnderTop(s, hu, hv, dir, (rand() - 0.5) * 0.3);
           buildEmerge(p, s, m, us, vs, dir);
           expect(p.seconds).toBeGreaterThanOrEqual(RISE_S + OUT_S);
+          // Contrived poses too (a hairpin out through a sharp bend of its own body): the realistic
+          // targets are pinned below ("quickly enough for a lesson").
+          expect(p.seconds).toBeLessThan(8);
           const { first, last } = play(s, p, p.seconds, HEAD_SPEED);
           for (let i = 0; i < N; i++) {
             expect(first[i][0]).toBeCloseTo(slabX(s, us[i]), 9);
@@ -112,7 +100,7 @@ describe('coming up out of the cut (spec 4.2)', () => {
         for (let a = 0; a <= 180; a += 10) {
           const dir = a * DEG;
           const hv = boundaryAt(s, B_TOP, hu) - TOP_KEEP;
-          const { us, vs } = underTheTop(s, burrowerBody(hu, hv, dir, 0));
+          const { us, vs } = bodyUnderTop(s, hu, hv, dir, 0);
           buildEmerge(p, s, m, us, vs, dir);
           const floorAtExit = restAxis(slabX(s, p.exitU), slabZ(s, p.exitU));
           for (let k = 0; k < p.count && p.s[k] <= p.exitAt + 1e-9; k++) {
@@ -230,5 +218,38 @@ describe('coming up out of the cut (spec 4.2)', () => {
     expect(canEmergeAt(m, 0)).toBe(false);
     mapEmerge(m, createSlab(0, 0, 0, 1, 1));
     expect(canEmergeAt(m, NaN)).toBe(false);
+  });
+
+  it('comes up quickly enough for a lesson: median 3.5 s or less, 90% within 4.5 s, never over 6 s', () => {
+    // Realistic come-ups: any dig spot, anywhere coming up is offered, any facing, a third right at the top.
+    const r = mulberry32(3);
+    const p = createBodyPath();
+    const secs: number[] = [];
+    let digs = 0;
+    while (digs < 50) {
+      const x = (r() - 0.5) * 30;
+      const z = (r() - 0.5) * 30;
+      const h = r() * 2 * Math.PI;
+      if (!canDigAt(x, z, h)) continue;
+      digs++;
+      const c = cutHeading(x, z, h)!;
+      const s = createSlab(x, z, c, chooseSide(x, z, h), digs);
+      const m = mapped(s);
+      for (let k = 0; k < 6; k++) {
+        const hu = s.playLo + 0.3 + r() * (s.playHi - s.playLo - 0.6);
+        if (!canEmergeAt(m, hu)) continue;
+        const dir = r() * 2 * Math.PI;
+        const top = r() < 0.3 && Math.sin(dir) >= 0;
+        const hv = top ? boundaryAt(s, B_TOP, hu) - TOP_KEEP : boundaryAt(s, B_F, hu) - 0.15 + 0.3 * r();
+        const { us, vs } = bodyUnderTop(s, hu, hv, dir, (r() - 0.5) * 0.2);
+        buildEmerge(p, s, m, us, vs, dir);
+        secs.push(p.seconds);
+      }
+    }
+    secs.sort((a, b) => a - b);
+    expect(secs.length).toBeGreaterThan(150);
+    expect(secs[Math.floor(secs.length / 2)]).toBeLessThanOrEqual(3.5);
+    expect(secs[Math.floor(secs.length * 0.9)]).toBeLessThanOrEqual(4.5);
+    expect(secs[secs.length - 1]).toBeLessThanOrEqual(6);
   });
 });

@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest';
 import {
   createBodyPath, poseAt, smootherstep, cruise, restAxis, AXIS_UP, POINT_SPEED, TURN_RATE,
 } from '../../src/underground/bodyPath';
-import { buildSink, SINK_DEPTH } from '../../src/underground/sinkPath';
+import { buildSink, SINK_DEPTH, SINK_SPEED } from '../../src/underground/sinkPath';
 import { bodyFan, fanWidth, MAX_FAN } from '../../src/underground/sinkSweep';
 import { Crawl } from '../../src/game/crawl';
 import { mulberry32 } from '../../src/core/random';
+import { canDigAt, chooseSide, cutHeading } from '../../src/underground/digSpot';
+import { obstacleDepth } from '../../src/surface/obstacles';
+
 import { createSlab, boundaryAt, slabX, slabZ, B_F } from '../../src/underground/slab';
 import { SPACING } from '../../src/game/crawl';
 import { SINK_S, SWING_S, FADE_S } from '../../src/underground/modeMachine';
@@ -13,8 +16,7 @@ import { OCC_AXIS_UP } from '../../src/render/occlusion';
 import { floorHeight } from '../../src/surface/litterDepth';
 import { N, DEG, crawled, world, play } from './pathPlay';
 
-/** The head sinks no faster than the crawl's top speed (sinkPath.ts). */
-const SINK_SPEED = 1.6;
+const hit = { nx: 0, nz: 0 };
 
 describe('digging down and coming up: the worm\'s own move (spec 4.1, 4.2)', () => {
   it('rests the axis where the crawl rests the body: its belly on the floor, under the litter', () => {
@@ -117,7 +119,48 @@ describe('digging down and coming up: the worm\'s own move (spec 4.1, 4.2)', () 
     expect(played).toBeGreaterThan(200);
     expect(topSpeed).toBeLessThanOrEqual(POINT_SPEED * 1.02);
     expect(topTurn).toBeLessThanOrEqual(TURN_RATE * 1.02);
-    expect(longest).toBeLessThan(8);
+    expect(longest).toBeLessThan(5); // the target: a dig-down never longer than 5 s
+  });
+
+  it('digs down quickly enough for a lesson: median 2.8 s or less, 90% within 4 s, never over 5 s', () => {
+    // Realistic digs: crawl bodies (wandering, or just after a tight turn) anywhere canDigAt allows.
+    const shapes: { heading: number; rel: { x: number; z: number }[] }[] = [];
+    for (let seed = 0; seed < 12; seed++) {
+      const c = new Crawl();
+      for (let k = 0; k < 120; k++) c.step(1 / 60, { x: 0, y: 1 });
+      const curl = seed >= 4 ? 10 + (seed - 4) * 8 : 0;
+      for (let k = 0; k < 60 + 25 * (seed % 4); k++) {
+        if (seed < 4) c.step(1 / 60, { x: 0.9 * Math.sin(k * 0.05 * seed + seed), y: 1 });
+        else c.step(1 / 60, { x: k < curl ? (seed % 2 ? 1 : -1) : 0, y: k < curl ? 1 : 0 });
+      }
+      const hd = c.motion.head;
+      shapes.push({ heading: c.motion.heading, rel: c.body.map((b) => ({ x: b.x - hd.x, z: b.z - hd.z })) });
+    }
+    const r = mulberry32(3);
+    const p = createBodyPath();
+    const secs: number[] = [];
+    while (secs.length < 300) {
+      const shape = shapes[secs.length % shapes.length];
+      const x = (r() - 0.5) * 30;
+      const z = (r() - 0.5) * 30;
+      const rot = r() * 2 * Math.PI;
+      const cs = Math.cos(rot);
+      const sn = Math.sin(rot);
+      const body = shape.rel.map((o) => {
+        const bx = x + o.x * cs + o.z * sn;
+        const bz = z - o.x * sn + o.z * cs;
+        return { x: bx, y: floorHeight(bx, bz) + 0.01, z: bz };
+      });
+      const h = shape.heading - rot;
+      if (body.some((b) => obstacleDepth(b.x, b.z, 0.12, hit) > 0) || !canDigAt(x, z, h, body)) continue;
+      const s = createSlab(x, z, cutHeading(x, z, h, body)!, chooseSide(x, z, h, body), secs.length);
+      buildSink(p, s, body);
+      secs.push(Math.max(SINK_S + SWING_S, p.seconds)); // as the mode machine plays it
+    }
+    secs.sort((a, b) => a - b);
+    expect(secs[Math.floor(secs.length / 2)]).toBeLessThanOrEqual(2.8);
+    expect(secs[Math.floor(secs.length * 0.9)]).toBeLessThanOrEqual(4);
+    expect(secs[secs.length - 1]).toBeLessThanOrEqual(5);
   });
 
   it('a body bunched up in a turn starts exactly where it lay, and keeps its own spacing', () => {

@@ -16,7 +16,7 @@ import type { Slab } from './slab';
  * POINT_SPEED, the head its own cap, and no segment turns faster than TURN_RATE (`fitSeconds`).
  */
 const N = WORM_SEGMENTS;
-const MAX_POINTS = 256;
+const MAX_POINTS = 320;
 /** The axis rides this far above the belly line the crawl rests on the floor (the drawn tube's middle). */
 export const AXIS_UP = OCC_AXIS_UP;
 /** Bends of a path are arcs this wide where there is room (the digging worm turns about as tightly)... */
@@ -24,9 +24,9 @@ export const TURN_RADIUS = 0.45;
 /** ...drawn as a polyline this fine, so a point sliding along it turns a few degrees at a vertex. */
 const FINE = 0.02;
 /** No body point moves faster than this (u/s; the crawl's top speed is 1.6)... */
-export const POINT_SPEED = 2.5;
-/** ...and no segment turns faster than this (radians a second: 4 degrees a frame at 60 fps). */
-export const TURN_RATE = (4 * Math.PI) / 180 * 60;
+export const POINT_SPEED = 3.2;
+/** ...and no segment turns faster than this (radians a second: 6 degrees a frame at 60 fps). */
+export const TURN_RATE = (6 * Math.PI) / 180 * 60;
 /** Segments shorter than this (bunched up, within the tube's width) are not held to TURN_RATE. */
 export const SHORT = 0.1;
 /** Progress samples `fitSeconds` measures a move at (finer than its frames). */
@@ -46,8 +46,10 @@ export interface BodyPath {
   exitSign: number; exitU: number; exitAt: number;
   /** How the move is posed: going down, sinkPath's; null, coming up (`slidePose`). */
   posing: Posing | null;
-  /** The move's length in seconds, for the mode machine's `setMoveTime` (`fitSeconds`). */
+  /** The move's length in seconds, for the mode machine's `setMoveTime` (`fitSeconds`)... */
   seconds: number;
+  /** ...and the fastest a segment turns in it (TURN_RATE, but for the rare move `fitSeconds` caps). */
+  turnRate: number;
   /** Each body point's distance behind the head along the path at the start (head first). */
   readonly back: Float64Array;
   /**
@@ -71,7 +73,7 @@ export function createBodyPath(): BodyPath {
   const f = (n: number) => new Float64Array(n);
   return {
     u: f(MAX_POINTS), v: f(MAX_POINTS), s: f(MAX_POINTS), count: 0, headFrom: 0, headTo: 0,
-    exitSign: 1, exitU: 0, exitAt: 0, posing: null, seconds: 0, back: f(N), offU: f(N), offV: f(N), turnFirst: false,
+    exitSign: 1, exitU: 0, exitAt: 0, posing: null, seconds: 0, turnRate: 0, back: f(N), offU: f(N), offV: f(N), turnFirst: false,
     bu: f(N), bw: f(N), rad: f(N), ang: f(N), lift: f(N), fit: [f(N), f(N), f(N), f(N), f(N), f(N)],
     ox: 0, oz: 0, tx: 0, tz: 1, nx: 1, nz: 0,
   };
@@ -134,7 +136,7 @@ export function sampleAt(p: BodyPath, at: number, outU: Float64Array, outV: Floa
 }
 
 /** Coming up, the share of the move the head spends speeding up (and slowing down)... */
-const SLIDE_EASE = 0.25;
+const SLIDE_EASE = 0.2;
 /**
  * ...and, when the head first turns where it lies (`turnFirst`), the share over which the front
  * bends round onto the path; the slide starts SLIDE_FROM of the way through it (the offsets, fixed
@@ -183,22 +185,32 @@ function worldOf(p: BodyPath, o: number, i: number): void {
   pt.z = p.oz + p.tz * u + p.nz * w;
 }
 
+/** What fitOnce measured: the length the speed caps need, and the length TURN_RATE needs. */
+const needs = { speed: 0, turn: 0 };
+
 /**
  * The shortest the built move may last (at least `least` seconds) so that, played at linear progress,
  * no body point moves faster than POINT_SPEED, the head than `headSpeed`, and no segment turns
- * faster than TURN_RATE. Measured on FIT_STEPS samples (a little margin over the fastest). Once per
- * move; allocates nothing.
+ * faster than TURN_RATE. Measured on samples at least twice a frame (a little margin over the
+ * fastest). Once per move; allocates nothing.
+ *
+ * `longest`: the turn rate may not stretch the move past this (a lesson cannot wait): in the rare
+ * move through a sharp bend of the body's own tunnel, segments then turn a little faster than
+ * TURN_RATE, by the share written to `p.turnRate`. Speeds are always kept.
  */
-export function fitSeconds(p: BodyPath, least: number, headSpeed: number): number {
-  // Measured at least twice a frame (at 60 fps) of the length it comes to.
-  let need = fitOnce(p, least, headSpeed, FIT_STEPS);
-  if (need * 120 > FIT_STEPS) need = fitOnce(p, least, headSpeed, Math.ceil(need * 120));
-  return need;
+export function fitSeconds(p: BodyPath, least: number, headSpeed: number, longest = Infinity): number {
+  fitOnce(p, least, headSpeed, FIT_STEPS);
+  const first = Math.max(needs.speed, needs.turn);
+  if (first * 120 > FIT_STEPS) fitOnce(p, least, headSpeed, Math.ceil(first * 120));
+  const seconds = Math.max(needs.speed, Math.min(needs.turn, longest));
+  p.turnRate = TURN_RATE * Math.max(1, needs.turn / seconds);
+  return seconds;
 }
 
-function fitOnce(p: BodyPath, least: number, headSpeed: number, steps: number): number {
+function fitOnce(p: BodyPath, least: number, headSpeed: number, steps: number): void {
   const f = p.fit;
-  let need = least;
+  let speed = least;
+  let turn = 0;
   let o = 0;
   poseAt(p, 0, f[0], f[1], f[2]);
   for (let k = 1; k <= steps; k++) {
@@ -217,7 +229,7 @@ function fitOnce(p: BodyPath, least: number, headSpeed: number, steps: number): 
       const az = pt.z;
       worldOf(p, n, i);
       const d = Math.hypot(pt.x - ax, pt.y - ay, pt.z - az) * steps;
-      need = Math.max(need, d / (i === 0 ? Math.min(headSpeed, POINT_SPEED) : POINT_SPEED));
+      speed = Math.max(speed, d / (i === 0 ? Math.min(headSpeed, POINT_SPEED) : POINT_SPEED));
       if (i > 0) {
         // The segment from point i - 1 to i, before and after: how far it turned.
         const ux = ax - px;
@@ -228,11 +240,10 @@ function fitOnce(p: BodyPath, least: number, headSpeed: number, steps: number): 
         const vz = pt.z - qz;
         const lu = Math.hypot(ux, uy, uz);
         const lv = Math.hypot(vx, vy, vz);
-        const l = lu * lv;
         // A segment bunched up shorter than SHORT turns within the tube's own width: it does not show.
         if (lu > SHORT && lv > SHORT) {
-          const c = Math.max(-1, Math.min(1, (ux * vx + uy * vy + uz * vz) / l));
-          need = Math.max(need, (Math.acos(c) * steps) / TURN_RATE);
+          const c = Math.max(-1, Math.min(1, (ux * vx + uy * vy + uz * vz) / (lu * lv)));
+          turn = Math.max(turn, (Math.acos(c) * steps) / TURN_RATE);
         }
       }
       px = ax; py = ay; pz = az;
@@ -240,5 +251,6 @@ function fitOnce(p: BodyPath, least: number, headSpeed: number, steps: number): 
     }
     o = n;
   }
-  return need * 1.03;
+  needs.speed = speed * 1.03;
+  needs.turn = turn * 1.03;
 }

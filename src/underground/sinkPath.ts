@@ -20,14 +20,16 @@ import { boundaryAt, B_F, type Slab } from './slab';
 const N = WORM_SEGMENTS;
 /** How far below the F top the head ends. */
 export const SINK_DEPTH = 0.85;
-/** The surface part has come into line by this share of the move... */
-const TURN_END = 0.75;
-/** ...and the head sinks from this share on: so a segment is all but in line when it reaches the hole. */
-const DIVE_FROM = 0.4;
+/** The surface part comes into line over this share of the move (all of it: the slowest swing)... */
+const TURN_END = 1;
+/** ...and the head sinks from this share on: late enough that a segment is all but in line when it reaches the hole. */
+const DIVE_FROM = 0.65;
 /** Share of each of those spent speeding up, and again slowing down (`cruise`). */
-const EASE = 0.3;
-/** The head sinks no faster than the crawl's top speed (u/s). */
-const SINK_SPEED = 1.6;
+const EASE = 0.25;
+/** Digging down never takes longer than this for the sake of TURN_RATE (see fitSeconds). */
+const LONGEST = 4.8;
+/** The head sinks no faster than this (u/s; the crawl's top speed is 1.6). */
+export const SINK_SPEED = 2.0;
 
 /**
  * Digging down from the crawl's body (head first, belly heights, as `Crawl.body`), into slab `s`
@@ -69,7 +71,7 @@ export function buildSink(p: BodyPath, s: Slab, body: ArrayLike<Vec3>): void {
   p.headTo = p.exitAt = p.s[p.count - 1];
   p.exitSign = 1;
   p.exitU = u0;
-  p.seconds = fitSeconds(p, SINK_S + FADE_S, SINK_SPEED);
+  p.seconds = fitSeconds(p, SINK_S + FADE_S, SINK_SPEED, LONGEST);
 }
 
 /** Going down at progress t: the dive in the plane, the rest on the surface turning into it. */

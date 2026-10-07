@@ -1,9 +1,9 @@
-import { WORM_SEGMENTS } from '../game/crawl';
+import { SPACING, WORM_SEGMENTS } from '../game/crawl';
 import { TOP_KEEP } from './burrowMotion';
 import { arc, fitSeconds, frame, push, restAt, sampleAt, wrap, TURN_RADIUS, type BodyPath } from './bodyPath';
 import { OUT_S, RISE_S } from './modeMachine';
 import { emergeSides, LAND_MAX, LAND_MIN, OUT_LENGTH, type EmergeMap } from './emergeMap';
-import { arcRise, arcRun, bendFront, front, sweepOf } from './riseArcs';
+import { arcRise, arcRun, bendFront, front, landOnFloor, nearestAlong, sweepOf } from './riseArcs';
 import { boundaryAt, B_TOP, type Slab } from './slab';
 
 /**
@@ -26,11 +26,17 @@ const CLIMB_MAX = 60;
 const TURN_STEP = Math.PI / 18;
 /** ...the body's last ROUND segments bending as one arc into the new way. */
 const ROUND = 6;
+/** Coming up never takes longer than this for the sake of TURN_RATE (see fitSeconds). */
+const LONGEST = 5.8;
 /** Coming up, the head cruises at no more than this (u/s; the crawl's top speed is 1.6). */
-export const HEAD_SPEED = 1.8;
+export const HEAD_SPEED = 2.4;
 const DEG = Math.PI / 180;
 /** Plans keep this much under the top too: what the landing's small correction may lift a rise by. */
 const ROOF_SPARE = 0.01;
+/** A front point eases onto the path this far ahead of the nearest place to it (see buildEmerge). */
+const LEAD = 0.03;
+/** The run along the floor is drawn this finely (about 0.1 u, ending exactly OUT_LENGTH out). */
+const RUN_DX = OUT_LENGTH / Math.ceil(OUT_LENGTH / 0.1);
 /** A planned rise is checked against the top this often along it (u). */
 const CHECK = 0.01;
 /** The rise chosen: the start's facing, the bend radius, the first arc's way, the climb angle, the straight. */
@@ -155,8 +161,9 @@ function chooseRise(neck: number): number {
 /** Aims the rise at the floor where it lands (u): its height and, the way out, its slope. */
 function aimAt(p: BodyPath, eu: number): void {
   goal.ev = restAt(p, eu, 0);
-  const g = (restAt(p, eu + 0.05, 0) - restAt(p, eu - 0.05, 0)) / 0.1;
-  goal.out = Math.atan2(goal.sign * g, goal.sign);
+  // Along the run's first step: the rise arrives the way the run leaves (the floor can crease).
+  const dx = goal.sign * RUN_DX;
+  goal.out = Math.atan2(restAt(p, eu + dx, 0) - goal.ev, dx);
 }
 
 /**
@@ -193,24 +200,20 @@ export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<nu
   // The floor's height and slope where it lands depend on where it lands: settle that in a few passes.
   const neck = Math.atan2(vs[0] - vs[1], us[0] - us[1]);
   let eu = hu + (sign * (LAND_MIN + LAND_MAX)) / 2;
-  for (let pass = 0; pass < 3; pass++) {
+  for (let pass = 0; pass < 8; pass++) {
     aimAt(p, eu);
+    const was = eu;
     eu = chooseRise(neck);
+    if (Math.abs(eu - was) < 1e-4) break;
   }
   // The body up to point ROUND as it lies, then the front bent into its arc, then the rise.
   p.count = 0;
   for (let i = N - 1; i >= ROUND; i--) push(p, us[i], vs[i]);
+  const roundAt = p.count - 1;
   if (Number.isFinite(front.r)) arc(p, front.from, front.rho, front.turn, front.r);
   else push(p, front.fu, front.fv);
   const headAt = p.count - 1;
-  p.headFrom = p.s[headAt];
-  // Each point's place along it: as it lay along the body (the front's share of the arc by its own spacing).
-  const curve = p.headFrom - p.s[N - 1 - ROUND];
-  let along = 0;
-  for (let i = 0; i < N; i++) {
-    p.back[i] = i >= ROUND ? p.headFrom - p.s[N - 1 - i] : (along / Math.max(1e-9, front.len)) * curve;
-    if (i < ROUND) along += Math.hypot(us[i + 1] - us[i], vs[i + 1] - vs[i]);
-  }
+  const riseFrom = p.s[headAt];
   // The rise, landing exactly on the floor (the last pass's small miss spread along it), then the run.
   const { a0, r, rho, climb, straight } = plan;
   arc(p, a0, rho, sweepOf(a0, climb, rho), r);
@@ -218,15 +221,29 @@ export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<nu
   const d3 = wrap(goal.out - climb);
   arc(p, climb, d3 >= 0 ? 1 : -1, Math.abs(d3), r);
   eu = p.u[p.count - 1];
-  const miss = restAt(p, eu, 0) - p.v[p.count - 1];
-  const span = Math.max(1e-9, p.s[p.count - 1] - p.headFrom);
-  for (let i = headAt + 1; i < p.count; i++) p.v[i] += (miss * (p.s[i] - p.headFrom)) / span;
+  landOnFloor(p, headAt, sign * RUN_DX);
   p.exitAt = p.s[p.count - 1];
-  for (let x = 0.25; x <= OUT_LENGTH + 1e-9; x += 0.25) push(p, eu + sign * x, restAt(p, eu + sign * x, 0));
+  // The run along the floor, every RUN_DX and ending exactly OUT_LENGTH out.
+  for (let k = 1; k * RUN_DX <= OUT_LENGTH + 1e-9; k++) {
+    const x = k * RUN_DX;
+    push(p, eu + sign * x, restAt(p, eu + sign * x, 0));
+  }
   p.headTo = p.s[p.count - 1];
   p.exitSign = sign;
   p.exitU = eu;
-  // Where each point really lay, less where the path puts it at the start (only the rounded part differs).
+  // Each front point's place along the path: the nearest to where it lay, a little ahead, so that
+  // easing onto the path never moves it back against the way it will slide; the body's order kept.
+  let ahead = p.s[roundAt];
+  for (let i = ROUND - 1; i >= 0; i--) {
+    const near = nearestAlong(p, us[i], vs[i], roundAt, riseFrom + 1.5) + LEAD;
+    // Never closer than half its segment to the next back, nor further than a hair over SPACING
+    // (under the 4% stretch the tests allow; any closer and easing on could pull it backward).
+    ahead = Math.min(ahead + SPACING * 1.03, Math.max(near, ahead + 0.5 * Math.hypot(us[i + 1] - us[i], vs[i + 1] - vs[i])));
+    p.back[i] = ahead; // its place for now; made relative to the head's below
+  }
+  p.headFrom = p.back[0];
+  for (let i = 0; i < N; i++) p.back[i] = p.headFrom - (i >= ROUND ? p.s[N - 1 - i] : p.back[i]);
+  // Where each point really lay, less where the path puts it at the start (only the front differs).
   let most = 0;
   for (let i = 0; i < N; i++) {
     sampleAt(p, p.headFrom - p.back[i], p.offU, p.offV, i);
@@ -234,6 +251,7 @@ export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<nu
     p.offV[i] = vs[i] - p.offV[i];
     most = Math.max(most, Math.hypot(p.offU[i], p.offV[i]));
   }
-  p.turnFirst = most > 0.01;
-  p.seconds = fitSeconds(p, RISE_S + OUT_S, HEAD_SPEED);
+  // The front bent round to start the rise (or lay well off the arc): it bends onto it before sliding.
+  p.turnFirst = Math.abs(wrap(plan.a0 - neck)) > 1e-6 || most > 0.03;
+  p.seconds = fitSeconds(p, RISE_S + OUT_S, HEAD_SPEED, LONGEST);
 }

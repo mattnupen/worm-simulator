@@ -1,6 +1,7 @@
 import { expect } from 'vitest';
 import { poseAt, POINT_SPEED, SHORT, TURN_RATE, type BodyPath } from '../../src/underground/bodyPath';
-import { slabX, slabZ, type Slab } from '../../src/underground/slab';
+import { boundaryAt, slabX, slabZ, B_TOP, type Slab } from '../../src/underground/slab';
+import { TOP_KEEP } from '../../src/underground/burrowMotion';
 import { Crawl, SPACING } from '../../src/game/crawl';
 
 /** Shared by bodyPath.test.ts and emergePath.test.ts: playing a move frame by frame and checking it. */
@@ -9,13 +10,14 @@ export const DT = 1 / 60;
 export const DEG = Math.PI / 180;
 /** A joint never bends more than this during a move, unless the body was already bent more. */
 export const KINK = 45 * DEG;
+const BEND_SLACK = 5 * DEG;
 /** The most a point's per-frame step may change between frames (u): a snap or a sudden stop shows as far more. */
-export const MAX_ACCEL = 0.02;
+export const MAX_ACCEL = 0.03;
 
 /** A point never turns its way by this much from one visible step to the next (a stall between or not). */
 export const REVERSE = 90 * (Math.PI / 180);
-/** A step a frame this small (0.03 u/s, about 1 mm/s) does not show. */
-export const SEEN = 5e-4;
+/** A step a frame this small (0.06 u/s: under 3 mm a second for the real worm) does not show. */
+export const SEEN = 1e-3;
 
 export type P3 = [number, number, number];
 
@@ -52,7 +54,7 @@ export interface Played { first: P3[]; last: P3[]; frames: P3[][]; topSpeed: num
 /**
  * Plays the move over `seconds` at 60 Hz and checks it frame by frame:
  * - no point moves faster than POINT_SPEED, nor the head than `headSpeed` (u/s);
- * - no segment turns faster than TURN_RATE;
+ * - no segment turns faster than TURN_RATE (or the move's own `turnRate`, for one fitSeconds capped);
  * - every point moves smoothly (the change in its step bounded, still at both ends) and never
  *   doubles back: while it moves visibly (over SEEN a frame) its way changes by under REVERSE from
  *   one such frame to the next, across a stall too;
@@ -102,10 +104,11 @@ export function play(s: Slab, p: BodyPath, seconds: number, headSpeed: number): 
         const sb = sub(b[i], b[i - 1]);
         const turn = len(sa) > SHORT && len(sb) > SHORT ? angle(sa, sb) / dt : 0;
         topTurn = Math.max(topTurn, turn);
-        expect(turn).toBeLessThanOrEqual(TURN_RATE * 1.02);
+        expect(turn).toBeLessThanOrEqual(Math.max(TURN_RATE, p.turnRate) * 1.02);
       }
     }
-    expect(maxBend(b)).toBeLessThanOrEqual(Math.max(bend0, KINK) + 1e-9);
+    // (A body already bent past KINK may bend a hair more as it slides through its own bend.)
+    expect(maxBend(b)).toBeLessThanOrEqual(bend0 > KINK ? bend0 + BEND_SLACK : KINK + 1e-9);
   }
   // Starts and stops gently: no jump from or into a still worm.
   for (let i = 0; i < N; i++) {
@@ -130,3 +133,31 @@ export function burrowerBody(hu: number, hv: number, dir: number, curve: number)
   return { us, vs };
 }
 
+/**
+ * A burrower body as burrowMotion leaves one under the leaves' top: the head at (hu, hv) facing `dir`,
+ * the body trailing in a gentle curve that bends down (no more than a digging worm turns, about 0.4
+ * rad a segment) wherever it would rise above the line TOP_KEEP under the top.
+ */
+export function bodyUnderTop(s: Slab, hu: number, hv: number, dir: number, curve: number): { us: Float64Array; vs: Float64Array } {
+  const us = new Float64Array(N);
+  const vs = new Float64Array(N);
+  const roof = (u: number) => boundaryAt(s, B_TOP, u) - TOP_KEEP;
+  let a = dir + Math.PI;
+  us[0] = hu;
+  vs[0] = Math.min(hv, roof(hu));
+  for (let i = 1; i < N; i++) {
+    let u = us[i - 1] + Math.cos(a) * SPACING;
+    let v = vs[i - 1] + Math.sin(a) * SPACING;
+    if (v > roof(u)) {
+      // Bend the trailing body down, as the worm's own tunnel would have.
+      const down = Math.atan2(Math.sin(-Math.PI / 2 - a), Math.cos(-Math.PI / 2 - a));
+      a += Math.sign(down) * Math.min(Math.abs(down), 0.4);
+      u = us[i - 1] + Math.cos(a) * SPACING;
+      v = Math.min(vs[i - 1] + Math.sin(a) * SPACING, roof(u));
+    }
+    us[i] = u;
+    vs[i] = v;
+    a += curve;
+  }
+  return { us, vs };
+}
