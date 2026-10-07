@@ -1,0 +1,206 @@
+import { advanceWave, type WaveState } from '../worm/wormShape';
+import { WAVES, wormLength } from '../worm/wormMesh';
+import { WORM_SEGMENTS, SPACING, BODY_RADIUS } from '../game/crawl';
+import { boundaryAt, B_F, B_TOP, type Slab } from './slab';
+import { cellAt, digDisc, castBlob, AIR, type Eaten, type SoilGrid } from './soilGrid';
+import { pushOutSolids, type Solids } from './solids';
+import { CAST_SPEED, EAT_SPEED, TUNNEL_SPEED, type LayerId } from './layers';
+
+/**
+ * The worm digging in the cut's plane (V2 spec 6): the same 16-point body as on the surface,
+ * steered by pointing (the stick or arrows give the way the head should go, on screen), turning at
+ * a limited rate. Fast in its own tunnel, slower eating new soil, slower still in A, E and B;
+ * stones and big roots stop it and it slides along them. It leaves an open tunnel and, every few
+ * body lengths, a casting. Pure; allocates nothing per step.
+ */
+/** Open tunnel radius: about the body's half-width. */
+export const TUNNEL_R = 0.14;
+/** Most the head turns per second toward the way pointed. */
+export const DIG_TURN = 2.6;
+/** The head never comes nearer than this to the litter's top: steering up never pops it out (spec 4.2). */
+export const TOP_KEEP = 0.12;
+/** The head is "near the top" (Action = Come up) within this of the F top... */
+export const NEAR_TOP_IN = 0.2;
+/** ...and stops being near it below this (hysteresis: the prompt does not flicker at the line). */
+export const NEAR_TOP_OUT = 0.35;
+/** A casting every this far (about 1.3 body lengths). */
+export const CAST_EVERY = 4.5;
+const CAST_R = 0.15;
+/** The body's points dig this wide (the body cuts corners, so every point keeps a tunnel). */
+const BODY_DIG = TUNNEL_R * 0.85;
+/**
+ * A casting is left this far behind the tail: just out of the tail's own dig, so the body never
+ * eats it (at the tail itself the next step's dig ate about 44% of each one).
+ */
+const CAST_BACK = BODY_DIG + CAST_R + 0.02;
+const MAX_NECK_BEND = 1.3;
+/** Peristalsis runs this much faster per unit moved while eating (spec 6). */
+const EAT_WAVES = 1.9;
+const BREATH_HZ = 0.22;
+const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
+/** Stick input below this is no input. */
+const DEAD = 0.15;
+/**
+ * The soil is felt this far ahead of the head, past its own dig (TUNNEL_R plus a cell's half
+ * diagonal), and over a small spread: one cell would flick between open and fresh as the head
+ * crosses the grid, and the speed with it.
+ */
+const FEEL_AHEAD = 0.24;
+const FEEL = [[0, 0], [0, 0.08], [0, -0.08], [0.1, 0]] as const;
+/** Rates (1/s) of the two smoothing stages from the soil's speed to the worm's (two stages: no kink). */
+const WANT_RATE = 12;
+const SPEED_RATE = 8;
+const EAT_RATE = 10;
+
+export interface Burrower {
+  /** Body points head first: u along the cut, v world height. */
+  readonly u: Float64Array;
+  readonly v: Float64Array;
+  readonly prevU: Float64Array;
+  readonly prevV: Float64Array;
+  /** The way the head faces, as an angle in the plane (0 = +u, pi / 2 = up). Unwrapped. */
+  dir: number;
+  prevDir: number;
+  /** Current speed (eased toward `want`, itself eased toward what the soil and the stick allow). */
+  speed: number;
+  want: number;
+  readonly wave: WaveState;
+  readonly prevWave: WaveState;
+  /** It is eating its way into fresh soil (not moving along an open tunnel). */
+  eating: boolean;
+  /** How much of the soil just ahead is fresh, eased (0..1): the peristalsis speeds up with it. */
+  eat: number;
+  /** Distance moved since the last casting. */
+  sinceCast: number;
+  /** How much of what it ate lately was leaves (0..1): darker castings. */
+  gut: number;
+  /** The head is near the litter (Action = Come up). */
+  nearTop: boolean;
+}
+
+export function createBurrower(): Burrower {
+  const n = WORM_SEGMENTS;
+  return {
+    u: new Float64Array(n), v: new Float64Array(n), prevU: new Float64Array(n), prevV: new Float64Array(n),
+    dir: -Math.PI / 2, prevDir: -Math.PI / 2, speed: 0, want: 0,
+    wave: { phase: 0, activity: 0 }, prevWave: { phase: 0, activity: 0 },
+    eating: false, eat: 0, sinceCast: 0, gut: 0.5, nearTop: false,
+  };
+}
+
+/** Puts the body at the given points (head first), facing `dir`, still, with nothing to interpolate. */
+export function placeBurrower(b: Burrower, us: ArrayLike<number>, vs: ArrayLike<number>, dir: number, wave: WaveState): void {
+  for (let i = 0; i < b.u.length; i++) {
+    b.u[i] = b.prevU[i] = us[i];
+    b.v[i] = b.prevV[i] = vs[i];
+  }
+  b.dir = b.prevDir = dir;
+  b.speed = b.want = 0;
+  b.wave.phase = b.prevWave.phase = wave.phase;
+  b.wave.activity = b.prevWave.activity = wave.activity;
+  b.eating = false;
+  b.eat = 0;
+  b.sinceCast = 0;
+  b.nearTop = false;
+}
+
+const wrap = (a: number): number => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
+const p = { u: 0, v: 0 };
+const ate: Eaten = { cells: 0, organic: 0 };
+/** What soilAhead felt: the speed it allows, and the share of it that is fresh soil. */
+const ahead = { speed: 0, fresh: 0 };
+
+/** The speed the soil just ahead of the head allows (into `ahead`), averaged over the FEEL points. */
+function soilAhead(g: SoilGrid, u: number, v: number, dir: number): void {
+  const cu = Math.cos(dir);
+  const cv = Math.sin(dir);
+  let sum = 0;
+  let fresh = 0;
+  let n = 0;
+  for (let k = 0; k < FEEL.length; k++) {
+    const along = FEEL_AHEAD + FEEL[k][0];
+    const across = FEEL[k][1];
+    const i = cellAt(g, u + cu * along - cv * across, v + cv * along + cu * across);
+    if (i < 0) continue;
+    n++;
+    if (g.open[i]) sum += g.cast[i] ? CAST_SPEED : TUNNEL_SPEED;
+    else if (g.layer[i] === AIR) sum += TUNNEL_SPEED * 0.5;
+    else {
+      sum += EAT_SPEED[g.layer[i] as LayerId];
+      fresh++;
+    }
+  }
+  ahead.speed = n ? sum / n : 0;
+  ahead.fresh = n ? fresh / n : 0;
+}
+
+/** Keeps a body point under the leaves' top and out of stones and roots, from where it was. */
+function keepOut(s: Slab, o: Solids, b: Burrower, i: number, from: boolean): void {
+  p.u = b.u[i];
+  p.v = Math.min(boundaryAt(s, B_TOP, b.u[i]) - TOP_KEEP, b.v[i]);
+  pushOutSolids(o, p, BODY_RADIUS, TOP_KEEP, from ? b.prevU[i] : NaN, from ? b.prevV[i] : NaN);
+  b.u[i] = p.u;
+  b.v[i] = p.v;
+}
+
+/**
+ * One fixed step. (du, dv): the way pointed, in the plane (u right along the cut, v up), each
+ * -1..1; the caller maps screen directions to these. No input: the worm stops and breathes.
+ */
+export function stepBurrower(b: Burrower, s: Slab, g: SoilGrid, o: Solids, du: number, dv: number, dt: number): void {
+  const n = b.u.length;
+  b.prevU.set(b.u);
+  b.prevV.set(b.v);
+  b.prevDir = b.dir;
+  b.prevWave.phase = b.wave.phase;
+  b.prevWave.activity = b.wave.activity;
+  const mag = Math.min(1, Math.hypot(du, dv));
+  let target = 0;
+  let fresh = 0;
+  if (mag > DEAD) {
+    const err = wrap(Math.atan2(dv, du) - b.dir);
+    b.dir += Math.max(-DIG_TURN * dt, Math.min(DIG_TURN * dt, err));
+    soilAhead(g, b.u[0], b.v[0], b.dir);
+    fresh = ahead.fresh;
+    // Slower in a sharp turn, never coiling back into the neck.
+    target = ahead.speed * mag * Math.max(0.35, 0.5 + 0.5 * Math.cos(err));
+  }
+  const neck = Math.atan2(b.v[0] - b.v[1], b.u[0] - b.u[1]);
+  const bend = wrap(b.dir - neck);
+  if (Math.abs(bend) > MAX_NECK_BEND) b.dir -= bend - Math.sign(bend) * MAX_NECK_BEND;
+  b.want += (target - b.want) * (1 - Math.exp(-WANT_RATE * dt));
+  b.speed += (b.want - b.speed) * (1 - Math.exp(-SPEED_RATE * dt));
+  b.eat += (fresh - b.eat) * (1 - Math.exp(-EAT_RATE * dt));
+  b.eating = b.eat > 0.5;
+  // Inside the slab, under the leaves' top, out of stones and roots.
+  b.u[0] = Math.max(s.playLo + 0.2, Math.min(s.playHi - 0.2, b.u[0] + Math.cos(b.dir) * b.speed * dt));
+  b.v[0] = Math.max(s.bottom + 0.3, b.v[0] + Math.sin(b.dir) * b.speed * dt);
+  keepOut(s, o, b, 0, true);
+  const moved = Math.hypot(b.u[0] - b.prevU[0], b.v[0] - b.prevV[0]);
+  digDisc(g, b.u[0], b.v[0], TUNNEL_R, ate);
+  if (ate.cells > 0) b.gut += (ate.organic / ate.cells - b.gut) * 0.15;
+  // Follow the leader, then keep every body point in an open tunnel (the body cuts corners).
+  for (let i = 1; i < n; i++) {
+    const eu = b.u[i] - b.u[i - 1];
+    const ev = b.v[i] - b.v[i - 1];
+    const d = Math.hypot(eu, ev);
+    if (d > SPACING) {
+      b.u[i] = b.u[i - 1] + (eu * SPACING) / d;
+      b.v[i] = b.v[i - 1] + (ev * SPACING) / d;
+      keepOut(s, o, b, i, true);
+    }
+    digDisc(g, b.u[i], b.v[i], BODY_DIG, ate);
+  }
+  b.sinceCast += moved;
+  if (b.sinceCast >= CAST_EVERY) {
+    b.sinceCast = 0;
+    const tu = b.u[n - 1] - b.u[n - 2];
+    const tv = b.v[n - 1] - b.v[n - 2];
+    const tl = Math.hypot(tu, tv) || 1;
+    castBlob(g, b.u[n - 1] + (tu / tl) * CAST_BACK, b.v[n - 1] + (tv / tl) * CAST_BACK, CAST_R, 90 + 160 * b.gut, tu, tv);
+  }
+  const full = Math.max(0.3, target);
+  advanceWave(b.wave, moved * (1 + (EAT_WAVES - 1) * b.eat), dt, full, WAVES_PER_UNIT, BREATH_HZ);
+  const floor = boundaryAt(s, B_F, b.u[0]);
+  b.nearTop = b.v[0] >= floor - (b.nearTop ? NEAR_TOP_OUT : NEAR_TOP_IN);
+}

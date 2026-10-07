@@ -198,8 +198,8 @@ function mixRing(g: SoilGrid, u: number, v: number, r: number): void {
  * its cell centres always form a 4-connected path at any angle: a cast never seals a 2 to 3 cell
  * tunnel. Below the band the cells fill, with a grainy fringe at its edge: about 45 to 65% of the
  * tunnel's cells in the cast. A vertical tunnel keeps its -u side open. `shade` 1..255: how dark (organic food makes darker casts); NaN gives a default.
- * Allocates nothing. Note for the burrower: the tail's own dig at the plan's cast spacing eats
- * about 44% of each new cast on the next step. That is expected.
+ * Allocates nothing. The burrower leaves each cast just past its tail's own dig
+ * (burrowMotion.ts CAST_BACK), so its body never eats a new one.
  */
 export function castBlob(g: SoilGrid, u: number, v: number, r: number, shade: number, dirU: number, dirV: number): void {
   // Unit normal pointing UP off the tunnel's axis, so "up" is the open side: (mu, mv) with mv >= 0

@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import type { Vec2, Vec3 } from '../core/vec';
+import { copy3 as copy, vec3s as blank, type Vec2, type Vec3 } from '../core/vec';
 import {
   createFollowCam, stepFollowCam, type FollowCamState,
 } from '../surface/followCamera';
@@ -26,7 +26,7 @@ import { pushOut, slideMove } from '../surface/obstacles';
 import { CAM_OPTS, CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
 
 export const WORM_SEGMENTS = 16;
-const SPACING = 0.22;
+export const SPACING = 0.22;
 /** The most the body reaches to its side at its fullest swell (about 0.134): how far the spine keeps off solid props. */
 export const BODY_RADIUS = WORM_HALF_WIDTH;
 const MAX_NECK_BEND = 1.3;
@@ -49,15 +49,6 @@ const PUSHER_REACH = PUSHER_SPAN / wormLength(WORM_SEGMENTS, SPACING);
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 /** Scratch for interpolate: where the camera aims (cameraAim). */
 const aim: CameraAim = { ahead: 0, above: 0, upX: 0, upY: 1, upZ: 0 };
-
-/** `n` points at the origin. */
-const blank = (n: number): Vec3[] => Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0 }));
-
-function copy(dst: Vec3, src: Vec3): void {
-  dst.x = src.x;
-  dst.y = src.y;
-  dst.z = src.z;
-}
 
 /**
  * The worm and its follow camera, stepped at the fixed simulation rate (moved from the Step 0
