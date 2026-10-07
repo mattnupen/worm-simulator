@@ -5,7 +5,7 @@ import { PLAY_HALF, WORLD_HALF } from '../surface/terrain';
 import { rockReach } from './sections';
 import { canEmergeNearEntry } from './emergeMap';
 import { bodyFan, sweepClear } from './sinkSweep';
-import { clipLine, FACE_EXTRA, PLAY_MARGIN, SLAB_HALF } from './slab';
+import { cutSpans } from './slab';
 
 /**
  * Where the worm may dig down, the direction of the cut, and which side of it the camera looks
@@ -21,6 +21,12 @@ import { clipLine, FACE_EXTRA, PLAY_MARGIN, SLAB_HALF } from './slab';
 export const DIG_PAD = 0.5;
 /** ...and this far inside the worm's play area: not at the play edge. */
 export const DIG_EDGE = 2.5;
+/**
+ * A cut is taken only if its playable range (kept FACE_END_ROOM inside the face's ends, slab.ts)
+ * reaches this far each side of the entry: the head starts at u = 0 clear of the end's soft stop
+ * (0.55). Near the world's edge a cut running out toward it is too short; one along it is taken.
+ */
+export const ENTRY_ROOM = 1;
 /**
  * The cut has a section for each rock and the log but none for a trunk, so it must not cross a
  * trunk's footprint: it keeps this far off every one.
@@ -41,6 +47,7 @@ const CAM_PAD = 0.3;
 
 const hit: ObstacleHit = { nx: 0, nz: 0 };
 const span: [number, number] = [0, 0];
+const spans: [number, number, number, number] = [0, 0, 0, 0];
 /** Whether the cut through (x, z) along (tx, tz), over u in `span`, keeps CUT_MARGIN off every trunk. */
 function spanClear(x: number, z: number, tx: number, tz: number): boolean {
   const { round } = footprints();
@@ -54,33 +61,34 @@ function spanClear(x: number, z: number, tx: number, tz: number): boolean {
   return true;
 }
 
-/** Whether the cut along `heading` keeps off the trunks over the playable range (`face` false) or the drawn face. */
-function cutClear(x: number, z: number, heading: number, face: boolean): boolean {
+/**
+ * Whether the cut along `heading` has ENTRY_ROOM of playable slab each side of the entry and keeps
+ * off the trunks over its whole drawn face (as createSlab makes them: cutSpans).
+ */
+function cutClear(x: number, z: number, heading: number): boolean {
   const tx = Math.sin(heading);
   const tz = Math.cos(heading);
-  if (face) {
-    clipLine(x, z, tx, tz, WORLD_HALF - 0.05, span);
-    span[0] = Math.max(-SLAB_HALF - FACE_EXTRA, span[0]);
-    span[1] = Math.min(SLAB_HALF + FACE_EXTRA, span[1]);
-  } else {
-    clipLine(x, z, tx, tz, PLAY_HALF - PLAY_MARGIN, span);
-    span[0] = Math.max(-SLAB_HALF, span[0]);
-    span[1] = Math.min(SLAB_HALF, span[1]);
-  }
+  cutSpans(x, z, tx, tz, spans);
+  if (spans[0] > -ENTRY_ROOM || spans[1] < ENTRY_ROOM) return false;
+  span[0] = spans[2];
+  span[1] = spans[3];
   return spanClear(x, z, tx, tz);
 }
 
-/** A cut cutHeading may offer: clear of trunks, the body's turn into it clear, and a way back up near the entry. */
-function cutOk(x: number, z: number, heading: number, face: boolean): boolean {
-  return cutClear(x, z, heading, face) && sweepClear(x, z, heading) && canEmergeNearEntry(x, z, heading);
+/**
+ * A cut cutHeading may offer: room each side of the entry, clear of trunks, the body's turn into it
+ * clear, and a way back up near the entry.
+ */
+function cutOk(x: number, z: number, heading: number): boolean {
+  return cutClear(x, z, heading) && sweepClear(x, z, heading) && canEmergeNearEntry(x, z, heading);
 }
 
 /**
  * The heading of the cut through (x, z), or null where no direction works. The cut is a plane, so
  * `wormHeading` and `wormHeading + PI` give the same one; this returns the direction nearest the
- * worm's heading (so the turn is at most 90 degrees) whose cut keeps off every trunk footprint:
- * over the playable slab and the drawn face's extra 6 u each side if any direction manages that,
- * else over the playable slab alone. The body (`body`, head first, as `Crawl.body`; without it, a
+ * worm's heading (so the turn is at most 90 degrees) whose cut keeps off every trunk footprint
+ * over its whole drawn face, with ENTRY_ROOM of playable slab each side of the entry (near the
+ * world's edge a cut running out toward it is too short: one along the edge is taken). The body (`body`, head first, as `Crawl.body`; without it, a
  * straight body behind the head) must also turn into that cut clear of every footprint
  * (`sweepClear`), and the worm must be able to come back up near the entry (`canEmergeNearEntry`),
  * so no dig leaves it with nowhere to come up. It returns `wormHeading` itself when that works.
@@ -89,15 +97,12 @@ function cutOk(x: number, z: number, heading: number, face: boolean): boolean {
 export function cutHeading(x: number, z: number, wormHeading: number, body?: ArrayLike<Vec3>): number | null {
   if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(wormHeading)) return null;
   bodyFan(wormHeading, body);
-  for (let pass = 0; pass < 2; pass++) {
-    const face = pass === 0;
-    for (let i = 0; i <= 45; i++) {
-      const turn = i * TURN_STEP;
-      const a = wormHeading + turn;
-      if (cutOk(x, z, a, face)) return a;
-      const b = wormHeading - turn;
-      if (i > 0 && i < 45 && cutOk(x, z, b, face)) return b;
-    }
+  for (let i = 0; i <= 45; i++) {
+    const turn = i * TURN_STEP;
+    const a = wormHeading + turn;
+    if (cutOk(x, z, a)) return a;
+    const b = wormHeading - turn;
+    if (i > 0 && i < 45 && cutOk(x, z, b)) return b;
   }
   return null;
 }

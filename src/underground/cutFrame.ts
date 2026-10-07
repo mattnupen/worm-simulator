@@ -24,6 +24,8 @@ export const FOV_DEG = 60;
 const TAN = Math.tan((FOV_DEG * Math.PI) / 360);
 /** Room beside each end of the playable slab for the layer names. */
 export const LABEL_ROOM = 1.8;
+/** Wide frames the names' room with this to spare, so a frame still settling never clips it. */
+const NAME_PAD = 0.1;
 /** Wide: from this far above the highest litter down to about the B layer (this tall)... */
 const WIDE_ABOVE = 1.4;
 const WIDE_H = 8.5;
@@ -31,8 +33,14 @@ const WIDE_H = 8.5;
 const WIDE_MIN_W = 7;
 /** No frame is taller than this (the narrowest phones). */
 const MAX_H = 13;
-/** Looking down, the cut's top shows less width than the frame's centre: Wide frames a bit more. */
-const PITCH_ROOM = 1.15;
+/**
+ * Wide keeps the head at least this far inside the screen's sides, so the layer names beyond the
+ * playable end (LABEL_ROOM) stay on screen when the head is at the end: it stops 0.2 short of
+ * the end, easing over the last 0.35 (burrowMotion), so it can come to rest up to 0.55 short...
+ */
+const WIDE_KEEP = LABEL_ROOM + NAME_PAD + 0.6;
+/** ...or this share of its width, if more (it holds still while the head is in the middle). */
+const WIDE_KEEP_SHARE = 0.25;
 /** Close: the screen's shorter side spans this (about 1.7 worm lengths). */
 const CLOSE_SPAN = 6;
 /** Close keeps this share of the frame ahead of the head... */
@@ -100,6 +108,29 @@ function below(ny: number, pitch: number): number {
 }
 
 /**
+ * Half the width along the cut a frame `h` tall shows at screen height `ny` (NDC) on a screen of
+ * `aspect`, pitched down by `pitch`: the top row (1) shows less than the bottom row (-1).
+ */
+function halfAt(ny: number, h: number, aspect: number, pitch: number): number {
+  const c = Math.cos(pitch);
+  return ((h / 2) * aspect * c) / (c + ny * TAN * Math.sin(pitch));
+}
+
+function wideHeight(aspect: number): number {
+  return Math.min(MAX_H, Math.max(WIDE_H, WIDE_MIN_W / aspect));
+}
+
+/**
+ * How far the drawn face must reach past the playable slab's end for Wide on a screen of `aspect`
+ * to show the head at the end with the layer names beyond it: the frame stops where its bottom
+ * corners reach the face's end, and its top row shows that much less.
+ */
+export function faceEndRoom(aspect: number): number {
+  const h = wideHeight(aspect);
+  return halfAt(-1, h, aspect, PITCH.wide) - halfAt(1, h, aspect, PITCH.wide) + LABEL_ROOM + NAME_PAD;
+}
+
+/**
  * Where `view` wants the frame for the head at (hu, hv) facing (au, av) (eased: CutCam's), on a
  * screen of `aspect` (width / height). With the `body` (head first), Close keeps the whole worm in
  * frame whenever it fits. Wide holds still while the head is in the middle of the slab and near
@@ -117,12 +148,16 @@ export function frameTarget(
   let cu: number;
   let cv: number;
   if (view === 'wide') {
-    const lo = s.playLo - LABEL_ROOM;
-    const hi = s.playHi + LABEL_ROOM;
-    h = Math.min(MAX_H, Math.max(WIDE_H, WIDE_MIN_W / a));
+    const lo = s.playLo - LABEL_ROOM - NAME_PAD;
+    const hi = s.playHi + LABEL_ROOM + NAME_PAD;
+    h = wideHeight(a);
     cu = (lo + hi) / 2;
-    const w = (h * a) / PITCH_ROOM;
-    if (w < hi - lo) cu = Math.min(hi - w / 2, Math.max(lo + w / 2, keepHead(cu, hu, w / 2, w * 0.25)));
+    // The top row, the narrowest, shows the slab and its names whole, or follows the head.
+    const half = halfAt(1, h, a, pitch);
+    if (2 * half < hi - lo) {
+      const keep = Math.min(half, Math.max(WIDE_KEEP, 2 * half * WIDE_KEEP_SHARE));
+      cu = Math.min(hi - half, Math.max(lo + half, keepHead(cu, hu, half, keep)));
+    }
     // From just above the highest litter; deeper than that reaches, it follows the head down.
     cv = Math.min(s.topMax + WIDE_ABOVE - h / 2, hv + h / 2 - h * KEEP_IN);
   } else {
@@ -148,7 +183,7 @@ export function frameTarget(
   cv = Math.max(cv, floor - FACE_BELOW, Math.min(floor, hv - below(-HEAD_LOW, pitch) * (h / 2)));
   // The bottom corners reach farthest along the cut: they stay on the face. A face narrower than
   // that (the world's edge clips it) is shown whole, centred.
-  const half = a * Math.cos(pitch) * drop;
+  const half = halfAt(-1, h, a, pitch);
   cu = s.faceHi - s.faceLo >= 2 * half
     ? Math.min(s.faceHi - half, Math.max(s.faceLo + half, cu))
     : (s.faceLo + s.faceHi) / 2;

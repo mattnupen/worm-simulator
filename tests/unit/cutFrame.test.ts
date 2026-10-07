@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createCutCam, frameTarget, snapCutCam, springTo, stepCutCam, FACE_BELOW } from '../../src/underground/cutCamera';
+import { createCutCam, frameTarget, snapCutCam, springTo, stepCutCam, FACE_BELOW, LABEL_ROOM } from '../../src/underground/cutCamera';
+import { ENTRY_ROOM } from '../../src/underground/digSpot';
 import { createSlab, boundaryAt, B_H } from '../../src/underground/slab';
 import { DT, SCREENS, frame, project, screenOnCut, world, sweep, type SlabAt } from './cutWorld';
 
@@ -87,38 +88,71 @@ describe('the cut camera frames the whole worm, and keeps the head off the botto
     }
   });
 
-  it('every view keeps its projected corners on the drawn face, near the world edge and at the slab ends', () => {
-    // Entries near the world's edge, the cut running out toward it (and along it), both camera sides.
+  it('every view keeps its corners on the face and the head on screen, near the world edge and at the slab ends', () => {
+    // Entries a dig allows near the world's edge: cuts running out toward it as far as allowed,
+    // and along it; both camera sides. Plus two seeds' ordinary slabs.
     const ats: SlabAt[] = [];
-    for (const x of [16, 12]) {
-      for (const side of [1, -1] as const) ats.push([x, 0, Math.PI / 2, side], [-x, -9, -Math.PI / 2, side], [9, x, 0, side]);
+    for (const side of [1, -1] as const) {
+      ats.push([15.2, 0, Math.PI / 2, side], [-12, -9, -Math.PI / 2, side], [3, 15.2, 0, side], [-14, 14, -Math.PI / 4, side]);
+      ats.push([16.4, 3, 0, side], [-3, 16.4, Math.PI / 2, side], [-16.4, -12, 0.3, side]);
     }
-    const ends = [(k: number): [number, number] => (k < 60 ? [0, -1] : [1, 0]), (k: number): [number, number] => (k < 60 ? [0, -1] : [-1, 0])];
+    for (const [x, z, heading] of ats) {
+      const s = createSlab(x, z, heading, 1, 1);
+      // Each has the room a dig needs either side of the entry.
+      expect(s.playLo).toBeLessThanOrEqual(-ENTRY_ROOM);
+      expect(s.playHi).toBeGreaterThanOrEqual(ENTRY_ROOM);
+    }
+    // To each end, then up to the surface there; and back across.
+    const legs = [
+      (k: number): [number, number] => (k < 60 ? [0, -1] : k < 900 ? [1, 0] : [0, 1]),
+      (k: number): [number, number] => (k < 60 ? [0, -1] : k < 900 ? [-1, 0] : [0, 1]),
+    ];
     for (const [w, h] of SCREENS) {
       for (const view of ['wide', 'close'] as const) {
         let past = 0;
         let deep = 0;
-        let head = 0;
+        let headX = 0;
+        let headY = 0;
+        let names = Infinity;
         const runs: Array<[SlabAt | undefined, number]> = [...ats.map((a): [SlabAt, number] => [a, 3]), [undefined, 1], [undefined, 2]];
+        let checked = 0;
         for (const [at, seed] of runs) {
-          for (const steer of ends) {
+          for (const steer of legs) {
+            let atHi = 0;
+            let atLo = 0;
             sweep(view, w, h, seed, (p, _q, s, hu, hv) => {
+              let top0 = Infinity;
+              let top1 = -Infinity;
               for (const x of [-1, 1]) {
                 for (const y of [-1, 1]) {
                   const c = screenOnCut(p, s, w / h, x, y);
                   past = Math.max(past, c.u - s.faceHi, s.faceLo - c.u);
                   if (y === -1) deep = Math.max(deep, s.bottom - c.v);
+                  else { top0 = Math.min(top0, c.u); top1 = Math.max(top1, c.u); }
                 }
               }
               const hd = project(p, w / h, ...world(s, hu, hv));
-              head = Math.max(head, Math.abs(hd.nx), Math.abs(hd.ny));
-            }, steer, 20, at);
+              headX = Math.max(headX, Math.abs(hd.nx));
+              headY = Math.max(headY, Math.abs(hd.ny));
+              // Wide, the head at an end (for 2.5 s: the frame follows gently): the layer names' room
+              // beyond it shows, even on the top row.
+              atHi = hu > s.playHi - 0.5 ? atHi + 1 : 0;
+              atLo = hu < s.playLo + 0.5 ? atLo + 1 : 0;
+              if (view !== 'wide') return;
+              if (atHi > 150) { checked++; names = Math.min(names, top1 - (s.playHi + LABEL_ROOM)); }
+              if (atLo > 150) { checked++; names = Math.min(names, s.playLo - LABEL_ROOM - top0); }
+            }, steer, 25, at);
           }
         }
-        console.log(`${view} ${w}x${h}: corners past the face ${past.toFixed(4)} u, bottom edge ${deep.toFixed(3)} u under the slab, head |n| up to ${head.toFixed(3)}`);
+        console.log(`${view} ${w}x${h}: corners past the face ${past.toFixed(4)} u, bottom edge ${deep.toFixed(3)} u under the slab, head |x| up to ${headX.toFixed(3)}, |y| ${headY.toFixed(3)}` + (view === 'wide' ? `, names' room to spare ${names.toFixed(3)} u` : ''));
         expect(past).toBeLessThan(1e-6);
         expect(deep).toBeLessThanOrEqual(FACE_BELOW + 1e-6);
-        expect(head).toBeLessThan(0.97);
+        expect(headX).toBeLessThanOrEqual(0.95);
+        expect(headY).toBeLessThan(0.95);
+        if (view === 'wide') {
+          expect(checked).toBeGreaterThan(5000);
+          expect(names).toBeGreaterThanOrEqual(-0.005);
+        }
       }
     }
   });

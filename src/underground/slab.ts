@@ -3,6 +3,7 @@ import { mulberry32 } from '../core/random';
 import { floorHeight, litterTopHeight } from '../surface/litterDepth';
 import { PLAY_HALF, WORLD_HALF } from '../surface/terrain';
 import { THICKNESS_U, LAYER, type LayerId } from './layers';
+import { faceEndRoom } from './cutFrame';
 
 /**
  * The cutaway (V2 spec 4.1, 5.1): a vertical plane through the dig-down point along the worm's
@@ -18,8 +19,14 @@ export const SLAB_DEPTH = 12;
 export const FACE_EXTRA = 6;
 /** Spacing (u) of the face's columns: boundary depths are sampled here and drawn linearly between. */
 export const COLUMN_STEP = 0.125;
-/** The playable slab stays this far inside the worm's play area. */
+/** The playable slab stays this far inside the worm's play area... */
 export const PLAY_MARGIN = 0.5;
+/**
+ * ...and this far inside the drawn face's ends (where the world's edge clips the face), so the
+ * Wide camera can show the head at the playable end with the layer names beyond it, on screens
+ * from 9:16 to 16:9 (cutFrame.ts; 3.6 u at 16:9).
+ */
+export const FACE_END_ROOM = Math.max(faceEndRoom(16 / 9), faceEndRoom(9 / 16));
 /** Boundaries stored per column: litter top, then the tops of F, H, A, E and B. */
 export const BOUNDS = 6;
 export const B_TOP = 0;
@@ -97,6 +104,25 @@ export function clipLine(ox: number, oz: number, tx: number, tz: number, half: n
 }
 
 /**
+ * The playable and drawn u ranges of a cut through (x, z) along (tx, tz), into `out`: playLo,
+ * playHi, faceLo, faceHi. The face is clipped to the world and its ends snapped inward to the
+ * column grid (so u = 0, the entry, is always a column, and the cut along h and h + PI has the
+ * same ends); the playable range to the play area and FACE_END_ROOM inside the face. Allocates nothing (digSpot.ts calls it every step).
+ */
+export function cutSpans(x: number, z: number, tx: number, tz: number, out: [number, number, number, number]): void {
+  const span = clipSpan;
+  clipLine(x, z, tx, tz, WORLD_HALF - 0.05, span);
+  const faceLo = Math.ceil(Math.max(-SLAB_HALF - FACE_EXTRA, span[0]) / COLUMN_STEP) * COLUMN_STEP;
+  const faceHi = Math.floor(Math.min(SLAB_HALF + FACE_EXTRA, span[1]) / COLUMN_STEP) * COLUMN_STEP;
+  clipLine(x, z, tx, tz, PLAY_HALF - PLAY_MARGIN, span);
+  out[0] = Math.max(-SLAB_HALF, span[0], faceLo + FACE_END_ROOM);
+  out[1] = Math.min(SLAB_HALF, span[1], faceHi - FACE_END_ROOM);
+  out[2] = faceLo;
+  out[3] = faceHi;
+}
+const clipSpan: [number, number] = [0, 0];
+
+/**
  * The slab for a dig at (x, z) with the worm heading `heading` (0 = +z), the camera on the side
  * `side` (+1: the normal (tz, -tx), -1: the other). Layer thicknesses vary along the cut within the
  * spec 5.1 ranges (THICKNESS_U), smoothly and irregularly, and differ from slab to slab. At u = 0
@@ -110,15 +136,9 @@ export function createSlab(x: number, z: number, heading: number, side: 1 | -1, 
   const tz = Math.cos(heading);
   const nx = side * tz;
   const nz = side * -tx;
-  const span: [number, number] = [0, 0];
-  clipLine(x, z, tx, tz, PLAY_HALF - PLAY_MARGIN, span);
-  const playLo = Math.max(-SLAB_HALF, span[0]);
-  const playHi = Math.min(SLAB_HALF, span[1]);
-  clipLine(x, z, tx, tz, WORLD_HALF - 0.05, span);
-  // Snapped to the column grid so that u = 0 (the entry) is always a column and the entry's
-  // boundaries are exact, even when the world edge clips the back end.
-  const faceLo = Math.ceil(Math.max(-SLAB_HALF - FACE_EXTRA, span[0]) / COLUMN_STEP) * COLUMN_STEP;
-  const faceHi = Math.min(SLAB_HALF + FACE_EXTRA, span[1]);
+  const spans: [number, number, number, number] = [0, 0, 0, 0];
+  cutSpans(x, z, tx, tz, spans);
+  const [playLo, playHi, faceLo, faceHi] = spans;
   const cols = Math.floor((faceHi - faceLo) / COLUMN_STEP) + 1;
   const bounds = new Float32Array(cols * BOUNDS);
   const rand = mulberry32(seed);

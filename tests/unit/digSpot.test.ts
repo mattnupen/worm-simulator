@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  canDigAt, chooseSide, cutHeading, trunkInPath, CAM_REACH, CUT_MARGIN, DIG_EDGE, DIG_PAD,
+  canDigAt, chooseSide, cutHeading, trunkInPath, CAM_REACH, CUT_MARGIN, DIG_EDGE, DIG_PAD, ENTRY_ROOM,
 } from '../../src/underground/digSpot';
 import { footprints, obstacleDepth } from '../../src/surface/obstacles';
 import { BODY_RADIUS, Crawl, SPACING } from '../../src/game/crawl';
@@ -174,7 +174,10 @@ describe('the cut never crosses a trunk (there is no trunk section)', () => {
       for (let d = 0; d <= 15 * SPACING; d += 0.05) {
         if (obstacleDepth(x - Math.sin(w) * d, z - Math.cos(w) * d, BODY_RADIUS + 0.01, hit) > 0) bodyClear = false;
       }
-      if (!slabHitsTrunk(x, z, w, true, CUT_MARGIN + 1e-6) && bodyClear && canEmergeNearEntry(x, z, w)) {
+      // ...and room either side of the entry (near the world's edge a cut running out is too short).
+      const s = createSlab(x, z, w, 1, 1);
+      const room = s.playLo <= -ENTRY_ROOM && s.playHi >= ENTRY_ROOM;
+      if (!slabHitsTrunk(x, z, w, true, CUT_MARGIN + 1e-6) && bodyClear && room && canEmergeNearEntry(x, z, w)) {
         expect(cutHeading(x, z, w)).toBe(w);
         kept++;
       } else turned++;
