@@ -23,8 +23,6 @@ export interface SpeedTestHost {
   /** A phase started: show its running card. */
   showPhase(phase: PhaseSpec): void;
   deviceInfo(): DeviceInfo;
-  /** The world scale mode's name, for the report. */
-  worldScale?(): string;
 }
 
 export interface SpeedTestResult { text: string; pass: boolean; tier: number }
@@ -82,7 +80,7 @@ export class SpeedTestRunner {
     const { full, auto } = test.results;
     this.result = {
       text: formatResults(
-        full, auto, this.quality.tier, this.leaves(), this.host.deviceInfo(), test.restarts, this.host.worldScale?.(),
+        full, auto, this.quality.tier, this.leaves(), this.host.deviceInfo(), test.restarts,
       ),
       pass: verdict(auto) === 'PASS',
       tier: this.quality.tier,

@@ -48,18 +48,6 @@ describe('screens', () => {
     expect(run(start, { type: 'crawl' }, { type: 'pause' }, { type: 'toStart' }).screen).toBe('start');
   });
 
-  it('start -> World scale -> scale -> Back -> start', () => {
-    const w = run(start, { type: 'scale' });
-    expect(w.screen).toBe('scale');
-    expect(run(w, { type: 'back' }).screen).toBe('start');
-  });
-
-  it('World scale opens from Start only', () => {
-    for (const s of [run(start, { type: 'crawl' }), run(start, { type: 'crawl' }, { type: 'pause' }), run(start, { type: 'graphics' })]) {
-      expect(transition(s, { type: 'scale' })).toBe(s);
-    }
-  });
-
   it('start -> Speed test -> speedTest -> done -> results -> Back to start -> start', () => {
     const t = run(start, { type: 'speedTest' });
     expect(t.screen).toBe('speedTest');
@@ -97,9 +85,6 @@ describe('screens', () => {
       [run(start, { type: 'crawl' }), { type: 'speedTest' }],
       [run(start, { type: 'speedTest' }), { type: 'crawl' }],
       [run(start, { type: 'graphics' }), { type: 'crawl' }],
-      [run(start, { type: 'scale' }), { type: 'crawl' }],
-      [run(start, { type: 'scale' }), { type: 'graphics' }],
-      [run(start, { type: 'scale' }), { type: 'hidden' }],
     ];
     for (const [s, e] of cases) expect(transition(s, e)).toBe(s);
   });

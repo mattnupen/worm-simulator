@@ -1,5 +1,4 @@
 import { isChoice, isPresetId, AUTO_ORDER, type GraphicsChoice, type PresetId } from '../render/graphics';
-import { DEFAULT_SCALE, isScaleMode, type ScaleMode } from '../surface/worldScale';
 
 // This key stays `version: 1` forever: older versions on the same origin read it, and one that
 // sees any other version falls back to its defaults. A breaking change needs a new key.
@@ -14,9 +13,10 @@ import { DEFAULT_SCALE, isScaleMode, type ScaleMode } from '../surface/worldScal
  * unknown field reads as its default, and a write keeps fields this build does not know (a later
  * version's), so playing an older version never wipes a newer one's settings.
  *
- * The world scale is stored only once the player picks one. Until then it reads as DEFAULT_SCALE,
- * so when a class vote changes DEFAULT_SCALE in a later version, every device that never chose
- * follows the new default.
+ * A setting with a class-vote default is stored only once the player picks it, so a later default
+ * reaches every device that never chose (CLAUDE.md). V1 stored its World scale pick as `scale`;
+ * V2 has no World scale (real size only), so a stored `scale` is ignored but kept on every write
+ * (V1, frozen at /v1/, still reads it). Never reuse the `scale` key.
  */
 export const SETTINGS_KEY = 'wormsim.settings';
 
@@ -25,12 +25,10 @@ export interface Settings {
   graphics: GraphicsChoice;
   /** The preset Auto last settled on (never Ultra), or null. */
   autoSettled: PresetId | null;
-  /** World scale (Step 1b spec 4.3). Added in V1; older saves have none and read as the default. */
-  scale: ScaleMode;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
-  version: 1, graphics: 'auto', autoSettled: null, scale: DEFAULT_SCALE,
+  version: 1, graphics: 'auto', autoSettled: null,
 });
 
 /** The two Storage methods we use, so tests can pass a fake. */
@@ -69,7 +67,6 @@ function resolve(o: Record<string, unknown> | null): Settings {
     version: 1,
     graphics: isChoice(o.graphics) ? o.graphics : DEFAULT_SETTINGS.graphics,
     autoSettled: isPresetId(o.autoSettled) && AUTO_ORDER.includes(o.autoSettled) ? o.autoSettled : null,
-    scale: isScaleMode(o.scale) ? o.scale : DEFAULT_SETTINGS.scale,
   };
 }
 
@@ -79,20 +76,6 @@ export function loadSettings(store: KeyValueStore | null): Settings {
     return resolve(storedObject(store));
   } catch {
     return { ...DEFAULT_SETTINGS };
-  }
-}
-
-/**
- * The world scale the player stored, or null when none is (they never picked one, or storage
- * is missing or unreadable). loadSettings fills in DEFAULT_SCALE instead.
- */
-export function storedScale(store: KeyValueStore | null): ScaleMode | null {
-  if (!store) return null;
-  try {
-    const s = storedObject(store)?.scale;
-    return isScaleMode(s) ? s : null;
-  } catch {
-    return null;
   }
 }
 
@@ -107,15 +90,14 @@ function write(store: KeyValueStore, kept: Record<string, unknown>, fields: Reco
 }
 
 /**
- * Writes every field of `s`, scale included, keeping any stored fields this build does not know.
- * False when it could not be stored. For a player's change use updateSettings, which never stores
- * a scale the player did not pick.
+ * Writes every field of `s`, keeping any stored fields this build does not know (V1's `scale`, a
+ * later version's). False when it could not be stored. For a player's change use updateSettings.
  */
 export function saveSettings(store: KeyValueStore | null, s: Settings): boolean {
   if (!store) return false;
   try {
     return write(store, storedObject(store) ?? {}, {
-      graphics: s.graphics, autoSettled: s.autoSettled, scale: s.scale,
+      graphics: s.graphics, autoSettled: s.autoSettled,
     });
   } catch {
     return false;
@@ -123,11 +105,11 @@ export function saveSettings(store: KeyValueStore | null, s: Settings): boolean 
 }
 
 /**
- * Changes some settings and keeps the rest as stored, so two owners (the Graphics menu and the
- * World scale panel) never overwrite each other's choice. Graphics and autoSettled are always
- * written (older builds read them); scale only when it is in `patch` or was already stored, so a
- * Graphics pick never pins the build's DEFAULT_SCALE. Returns the full settings as now saved,
- * default scale filled in (or as they would be, if storage failed).
+ * Changes some settings and keeps the rest as stored, so two owners (the Graphics menu and, from
+ * V2, the underground camera) never overwrite each other's choice. Graphics and autoSettled are
+ * always written (older builds read them); a field with a class-vote default is written only when
+ * it is in `patch` (the player picked it). Fields this build does not know are kept. Returns the
+ * full settings as now saved (or as they would be, if storage failed).
  */
 export function updateSettings(store: KeyValueStore | null, patch: Partial<Omit<Settings, 'version'>>): Settings {
   let kept: Record<string, unknown> | null;
@@ -139,8 +121,6 @@ export function updateSettings(store: KeyValueStore | null, patch: Partial<Omit<
   }
   const next: Settings = { ...resolve(kept), ...patch, version: 1 };
   if (!store) return next;
-  const fields: Record<string, unknown> = { graphics: next.graphics, autoSettled: next.autoSettled };
-  if (patch.scale !== undefined || isScaleMode(kept?.scale)) fields.scale = next.scale;
-  write(store, kept ?? {}, fields);
+  write(store, kept ?? {}, { graphics: next.graphics, autoSettled: next.autoSettled });
   return next;
 }

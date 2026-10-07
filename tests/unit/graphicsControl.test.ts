@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GraphicsControl } from '../../src/game/graphicsControl';
-import { SETTINGS_KEY, updateSettings, type KeyValueStore } from '../../src/save/settingsStore';
+import { SETTINGS_KEY, type KeyValueStore } from '../../src/save/settingsStore';
 import type { GraphicsChoice } from '../../src/render/graphics';
 
 function memory(initial?: object): KeyValueStore & { data: Record<string, string> } {
@@ -135,18 +135,11 @@ describe('GraphicsControl', () => {
     expect(saved(store)).toEqual({ version: 1, graphics: 'low', autoSettled: null });
   });
 
-  it('a Graphics choice on a fresh device stores no world scale', () => {
+  it('never overwrites a field another owner stored after it loaded (choice and Auto step-down)', () => {
     const store = memory();
     const g = new GraphicsControl(store, null);
-    g.choose('medium');
-    expect(saved(store)).not.toHaveProperty('scale');
-    expect(g.active).toBe('medium');
-  });
-
-  it('never overwrites a world scale picked after it loaded (choice and Auto step-down)', () => {
-    const store = memory();
-    const g = new GraphicsControl(store, null);
-    updateSettings(store, { scale: 'true' }); // the World scale panel, later in the session
+    // Another owner (V1's World scale here; from V2, the underground camera) writes after loading.
+    store.setItem(SETTINGS_KEY, JSON.stringify({ version: 1, graphics: 'auto', autoSettled: null, scale: 'true' }));
     g.choose('auto');
     expect(saved(store).scale).toBe('true');
     expect(slow(g, 0, 10_000, 5)).toBeGreaterThan(0);

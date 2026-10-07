@@ -19,10 +19,8 @@ import {
   clearHeroLeaves, createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
   HERO_MAX, PUSHER_SPAN, PUSHER_STRIDE, type HeroLeaves,
 } from '../surface/heroLeaves';
-import { sizeHeroLeaves } from '../surface/heroPool';
 import { LOCOMOTION } from './drive';
 import { disturbReach, type DisturbReach } from '../surface/leafScale';
-import { scaleSpec } from '../surface/worldScale';
 import { pushOut, slideMove } from '../surface/obstacles';
 import { CAM_OPTS, CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
 
@@ -161,7 +159,7 @@ export class Crawl {
    * and back on the spawn, and the hero leaves scattered around the spawn again, in the same
    * deterministic order as at the start. The speed test starts here, so its numbers never
    * depend on where the worm had been. `heroes`: how many hero leaves to scatter (the same count
-   * as now unless given; after a scale-mode change, the preset's count for the new mode).
+   * as now unless given).
    */
   reset(heroes = this.hero.count): void {
     this.placeAtSpawn();
@@ -171,17 +169,6 @@ export class Crawl {
     clearHeroLeaves(this.hero);
     this.pushers.fill(0);
     this.setHeroCount(heroes);
-  }
-
-  /**
-   * After a scale-mode change (setScale): the hero leaves take the mode's sizes and the map is
-   * stamped as far as its leaves need (the renderer's fade window follows on the next upload).
-   * Call reset() next, with the new mode's hero count: the worm starts again at the spawn and
-   * nothing of the old mode's trail is left.
-   */
-  applyScale(): void {
-    sizeHeroLeaves(this.hero);
-    disturbReach(scaleSpec(), this.reach);
   }
 
   /** Switches leaf reaction (from the preset). Off clears the map, and stamping stops. */

@@ -3,23 +3,22 @@ import { icon } from './icons';
 import type { Shell } from './shell';
 import { VERSION_LABEL } from '../version';
 
-export interface StartActions { onCrawl(): void; onScale(): void; onGraphics(): void; onSpeedTest(): void }
+export interface StartActions { onCrawl(): void; onGraphics(): void; onSpeedTest(): void }
 
 /**
- * Start: the parchment title card over the live forest. `from`: the screen we came back from, so
- * focus returns to the button that opened it (Crawl otherwise).
+ * Start: the parchment title card over the live forest. `fromGraphics`: back from the Graphics
+ * screen, so focus returns to its button (Crawl otherwise).
  */
-export function showStart(shell: Shell, a: StartActions, from: 'graphics' | 'scale' | null = null): void {
+export function showStart(shell: Shell, a: StartActions, fromGraphics = false): void {
   const crawl = button('Crawl', 'play', 'primary', a.onCrawl);
-  const scale = button('World scale', 'ruler', 'secondary', a.onScale);
   const graphics = button('Graphics', 'sliders', 'secondary', a.onGraphics);
   shell.show('start', 'Start', [
     cardHead('A forest floor in fall'),
     el('p', 'You are an earthworm under the leaves of a northern forest.', 'lead'),
-    menu(crawl, scale, graphics, button('Speed test', 'gauge', 'secondary', a.onSpeedTest)),
+    menu(crawl, graphics, button('Speed test', 'gauge', 'secondary', a.onSpeedTest)),
     el('p', VERSION_LABEL, 'version'),
   ]);
-  (from === 'graphics' ? graphics : from === 'scale' ? scale : crawl).el.focus();
+  (fromGraphics ? graphics : crawl).el.focus();
 }
 
 /** Crawl: a small hint card; focus rests on it so Space and arrows press no button. */

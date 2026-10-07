@@ -65,13 +65,6 @@ export function getGroundTexture(): THREE.DataTexture {
   return texture;
 }
 
-/** After a scale-mode change: the new ground's heights, in place (as refreshLitterTexture). */
-export function refreshGroundTexture(): void {
-  if (!texture) return;
-  (texture.image.data as Float32Array).set(groundTextureData());
-  texture.needsUpdate = true;
-}
-
 /** GLSL: meshGround(xz), the rendered ground height. Needs uniform uGround. */
 export const GROUND_GLSL = /* glsl */ `
   uniform highp sampler2D uGround;

@@ -97,10 +97,8 @@ export interface DeviceInfo {
   userAgent: string;
 }
 
-/** `world`: the world scale the test ran in (Step 1b spec 4.3), named after the leaves. */
 export function formatResults(
   full: FpsSummary, auto: FpsSummary, finalTier: number, leaves: number, d: DeviceInfo, restarts = 0,
-  world?: string,
 ): string {
   return [
     `Result: ${verdict(auto)}`,
@@ -113,7 +111,6 @@ export function formatResults(
     `Quality level used: ${finalTier} of ${TIERS.length - 1} (0 = best)`,
     `Full quality, no cap: ${full.avgFps.toFixed(1)} fps average, ${full.lowFps.toFixed(1)} fps low`,
     `Leaves: ${leaves}`,
-    ...(world ? [`World scale: ${world}`] : []),
     `GPU: ${d.gpu}`,
     ...deviceLines(d),
   ].join('\n');

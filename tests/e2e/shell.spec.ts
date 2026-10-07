@@ -63,8 +63,6 @@ test('keyboard only: from Start reach Graphics, Speed test and Crawl; Esc leaves
   await page.goto(QUICK);
   await expect(button(page, 'Crawl')).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(button(page, 'World scale')).toBeFocused();
-  await page.keyboard.press('Tab');
   await expect(button(page, 'Graphics')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(radio(page, 'Auto')).toBeChecked();
@@ -138,18 +136,16 @@ test('the scene is frozen while paused and moves while crawling', async ({ page 
 test('a chosen preset (picked with the arrow keys) is still selected after a reload', async ({ page }) => {
   await page.goto(PAGE);
   await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(radio(page, 'Auto')).toBeFocused();
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
   await expect(radio(page, 'High')).toBeChecked();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
   expect(saved).toMatchObject({ version: 1, graphics: 'high', autoSettled: null });
-  // A fresh device never chose a world scale, so none is stored (a later default must reach it).
+  // V2 never writes V1's World scale (a fresh device stays unpinned).
   expect(saved).not.toHaveProperty('scale');
 
   await page.reload();
-  await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(radio(page, 'High')).toBeChecked();
@@ -159,7 +155,6 @@ test('a chosen preset (picked with the arrow keys) is still selected after a rel
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowUp');
   await expect(radio(page, 'Auto')).toBeChecked();
   await page.reload();
-  await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(radio(page, 'Auto')).toBeChecked();
@@ -249,4 +244,61 @@ test('the Graphics screen\'s Back button returns focus to the Graphics button th
   await button(page, 'Graphics').click();
   await button(page, 'Back').click();
   await expect(button(page, 'Graphics')).toBeFocused();
+});
+
+test('no World scale in V2: the Start menu has no such button, and a V1 save with one still loads and keeps it', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto(PAGE);
+  await page.evaluate(() => localStorage.setItem('wormsim.settings', JSON.stringify({ version: 1, graphics: 'low', autoSettled: null, scale: 'classic' })));
+  await page.goto(PAGE + '?scale=hybrid');
+  await expect(button(page, 'Crawl')).toBeFocused();
+  await expect(page.getByRole('button', { name: /World scale/ })).toHaveCount(0);
+  await button(page, 'Graphics').click();
+  await expect(radio(page, 'Low')).toBeChecked();
+  await radio(page, 'Medium').check();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
+  // V1, frozen at /v1/, shares this key: its scale is kept, untouched.
+  expect(saved).toEqual({ version: 1, graphics: 'medium', autoSettled: null, scale: 'classic' });
+  await button(page, 'Back').click();
+  await startCrawling(page);
+  await page.keyboard.down('ArrowUp');
+  await page.waitForTimeout(400);
+  await page.keyboard.up('ArrowUp');
+  expect(errors).toEqual([]);
+});
+
+test('changing presets, once each has been shown, compiles no shader, offline, with no network requests', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  const outside: string[] = [];
+  page.on('request', (r) => { if (!/^(file|data|blob):/.test(r.url())) outside.push(r.url()); });
+  await page.addInitScript(() => {
+    const w = window as unknown as { __compiles: number };
+    w.__compiles = 0;
+    const proto = WebGL2RenderingContext.prototype;
+    const compile = proto.compileShader;
+    proto.compileShader = function (s) { w.__compiles++; return compile.call(this, s); };
+  });
+  await context.setOffline(true);
+  // Ultra builds every lazily built layer (detail leaves, near clutter) at load.
+  await page.goto(PAGE + '?preset=ultra');
+  await startCrawling(page);
+  await page.keyboard.down('ArrowUp');
+  await page.waitForTimeout(1500);
+  await page.keyboard.up('ArrowUp');
+  const compiles = () => page.evaluate(() => (window as unknown as { __compiles: number }).__compiles);
+  const before = await compiles();
+  expect(before).toBeGreaterThan(0);
+  for (const name of ['Low', 'Medium', 'High', 'Ultra']) {
+    await button(page, 'Pause').click();
+    await button(page, 'Graphics').click();
+    await radio(page, name).check();
+    await button(page, 'Back').click();
+    await button(page, 'Resume').click();
+    await page.keyboard.down('ArrowUp');
+    await page.waitForTimeout(400);
+    await page.keyboard.up('ArrowUp');
+  }
+  expect(await compiles()).toBe(before);
+  expect(outside).toEqual([]);
+  expect(errors).toEqual([]);
 });

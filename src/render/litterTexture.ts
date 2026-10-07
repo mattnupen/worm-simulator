@@ -50,17 +50,6 @@ export function getLitterTexture(): THREE.DataTexture {
   return texture;
 }
 
-/**
- * After a scale-mode change (the litter drifts against the new props): bakes the texture again in
- * place, so every material keeps the same texture object and nothing recompiles. Nothing to do
- * before its first use.
- */
-export function refreshLitterTexture(): void {
-  if (!texture) return;
-  (texture.image.data as Uint8Array).set(litterTextureData());
-  texture.needsUpdate = true;
-}
-
 /** GLSL: litterAt(xz) = (mound m, depth m, trunk shade). Needs uniform uLitter. */
 export const LITTER_GLSL = /* glsl */ `
   vec3 litterAt(vec2 xz) {

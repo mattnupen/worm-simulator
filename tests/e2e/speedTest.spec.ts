@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { scaledLeafCount } from '../../src/surface/leafScale';
+import { PRESETS } from '../../src/render/graphics';
 
 const PAGE = pathToFileURL(path.resolve('dist/index.html')).href + '?quick=1';
 
@@ -40,7 +42,6 @@ test('the speed test starts from the keyboard alone', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Crawl' })).toBeFocused();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Speed test', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
   const start = page.getByRole('button', { name: 'Start speed test' });
@@ -68,16 +69,18 @@ test('Use recommended setting saves a preset, then Back to start returns to the 
 });
 
 test('the report\'s Leaves line is the litter plus detail leaves actually drawn at the tested preset', async ({ page }) => {
-  // Classic draws the preset table's counts (the other scales derive theirs: leafScale.ts).
-  await page.goto(PAGE + '&speedtest=1&preset=medium&scale=classic');
+  // Real-size leaves: the preset table's counts scaled by leaf area (leafScale.ts).
+  await page.goto(PAGE + '&speedtest=1&preset=medium');
   await page.getByRole('button', { name: 'Start speed test' }).click();
   await expect(page.getByTestId('result')).toContainText('fps average', { timeout: 30_000 });
   const report = (await page.getByTestId('result').textContent()) ?? '';
   const tier = Number(/Quality level used: (\d) of 3/.exec(report)?.[1]);
   const leaves = Number(/^Leaves: (\d+)$/m.exec(report)?.[1]);
-  // Medium draws 1,500 litter + 900 detail leaves; quality tier 3 halves both (rounded).
+  // Medium's litter and detail counts (quality tier 3 halves both, rounded), at real size.
   const density = tier === 3 ? 0.5 : 1;
-  expect(leaves).toBe(Math.round(1500 * density) + Math.round(900 * density));
+  const litter = scaledLeafCount(Math.round(PRESETS.medium.litter * density));
+  const detail = scaledLeafCount(Math.round(PRESETS.medium.detail * density));
+  expect(leaves).toBe(litter + detail);
 });
 
 test('a speed test opened after crawling runs (it starts from the spawn, see Crawl.reset)', async ({ page }) => {
