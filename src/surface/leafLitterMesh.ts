@@ -7,8 +7,8 @@ import { leafLift, type LeafForm } from './leafForm';
 import { lodShape } from './leafLod';
 import { leafTint, LEAF_SIZE, LATERAL_VEINS } from './leafPalette';
 import { WORLD_HALF } from './terrain';
-import { groundNormal, litterDepth } from './litterDepth';
-import { meshGroundHeight, meshGroundNormal } from './terrainMesh';
+import { groundNormal, litterDepth, litterTopHeight } from './litterDepth';
+import { meshGroundNormal } from './terrainMesh';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
 import { LeafBuffers, type LeafLook } from './leafWriter';
@@ -89,7 +89,7 @@ function sink(shape: LeafShape, form: LeafForm, m: THREE.Matrix4): number {
     const u = pts[p];
     const v = pts[p + 1];
     probe.set(u, leafLift(u, v, form), -v).applyMatrix4(m);
-    deepest = Math.max(deepest, meshGroundHeight(probe.x, probe.z) - probe.y);
+    deepest = Math.max(deepest, litterTopHeight(probe.x, probe.z) - probe.y);
   }
   return deepest;
 }
@@ -129,7 +129,7 @@ function looks(leaves: readonly LeafPlacement[], seed: number): LeafLook[] {
     // On the ground as the terrain mesh draws it (soil plus mound, at the mesh's own resolution), in
     // loose layers: each leaf at its own height, so overlaps never z-fight.
     const rest = 0.006 + l.y;
-    pos.set(l.x, meshGroundHeight(l.x, l.z) + rest, l.z);
+    pos.set(l.x, litterTopHeight(l.x, l.z) + rest, l.z);
     const m = new THREE.Matrix4().compose(pos, q, scl.setScalar(size));
     // That normal is the ground's over a few cm, which a mound's edge can tip steeply (the mesh is
     // much smoother there). A leaf it tips well into the rendered ground lies at the mesh's slope
@@ -163,7 +163,8 @@ function chunkMesh(b: LeafBuffers, material: THREE.Material, cx: number, cz: num
 /**
  * The leaf litter in square chunks (see litterChunks.ts), each with a full-leaf and a low-detail
  * mesh: species silhouettes with a midrib fold, cup and curl, tinted per leaf and lying on the
- * rendered ground in loose layers, at real leaf sizes (pass the real-size count, scaledLeafCount). Presets trim every chunk with a draw range (no rebuild).
+ * rendered ground in loose layers, at real leaf sizes (pass the real-size count,
+ * scaledLeafCount). Presets trim every chunk with a draw range (no rebuild).
  */
 export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   const placed = placeLeaves(count, WORLD_HALF, seed, litterDepth);

@@ -3,7 +3,7 @@ import { heightGrid, MESH_GRID } from '../surface/terrainMesh';
 import { glslFloat as f } from './glslNumber';
 
 /**
- * The rendered ground (`meshGroundHeight`) baked for shaders that lay things on it themselves
+ * The rendered ground (`litterTopHeight`) baked for shaders that lay things on it themselves
  * (the detail leaves), so they rest on exactly the surface the terrain mesh draws and the worm
  * rests on: the height at every terrain-mesh vertex, one float each. meshGround() finds the mesh
  * cell from the grid's layout (uniform over the play area, widening rings past it), then

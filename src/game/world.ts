@@ -83,7 +83,7 @@ export function buildWorld(crawl: Crawl): World {
   const nearClutter = buildNearClutterLayer();
   const atmosphere = buildAtmosphere();
   // The hero worm: no eyes (spec 8.3); it is posed from the simulated spine every frame.
-  const surf: WormSurface = { y: 0, under: 1 };
+  const surf: WormSurface = { y: 0 };
   // The contact shadow lies on the same surface the worm rests on.
   const worm = new HeroWorm(WORM_SEGMENTS, (x, z) => wormSurface(x, z, surf).y);
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };

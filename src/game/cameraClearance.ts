@@ -3,7 +3,7 @@ import {
   smoothDampInto, type FollowCamOptions, type FollowCamState, type Spring,
 } from '../surface/followCamera';
 import { pushOutTall, sightReach } from '../surface/obstacles';
-import { litterTop } from '../worm/surfaceHeight';
+import { litterTopHeight } from '../surface/litterDepth';
 import { groundHeight } from '../surface/litterDepth';
 
 /** The follow camera's settings at full reach: distance behind and height above the point it follows over the head. */
@@ -160,7 +160,7 @@ export class CameraClearance {
     pushOutTall(pos, CAM_HARD_MARGIN);
     // Never nearer the litter than CAM_GROUND_MARGIN, easing onto that floor over its last
     // GROUND_EASE (a smooth curve, so its rise and fall never turn sharply).
-    const u = pos.y - litterTop(pos.x, pos.z) - CAM_GROUND_MARGIN;
+    const u = pos.y - litterTopHeight(pos.x, pos.z) - CAM_GROUND_MARGIN;
     if (u < GROUND_EASE) pos.y += (u < -GROUND_EASE ? 0 : ((u + GROUND_EASE) * (u + GROUND_EASE)) / (4 * GROUND_EASE)) - u;
   }
 }

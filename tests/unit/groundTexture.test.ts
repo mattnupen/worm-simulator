@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import {
   groundTextureData, bakedGroundHeight, getGroundTexture, GROUND_GLSL, GROUND_TEX_N,
 } from '../../src/render/groundTexture';
-import { heightGrid, meshGroundHeight, MESH_GRID } from '../../src/surface/terrainMesh';
+import { heightGrid, MESH_GRID } from '../../src/surface/terrainMesh';
+import { litterTopHeight } from '../../src/surface/litterDepth';
 import { mulberry32 } from '../../src/core/random';
 
 describe('baked ground texture', () => {
@@ -20,7 +21,7 @@ describe('baked ground texture', () => {
     const rng = mulberry32(5);
     let worst = 0;
     const at = (x: number, z: number) => {
-      worst = Math.max(worst, Math.abs(bakedGroundHeight(data, x, z) - meshGroundHeight(x, z)));
+      worst = Math.max(worst, Math.abs(bakedGroundHeight(data, x, z) - litterTopHeight(x, z)));
     };
     for (let k = 0; k < 20000; k++) at((rng() * 2 - 1) * MESH_GRID.inner, (rng() * 2 - 1) * MESH_GRID.inner);
     for (let k = 0; k < 20000; k++) at((rng() * 2 - 1) * MESH_GRID.outer, (rng() * 2 - 1) * MESH_GRID.outer);

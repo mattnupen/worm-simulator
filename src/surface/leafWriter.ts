@@ -3,7 +3,7 @@ import type { Vec3 } from '../core/vec';
 import type { LeafKind } from './leafLitter';
 import type { LeafShape } from './leafShapes';
 import { leafLift, leafNormal, type LeafForm } from './leafForm';
-import { meshGroundHeight } from './terrainMesh';
+import { litterTopHeight } from './litterDepth';
 
 /** Petiole: two extra vertices per leaf (one thin triangle off the blade's base). */
 export const PETIOLE_VERTS = 2;
@@ -25,7 +25,7 @@ export interface LeafLook {
   /** World x, z of the leaf's centre: the disturbance moves the leaf as one piece about it. */
   x: number;
   z: number;
-  /** Height of the leaf's rest plane above the rendered ground (meshGroundHeight). */
+  /** Height of the leaf's rest plane above the rendered ground (litterTopHeight). */
   rest: number;
   /** Leaf-local (u, lift, -v) to world. */
   m: THREE.Matrix4;
@@ -166,7 +166,7 @@ export class LeafBuffers {
     for (let k = v0; k < v0 + added; k++) {
       const wx = this.pos[k * 3] + ox;
       const wz = this.pos[k * 3 + 2] + oz;
-      const ground = meshGroundHeight(wx, wz);
+      const ground = litterTopHeight(wx, wz);
       if (this.pos[k * 3 + 1] < ground) this.pos[k * 3 + 1] = ground + floor;
       this.anchor[k * 4] = look.x;
       this.anchor[k * 4 + 1] = look.z;

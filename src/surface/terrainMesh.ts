@@ -50,19 +50,13 @@ export function heightGrid(): { lines: number[]; heights: Float64Array } {
 }
 
 /**
- * The height of the ground exactly as the terrain mesh draws it at (x, z): the top of the loose
- * leaves (litterTopHeight). Things that must not sink into the drawn surface (the top leaves,
- * clutter) anchor here.
- */
-export const meshGroundHeight = litterTopHeight;
-
-/**
- * Unit normal of the rendered ground (meshGroundHeight) across a span of `half` either side of
+ * Unit normal of the rendered ground (litterTopHeight: the terrain mesh draws the top of the loose
+ * leaves, and the top leaves and clutter anchor on it) across a span of `half` either side of
  * (x, z), from four samples: the slope a flat thing that size lies at. Writes `out`.
  */
 export function meshGroundNormal(x: number, z: number, half: number, out: THREE.Vector3): THREE.Vector3 {
-  const dx = (meshGroundHeight(x + half, z) - meshGroundHeight(x - half, z)) / (2 * half);
-  const dz = (meshGroundHeight(x, z + half) - meshGroundHeight(x, z - half)) / (2 * half);
+  const dx = (litterTopHeight(x + half, z) - litterTopHeight(x - half, z)) / (2 * half);
+  const dz = (litterTopHeight(x, z + half) - litterTopHeight(x, z - half)) / (2 * half);
   return out.set(-dx, 1, -dz).normalize();
 }
 

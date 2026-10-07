@@ -7,7 +7,6 @@ import { rockRise, rockSeed } from '../../src/surface/rockShape';
 import { treeSites, trunkRadiusOf } from '../../src/surface/treeSites';
 import { heroLog, rocks } from '../../src/surface/propPlacement';
 import { PLAY_HALF, WORLD_HALF, terrainHeight } from '../../src/surface/terrain';
-import { meshGroundHeight } from '../../src/surface/terrainMesh';
 import { UNITS_PER_CM } from '../../src/surface/realScale';
 
 const HERO_LOG = heroLog();
@@ -122,7 +121,6 @@ describe('floorHeight and litterTopHeight (the contract with the underground cut
   it('the top is the ground as drawn, about the floor plus the litter, never nearer the floor than 2 cm (but by a rock)', () => {
     for (const [x, z] of grid(PLAY_HALF, 0.23)) {
       const top = litterTopHeight(x, z);
-      expect(top).toBe(meshGroundHeight(x, z));
       expect(top - floorHeight(x, z)).toBeGreaterThan((byRock(x, z) ? ROCK_BANK_MIN : LITTER_MIN) - 0.02);
       expect(groundHeight(x, z)).toBeCloseTo(floorHeight(x, z) + litterDepth(x, z), 12);
     }

@@ -66,6 +66,8 @@ export class IndexSplit {
   /**
    * Hands parts next[0..k) (ascending, distinct, k <= capacity) to the fade geometry and gives every
    * other part back to the source. Returns false (uploading nothing) when they are already there.
+   * Call it at most once per render: it replaces the pending upload ranges, so a second call before
+   * the upload would lose the first's changes.
    */
   setParts(next: ArrayLike<number>, k: number): boolean {
     const cur = this.parts;

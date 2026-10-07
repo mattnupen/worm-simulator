@@ -35,7 +35,7 @@ function clearance(count: number, leaves: (pl: Placement, emit: (t: Tri) => void
   const wormMesh = worm.group.children.find((c) => c.name === 'worm') as THREE.Mesh;
   const wpos = wormMesh.geometry.getAttribute('position');
   const rng = mulberry32(2026);
-  const surf: WormSurface = { y: 0, under: 1 };
+  const surf: WormSurface = { y: 0 };
   const spine = new Float32Array(n * 3);
   const pts: number[][] = [];
   const m = createDisturbance();

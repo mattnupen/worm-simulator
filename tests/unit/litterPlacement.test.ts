@@ -7,8 +7,8 @@ import { buildLeafLitter, type LeafLitter } from '../../src/surface/leafLitterMe
 import { obstacleDepth } from '../../src/surface/obstacles';
 import { scaledLeafCount } from '../../src/surface/leafScale';
 import { PRESETS } from '../../src/render/graphics';
-import { buildTerrainGeometry, meshGroundHeight, meshGroundNormal } from '../../src/surface/terrainMesh';
-import { groundHeight } from '../../src/surface/litterDepth';
+import { buildTerrainGeometry, meshGroundNormal } from '../../src/surface/terrainMesh';
+import { groundHeight, litterTopHeight } from '../../src/surface/litterDepth';
 import { WORLD_HALF } from '../../src/surface/terrain';
 import { PILES, litterDepth, TOP_LAYER } from '../../src/surface/litterDepth';
 import { terrainHeight } from '../../src/surface/terrain';
@@ -31,7 +31,7 @@ describe('placeLeaves with a depth field', () => {
 
   it('rests this fall\'s leaves on the top of the litter, in a thin loose layer', () => {
     for (const l of placeLeaves(500, 10, 2, field)) {
-      expect(l.mound).toBe(field(l.x));
+      expect(l.depth).toBe(field(l.x));
       expect(l.y).toBeGreaterThanOrEqual(0);
       expect(l.y).toBeLessThan(TOP_LAYER);
     }
@@ -84,7 +84,7 @@ describe('litter on the rendered ground', () => {
           // Under a trunk, rock or the log the prop hides it.
           if (obstacleDepth(x, z, 0, hit) > 0) return;
           open++;
-          worst = Math.max(worst, meshGroundHeight(x, z) - y);
+          worst = Math.max(worst, litterTopHeight(x, z) - y);
         });
       }
     }
@@ -107,7 +107,7 @@ describe('litter on the rendered ground', () => {
 });
 
 describe('clutter on the litter mound', () => {
-  const mound = (x: number, z: number) => meshGroundHeight(x, z);
+  const mound = (x: number, z: number) => litterTopHeight(x, z);
 
   it('some clutter really stands where the mound is deep enough to bury it', () => {
     const items = placeClutter(150);
@@ -152,14 +152,14 @@ describe('leaf wetness', () => {
   });
 });
 
-describe('meshGroundHeight', () => {
+describe('litterTopHeight, the ground as the terrain mesh draws it', () => {
   const geo = buildTerrainGeometry();
   const pos = geo.getAttribute('position').array as Float32Array;
   const index = geo.getIndex()!.array as Uint32Array;
 
   it('equals the vertex heights at grid points', () => {
     for (let v = 0; v < pos.length; v += 3 * 97) {
-      expect(meshGroundHeight(pos[v], pos[v + 2])).toBeCloseTo(pos[v + 1], 5);
+      expect(litterTopHeight(pos[v], pos[v + 2])).toBeCloseTo(pos[v + 1], 5);
     }
   });
 
@@ -176,8 +176,8 @@ describe('meshGroundHeight', () => {
       // Its plane through (x, z) meets the ground h either side along x and z (on average).
       const slopeX = -n.x / n.y;
       const slopeZ = -n.z / n.y;
-      expect(slopeX * 2 * h).toBeCloseTo(meshGroundHeight(x + h, z) - meshGroundHeight(x - h, z), 9);
-      expect(slopeZ * 2 * h).toBeCloseTo(meshGroundHeight(x, z + h) - meshGroundHeight(x, z - h), 9);
+      expect(slopeX * 2 * h).toBeCloseTo(litterTopHeight(x + h, z) - litterTopHeight(x - h, z), 9);
+      expect(slopeZ * 2 * h).toBeCloseTo(litterTopHeight(x, z + h) - litterTopHeight(x, z - h), 9);
     }
   });
 
@@ -186,8 +186,8 @@ describe('meshGroundHeight', () => {
     for (let i = 0; i < 2000; i++) {
       const x = (r() * 2 - 1) * WORLD_HALF;
       const z = (r() * 2 - 1) * WORLD_HALF;
-      expect(Math.abs(meshGroundHeight(x + 1e-4, z) - meshGroundHeight(x, z))).toBeLessThan(1e-3);
-      expect(Math.abs(meshGroundHeight(x, z + 1e-4) - meshGroundHeight(x, z))).toBeLessThan(1e-3);
+      expect(Math.abs(litterTopHeight(x + 1e-4, z) - litterTopHeight(x, z))).toBeLessThan(1e-3);
+      expect(Math.abs(litterTopHeight(x, z + 1e-4) - litterTopHeight(x, z))).toBeLessThan(1e-3);
     }
   });
 
@@ -209,8 +209,8 @@ describe('meshGroundHeight', () => {
         if (l1 >= -1e-9 && l2 >= -1e-9 && l3 >= -1e-9) got = l1 * pos[ia + 1] + l2 * pos[ib + 1] + l3 * pos[ic + 1];
       }
       expect(got).not.toBeNull();
-      expect(meshGroundHeight(x, z)).toBeCloseTo(got!, 5);
-      expect(Math.abs(meshGroundHeight(x, z) - groundHeight(x, z))).toBeLessThan(0.17);
+      expect(litterTopHeight(x, z)).toBeCloseTo(got!, 5);
+      expect(Math.abs(litterTopHeight(x, z) - groundHeight(x, z))).toBeLessThan(0.17);
       checked++;
     }
     expect(checked).toBe(400);

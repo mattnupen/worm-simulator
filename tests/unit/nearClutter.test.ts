@@ -11,7 +11,7 @@ import { NEAR_CLUTTER_BOX, createPropMaterial } from '../../src/render/propMater
 import { groundUniforms, setSpine, SPINE_POINTS } from '../../src/render/groundUniforms';
 import { litterTextureData } from '../../src/render/litterTexture';
 import { groundTextureData } from '../../src/render/groundTexture';
-import { meshGroundHeight } from '../../src/surface/terrainMesh';
+import { litterTopHeight } from '../../src/surface/litterDepth';
 import { wrapAround } from '../../src/render/wrap';
 import { buildWorld } from '../../src/game/world';
 import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
@@ -192,7 +192,7 @@ describe('near clutter placement (TS twin of nearClutterPosition)', () => {
         if (fade > 3.5) continue;
         full++;
         // The rendered ground (the terrain mesh) under the vertex, plus its height in the item.
-        expect(out[1] - meshGroundHeight(out[0], out[2]) - pos.getY(v)).toBeCloseTo(0, 5);
+        expect(out[1] - litterTopHeight(out[0], out[2]) - pos.getY(v)).toBeCloseTo(0, 5);
         expect(out[0] - hx).toBeCloseTo(pos.getX(v), 6);
         expect(out[2] - hz).toBeCloseTo(pos.getZ(v), 6);
       }

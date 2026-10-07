@@ -71,7 +71,7 @@ export class Crawl {
   readonly wave: WaveState = { phase: 0, activity: 0 };
   /** The head as last rendered (interpolated): leaf shaders and the detail layer centre on it. */
   readonly focus: Vec3 = { x: 0, y: 0, z: 0 };
-  /** Per segment, head first: how far under the litter (for the leaves it disturbs). Always 1: buried. */
+  /** Per segment, head first: how far under the litter. Always 1 (buried); kept as stampBody and the pushers take it. */
   readonly under = new Float32Array(WORM_SEGMENTS).fill(1);
   /** Leaves react to the worm (off on Low: they stay still, though the worm is still buried). */
   reaction = true;
@@ -97,7 +97,7 @@ export class Crawl {
   private readonly pushM = new Float32Array(PUSHERS);
   private readonly swell = { min: 1, max: 1 };
   private readonly probe: HeadProbe = { lift: 0, sway: 0 };
-  private readonly surf: WormSurface = { y: 0, under: 1 };
+  private readonly surf: WormSurface = { y: 0 };
   private readonly prevBody: Vec3[] = blank(WORM_SEGMENTS);
   private readonly prevCam: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly prevHead: Vec3 = { x: 0, y: 0, z: 0 };

@@ -5,8 +5,8 @@ import { MeshWriter } from './meshWriter';
 import { clutterGrow, heroLog, rocks, placeClutter, type ClutterItem } from './propPlacement';
 import { writeFern, writeMushrooms, writeRock, writeSedge } from './propGeometry';
 import { rockSeed } from './rockShape';
-import { meshGroundHeight } from './terrainMesh';
 import { terrainHeight } from './terrain';
+import { litterTopHeight } from './litterDepth';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
 import { BARK, writeLog } from './trunkGeometry';
@@ -19,9 +19,9 @@ import { REAL_SCALE } from './realScale';
  */
 export function writeClutterItem(w: MeshWriter, c: ClutterItem, rng: () => number): void {
   const grow = clutterGrow(c.kind);
-  if (c.kind === 'mushrooms') writeMushrooms(w, c.x, c.z, c.scale, rng, meshGroundHeight, grow);
-  else if (c.kind === 'sedge') writeSedge(w, c.x, c.z, c.scale, rng, meshGroundHeight, grow);
-  else writeFern(w, c.x, c.z, c.scale, rng, meshGroundHeight, grow);
+  if (c.kind === 'mushrooms') writeMushrooms(w, c.x, c.z, c.scale, rng, litterTopHeight, grow);
+  else if (c.kind === 'sedge') writeSedge(w, c.x, c.z, c.scale, rng, litterTopHeight, grow);
+  else writeFern(w, c.x, c.z, c.scale, rng, litterTopHeight, grow);
 }
 
 export interface GroundProps {

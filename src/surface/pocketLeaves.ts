@@ -20,7 +20,7 @@ const near2 = [0, 0];
 /**
  * The most the map's path and body nearness (channels 0 and 2) can read at world (x, z), as the
  * shader filters them (bilinear between four cells, clamped at the edges): the largest of the four.
- * Writes out[0] (path), out[1] (body). Allocates nothing.
+ * Writes out[0] (path), out[1] (body). No object allocation.
  */
 function nearnessMax(m: DisturbanceMap, x: number, z: number, out: number[]): void {
   const tx = (x - m.ci * DIST_CELL) / DIST_CELL - 0.5;
@@ -50,7 +50,7 @@ export interface PocketLeaves extends DetailLeaves {
    * Once per rendered frame, after the fade's segments are set (`fade`): lists only the leaves the
    * hole over the worm may show, from the rendered `spine`, the head (uFocus x, z), the wrap
    * centre (uWrapCentre) and the disturbance map (`map`, as uploaded), as the shader places and
-   * drapes them. Returns how many. Allocates nothing.
+   * drapes them. Returns how many. No object allocation.
    */
   update(
     fade: FadeFrame, spine: ArrayLike<number>, focusX: number, focusZ: number, wrapX: number, wrapZ: number,

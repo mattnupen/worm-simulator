@@ -16,7 +16,7 @@ export const LEAF_COLORS: Record<LeafKind, string> = {
 export interface LeafPlacement {
   x: number; z: number;
   /** How deep the litter under the leaf is: the drawn top above the floor (litterDepth). */
-  mound: number;
+  depth: number;
   /** The leaf's layer among the loose top leaves on the drawn top; the lowest are the dampest. */
   y: number;
   /** The thickness `y` is drawn from (0 to `span`): the loose top leaves (TOP_LAYER). */
@@ -48,7 +48,7 @@ export function placeLeaves(count: number, halfSize: number, seed = 1, depthAt: 
     if (r() > 0.3 + 0.7 * (depth / LITTER_MAX)) continue;
     const span = TOP_LAYER * 0.8;
     out.push({
-      x, z, mound: depth, span,
+      x, z, depth, span,
       y: r() * span,
       rotY: r() * Math.PI * 2,
       tilt: (r() - 0.5) * 0.5,

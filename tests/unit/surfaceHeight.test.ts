@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { bellyHeight, litterTop, wormSurface, BELLY_UNDER } from '../../src/worm/surfaceHeight';
+import { bellyHeight, wormSurface, BELLY_UNDER } from '../../src/worm/surfaceHeight';
 import { floorHeight, litterTopHeight, LITTER_MIN, PILES } from '../../src/surface/litterDepth';
 import { PLAY_HALF } from '../../src/surface/terrain';
 import { CAM_GROUND_MARGIN } from '../../src/game/cameraClearance';
@@ -19,19 +19,18 @@ describe('wormSurface: the worm travels buried in the litter (V2 spec 8.2)', () 
     for (const [x, z] of grid(PLAY_HALF, 0.53)) {
       const s = wormSurface(x, z);
       expect(s.y).toBe(floorHeight(x, z));
-      expect(s.under).toBe(1);
     }
   });
 
   it('is buried under piles too: the litter top stays 2 cm or more above the floor', () => {
     for (const p of PILES) {
       const s = wormSurface(p.x, p.z);
-      expect(litterTop(p.x, p.z) - s.y).toBeGreaterThan(LITTER_MIN - 0.02);
+      expect(litterTopHeight(p.x, p.z) - s.y).toBeGreaterThan(LITTER_MIN - 0.02);
     }
   });
 
   it('writes into and returns the object it is given', () => {
-    const out = { y: 0, under: 0 };
+    const out = { y: 0 };
     expect(wormSurface(3, 4, out)).toBe(out);
     expect(out.y).toBe(floorHeight(3, 4));
   });
@@ -46,7 +45,7 @@ describe('wormSurface: the worm travels buried in the litter (V2 spec 8.2)', () 
   });
 });
 
-describe('bellyHeight and litterTop', () => {
+describe('bellyHeight and the litter top', () => {
   it('puts the belly just on the floor', () => {
     const s = wormSurface(2, 3);
     expect(bellyHeight(s)).toBeCloseTo(s.y + BELLY_UNDER, 12);
@@ -75,8 +74,7 @@ describe('bellyHeight and litterTop', () => {
     expect(checked).toBeGreaterThan(pts.length * 0.9);
   });
 
-  it('the litter top is the drawn top, and the camera floor clears it', () => {
-    expect(litterTop(3, 4)).toBe(litterTopHeight(3, 4));
+  it('the camera floor clears the litter top', () => {
     expect(CAM_GROUND_MARGIN).toBeGreaterThan(0.3);
   });
 });

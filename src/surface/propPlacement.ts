@@ -5,8 +5,9 @@ import { clearOfPaths } from './wormPaths';
 import { REAL_SCALE, type LogSite, type RockSite } from './realScale';
 
 /**
- * Where the forest-floor props go, at real size (realScale.ts). Pure. Everything stays out of the worm's way: the straight run ahead of the
- * spawn and the speed test's auto-drive loop (wormPaths.ts), the trailing camera, and the trunks.
+ * Where the forest-floor props go, at real size (realScale.ts). Pure. Everything stays out of the
+ * worm's way: the straight run ahead of the spawn and the speed test's auto-drive loop
+ * (wormPaths.ts), the trailing camera, and the trunks.
  */
 const TRUNK_CLEAR = 1.0;
 

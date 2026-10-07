@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
 import { CAM_GROUND_MARGIN, CAM_OPTS } from '../../src/game/cameraClearance';
-import { bellyHeight, litterTop, wormSurface } from '../../src/worm/surfaceHeight';
-import { floorHeight, groundHeight } from '../../src/surface/litterDepth';
+import { bellyHeight, wormSurface } from '../../src/worm/surfaceHeight';
+import { floorHeight, groundHeight, litterTopHeight } from '../../src/surface/litterDepth';
 import { followY } from './cameraPress';
 import type { WormPose } from '../../src/worm/wormMesh';
 
@@ -29,7 +29,7 @@ describe('Crawl', () => {
     const c = new Crawl();
     for (let i = 0; i < 600; i++) {
       c.step(DT, { x: 0.6, y: 1 });
-      expect(c.cam.pos.y).toBeGreaterThanOrEqual(litterTop(c.cam.pos.x, c.cam.pos.z) + CAM_GROUND_MARGIN - 1e-9);
+      expect(c.cam.pos.y).toBeGreaterThanOrEqual(litterTopHeight(c.cam.pos.x, c.cam.pos.z) + CAM_GROUND_MARGIN - 1e-9);
     }
   });
 
@@ -40,7 +40,7 @@ describe('Crawl', () => {
       expect(s.y).toBeCloseTo(bellyHeight(wormSurface(s.x, s.z)), 9);
       expect(s.y).toBeCloseTo(floorHeight(s.x, s.z) + 0.01, 9);
       // At least 2 cm of leaves over the belly.
-      expect(litterTop(s.x, s.z) - s.y).toBeGreaterThan(0.4);
+      expect(litterTopHeight(s.x, s.z) - s.y).toBeGreaterThan(0.4);
       expect(c.under[i]).toBe(1);
     });
   });
