@@ -1,16 +1,20 @@
+import type { Vec3 } from '../core/vec';
 import { footprints, obstacleDepth, type ObstacleHit } from '../surface/obstacles';
 import { rocks } from '../surface/propPlacement';
 import { PLAY_HALF, WORLD_HALF } from '../surface/terrain';
 import { rockReach } from './sections';
+import { canEmergeNearEntry } from './emergeMap';
+import { bodyFan, sweepClear } from './sinkSweep';
 import { clipLine, FACE_EXTRA, PLAY_MARGIN, SLAB_HALF } from './slab';
 
 /**
  * Where the worm may dig down, the direction of the cut, and which side of it the camera looks
  * from (V2 spec 4.1). Pure; allocates nothing per call.
  *
- * FOR THE GAME (Task 15): create the slab with `cutHeading(x, z, wormHeading)`, never the raw
- * heading, and give `chooseSide` the same. The worm turns to face along the cut while its head
- * sinks (the spec allows a smooth turn during the sink).
+ * FOR THE GAME (Task 15): create the slab with `cutHeading(x, z, wormHeading, crawl.body)`, never
+ * the raw heading, and give `canDigAt` and `chooseSide` the same body. The worm turns to lie along
+ * the cut while its head sinks (bodyPath.ts), and a cut is only taken if that turn keeps the body
+ * off every trunk, rock and log footprint.
  */
 
 /** The dig point keeps this far off every trunk, rock and log footprint (more than a body width)... */
@@ -37,7 +41,6 @@ const CAM_PAD = 0.3;
 
 const hit: ObstacleHit = { nx: 0, nz: 0 };
 const span: [number, number] = [0, 0];
-
 /** Whether the cut through (x, z) along (tx, tz), over u in `span`, keeps CUT_MARGIN off every trunk. */
 function spanClear(x: number, z: number, tx: number, tz: number): boolean {
   const { round } = footprints();
@@ -67,22 +70,33 @@ function cutClear(x: number, z: number, heading: number, face: boolean): boolean
   return spanClear(x, z, tx, tz);
 }
 
+/** A cut cutHeading may offer: clear of trunks, the body's turn into it clear, and a way back up near the entry. */
+function cutOk(x: number, z: number, heading: number, face: boolean): boolean {
+  return cutClear(x, z, heading, face) && sweepClear(x, z, heading) && canEmergeNearEntry(x, z, heading);
+}
+
 /**
  * The heading of the cut through (x, z), or null where no direction works. The cut is a plane, so
  * `wormHeading` and `wormHeading + PI` give the same one; this returns the direction nearest the
  * worm's heading (so the turn is at most 90 degrees) whose cut keeps off every trunk footprint:
  * over the playable slab and the drawn face's extra 6 u each side if any direction manages that,
- * else over the playable slab alone. It returns `wormHeading` itself when that is already clear.
+ * else over the playable slab alone. The body (`body`, head first, as `Crawl.body`; without it, a
+ * straight body behind the head) must also turn into that cut clear of every footprint
+ * (`sweepClear`), and the worm must be able to come back up near the entry (`canEmergeNearEntry`),
+ * so no dig leaves it with nowhere to come up. It returns `wormHeading` itself when that works.
  * Called once per dig; canDigAt calls it every step for the prompt, with nothing allocated.
  */
-export function cutHeading(x: number, z: number, wormHeading: number): number | null {
+export function cutHeading(x: number, z: number, wormHeading: number, body?: ArrayLike<Vec3>): number | null {
   if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(wormHeading)) return null;
+  bodyFan(wormHeading, body);
   for (let pass = 0; pass < 2; pass++) {
     const face = pass === 0;
     for (let i = 0; i <= 45; i++) {
       const turn = i * TURN_STEP;
-      if (cutClear(x, z, wormHeading + turn, face)) return wormHeading + turn;
-      if (i > 0 && i < 45 && cutClear(x, z, wormHeading - turn, face)) return wormHeading - turn;
+      const a = wormHeading + turn;
+      if (cutOk(x, z, a, face)) return a;
+      const b = wormHeading - turn;
+      if (i > 0 && i < 45 && cutOk(x, z, b, face)) return b;
     }
   }
   return null;
@@ -91,13 +105,15 @@ export function cutHeading(x: number, z: number, wormHeading: number): number | 
 /**
  * True where the worm may dig down: open ground, not within DIG_PAD of a trunk, rock (as far as it
  * bulges underground, `rockReach`) or the log, not at the play edge, and with a cut direction that
- * keeps off the trunks (`cutHeading`). False for a non-finite x, z or heading.
+ * keeps off the trunks and that the body can turn into clear of every footprint (`cutHeading`,
+ * given the same `body`). False for a non-finite x, z or heading.
  *
- * In effect it does not depend on `heading`: cutHeading's search from the heading covers every
- * cut plane, so turning in place does not change the answer (only a clear window narrower than
- * the 2 degree search step could). The prompt may therefore show it without flicker.
+ * Without a body it in effect does not depend on `heading`: cutHeading's search from the heading
+ * covers every cut plane, so turning in place does not change the answer (only a clear window
+ * narrower than the 2 degree search step could). With the body, the answer can change as the body
+ * moves near a footprint, which is the point: the prompt then shows only where the dig is clean.
  */
-export function canDigAt(x: number, z: number, heading: number): boolean {
+export function canDigAt(x: number, z: number, heading: number, body?: ArrayLike<Vec3>): boolean {
   if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(heading)) return false;
   if (Math.abs(x) > PLAY_HALF - DIG_EDGE || Math.abs(z) > PLAY_HALF - DIG_EDGE) return false;
   if (obstacleDepth(x, z, DIG_PAD, hit) > 0) return false;
@@ -105,7 +121,7 @@ export function canDigAt(x: number, z: number, heading: number): boolean {
   for (let i = 0; i < rs.length; i++) {
     if (Math.hypot(x - rs[i].x, z - rs[i].z) < rockReach(i) + DIG_PAD) return false;
   }
-  return cutHeading(x, z, heading) !== null;
+  return cutHeading(x, z, heading, body) !== null;
 }
 
 /** How much of footprint (u, s, r) lies in the region in front of the cut on the s > 0 side (0: none). */
@@ -145,14 +161,14 @@ export function trunkInPath(x: number, z: number, nx: number, nz: number): numbe
 }
 
 /**
- * The camera's side for the cut through (x, z) along `cutHeading(x, z, wormHeading)`: +1 looks from the normal (tz, -tx),
+ * The camera's side for the cut through (x, z) along `cutHeading(x, z, wormHeading, body)`: +1 looks from the normal (tz, -tx),
  * -1 from the other. A side whose swing would pass through a trunk loses to one that does not.
  * Otherwise it is the side whose view of the cut is clearest of trunks, rocks and the log, and
  * stays inside the world. On a tie the camera stands on the sun's side (the light comes from
  * about (0.5, 0.7) in x, z: paintedMaterial's uLightDir), so the face is lit from behind it.
  */
-export function chooseSide(x: number, z: number, wormHeading: number): 1 | -1 {
-  const heading = cutHeading(x, z, wormHeading) ?? wormHeading;
+export function chooseSide(x: number, z: number, wormHeading: number, body?: ArrayLike<Vec3>): 1 | -1 {
+  const heading = cutHeading(x, z, wormHeading, body) ?? wormHeading;
   const tx = Math.sin(heading);
   const tz = Math.cos(heading);
   const blocked = trunkInPath(x, z, tz, -tx) - trunkInPath(x, z, -tz, tx);

@@ -140,6 +140,60 @@ describe('the surface / underground state machine (spec 4, 10)', () => {
     expect(moveDuration(m.state)).toBeCloseTo(RISE_S + Math.max(OUT_S, FADE_S), 9);
   });
 
+  it('pins the spec timings (4.1, 4.2) in seconds', () => {
+    // [reduced, sink + camera, camera starts; coming up: move, camera starts, camera ends]
+    for (const [reduced, down, up, camEnd] of [[false, 2.5, 2.5, 2.5], [true, 1.7, 2.1, 1.7]] as const) {
+      const m = createModeMachine();
+      m.step(true, true, false, reduced, DT);
+      expect(moveDuration(m.state)).toBeCloseTo(down, 9);
+      m.state.t = 0.999;
+      expect(cameraProgress(m.state)).toBe(0);
+      expect(bodyProgress(m.state)).toBeCloseTo(0.999, 9);
+      m.state.t = 1.0;
+      expect(bodyProgress(m.state)).toBe(1);
+      runMove(m, false);
+      m.step(true, false, true, reduced, DT);
+      expect(moveDuration(m.state)).toBeCloseTo(up, 9);
+      m.state.t = 1.0;
+      expect(cameraProgress(m.state)).toBe(1);
+      m.state.t = camEnd;
+      expect(cameraProgress(m.state)).toBeCloseTo(0, 9);
+      m.state.t = 2.1;
+      expect(bodyProgress(m.state)).toBe(1);
+    }
+  });
+
+  it('coming up takes the length the game sets; the swing ends with the worm\'s move', () => {
+    for (const reduced of [false, true]) {
+      const m = undergroundMachine();
+      m.setMoveTime(9); // not coming up: ignored
+      m.step(true, false, true, reduced, DT);
+      expect(m.state.moveS).toBe(RISE_S + OUT_S);
+      m.setMoveTime(NaN);
+      m.setMoveTime(1.5); // never shorter than the rise and the crawl out
+      expect(m.state.moveS).toBe(RISE_S + OUT_S);
+      m.setMoveTime(4.6);
+      const s = m.state;
+      expect(moveDuration(s)).toBeCloseTo(4.6, 9);
+      s.t = 3.1;
+      expect(cameraProgress(s)).toBeCloseTo(1, 9);
+      s.t = 3;
+      expect(cameraProgress(s)).toBe(1);
+      s.t = 2.3;
+      expect(bodyProgress(s)).toBeCloseTo(0.5, 9);
+      s.t = 3.1 + (reduced ? FADE_S : SWING_S);
+      expect(cameraProgress(s)).toBeCloseTo(0, 9);
+      s.t = 0;
+      const { n } = runMove(m, false, false, true);
+      expect(Math.abs(n * DT - 4.6)).toBeLessThan(2 * DT);
+      // The next coming up starts from the default again.
+      tap(m);
+      runMove(m, false);
+      m.step(true, false, true, reduced, DT);
+      expect(moveDuration(s)).toBeCloseTo(reduced ? RISE_S + OUT_S : RISE_S + SWING_S, 9);
+    }
+  });
+
   describe('edge cases', () => {
     it('a held press does not fire again through the move or after it', () => {
       const m = createModeMachine();

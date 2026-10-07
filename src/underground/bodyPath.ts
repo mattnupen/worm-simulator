@@ -2,6 +2,8 @@ import type { Vec3 } from '../core/vec';
 import { SPACING, WORM_SEGMENTS } from '../game/crawl';
 import { OCC_AXIS_UP } from '../render/occlusion';
 import { bellyHeight, wormSurface, type WormSurface } from '../worm/surfaceHeight';
+import { cruise, smootherstep } from './easing';
+import { SINK_S } from './modeMachine';
 import { boundaryAt, B_F, type Slab } from './slab';
 
 /**
@@ -9,11 +11,11 @@ import { boundaryAt, B_F, type Slab } from './slab';
  * frame: u along the cut, v the height of the body's axis, w off the plane toward the camera's
  * side (0 in the cut). Pure; the moves are built once each, and posing allocates nothing.
  *
- * Going down: the head turns down in a short arc and sinks below the F top, all in the cut's
- * plane, while the body still on the surface turns from the way the worm lay to lie along the cut
- * (the cut can be up to about 80 degrees off the worm's heading): each segment keeps its length and
- * turns smoothly, the neck first and the tail last, so the body swings round behind the head with
- * no snap. Frame 0 is the crawl's last frame exactly; the last frame lies wholly in the plane.
+ * Going down: the head turns down in a short arc and sinks below the F top, in the cut's plane,
+ * while the body still on the surface turns from the way the worm lay to lie along the cut (up to
+ * 90 degrees off; digSpot.ts makes sure the turn misses every footprint): each segment keeps its
+ * length and turns smoothly, neck first, tail last. Frame 0 is the crawl's last frame exactly; the
+ * last frame lies wholly in the plane.
  *
  * Coming up (emergePath.ts builds it): a path in the plane from the tail through the head, up to
  * the floor and along it under the litter far enough that the whole body comes out, lying along
@@ -41,15 +43,18 @@ export interface BodyPath {
   readonly u: Float64Array; readonly v: Float64Array; readonly s: Float64Array;
   count: number;
   /** Where the head starts and ends along the path. */
-  headFrom: number;
-  headTo: number;
-  /** Coming up: the head's way along the cut at the end (+1 along u, -1 against)... */
-  exitSign: number;
-  /** ...where it comes out of the ground (u: the burrow opening), and that point's arc length. */
-  exitU: number;
-  exitAt: number;
+  headFrom: number; headTo: number;
+  /** Coming up: the head's way along the cut at the end (+1 along u, -1 against), where it comes
+   * out of the ground (u: the burrow opening) and that point's arc length. */
+  exitSign: number; exitU: number; exitAt: number;
   /** Going down (the body turns into the plane) or coming up (everything slides along the path). */
   sink: boolean;
+  /**
+   * The move's natural length in seconds (going down SINK_S; coming up set by its length, for the
+   * mode machine's `setMoveTime`), and the share of it spent speeding up and slowing down (coming
+   * up: the head cruises in between, `cruise`; 0: smootherstep all the way).
+   */
+  seconds: number; ramp: number;
   /** Each body point's distance behind the head along the body at the start (head first). */
   readonly back: Float64Array;
   /** Going down: the body as it lay (u, w); each segment's angle from straight back along -u, and length. */
@@ -69,12 +74,14 @@ export function createBodyPath(): BodyPath {
   const f = (n: number) => new Float64Array(n);
   return {
     u: f(MAX_POINTS), v: f(MAX_POINTS), s: f(MAX_POINTS), count: 0, headFrom: 0, headTo: 0,
-    exitSign: 1, exitU: 0, exitAt: 0, sink: true, back: f(N),
+    exitSign: 1, exitU: 0, exitAt: 0, sink: true, seconds: SINK_S, ramp: 0, back: f(N),
     bu: f(N), bw: f(N), beta: f(N - 1), len: f(N - 1), lift: f(N),
     turnOn: f(N - 1), turnOff: f(N - 1), cu: f(N), cw: f(N),
     ox: 0, oz: 0, tx: 0, tz: 1, nx: 1, nz: 0,
   };
 }
+
+export { cruise, smootherstep };
 
 const surf: WormSurface = { y: 0 };
 export const wrap = (a: number): number => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
@@ -85,12 +92,6 @@ export function restAxis(x: number, z: number): number {
 }
 /** restAxis at the plane point (u, w) of the path's slab. */
 export const restAt = (p: BodyPath, u: number, w: number): number => restAxis(p.ox + p.tx * u + p.nx * w, p.oz + p.tz * u + p.nz * w);
-
-/** Smooth 0..1 easing with zero speed and acceleration at both ends. */
-export function smootherstep(t: number): number {
-  const x = Math.min(1, Math.max(0, t));
-  return x * x * x * (x * (x * 6 - 15) + 10);
-}
 
 /** Takes the slab's frame (posing needs the floor's height at plane points). */
 export function frame(p: BodyPath, s: Slab): void {
@@ -113,6 +114,8 @@ export function push(p: BodyPath, u: number, v: number): void {
 export function buildSink(p: BodyPath, s: Slab, body: ArrayLike<Vec3>): void {
   frame(p, s);
   p.sink = true;
+  p.seconds = SINK_S;
+  p.ramp = 0;
   for (let i = 0; i < N; i++) {
     const x = body[i].x - s.ox;
     const z = body[i].z - s.oz;
@@ -251,7 +254,7 @@ export function poseAt(p: BodyPath, t: number, outU: Float64Array, outV: Float64
   }
   // Coming up: every point slides along the path with the head's easing; a body bunched up in a
   // turn stretches out to its full spacing over the whole move (never sliding backward).
-  const st = smootherstep(t);
+  const st = p.ramp > 0 ? cruise(t, p.ramp) : smootherstep(t);
   const head = p.headFrom + (p.headTo - p.headFrom) * st;
   for (let i = 0; i < N; i++) {
     const at = head - p.back[i] - (i * SPACING - p.back[i]) * st;
