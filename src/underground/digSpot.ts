@@ -2,7 +2,7 @@ import { footprints, obstacleDepth, type ObstacleHit } from '../surface/obstacle
 import { rocks } from '../surface/propPlacement';
 import { PLAY_HALF, WORLD_HALF } from '../surface/terrain';
 import { rockReach } from './sections';
-import { FACE_EXTRA, SLAB_HALF } from './slab';
+import { clipLine, FACE_EXTRA, PLAY_MARGIN, SLAB_HALF } from './slab';
 
 /**
  * Where the worm may dig down, the direction of the cut, and which side of it the camera looks
@@ -13,10 +13,8 @@ import { FACE_EXTRA, SLAB_HALF } from './slab';
  * sinks (the spec allows a smooth turn during the sink).
  */
 
-/** The dig point keeps this far off every rock and log footprint (more than a body width)... */
+/** The dig point keeps this far off every trunk, rock and log footprint (more than a body width)... */
 export const DIG_PAD = 0.5;
-/** ...and this far off every trunk's footprint (the sink path at the entry; the cut itself keeps CUT_MARGIN)... */
-export const TRUNK_PAD = 0.5;
 /** ...and this far inside the worm's play area: not at the play edge. */
 export const DIG_EDGE = 2.5;
 /**
@@ -26,8 +24,6 @@ export const DIG_EDGE = 2.5;
 export const CUT_MARGIN = 0.3;
 /** The cut direction is searched outward from the worm's heading in steps of this (radians, 2 degrees). */
 const TURN_STEP = Math.PI / 90;
-/** The slab clips its playable range this far inside the play area (slab.ts's PLAY_MARGIN). */
-const PLAY_MARGIN = 0.5;
 /** The region in front of the cut that a camera side should find clear: u span, and depth range. */
 const FRONT_HALF = 12;
 const FRONT_NEAR = 0.3;
@@ -41,26 +37,6 @@ const CAM_PAD = 0.3;
 
 const hit: ObstacleHit = { nx: 0, nz: 0 };
 const span: [number, number] = [0, 0];
-
-/** The u interval where the line (x + tx u, z + tz u) stays within |x|, |z| <= half (slab.ts's clipLine). */
-function clip(x: number, z: number, tx: number, tz: number, half: number): void {
-  let lo = -Infinity;
-  let hi = Infinity;
-  if (Math.abs(tx) > 1e-9) {
-    const a = (-half - x) / tx;
-    const b = (half - x) / tx;
-    lo = Math.max(lo, Math.min(a, b));
-    hi = Math.min(hi, Math.max(a, b));
-  }
-  if (Math.abs(tz) > 1e-9) {
-    const a = (-half - z) / tz;
-    const b = (half - z) / tz;
-    lo = Math.max(lo, Math.min(a, b));
-    hi = Math.min(hi, Math.max(a, b));
-  }
-  span[0] = lo;
-  span[1] = hi;
-}
 
 /** Whether the cut through (x, z) along (tx, tz), over u in `span`, keeps CUT_MARGIN off every trunk. */
 function spanClear(x: number, z: number, tx: number, tz: number): boolean {
@@ -80,11 +56,11 @@ function cutClear(x: number, z: number, heading: number, face: boolean): boolean
   const tx = Math.sin(heading);
   const tz = Math.cos(heading);
   if (face) {
-    clip(x, z, tx, tz, WORLD_HALF - 0.05);
+    clipLine(x, z, tx, tz, WORLD_HALF - 0.05, span);
     span[0] = Math.max(-SLAB_HALF - FACE_EXTRA, span[0]);
     span[1] = Math.min(SLAB_HALF + FACE_EXTRA, span[1]);
   } else {
-    clip(x, z, tx, tz, PLAY_HALF - PLAY_MARGIN);
+    clipLine(x, z, tx, tz, PLAY_HALF - PLAY_MARGIN, span);
     span[0] = Math.max(-SLAB_HALF, span[0]);
     span[1] = Math.min(SLAB_HALF, span[1]);
   }
@@ -100,6 +76,7 @@ function cutClear(x: number, z: number, heading: number, face: boolean): boolean
  * Called once per dig; canDigAt calls it every step for the prompt, with nothing allocated.
  */
 export function cutHeading(x: number, z: number, wormHeading: number): number | null {
+  if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(wormHeading)) return null;
   for (let pass = 0; pass < 2; pass++) {
     const face = pass === 0;
     for (let i = 0; i <= 45; i++) {
@@ -112,17 +89,18 @@ export function cutHeading(x: number, z: number, wormHeading: number): number | 
 }
 
 /**
- * True where the worm may dig down when facing `heading`: open ground, not within DIG_PAD of a
- * rock (as far as it bulges underground, `rockReach`) or the log, not within TRUNK_PAD of a trunk,
- * not at the play edge, and with a cut direction that keeps off the trunks (`cutHeading`).
+ * True where the worm may dig down: open ground, not within DIG_PAD of a trunk, rock (as far as it
+ * bulges underground, `rockReach`) or the log, not at the play edge, and with a cut direction that
+ * keeps off the trunks (`cutHeading`). False for a non-finite x, z or heading.
+ *
+ * In effect it does not depend on `heading`: cutHeading's search from the heading covers every
+ * cut plane, so turning in place does not change the answer (only a clear window narrower than
+ * the 2 degree search step could). The prompt may therefore show it without flicker.
  */
 export function canDigAt(x: number, z: number, heading: number): boolean {
+  if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(heading)) return false;
   if (Math.abs(x) > PLAY_HALF - DIG_EDGE || Math.abs(z) > PLAY_HALF - DIG_EDGE) return false;
   if (obstacleDepth(x, z, DIG_PAD, hit) > 0) return false;
-  const { round } = footprints();
-  for (let k = 0; k < round.length; k += 4) {
-    if (round[k + 3] === Infinity && Math.hypot(x - round[k], z - round[k + 1]) < round[k + 2] + TRUNK_PAD) return false;
-  }
   const rs = rocks();
   for (let i = 0; i < rs.length; i++) {
     if (Math.hypot(x - rs[i].x, z - rs[i].z) < rockReach(i) + DIG_PAD) return false;

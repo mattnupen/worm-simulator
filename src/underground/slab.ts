@@ -19,7 +19,7 @@ export const FACE_EXTRA = 6;
 /** Spacing (u) of the face's columns: boundary depths are sampled here and drawn linearly between. */
 export const COLUMN_STEP = 0.125;
 /** The playable slab stays this far inside the worm's play area. */
-const PLAY_MARGIN = 0.5;
+export const PLAY_MARGIN = 0.5;
 /** Boundaries stored per column: litter top, then the tops of F, H, A, E and B. */
 export const BOUNDS = 6;
 export const B_TOP = 0;
@@ -73,14 +73,22 @@ export function slabSeed(x: number, z: number): number {
   return mix32(mix32(Math.round(x * 2) + 0x9e3779b9) + Math.round(z * 2));
 }
 
-/** The u interval where the line ox + tx u, oz + tz u stays within |x|, |z| <= half. */
-function clipLine(ox: number, oz: number, tx: number, tz: number, half: number, out: [number, number]): void {
+/**
+ * The u interval where the line ox + tx u, oz + tz u stays within |x|, |z| <= half, written to
+ * `out` (allocates nothing, so digSpot.ts can call it every step).
+ */
+export function clipLine(ox: number, oz: number, tx: number, tz: number, half: number, out: [number, number]): void {
   let lo = -Infinity;
   let hi = Infinity;
-  for (const [o, t] of [[ox, tx], [oz, tz]] as const) {
-    if (Math.abs(t) < 1e-9) continue;
-    const a = (-half - o) / t;
-    const b = (half - o) / t;
+  if (Math.abs(tx) >= 1e-9) {
+    const a = (-half - ox) / tx;
+    const b = (half - ox) / tx;
+    lo = Math.min(a, b);
+    hi = Math.max(a, b);
+  }
+  if (Math.abs(tz) >= 1e-9) {
+    const a = (-half - oz) / tz;
+    const b = (half - oz) / tz;
     lo = Math.max(lo, Math.min(a, b));
     hi = Math.min(hi, Math.max(a, b));
   }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  canDigAt, chooseSide, cutHeading, trunkInPath, CAM_REACH, CUT_MARGIN, DIG_EDGE, DIG_PAD, TRUNK_PAD,
+  canDigAt, chooseSide, cutHeading, trunkInPath, CAM_REACH, CUT_MARGIN, DIG_EDGE, DIG_PAD,
 } from '../../src/underground/digSpot';
 import { footprints } from '../../src/surface/obstacles';
 import { rocks } from '../../src/surface/propPlacement';
@@ -93,7 +93,7 @@ describe('where the worm may dig down (spec 4.1)', () => {
     for (let k = 0; k < round.length; k += 4) {
       if (round[k + 3] !== Infinity) continue;
       for (let a = 0; a < 24; a++) {
-        const d = round[k + 2] + TRUNK_PAD - 0.05;
+        const d = round[k + 2] + DIG_PAD - 0.05;
         expect(canDigAt(round[k] + Math.cos(a) * d, round[k + 1] + Math.sin(a) * d, a)).toBe(false);
       }
     }
@@ -102,6 +102,24 @@ describe('where the worm may dig down (spec 4.1)', () => {
   it('not at the play edge', () => {
     expect(canDigAt(PLAY_HALF - 1, 0, 0)).toBe(false);
     expect(canDigAt(0, -(PLAY_HALF - 0.5), 0)).toBe(false);
+  });
+
+  it('does not depend on the heading: turning in place never changes the answer', () => {
+    for (let x = -LIM; x <= LIM; x += 0.5) {
+      for (let z = -LIM; z <= LIM; z += 0.5) {
+        const first = canDigAt(x, z, 0.1);
+        for (let h = 1; h < 24; h++) expect(canDigAt(x, z, 0.1 + h * 0.2731)).toBe(first);
+      }
+    }
+  });
+
+  it('refuses anything that is not a number', () => {
+    expect(canDigAt(NaN, 0, 0)).toBe(false);
+    expect(canDigAt(0, Infinity, 0)).toBe(false);
+    expect(canDigAt(0, 0, NaN)).toBe(false);
+    expect(cutHeading(NaN, 0, 0)).toBeNull();
+    expect(cutHeading(0, -Infinity, 0)).toBeNull();
+    expect(cutHeading(0, 0, NaN)).toBeNull();
   });
 
   it('leaves about a third of the play area open', () => {
@@ -236,6 +254,6 @@ describe('the camera side', () => {
       both++;
     }
     // A portrait phone's camera, 11.5 u out, can find a trunk on both sides in a small share of cases.
-    expect(both / cases).toBeLessThan(0.02);
+    expect(both / cases).toBeLessThan(0.01); // measured 0.5%
   });
 });
