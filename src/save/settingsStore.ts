@@ -1,4 +1,5 @@
 import { isChoice, isPresetId, AUTO_ORDER, type GraphicsChoice, type PresetId } from '../render/graphics';
+import { DEFAULT_UNDERGROUND_VIEW, type UndergroundView } from '../underground/modeMachine';
 
 // This key stays `version: 1` forever: older versions on the same origin read it, and one that
 // sees any other version falls back to its defaults. A breaking change needs a new key.
@@ -17,6 +18,12 @@ import { isChoice, isPresetId, AUTO_ORDER, type GraphicsChoice, type PresetId } 
  * reaches every device that never chose (CLAUDE.md). V1 stored its World scale pick as `scale`;
  * V2 has no World scale (real size only), so a stored `scale` is ignored but kept on every write
  * (V1, frozen at /v1/, still reads it). Never reuse the `scale` key.
+ *
+ * The underground view (V2) follows the same rule: no key is written until the player switches
+ * the view, and a missing or unknown value reads as DEFAULT_UNDERGROUND_VIEW. Careful: a player
+ * who tries both views has a stored pick, and a later class vote that changes the default will
+ * not reach that device. When a vote needs to, store the default in effect with each pick and
+ * ignore a pick made under an older default (not built: V2 has no such vote yet).
  */
 export const SETTINGS_KEY = 'wormsim.settings';
 
@@ -25,10 +32,16 @@ export interface Settings {
   graphics: GraphicsChoice;
   /** The preset Auto last settled on (never Ultra), or null. */
   autoSettled: PresetId | null;
+  /** The underground camera (V2 spec 7). Stored only once the player switches it. */
+  undergroundView: UndergroundView;
+}
+
+export function isUndergroundView(v: unknown): v is UndergroundView {
+  return v === 'wide' || v === 'close';
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
-  version: 1, graphics: 'auto', autoSettled: null,
+  version: 1, graphics: 'auto', autoSettled: null, undergroundView: DEFAULT_UNDERGROUND_VIEW,
 });
 
 /** The two Storage methods we use, so tests can pass a fake. */
@@ -67,6 +80,7 @@ function resolve(o: Record<string, unknown> | null): Settings {
     version: 1,
     graphics: isChoice(o.graphics) ? o.graphics : DEFAULT_SETTINGS.graphics,
     autoSettled: isPresetId(o.autoSettled) && AUTO_ORDER.includes(o.autoSettled) ? o.autoSettled : null,
+    undergroundView: isUndergroundView(o.undergroundView) ? o.undergroundView : DEFAULT_UNDERGROUND_VIEW,
   };
 }
 
@@ -96,9 +110,13 @@ function write(store: KeyValueStore, kept: Record<string, unknown>, fields: Reco
 export function saveSettings(store: KeyValueStore | null, s: Settings): boolean {
   if (!store) return false;
   try {
-    return write(store, storedObject(store) ?? {}, {
-      graphics: s.graphics, autoSettled: s.autoSettled,
-    });
+    const kept = storedObject(store);
+    const fields: Record<string, unknown> = { graphics: s.graphics, autoSettled: s.autoSettled };
+    // Same rule as updateSettings: the view is written only once it is a real pick.
+    if (isUndergroundView(kept?.undergroundView) || s.undergroundView !== DEFAULT_UNDERGROUND_VIEW) {
+      fields.undergroundView = s.undergroundView;
+    }
+    return write(store, kept ?? {}, fields);
   } catch {
     return false;
   }
@@ -108,8 +126,8 @@ export function saveSettings(store: KeyValueStore | null, s: Settings): boolean 
  * Changes some settings and keeps the rest as stored, so two owners (the Graphics menu and, from
  * V2, the underground camera) never overwrite each other's choice. `fields` is what gets written:
  * graphics and autoSettled always (older builds read them). A field with a class-vote default
- * (Plan B adds undergroundView) joins `fields` only when it is in `patch` (the player picked it) or
- * was already stored. Fields this build does not know are kept. Returns the full settings as now
+ * (undergroundView) joins `fields` only when it is in `patch` (the player picked it) or was already
+ * stored. Fields this build does not know are kept. Returns the full settings as now
  * saved (or as they would be, if storage failed).
  */
 export function updateSettings(store: KeyValueStore | null, patch: Partial<Omit<Settings, 'version'>>): Settings {
@@ -123,6 +141,9 @@ export function updateSettings(store: KeyValueStore | null, patch: Partial<Omit<
   const next: Settings = { ...resolve(kept), ...patch, version: 1 };
   if (!store) return next;
   const fields: Record<string, unknown> = { graphics: next.graphics, autoSettled: next.autoSettled };
+  if (patch.undergroundView !== undefined || isUndergroundView(kept?.undergroundView)) {
+    fields.undergroundView = next.undergroundView;
+  }
   write(store, kept ?? {}, fields);
   return next;
 }

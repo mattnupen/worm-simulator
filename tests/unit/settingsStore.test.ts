@@ -25,14 +25,14 @@ describe('settings store', () => {
   });
 
   it('defaults to Auto with nothing settled', () => {
-    expect(DEFAULT_SETTINGS).toEqual({ version: 1, graphics: 'auto', autoSettled: null });
+    expect(DEFAULT_SETTINGS).toEqual({ version: 1, graphics: 'auto', autoSettled: null, undergroundView: 'wide' });
     expect(loadSettings(memory())).toEqual(DEFAULT_SETTINGS);
     expect(loadSettings(null)).toEqual(DEFAULT_SETTINGS);
   });
 
   it('round-trips what it saves', () => {
     const store = memory();
-    const s = { version: 1, graphics: 'ultra', autoSettled: 'medium' } as const;
+    const s = { version: 1, graphics: 'ultra', autoSettled: 'medium', undergroundView: 'close' } as const;
     expect(saveSettings(store, s)).toBe(true);
     expect(JSON.parse(store.data[SETTINGS_KEY])).toEqual(s);
     expect(loadSettings(store)).toEqual(s);
@@ -40,13 +40,13 @@ describe('settings store', () => {
 
   it('reads a Step 1a save, keeping its graphics', () => {
     expect(loadSettings(stored({ version: 1, graphics: 'high', autoSettled: 'medium' })))
-      .toEqual({ version: 1, graphics: 'high', autoSettled: 'medium' });
+      .toEqual({ version: 1, graphics: 'high', autoSettled: 'medium', undergroundView: 'wide' });
   });
 
   it('reads a V1 save with a World scale: the scale is ignored (V2 is real size only)', () => {
     for (const scale of ['classic', 'hybrid', 'true', 'giant', 7]) {
       expect(loadSettings(stored({ version: 1, graphics: 'low', autoSettled: 'low', scale })))
-        .toEqual({ version: 1, graphics: 'low', autoSettled: 'low' });
+        .toEqual({ version: 1, graphics: 'low', autoSettled: 'low', undergroundView: 'wide' });
     }
   });
 
@@ -77,7 +77,7 @@ describe('settings store', () => {
   it('replaces unknown field values with their defaults', () => {
     expect(loadSettings(stored({ version: 1, graphics: 'extreme', autoSettled: 'ultra' }))).toEqual(DEFAULT_SETTINGS);
     expect(loadSettings(stored({ version: 1, graphics: 'low', autoSettled: 42 })))
-      .toEqual({ version: 1, graphics: 'low', autoSettled: null });
+      .toEqual({ version: 1, graphics: 'low', autoSettled: null, undergroundView: 'wide' });
   });
 
   it('keeps fields it does not know when it saves (a later version\'s)', () => {
@@ -90,7 +90,7 @@ describe('settings store', () => {
 
   it('updateSettings changes only what it is given', () => {
     const store = stored({ version: 1, graphics: 'low', autoSettled: 'medium', later: 1 });
-    expect(updateSettings(store, { graphics: 'ultra' })).toEqual({ version: 1, graphics: 'ultra', autoSettled: 'medium' });
+    expect(updateSettings(store, { graphics: 'ultra' })).toEqual({ version: 1, graphics: 'ultra', autoSettled: 'medium', undergroundView: 'wide' });
     expect(updateSettings(store, { autoSettled: 'low' }).graphics).toBe('ultra');
     expect(JSON.parse(store.data[SETTINGS_KEY])).toEqual({
       version: 1, graphics: 'ultra', autoSettled: 'low', later: 1,
