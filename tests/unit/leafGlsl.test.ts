@@ -256,16 +256,20 @@ describe('litter leaf sizes', () => {
     let biggest = 0;
     let leaves = 0;
     for (const ch of litter.chunks) {
-      for (const [mesh, ends] of [[ch.near, ch.nearEnds], [ch.far, ch.farEnds]] as const) {
-        const pos = mesh.geometry.getAttribute('position');
-        const idx = mesh.geometry.getIndex()!;
+      // Full leaves: relative to the chunk's mesh, the chunk's own ends. Low detail: in world space,
+      // the shared buffer's ends from the chunk's first leaf there.
+      const near = { g: ch.near.geometry, at: ch.near.position, ends: ch.nearEnds, first: 0 };
+      const far = { g: litter.far.all, at: new THREE.Vector3(), ends: litter.far.ends, first: ch.farFirst };
+      for (const { g, at, ends, first } of [near, far]) {
+        const pos = g.getAttribute('position');
+        const idx = g.getIndex()!;
         for (let i = 0; i < ch.leaves.length; i++) {
           const { x, z } = placed[ch.leaves[i]];
+          const p = first + i;
           let reach = 0;
-          for (let t = i > 0 ? ends[i - 1] : 0; t < ends[i]; t++) {
+          for (let t = p > 0 ? ends[p - 1] : 0; t < ends[p]; t++) {
             const v = idx.getX(t);
-            // The vertex is relative to the chunk's mesh.
-            reach = Math.max(reach, Math.hypot(pos.getX(v) + mesh.position.x - x, pos.getZ(v) + mesh.position.z - z));
+            reach = Math.max(reach, Math.hypot(pos.getX(v) + at.x - x, pos.getZ(v) + at.z - z));
           }
           biggest = Math.max(biggest, reach);
           leaves++;

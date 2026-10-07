@@ -29,7 +29,7 @@ import { scaledLeafCount } from '../surface/leafScale';
 
 export interface World {
   scene: THREE.Scene;
-  /** The base litter in chunks (full and low-detail meshes), built with Ultra's leaf count. */
+  /** The base litter in chunks (a full-leaf mesh each; one low-detail draw), built with Ultra's leaf count. */
   readonly litter: LeafLitter;
   /** The close-up leaf layer around the worm, on the top of the litter (built when a preset first draws it). */
   readonly detail: DetailLayer;

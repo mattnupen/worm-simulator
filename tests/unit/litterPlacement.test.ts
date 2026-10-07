@@ -78,15 +78,14 @@ describe('litter on the rendered ground', () => {
   it('no litter vertex on open ground is below the rendered ground (beyond 3 mm), full or low detail', () => {
     let open = 0;
     let worst = 0;
-    for (const c of litter.chunks) {
-      for (const mesh of [c.near, c.far]) {
-        eachVertex(mesh, (x, y, z) => {
-          // Under a trunk, rock or the log the prop hides it.
-          if (obstacleDepth(x, z, 0, hit) > 0) return;
-          open++;
-          worst = Math.max(worst, litterTopHeight(x, z) - y);
-        });
-      }
+    // The far draw's mesh is at the origin, over every low-detail vertex.
+    for (const mesh of [...litter.chunks.map((c) => c.near), litter.far.mesh]) {
+      eachVertex(mesh, (x, y, z) => {
+        // Under a trunk, rock or the log the prop hides it.
+        if (obstacleDepth(x, z, 0, hit) > 0) return;
+        open++;
+        worst = Math.max(worst, litterTopHeight(x, z) - y);
+      });
     }
     expect(open).toBeGreaterThan(4000);
     expect(worst).toBeLessThanOrEqual(0.003);

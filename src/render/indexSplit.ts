@@ -127,7 +127,7 @@ export class IndexSplit {
  */
 export class IndexList {
   readonly geometry: THREE.BufferGeometry;
-  /** The parts drawn now, ascending (the first `count`). */
+  /** The parts drawn now, in draw order (the first `count`). */
   readonly parts: Int32Array;
   private n = 0;
   private readonly src: Uint16Array | Uint32Array;
@@ -152,7 +152,10 @@ export class IndexList {
     return this.n;
   }
 
-  /** Draws parts next[0..k) (ascending, distinct). Returns false (uploading nothing) when unchanged. */
+  /**
+   * Draws parts next[0..k) (distinct), in that order. Returns false (uploading nothing) when
+   * unchanged.
+   */
   set(next: ArrayLike<number>, k: number): boolean {
     let same = k === this.n;
     for (let a = 0; same && a < k; a++) same = next[a] === this.parts[a];

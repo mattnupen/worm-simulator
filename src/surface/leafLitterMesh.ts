@@ -4,7 +4,6 @@ import { createLeafMaterial } from '../render/leafMaterial';
 import { placeLeaves, wetnessLayer, type LeafPlacement } from './leafLitter';
 import { leafShape, type LeafShape } from './leafShapes';
 import { leafLift, type LeafForm } from './leafForm';
-import { lodShape } from './leafLod';
 import { leafTint, LEAF_SIZE, LATERAL_VEINS } from './leafPalette';
 import { WORLD_HALF } from './terrain';
 import { groundNormal, litterDepth, litterTopHeight } from './litterDepth';
@@ -13,6 +12,7 @@ import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
 import { LeafBuffers, type LeafLook } from './leafWriter';
 import { REAL_SCALE } from './realScale';
+import { FarLitter } from './farLitter';
 import {
   ACTIVE_MARGIN, boxesMeet, chunkCentreX, chunkCentreZ, chunkDistance, countBelow,
   groupByChunk, hullBox, nextLod,
@@ -24,12 +24,11 @@ export const LITTER_RENDER_ORDER = 3;
 export interface LitterChunk {
   /** Full leaves, shown when the camera is near (and always while the chunk is active). */
   readonly near: THREE.Mesh;
-  /** Low-detail leaves (6 triangles, no petiole), shown when it is far. */
-  readonly far: THREE.Mesh;
   /** Global indices (placement order) of this chunk's leaves, ascending. */
   readonly leaves: Uint32Array;
   readonly nearEnds: Uint32Array;
-  readonly farEnds: Uint32Array;
+  /** Its first leaf in the low-detail buffer (FarLitter.all; the rest follow, as in `leaves`). */
+  readonly farFirst: number;
   /** World x, z box (min x, min z, max x, max z) of every full-leaf vertex at rest. */
   readonly box: Float32Array;
   /** Leaves drawn now (the preset's prefix). */
@@ -41,9 +40,11 @@ export interface LitterChunk {
 }
 
 export interface LeafLitter {
-  /** Every chunk's two meshes. */
+  /** Every chunk's full-leaf mesh, and the one low-detail draw. */
   readonly group: THREE.Group;
   readonly chunks: readonly LitterChunk[];
+  /** Every chunk's low-detail leaves, in one buffer and one draw (farLitter.ts). */
+  readonly far: FarLitter;
   /** The three programs, built once: reacting full leaves, plain full leaves, low-detail leaves. */
   readonly materials: { readonly active: THREE.ShaderMaterial; readonly plain: THREE.ShaderMaterial; readonly far: THREE.ShaderMaterial };
   /** Leaves built: the most it can draw. */
@@ -56,7 +57,7 @@ export interface LeafLitter {
    * Once per rendered frame: per chunk, the fading material where its leaves can fade over the
    * buried worm (the hull of the camera and the rendered `spine`), the plain one elsewhere; full
    * leaves near the camera (and on every fading chunk), low-detail ones far away. Swaps materials
-   * only (all compiled up front). Allocates nothing.
+   * (all compiled up front); rewrites the far draw's list only when it changes. Allocates nothing.
    */
   update(camX: number, camZ: number, spine: ArrayLike<number>): void;
 }
@@ -161,10 +162,11 @@ function chunkMesh(b: LeafBuffers, material: THREE.Material, cx: number, cz: num
 }
 
 /**
- * The leaf litter in square chunks (see litterChunks.ts), each with a full-leaf and a low-detail
- * mesh: species silhouettes with a midrib fold, cup and curl, tinted per leaf and lying on the
- * rendered ground in loose layers, at real leaf sizes (pass the real-size count,
- * scaledLeafCount). Presets trim every chunk with a draw range (no rebuild).
+ * The leaf litter in square chunks (see litterChunks.ts), each with a full-leaf mesh, and every
+ * far chunk's low-detail leaves in one draw (farLitter.ts): species silhouettes with a midrib fold,
+ * cup and curl, tinted per leaf and lying on the rendered ground in loose layers, at real leaf
+ * sizes (pass the real-size count, scaledLeafCount). Presets trim every chunk to a prefix of its
+ * leaves (draw ranges, and the far draw's list; no rebuild).
  */
 export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   const placed = placeLeaves(count, WORLD_HALF, seed, litterDepth);
@@ -177,48 +179,41 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
   const group = new THREE.Group();
   group.name = 'leafLitter';
 
-  const chunks: LitterChunk[] = groupByChunk(placed).map((ids, c) => {
-    let nv = 0; let ni = 0; let fv = 0; let fi = 0;
+  const groups = groupByChunk(placed);
+  const far = new FarLitter(all, groups, lowDetail, LITTER_RENDER_ORDER);
+  const chunks: LitterChunk[] = groups.map((ids, c) => {
+    let nv = 0; let ni = 0;
     for (const i of ids) {
       const a = LeafBuffers.size(leafShape(all[i].kind), true);
-      const b = LeafBuffers.size(lodShape(all[i].kind), false);
-      nv += a.verts; ni += a.indices; fv += b.verts; fi += b.indices;
+      nv += a.verts; ni += a.indices;
     }
     const near = new LeafBuffers(nv, ni, ids.length);
-    const far = new LeafBuffers(fv, fi, ids.length);
     const cx = chunkCentreX(c);
     const cz = chunkCentreZ(c);
-    for (const i of ids) {
-      near.write(all[i], leafShape(all[i].kind), true, cx, cz);
-      far.write(all[i], lodShape(all[i].kind), false, cx, cz);
-    }
+    for (const i of ids) near.write(all[i], leafShape(all[i].kind), true, cx, cz);
     const chunk: LitterChunk = {
       near: chunkMesh(near, plain, cx, cz, `litterNear${c}`),
-      far: chunkMesh(far, lowDetail, cx, cz, `litterFar${c}`),
       leaves: Uint32Array.from(ids),
       nearEnds: near.ends,
-      farEnds: far.ends,
+      farFirst: far.first[c],
       box: Float32Array.from(near.box),
       count: ids.length,
       isNear: false,
       active: false,
     };
     chunk.near.visible = false;
-    chunk.far.visible = ids.length > 0;
-    group.add(chunk.near, chunk.far);
+    group.add(chunk.near);
     return chunk;
   });
-
-  const show = (ch: LitterChunk) => {
-    ch.near.visible = ch.isNear && ch.count > 0;
-    ch.far.visible = !ch.isNear && ch.count > 0;
-  };
+  group.add(far.mesh);
+  far.refresh(chunks);
   const hull = new Float32Array(4);
   let drawn = count;
 
   return {
     group,
     chunks,
+    far,
     materials: { active, plain, far: lowDetail },
     max: count,
     get drawn() {
@@ -230,21 +225,25 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
       for (const ch of chunks) {
         ch.count = countBelow(ch.leaves, k);
         ch.near.geometry.setDrawRange(0, ch.count > 0 ? ch.nearEnds[ch.count - 1] : 0);
-        ch.far.geometry.setDrawRange(0, ch.count > 0 ? ch.farEnds[ch.count - 1] : 0);
-        show(ch);
+        ch.near.visible = ch.isNear && ch.count > 0;
       }
+      far.refresh(chunks);
     },
     update(camX, camZ, spine) {
       hullBox(camX, camZ, spine, hull);
+      let changed = false;
       for (let c = 0; c < chunks.length; c++) {
         const ch = chunks[c];
         // Conservative: a chunk any of whose leaves could fade reacts, so nothing snaps.
         ch.active = boxesMeet(ch.box, hull, ACTIVE_MARGIN);
         // Only the full-leaf program reacts, so a reacting chunk always shows full leaves.
-        ch.isNear = nextLod(ch.isNear, chunkDistance(c, camX, camZ)) || ch.active;
+        const isNear = nextLod(ch.isNear, chunkDistance(c, camX, camZ)) || ch.active;
+        changed ||= isNear !== ch.isNear;
+        ch.isNear = isNear;
         ch.near.material = ch.active ? active : plain;
-        show(ch);
+        ch.near.visible = ch.isNear && ch.count > 0;
       }
+      far.update(chunks, camX, camZ, changed);
     },
   };
 }

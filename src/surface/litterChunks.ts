@@ -4,8 +4,8 @@ import { OCC_REACH } from '../render/occlusion';
 /**
  * The base litter is cut into CHUNKS x CHUNKS square chunks over the world, so that the
  * camera's frustum culls whole chunks, the renderer draws them near-first (the depth test then
- * skips hidden leaf pixels), distant chunks swap to a low-detail leaf, and only the chunks
- * around the worm pay for the disturbance map and the occluder fade. Pure.
+ * skips hidden leaf pixels), distant chunks swap to a low-detail leaf (all of them in one draw,
+ * farLitter.ts), and only the chunks around the worm pay for the occluder fade. Pure.
  */
 export const CHUNKS = 6;
 export const CHUNK_SIZE = (2 * WORLD_HALF) / CHUNKS;
