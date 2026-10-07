@@ -9,12 +9,12 @@ describe('the camera facing the cut (spec 7)', () => {
   it('Wide frames from just above the surface down into B; on a wide screen, the whole slab and its names', () => {
     const s = createSlab(0, 0, 0.4, 1, 2);
     const a = 1366 / 768;
-    frameTarget('wide', s, 0, -2, 1, 0, a, 0, 0, frame);
+    frameTarget('wide', s, 0, -2, 1, 0, a, frame);
     cutPose(s, frame.cu, frame.cv, frame.h, frame.pitch, pose);
     expect(project(pose, a, ...world(s, 0, s.topMax + 0.3)).ny).toBeLessThan(1);
     expect(project(pose, a, ...world(s, 0, boundaryAt(s, B_H, 0) - 1.5)).ny).toBeGreaterThan(-1);
     const wide = 1600 / 500;
-    frameTarget('wide', s, 0, -2, 1, 0, wide, 0, 0, frame);
+    frameTarget('wide', s, 0, -2, 1, 0, wide, frame);
     cutPose(s, frame.cu, frame.cv, frame.h, frame.pitch, pose);
     for (const u of [s.playLo - LABEL_ROOM + 0.1, s.playHi + LABEL_ROOM - 0.1]) {
       expect(Math.abs(project(pose, wide, ...world(s, u, s.topMax)).nx)).toBeLessThanOrEqual(1);
@@ -68,9 +68,9 @@ describe('the camera facing the cut (spec 7)', () => {
   it('switching view eases the zoom with no overshoot', () => {
     const s = createSlab(0, 0, 0, 1, 2);
     const cam = createCutCam();
-    snapCutCam(cam, frameTarget('wide', s, 0, -2, 1, 0, 1366 / 768, NaN, NaN, frame), 0, 'wide');
+    snapCutCam(cam, frameTarget('wide', s, 0, -2, 1, 0, 1366 / 768, frame), 0, 'wide');
     const from = cam.h.value;
-    frameTarget('close', s, 0, -2, 1, 0, 1366 / 768, 0, 0, frame);
+    frameTarget('close', s, 0, -2, 1, 0, 1366 / 768, frame);
     let last = from;
     let lastStep = 0;
     for (let k = 0; k < 180; k++) {
@@ -87,7 +87,7 @@ describe('the camera facing the cut (spec 7)', () => {
   it('the near plane stands just in front of the cut: the forest in front is cut away, the cut is not', () => {
     const s = createSlab(0, 0, 0, 1, 2);
     for (const view of ['wide', 'close'] as const) {
-      frameTarget(view, s, 0, -2, 0, -1, 1.5, 0, 0, frame);
+      frameTarget(view, s, 0, -2, 0, -1, 1.5, frame);
       cutPose(s, frame.cu, frame.cv, frame.h, frame.pitch, pose);
       // The cut's top just in front of the plane is beyond the near plane...
       const top = project(pose, 1.5, s.ox + s.nx * 0.2, s.topMax, s.oz + s.nz * 0.2);

@@ -2,7 +2,7 @@ import {
   createCutCam, frameTarget, snapCutCam, stepCutCam, stepCutFacing, cutPose, FOV_DEG,
   type CutCam, type CutFrame, type CutPose,
 } from '../../src/underground/cutCamera';
-import { createSlab, boundaryAt, slabX, slabZ, B_F, type Slab } from '../../src/underground/slab';
+import { createSlab, boundaryAt, slabX, slabZ, slabU, B_F, type Slab } from '../../src/underground/slab';
 import { createSoilGrid, fillSoilGrid } from '../../src/underground/soilGrid';
 import { createSolids, placeSolids, markSolids } from '../../src/underground/solids';
 import { createBurrower, placeBurrower, stepBurrower, type Burrower } from '../../src/underground/burrowMotion';
@@ -35,6 +35,22 @@ export function world(s: Slab, u: number, v: number): [number, number, number] {
   return [slabX(s, u), v, slabZ(s, u)];
 }
 
+/**
+ * Where the screen point (NDC x, y) meets the cut's plane: its (u, v). Traced as a ray from the
+ * camera, independently of the camera code's own sums.
+ */
+export function screenOnCut(p: CutPose, s: Slab, aspect: number, x: number, y: number): { u: number; v: number } {
+  let fx = p.lx - p.px; let fy = p.ly - p.py; let fz = p.lz - p.pz;
+  const fl = Math.hypot(fx, fy, fz); fx /= fl; fy /= fl; fz /= fl;
+  let rx = -fz; let rz = fx; const rl = Math.hypot(rx, rz); rx /= rl; rz /= rl;
+  const ux = -rz * fy; const uy = rz * fx - rx * fz; const uz = rx * fy;
+  const dx = fx + y * TAN * ux + x * TAN * aspect * rx;
+  const dy = fy + y * TAN * uy;
+  const dz = fz + y * TAN * uz + x * TAN * aspect * rz;
+  const t = -((p.px - s.ox) * s.nx + (p.pz - s.oz) * s.nz) / (dx * s.nx + dz * s.nz);
+  return { u: slabU(s, p.px + t * dx, p.pz + t * dz), v: p.py + t * dy };
+}
+
 /** The angle (radians) between two poses' view directions. */
 export function turnBetween(a: CutPose, b: CutPose): number {
   const ax = a.lx - a.px; const ay = a.ly - a.py; const az = a.lz - a.pz;
@@ -45,17 +61,22 @@ export function turnBetween(a: CutPose, b: CutPose): number {
 
 export type Each = (p: CutPose, prev: CutPose, s: Slab, hu: number, hv: number, b: Burrower, cam: CutCam, k: number) => void;
 export type ViewAt = UndergroundView | ((k: number) => UndergroundView);
+/** A slab's entry (x, z), heading and camera side, instead of the seed's random one. */
+export type SlabAt = readonly [number, number, number, 1 | -1];
 
 /**
  * Runs the real burrower for `seconds` (25), pointing at random (or `steer`), the camera
- * following in `view` (or the view `view(k)` at step k); calls `each` every frame.
+ * following in `view` (or the view `view(k)` at step k), in the seed's slab (or one at `at`);
+ * calls `each` every frame.
  */
 export function sweep(
   view: ViewAt, w: number, hgt: number, seed: number, each: Each, steer?: (k: number) => [number, number], seconds = 25,
+  at?: SlabAt,
 ): void {
   const viewAt = (k: number): UndergroundView => (typeof view === 'function' ? view(k) : view);
   const rand = mulberry32(seed);
-  const s = createSlab(rand() * 10 - 5, rand() * 10 - 5, rand() * 6, rand() < 0.5 ? 1 : -1, seed);
+  const r = [rand() * 10 - 5, rand() * 10 - 5, rand() * 6, rand() < 0.5 ? 1 : -1] as const;
+  const s = at ? createSlab(at[0], at[1], at[2], at[3], seed) : createSlab(r[0], r[1], r[2], r[3], seed);
   const g = createSoilGrid();
   fillSoilGrid(g, s);
   const o = placeSolids(s, createSolids());
@@ -69,7 +90,7 @@ export function sweep(
   stepBurrower(b, s, g, o, 0, 0, DT);
   const cam = createCutCam();
   const aspect = w / hgt;
-  snapCutCam(cam, frameTarget(viewAt(0), s, b.u[0], b.v[0], Math.cos(b.dir), Math.sin(b.dir), aspect, NaN, NaN, frame, b), b.dir);
+  snapCutCam(cam, frameTarget(viewAt(0), s, b.u[0], b.v[0], Math.cos(b.dir), Math.sin(b.dir), aspect, frame, b), b.dir);
   const prev: CutPose = { ...pose };
   cutPose(s, cam.cu.value, cam.cv.value, cam.h.value, cam.pitch.value, prev);
   let du = 0; let dv = -1;
@@ -79,7 +100,7 @@ export function sweep(
     const v = viewAt(k);
     stepBurrower(b, s, g, o, du, dv, DT);
     stepCutFacing(cam, b.dir, DT);
-    frameTarget(v, s, b.u[0], b.v[0], cam.au.value, cam.av.value, aspect, cam.cu.value, cam.cv.value, frame, b);
+    frameTarget(v, s, b.u[0], b.v[0], cam.au.value, cam.av.value, aspect, frame, b);
     stepCutCam(cam, frame, v, DT);
     cutPose(s, cam.cu.value, cam.cv.value, cam.h.value, cam.pitch.value, pose);
     each(pose, prev, s, b.u[0], b.v[0], b, cam, k);

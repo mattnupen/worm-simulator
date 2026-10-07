@@ -2,9 +2,9 @@ import type { Spring } from '../surface/followCamera';
 import type { Slab } from './slab';
 import type { UndergroundView } from './modeMachine';
 import { settle } from './easing';
-import type { CutFrame } from './cutFrame';
+import { FOV_DEG, type CutFrame } from './cutFrame';
 
-export { frameTarget, BELOW_SLAB, LABEL_ROOM, type BodyPoints, type CutFrame } from './cutFrame';
+export { frameTarget, FACE_BELOW, FACE_PAST, FOV_DEG, LABEL_ROOM, type BodyPoints, type CutFrame } from './cutFrame';
 
 /**
  * The camera facing the cut (V2 spec 7). It stands square to the cut on the slab's camera side,
@@ -15,8 +15,6 @@ export { frameTarget, BELOW_SLAB, LABEL_ROOM, type BodyPoints, type CutFrame } f
  * drawn (no shader changes; the projection does it). Where each view wants the frame is
  * cutFrame.ts. Pure; allocates nothing per step.
  */
-/** The vertical field of view (main.ts's camera). */
-export const FOV_DEG = 60;
 const TAN_HALF = Math.tan((FOV_DEG * Math.PI) / 360);
 /** Seconds for the frame to settle: Wide follows gently, Close more closely. */
 const SMOOTH = { wide: 0.9, close: 0.4 } as const;
@@ -49,10 +47,10 @@ export interface CutCam {
   view: UndergroundView | null;
   /** Seconds into the latest switch (SWITCH_S when none). */
   switchT: number;
-  /** Per channel (cu, cv, h, pitch): the shown spring, the followed one, the shown acceleration. */
+  /** Per channel (cu, cv, h, pitch): the shown spring, the followed one, and what it last followed. */
   readonly shown: readonly Spring[];
   readonly follow: readonly Spring[];
-  readonly acc: Float64Array;
+  readonly aim: Float64Array;
   /** The hand-over's start per channel: offset from the followed frame, its speed, its acceleration. */
   readonly off: Float64Array;
 }
@@ -70,7 +68,7 @@ export function createCutCam(): CutCam {
   return {
     cu: shown[0], cv: shown[1], h: shown[2], pitch: shown[3], au: spring(0), av: spring(-1),
     view: null, switchT: SWITCH_S,
-    shown, follow: shown.map((s) => spring(s.value)), acc: new Float64Array(4), off: new Float64Array(12),
+    shown, follow: shown.map((s) => spring(s.value)), aim: Float64Array.from(shown, (s) => s.value), off: new Float64Array(12),
   };
 }
 
@@ -88,7 +86,7 @@ export function snapCutCam(c: CutCam, f: CutFrame, dir: number, view: Undergroun
   for (let i = 0; i < 4; i++) {
     c.shown[i].value = c.follow[i].value = frameAt(f, i);
     c.shown[i].velocity = c.follow[i].velocity = 0;
-    c.acc[i] = 0;
+    c.aim[i] = frameAt(f, i);
   }
   c.view = view;
   c.switchT = SWITCH_S;
@@ -100,7 +98,8 @@ export function snapCutCam(c: CutCam, f: CutFrame, dir: number, view: Undergroun
  * target is reached, a visible jolt when the frame catches up with the worm). Allocates nothing.
  */
 export function springTo(s: Spring, target: number, smoothTime: number, dt: number): void {
-  if (!(dt > 0)) return;
+  // A bad step (no time, or a target from a screen with no size) leaves the spring as it was.
+  if (!(dt > 0) || !Number.isFinite(target)) return;
   const omega = 2 / smoothTime;
   const x = omega * dt;
   const decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
@@ -116,22 +115,37 @@ export function stepCutFacing(c: CutCam, dir: number, dt: number): void {
   springTo(c.av, Math.sin(dir), AHEAD_SMOOTH, dt);
 }
 
+/** Seconds channel `i` (cu, cv, h, pitch) of `view`'s followed frame takes to settle. */
+function smoothOf(view: UndergroundView, i: number): number {
+  // The zoom and pitch change only with the view (handed over) or the screen's shape.
+  return i < 2 ? SMOOTH[view] : ZOOM_SMOOTH;
+}
+
 /**
  * Eases the frame toward `f`, framed for `view` (critically damped: no overshoot, no shake). When
  * `view` differs from the last step's, the followed frame moves to the new view's at once, at
- * rest, and the shown frame is handed over to it from where it is, at its speed and acceleration,
- * over SWITCH_S: no jump, no jolt, even when switching again mid-switch.
+ * rest, and the shown frame is handed over to it from where it is, at its speed and acceleration
+ * (exact: the followed spring's and the hand-over's own), over SWITCH_S: no jump, no jolt, even
+ * when switching again mid-switch.
  */
 export function stepCutCam(c: CutCam, f: CutFrame, view: UndergroundView, dt: number): void {
   if (view !== c.view) {
     if (c.view !== null) {
+      const s = c.switchT / SWITCH_S;
       for (let i = 0; i < 4; i++) {
         const k = c.follow[i];
-        k.value = frameAt(f, i);
+        const w = 2 / smoothOf(c.view, i);
+        const p = c.off[i]; const v = c.off[4 + i]; const a = c.off[8 + i];
+        const speed = k.velocity + settle(p, v, a, s, 1) / SWITCH_S;
+        const accel = w * w * (c.aim[i] - k.value) - 2 * w * k.velocity + settle(p, v, a, s, 2) / (SWITCH_S * SWITCH_S);
+        const next = frameAt(f, i);
+        if (!Number.isFinite(next)) continue;
+        c.off[i] = c.shown[i].value - next;
+        c.off[4 + i] = speed * SWITCH_S;
+        c.off[8 + i] = accel * SWITCH_S * SWITCH_S;
+        k.value = next;
         k.velocity = 0;
-        c.off[i] = c.shown[i].value - k.value;
-        c.off[4 + i] = c.shown[i].velocity * SWITCH_S;
-        c.off[8 + i] = c.acc[i] * SWITCH_S * SWITCH_S;
+        c.aim[i] = next;
       }
       c.switchT = 0;
     }
@@ -142,14 +156,12 @@ export function stepCutCam(c: CutCam, f: CutFrame, view: UndergroundView, dt: nu
   const s = c.switchT / SWITCH_S;
   for (let i = 0; i < 4; i++) {
     const k = c.follow[i];
-    // The zoom and pitch change only with the view (handed over) or the screen's shape.
-    springTo(k, frameAt(f, i), i < 2 ? SMOOTH[view] : ZOOM_SMOOTH, dt);
+    const target = frameAt(f, i);
+    springTo(k, target, smoothOf(view, i), dt);
+    if (Number.isFinite(target)) c.aim[i] = target;
     const sh = c.shown[i];
-    const v = k.value + settle(c.off[i], c.off[4 + i], c.off[8 + i], s, 0);
-    const speed = (v - sh.value) / dt;
-    c.acc[i] = (speed - sh.velocity) / dt;
-    sh.velocity = speed;
-    sh.value = v;
+    sh.value = k.value + settle(c.off[i], c.off[4 + i], c.off[8 + i], s, 0);
+    sh.velocity = k.velocity + settle(c.off[i], c.off[4 + i], c.off[8 + i], s, 1) / SWITCH_S;
   }
 }
 

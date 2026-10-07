@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { frameTarget, BELOW_SLAB } from '../../src/underground/cutCamera';
+import { createCutCam, frameTarget, snapCutCam, springTo, stepCutCam, FACE_BELOW } from '../../src/underground/cutCamera';
 import { createSlab, boundaryAt, B_H } from '../../src/underground/slab';
-import { SCREENS, frame, project, world, sweep } from './cutWorld';
+import { DT, SCREENS, frame, project, screenOnCut, world, sweep, type SlabAt } from './cutWorld';
 
 // Close keeps the whole worm in frame when it fits (Matt: a closer, following view; a worm cut
 // off reads badly), and near the slab's bottom no view pins the head to the screen's bottom edge,
@@ -50,8 +50,8 @@ describe('the cut camera frames the whole worm, and keeps the head off the botto
         for (const [steer, seconds] of [LEGS[3], [(k: number) => (k < 1500 ? [0, -1] : [1, 0]), 45]] as const) {
           for (let seed = 1; seed <= 6; seed++) {
             sweep(view, w, h, seed, (p, _q, s, hu, hv) => {
-              // The frame never reaches more than BELOW_SLAB under the slab.
-              expect(frame.cv - frame.h / 2).toBeGreaterThanOrEqual(s.bottom - BELOW_SLAB - 1e-9);
+              // The screen's bottom edge, where it meets the cut, shows at most FACE_BELOW under the slab.
+              expect(screenOnCut(p, s, w / h, 0, -1).v).toBeGreaterThanOrEqual(s.bottom - FACE_BELOW - 1e-6);
               if (hv - s.bottom > 0.5) return;
               near++;
               worst = Math.max(worst, Math.abs(project(p, w / h, ...world(s, hu, hv)).ny));
@@ -59,8 +59,8 @@ describe('the cut camera frames the whole worm, and keeps the head off the botto
           }
         }
         expect(near).toBeGreaterThan(1000);
-        expect(worst).toBeLessThanOrEqual(0.72);
         console.log(`${view} ${w}x${h}: head at the bottom, worst |ny| ${worst.toFixed(3)}`);
+        expect(worst).toBeLessThanOrEqual(0.72);
       }
     });
   }
@@ -74,7 +74,7 @@ describe('the cut camera frames the whole worm, and keeps the head off the botto
       let last = NaN;
       for (let len = 2; len <= 14; len += 0.01) {
         for (let i = 0; i < n; i++) body.u[i] = -(len * i) / (n - 1);
-        const f = frameTarget('close', s, 0, hv, 1, 0, aspect, NaN, NaN, frame, body);
+        const f = frameTarget('close', s, 0, hv, 1, 0, aspect, frame, body);
         const half = (f.h * aspect) / 2;
         // The head is always in, with room; its frame moves only a little as the body grows.
         expect(Math.abs(f.cu)).toBeLessThanOrEqual(half - 0.5 + 1e-9);
@@ -85,5 +85,62 @@ describe('the cut camera frames the whole worm, and keeps the head off the botto
         if (len > 2 * half + 1) expect(f.cu).toBeCloseTo(0.18 * 2 * half, 6);
       }
     }
+  });
+
+  it('every view keeps its projected corners on the drawn face, near the world edge and at the slab ends', () => {
+    // Entries near the world's edge, the cut running out toward it (and along it), both camera sides.
+    const ats: SlabAt[] = [];
+    for (const x of [16, 12]) {
+      for (const side of [1, -1] as const) ats.push([x, 0, Math.PI / 2, side], [-x, -9, -Math.PI / 2, side], [9, x, 0, side]);
+    }
+    const ends = [(k: number): [number, number] => (k < 60 ? [0, -1] : [1, 0]), (k: number): [number, number] => (k < 60 ? [0, -1] : [-1, 0])];
+    for (const [w, h] of SCREENS) {
+      for (const view of ['wide', 'close'] as const) {
+        let past = 0;
+        let deep = 0;
+        let head = 0;
+        const runs: Array<[SlabAt | undefined, number]> = [...ats.map((a): [SlabAt, number] => [a, 3]), [undefined, 1], [undefined, 2]];
+        for (const [at, seed] of runs) {
+          for (const steer of ends) {
+            sweep(view, w, h, seed, (p, _q, s, hu, hv) => {
+              for (const x of [-1, 1]) {
+                for (const y of [-1, 1]) {
+                  const c = screenOnCut(p, s, w / h, x, y);
+                  past = Math.max(past, c.u - s.faceHi, s.faceLo - c.u);
+                  if (y === -1) deep = Math.max(deep, s.bottom - c.v);
+                }
+              }
+              const hd = project(p, w / h, ...world(s, hu, hv));
+              head = Math.max(head, Math.abs(hd.nx), Math.abs(hd.ny));
+            }, steer, 20, at);
+          }
+        }
+        console.log(`${view} ${w}x${h}: corners past the face ${past.toFixed(4)} u, bottom edge ${deep.toFixed(3)} u under the slab, head |n| up to ${head.toFixed(3)}`);
+        expect(past).toBeLessThan(1e-6);
+        expect(deep).toBeLessThanOrEqual(FACE_BELOW + 1e-6);
+        expect(head).toBeLessThan(0.97);
+      }
+    }
+  });
+
+  it('a screen with no size, or a bad step, leaves the camera where it was', () => {
+    const s = createSlab(0, 0, 0, 1, 2);
+    const hv = boundaryAt(s, B_H, 0);
+    const good = { ...frameTarget('close', s, 0, hv, 1, 0, 16 / 9, frame) };
+    for (const aspect of [0, NaN, Infinity, -1]) {
+      for (const view of ['wide', 'close'] as const) {
+        const f = frameTarget(view, s, 0, hv, 1, 0, aspect, frame);
+        for (const v of [f.cu, f.cv, f.h, f.pitch]) expect(Number.isFinite(v)).toBe(true);
+      }
+    }
+    expect(frameTarget('close', s, 0, hv, 1, 0, NaN, frame)).toEqual(good);
+    const cam = createCutCam();
+    snapCutCam(cam, good, 0, 'close');
+    stepCutCam(cam, { cu: NaN, cv: Infinity, h: NaN, pitch: NaN }, 'close', DT);
+    stepCutCam(cam, good, 'close', NaN);
+    expect([cam.cu.value, cam.cv.value, cam.h.value, cam.pitch.value]).toEqual([good.cu, good.cv, good.h, good.pitch]);
+    const sp = { value: 1, velocity: 0.5 };
+    springTo(sp, NaN, 0.4, DT);
+    expect(sp).toEqual({ value: 1, velocity: 0.5 });
   });
 });
