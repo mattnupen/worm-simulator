@@ -1,13 +1,8 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { buildDetailLeaves, buildDetailLayer } from '../../src/surface/detailLeaves';
 import { DETAIL_BOX, DETAIL_FADE_OUT } from '../../src/render/detailGlsl';
 import { PRESETS } from '../../src/render/graphics';
-import { DEFAULT_SCALE, setScale } from '../../src/surface/worldScale';
-
-// Classic's detail leaf sizes (the other modes scale them: tests/unit/leafGlsl.test.ts).
-// (Set at load: some describe blocks build meshes as they are collected.)
-setScale('classic');
-afterAll(() => { setScale(DEFAULT_SCALE); });
+import { scaledLeafCount } from '../../src/surface/leafScale';
 
 describe('detail leaves', () => {
   const d = buildDetailLeaves(300);
@@ -26,9 +21,10 @@ describe('detail leaves', () => {
       expect(a[k + 1]).toBeGreaterThanOrEqual(0);
       expect(a[k + 1]).toBeLessThan(1);
       // The leaf's radius (m): well under the litter's leaves (0.21 to 0.39 of a species' size,
-      // against the litter's 0.6 to 1.2), as a leaf's cost is its area on screen.
-      expect(a[k + 3]).toBeGreaterThan(0.1);
-      expect(a[k + 3]).toBeLessThan(0.42);
+      // against the litter's 0.6 to 1.2), as a leaf's cost is its area on screen. At real size
+      // that is 0.16 to 0.76 (base size: 0.11 to 0.385, times 1.43 to 2.43).
+      expect(a[k + 3]).toBeGreaterThan(0.15);
+      expect(a[k + 3]).toBeLessThan(0.94);
     }
   });
 
@@ -69,11 +65,11 @@ describe('detail leaves', () => {
     expect(d.drawn).toBe(0);
   });
 
-  it('covers the 6 m fade circle with its 13 m tile, and Ultra builds 2,500', () => {
+  it('covers the 6 m fade circle with its 13 m tile, and Ultra builds its real-size count', () => {
     // A leaf jumps a tile only past half a box from the wrap centre, which sits up to half a metre
     // (per axis) from the head: there it must already be gone.
     expect(DETAIL_BOX / 2).toBeGreaterThanOrEqual(DETAIL_FADE_OUT + 0.5);
-    expect(buildDetailLeaves().max).toBe(PRESETS.ultra.detail);
+    expect(buildDetailLeaves().max).toBe(scaledLeafCount(PRESETS.ultra.detail));
   });
 });
 

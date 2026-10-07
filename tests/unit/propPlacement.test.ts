@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   placeClutter, keepsClear, heroLog, rocks, CLUTTER_KINDS, logSegmentDistance, clutterRadius, clutterBase,
   clutterBaseClear,
@@ -9,11 +9,7 @@ import { CORRIDOR } from '../../src/surface/wormPaths';
 import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
 import { PLAY_HALF, WORLD_HALF } from '../../src/surface/terrain';
 import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
-import { DEFAULT_SCALE, SCALE_MODES, SCALE_SPECS, setScale } from '../../src/surface/worldScale';
-import { litterDepth } from '../../src/surface/litterDepth';
-import { createHash } from 'node:crypto';
-
-const sha1 = (s: string) => createHash('sha1').update(s).digest('hex');
+import { REAL_SCALE } from '../../src/surface/realScale';
 
 /** The speed test's auto-drive: the exact move and locomotion options the game uses. */
 function autoDrivePath(seconds: number): { x: number; z: number }[] {
@@ -36,13 +32,10 @@ function minDistToPath(x: number, z: number): number {
   return Math.min(...path.map((p) => Math.hypot(p.x - x, p.z - z)));
 }
 
-afterAll(() => { setScale(DEFAULT_SCALE); });
+/** How many mushroom clusters grow beside the log: they are wide, so only two of four fit apart. */
+const BY_LOG = 2;
 
-/** How many mushroom clusters grow beside the log: grown ones are wide, so fewer fit apart. */
-const BY_LOG = { classic: 4, hybrid: 3, true: 2 } as const;
-
-describe.each(SCALE_MODES)('%s layout', (mode) => {
-  beforeAll(() => { setScale(mode); });
+describe('real-size layout', () => {
 
   it('keepsClear rejects the spawn point, the auto-drive loop and tree trunks', () => {
     expect(keepsClear(0, 0, 0.1)).toBe(false);
@@ -85,34 +78,30 @@ describe.each(SCALE_MODES)('%s layout', (mode) => {
     }
   });
 
-  it('places the mode\'s clutter clear of the worm paths, trunks, the log and rocks', () => {
+  it('places the clutter clear of the worm paths, trunks, the log and rocks', () => {
     const items = placeClutter();
-    expect(items).toHaveLength(SCALE_SPECS[mode].clutter);
+    expect(items).toHaveLength(REAL_SCALE.clutter);
     const log = heroLog();
     for (const c of items) {
       expect(CLUTTER_KINDS).toContain(c.kind);
       expect(Number.isFinite(c.x) && Number.isFinite(c.z) && Number.isFinite(c.rot)).toBe(true);
-      if (items.indexOf(c) < BY_LOG[mode]) continue; // the mushrooms by the log, checked below
+      if (items.indexOf(c) < BY_LOG) continue; // the mushrooms by the log, checked below
       const r = clutterRadius(c.kind, c.scale);
       expect(keepsClear(c.x, c.z, r)).toBe(true);
       expect(minDistToPath(c.x, c.z)).toBeGreaterThan(PATH_CLEARANCE);
       expect(logSegmentDistance(c.x, c.z)).toBeGreaterThan(log.radius);
       for (const k of rocks()) expect(Math.hypot(c.x - k.x, c.z - k.z)).toBeGreaterThan(k.size);
     }
-    // Mushrooms grow right beside the log (grown, the whole cluster stands just off the drawn log,
-    // and only as many as fit apart: the rest are skipped).
-    const mushroom = SCALE_SPECS[mode].mushroom;
-    expect(items.slice(0, BY_LOG[mode]).every((c) => c.kind === 'mushrooms'
+    // Mushrooms grow right beside the log (the whole cluster stands just off the drawn log, and
+    // only as many as fit apart: the rest are skipped).
+    const mushroom = REAL_SCALE.mushroom;
+    expect(items.slice(0, BY_LOG).every((c) => c.kind === 'mushrooms'
       && logSegmentDistance(c.x, c.z) > log.radius
-      && logSegmentDistance(c.x, c.z) < (mode === 'classic'
-        ? log.radius + 0.6 * mushroom
-        : log.radius * LOG_FOOT + clutterBase(c.kind, c.scale) + 0.6 * mushroom + 1e-9))).toBe(true);
-    if (mode !== 'classic') {
-      const byLog = items.slice(0, BY_LOG[mode]);
-      for (const a of byLog) {
-        for (const b of byLog) {
-          if (a !== b) expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThan(clutterBase(a.kind, a.scale) + clutterBase(b.kind, b.scale));
-        }
+      && logSegmentDistance(c.x, c.z) < log.radius * LOG_FOOT + clutterBase(c.kind, c.scale) + 0.6 * mushroom + 1e-9)).toBe(true);
+    const byLog = items.slice(0, BY_LOG);
+    for (const a of byLog) {
+      for (const b of byLog) {
+        if (a !== b) expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThan(clutterBase(a.kind, a.scale) + clutterBase(b.kind, b.scale));
       }
     }
     for (const k of CLUTTER_KINDS) expect(items.some((c) => c.kind === k)).toBe(true);
@@ -123,9 +112,8 @@ describe.each(SCALE_MODES)('%s layout', (mode) => {
   });
 });
 
-describe('grown clutter: fronds may lean over a prop, the base may not', () => {
-  it.each(['hybrid', 'true'] as const)('%s: every clutter item\'s base stays off the drawn rocks and log, inside the world', (mode) => {
-    setScale(mode);
+describe('clutter: fronds may lean over a prop, the base may not', () => {
+  it('every clutter item\'s base stays off the drawn rocks and log, inside the world', () => {
     const items = placeClutter();
     for (const c of items) {
       expect(clutterBaseClear(c), `${c.kind} at ${c.x}, ${c.z}`).toBe(true);
@@ -142,8 +130,7 @@ describe('grown clutter: fronds may lean over a prop, the base may not', () => {
 });
 
 describe('the spawn\'s straight run stays clear of trunks and other footprints', () => {
-  it.each(['hybrid', 'true'] as const)('%s: the whole corridor clears every trunk', (mode) => {
-    setScale(mode);
+  it('the whole corridor clears every trunk', () => {
     for (const t of treeSites()) {
       const nx = Math.max(CORRIDOR.x0, Math.min(CORRIDOR.x1, t.x));
       const nz = Math.max(CORRIDOR.z0, Math.min(CORRIDOR.z1, t.z));
@@ -151,12 +138,7 @@ describe('the spawn\'s straight run stays clear of trunks and other footprints',
     }
   });
 
-  // Classic gets a narrower check: its Step 1a maple at (1.92, 8.27) reaches about 0.28 into the
-  // corridor's far corner, and Classic must stay byte-for-byte Step 1a, so the tree cannot move.
-  // What matters is the line the worm actually runs (x near 0, the whole corridor's length):
-  // no footprint, grown by the body's half-width plus slack, reaches it.
-  it('classic: no footprint reaches the straight line the worm runs', () => {
-    setScale('classic');
+  it('no footprint reaches the straight line the worm runs', () => {
     const BODY_PAD = 0.5;
     for (let x = -0.5; x <= 0.5; x += 0.1) {
       for (let z = CORRIDOR.z0; z <= CORRIDOR.z1; z += 0.1) {
@@ -168,41 +150,9 @@ describe('the spawn\'s straight run stays clear of trunks and other footprints',
 
 describe('placeClutter', () => {
   it('is deterministic per seed', () => {
-    setScale('classic');
     const items = placeClutter(60, 5);
     expect(items).toHaveLength(60);
     expect(placeClutter(60, 5)).toEqual(items);
     expect(placeClutter(60, 6)).not.toEqual(items);
-  });
-});
-
-describe('Classic is exactly the Step 1a world (checksums taken before the scale modes)', () => {
-  it('trees, clutter and litter depth', () => {
-    setScale('classic');
-    const t = treeSites();
-    expect(t).toHaveLength(14);
-    // Every field of every tree (birch, clump) and clutter item (rot, scale, kind), to the bit:
-    // checked equal to commit 7ce8936's (Step 1a's layout) before these hashes were taken.
-    expect(sha1(JSON.stringify(t))).toBe('552df261059997070ae7ed9786663173e113dfdc');
-    expect(sha1(JSON.stringify(placeClutter(64)))).toBe('d379802160515d06409e4daeb5fabbe1e06f1563');
-    let depth = 0;
-    let n = 0;
-    for (let x = -20; x <= 20; x += 0.37) for (let z = -20; z <= 20; z += 0.41) { depth += litterDepth(x, z); n++; }
-    expect(n).toBe(10682);
-    expect(depth).toBeCloseTo(425.16354611935066, 8);
-  });
-
-  it('rocks and the log', () => {
-    setScale('classic');
-    expect(rocks()).toEqual([
-      { x: -5.2, z: 7.4, size: 0.9 },
-      { x: 7.2, z: -3.6, size: 1.2 },
-      { x: -8.2, z: -5.2, size: 0.7 },
-      { x: 9.8, z: 8.6, size: 1.0 },
-      { x: -11.5, z: 5.5, size: 1.4 },
-      { x: 3.2, z: -8.2, size: 0.6 },
-      { x: 6.2, z: 2.2, size: 0.45 },
-    ]);
-    expect(heroLog()).toEqual({ x: 3.9, z: 4.7, yaw: -0.5, length: 4.4, radius: 0.32 });
   });
 });

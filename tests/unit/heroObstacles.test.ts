@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { WEDGE_TIME } from '../../src/surface/heroObstacles';
 import { obstacleDepth, ROCK_FOOT, LOG_FOOT } from '../../src/surface/obstacles';
 import { createHeroLeaves, setHeroCount, stepHeroLeaves, HERO_MAX, HERO_RECYCLE } from '../../src/surface/heroLeaves';
@@ -6,7 +6,6 @@ import { LEAF_REACH } from '../../src/surface/heroClearance';
 import { OBSTACLE_PAD } from '../../src/surface/heroSpawn';
 import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
 import { heroLog, rocks } from '../../src/surface/propPlacement';
-import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
 import { PLAY_HALF } from '../../src/surface/terrain';
 
 const DT = 1 / 60;
@@ -42,10 +41,8 @@ function coincidentPairs(p: { count: number; x: Float32Array; z: Float32Array })
   return n;
 }
 
-afterAll(() => { setScale(DEFAULT_SCALE); });
 
-describe.each(SCALE_MODES)('%s: hero leaves and trunks, rocks and the log', (mode) => {
-  beforeAll(() => { setScale(mode); });
+describe('hero leaves and trunks, rocks and the log', () => {
   const tree = () => treeSites()[0];
   /** Just outside the first trunk's footprint, on its +x side. */
   const beside = (gap: number) => tree().x + trunkFootOf(tree()) + gap;
@@ -134,7 +131,7 @@ describe.each(SCALE_MODES)('%s: hero leaves and trunks, rocks and the log', (mod
       stepHeroLeaves(p, DT, NONE, 0, x, z, -Math.PI / 2, flat);
       expect(p.spawned - spawned, `respawned again at (${x}, ${z})`).toBe(0);
     }
-    // Every recycled leaf at every site was checked (Classic 768, Hybrid 416, True 320).
+    // Every recycled leaf at every site was checked (320 at real size).
     expect(checked).toBe(sites.length * HERO_MAX);
   });
 });

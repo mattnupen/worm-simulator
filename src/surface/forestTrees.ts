@@ -6,7 +6,7 @@ import { createCanopyMaterial } from '../render/canopyMaterial';
 import { MeshWriter, icosphere } from './meshWriter';
 import { terrainHeight } from './terrain';
 import { treeSites } from './treeSites';
-import { scaleSpec } from './worldScale';
+import { REAL_SCALE } from './realScale';
 import { trunkRadius } from './trunkShape';
 import { BARK, writeCurl, writeLimb, writeTrunk, type TrunkSpec } from './trunkGeometry';
 
@@ -14,8 +14,8 @@ const BIRCH_CROWN = ['#e8b830', '#d9a020', '#f0c848', '#c89a28', '#b8a83a'];
 const MAPLE_CROWN = ['#e0602a', '#d4402a', '#ec8a2a', '#c83a24', '#e89a30'];
 
 /**
- * One stem: `scale` makes a clump's second stem smaller; `grow` is the scale mode's size for the
- * species (worldScale.ts), applied to girth, height, lean and the root collar alike.
+ * One stem: `scale` makes a clump's second stem smaller; `grow` is the species' real-size growth
+ * (realScale.ts), applied to girth, height, lean and the root collar alike.
  */
 function trunkSpec(x: number, z: number, birch: boolean, rng: () => number, scale = 1, grow = 1): TrunkSpec {
   const lean = (birch ? 0.9 : 0.45) * rng() * scale * grow;
@@ -94,17 +94,16 @@ function writeCrown(w: MeshWriter, cx: number, cy: number, cz: number, R: number
 }
 
 /**
- * Near forest of the active scale mode: paper birches (some in clumps) and sugar maples with
+ * The near forest at real size: paper birches (some in clumps) and sugar maples with
  * bark-detailed, flared, leaning trunks and limbs (one merged draw), and soft autumn crowns (one
  * merged draw). `addBark` lets other props (the fallen log) share the trunk draw.
  */
 export function buildForestTrees(addBark?: (w: MeshWriter) => void): THREE.Group {
-  const spec = scaleSpec();
   const bark = new MeshWriter('aBark', 4);
   const crowns = new MeshWriter('aCanopy', 4);
   const rng = mulberry32(77);
   treeSites().forEach(({ x, z, birch, clump }) => {
-    const grow = birch ? spec.birch : spec.maple;
+    const grow = birch ? REAL_SCALE.birch : REAL_SCALE.maple;
     const stems = [trunkSpec(x, z, birch, rng, 1, grow)];
     if (clump) {
       const a = rng() * Math.PI * 2;

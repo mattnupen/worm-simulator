@@ -3,9 +3,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { mulberry32 } from '../core/random';
 import { createPaintedMaterial } from '../render/paintedMaterial';
 import { terrainHeight, WORLD_HALF } from './terrain';
-import { scaleSpec } from './worldScale';
+import { REAL_SCALE } from './realScale';
 
-/** The most trees the distant ring holds (Classic); each mode draws min(this, its distantCount). */
+/** The most trees the distant ring holds; it draws min(this, REAL_SCALE.distantCount). */
 export const RING_COUNT = 72;
 
 function colored(g: THREE.BufferGeometry, hex: string): THREE.BufferGeometry {
@@ -62,11 +62,11 @@ const TINTS = ['#ffffff', '#f2d7a8', '#e6b98a', '#d9d0b8', '#c8a07a'];
 
 /**
  * A ring of simple, fog-softened tree silhouettes on the berm beyond the playable area, sized
- * and spaced for the active scale mode (bigger trees, fewer of them). One instanced draw call.
+ * and spaced for real size (big trees, few of them). One instanced draw call.
  * They exist only for depth; the haze does most of the work.
  */
 export function buildDistantTrees(): THREE.InstancedMesh {
-  const { distantScale, distantCount } = scaleSpec();
+  const { distantScale, distantCount } = REAL_SCALE;
   const count = Math.min(RING_COUNT, distantCount);
   const mesh = new THREE.InstancedMesh(
     treeGeometry(),

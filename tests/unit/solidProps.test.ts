@@ -1,13 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { Crawl, BODY_RADIUS } from '../../src/game/crawl';
-import { CAM_OPTS } from '../../src/game/cameraClearance';
 import { obstacleDepth, footprints, insideTall, sightReach, ROCK_FOOT } from '../../src/surface/obstacles';
 import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
 import { rocks } from '../../src/surface/propPlacement';
 import { terrainHeight } from '../../src/surface/terrain';
 import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
 import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
-import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
 
 const DT = 1 / 60;
 const hit = { nx: 0, nz: 0 };
@@ -30,10 +28,7 @@ function outside(c: Crawl): void {
   for (const p of c.body) expect(obstacleDepth(p.x, p.z, BODY_RADIUS, hit)).toBeLessThanOrEqual(1e-9);
 }
 
-afterAll(() => { setScale(DEFAULT_SCALE); });
-
-describe.each(SCALE_MODES)('%s: trunks, rocks and the log are solid', (mode) => {
-  beforeAll(() => { setScale(mode); });
+describe('trunks, rocks and the log are solid', () => {
 
   it('a worm driven at every one of them stops at its edge and never cuts through', () => {
     const { round, log } = footprints();
@@ -94,45 +89,7 @@ describe.each(SCALE_MODES)('%s: trunks, rocks and the log are solid', (mode) => 
     }
   });
 });
-describe('classic: a notch between two props', () => {
-  beforeAll(() => { setScale('classic'); });
-
-  it('the worm stops cleanly in it: the head stays put and the wave settles to its breath', () => {
-    // Trunks 3 and 12 overlap: their grown footprints meet in a V-shaped notch facing the spawn.
-    const { round } = footprints();
-    const [ax, az, ar] = [round[12], round[13], round[14]];
-    const [bx, bz, br] = [round[48], round[49], round[50]];
-    expect(Math.hypot(ax - bx, az - bz)).toBeLessThan(ar + br);
-    const c = new Crawl();
-    driveTo(c, (ax + bx) / 2, (az + bz) / 2, 1200, () => {});
-    const forward = { x: 0, y: 1 };
-    for (let s = 0; s < 300; s++) c.step(DT, forward);
-    // Wedged in the notch, against both trunks.
-    const h = c.motion.head;
-    expect(Math.hypot(h.x - ax, h.z - az) - ar - BODY_RADIUS).toBeLessThan(1e-3);
-    expect(Math.hypot(h.x - bx, h.z - bz) - br - BODY_RADIUS).toBeLessThan(1e-3);
-
-    // Pushing on into it moves the head nowhere, and the wave advances as it does standing still.
-    const still = new Crawl();
-    const rest = { x: 0, y: 0 };
-    for (let s = 0; s < 300; s++) still.step(DT, rest);
-    const phase0 = c.wave.phase;
-    const stillPhase0 = still.wave.phase;
-    let last = { x: h.x, z: h.z };
-    for (let s = 0; s < 300; s++) {
-      c.step(DT, forward);
-      still.step(DT, rest);
-      const p = c.motion.head;
-      expect(Math.hypot(p.x - last.x, p.z - last.z)).toBeLessThan(1e-4);
-      expect(obstacleDepth(p.x, p.z, BODY_RADIUS, hit)).toBeLessThanOrEqual(1e-9);
-      last = { x: p.x, z: p.z };
-    }
-    expect(c.wave.phase - phase0).toBeCloseTo(still.wave.phase - stillPhase0, 3);
-  });
-});
-
 describe('sightReach', () => {
-  beforeAll(() => { setScale('classic'); });
 
   it('is 1 for a clear line', () => {
     expect(sightReach(0, 0.05, 0, 0, 1.15, -2.6, 0.35)).toBe(1);
@@ -160,8 +117,7 @@ describe('sightReach', () => {
   });
 });
 
-describe.each(SCALE_MODES)('%s: the camera stays out of props', (mode) => {
-  beforeAll(() => { setScale(mode); });
+describe('the camera stays out of props', () => {
 
   it('driving at and around every tall prop, the camera never enters one, and moves smoothly', () => {
     const { round, log } = footprints();
@@ -210,18 +166,7 @@ describe.each(SCALE_MODES)('%s: the camera stays out of props', (mode) => {
   });
 });
 
-describe('classic: the camera eases in gently and pulls in less for props beside it', () => {
-  beforeAll(() => { setScale('classic'); });
-
-  /** Its full distance from the head, and whether its own line to the head (at its yaw) is clear. */
-  const FREE = Math.hypot(CAM_OPTS.distance, CAM_OPTS.height);
-  const midClear = (c: Crawl) => {
-    const h = c.motion.head;
-    const y = c.cam.yaw;
-    return sightReach(
-      h.x, h.y, h.z, h.x - Math.sin(y) * CAM_OPTS.distance, h.y + CAM_OPTS.height, h.z - Math.cos(y) * CAM_OPTS.distance, 0.35,
-    ) === 1;
-  };
+describe('the camera eases in gently past a trunk', () => {
   /** A slanted pass by trunk `n`: aimed 3 m past it, half its footprint to one side. */
   const pastTrunk = (n: number) => {
     const { round } = footprints();
@@ -230,53 +175,32 @@ describe('classic: the camera eases in gently and pulls in less for props beside
     return { x: x + Math.sin(a) * 3 + Math.cos(a) * r * 0.5, z: z + Math.cos(a) * 3 - Math.sin(a) * r * 0.5 };
   };
 
-  it('brushing past a trunk with its own line clear, it barely pulls in', () => {
-    // Trunk 12 slides past the head's side (steps 236 to 305): a side line meets it, the middle one does not.
-    const t = pastTrunk(12);
-    const c = new Crawl();
-    let step = 0;
-    let blocked = false;
-    let nearest = Infinity;
-    let pulled = 0;
-    driveTo(c, t.x, t.z, 400, (cc) => {
-      step++;
-      if (!midClear(cc)) blocked = true;
-      if (step >= 236 && step <= 305) expect(blocked).toBe(false);
-      if (blocked) return;
-      const h = cc.motion.head;
-      const p = cc.cam.pos;
-      nearest = Math.min(nearest, Math.hypot(p.x - h.x, p.y - h.y, p.z - h.z) / FREE);
-      if (cc.cameraReach < 0.99) pulled++;
-    });
-    expect(pulled).toBeGreaterThan(30);
-    // At least three quarters of its full distance (it fell to about a third before side lines
-    // were held to a floor).
-    expect(nearest).toBeGreaterThanOrEqual(0.75);
-  });
-
   it('a pull-in starts gently, and never snaps', () => {
-    // Slanted passes by trunks 6 and 12 (6 is where its line does get cut), and straight at 1, 4 and 10.
+    // Slanted passes by both trunks (the birch and the maple).
     let onset = 0;
     let fastest = 0;
-    for (const n of [6, 12, 1, 4, 10]) {
+    let pulled = 0;
+    for (const n of [0, 1]) {
       const t = pastTrunk(n);
       const c = new Crawl();
       let last = { ...c.cam.pos };
       let lastStep = { x: 0, y: 0, z: 0 };
       let lastReach = 1;
       let since = Infinity;
-      driveTo(c, t.x, t.z, 1200, (cc) => {
+      driveTo(c, t.x, t.z, 2400, (cc) => {
         const p = cc.cam.pos;
         const step = { x: p.x - last.x, y: p.y - last.y, z: p.z - last.z };
         const jerk = Math.hypot(step.x - lastStep.x, step.y - lastStep.y, step.z - lastStep.z);
         since = lastReach >= 0.999 && cc.cameraReach < 0.999 ? 0 : since + 1;
         if (since < 10) onset = Math.max(onset, jerk);
         fastest = Math.max(fastest, jerk);
+        if (cc.cameraReach < 0.99) pulled++;
         last = { ...p };
         lastStep = step;
         lastReach = cc.cameraReach;
       });
     }
+    expect(pulled).toBeGreaterThan(30);
     expect(onset).toBeLessThan(0.012);
     expect(fastest).toBeLessThan(0.03);
   }, 60_000);

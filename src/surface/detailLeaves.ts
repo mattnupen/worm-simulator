@@ -7,7 +7,7 @@ import { LEAF_KINDS, type LeafKind } from './leafLitter';
 import { detailShape } from './detailShape';
 import { leafLift, leafNormal, type LeafForm } from './leafForm';
 import { leafTint, LEAF_SIZE, LATERAL_VEINS } from './leafPalette';
-import { scaleSpec } from './worldScale';
+import { REAL_SCALE } from './realScale';
 import { scaledLeafCount } from './leafScale';
 
 export interface DetailLeaves {
@@ -38,8 +38,8 @@ function reach(kind: LeafKind): number {
  */
 export function buildDetailLeaves(count = scaledLeafCount(PRESETS.ultra.detail), seed = 3): DetailLeaves {
   const rng = mulberry32(seed);
-  // The scale mode's leaf sizes (worldScale.ts): 1 in Classic. Pass the mode's count (scaledLeafCount).
-  const grow = scaleSpec().leaf;
+  // Real leaf sizes (realScale.ts). Pass the real-size count (scaledLeafCount).
+  const grow = REAL_SCALE.leaf;
   const kinds = Array.from({ length: count }, () => LEAF_KINDS[Math.floor(rng() * LEAF_KINDS.length)]);
   let verts = 0;
   let idx = 0;
@@ -67,8 +67,7 @@ export function buildDetailLeaves(count = scaledLeafCount(PRESETS.ultra.detail),
     const np = s.points.length / 2;
     // Small (0.6x the first cut): they are many and near the camera, and a leaf's cost is its
     // area on screen (the layer is fill-bound). `size` is the leaf's scale, 0.21 to 0.39 of its
-    // species' LEAF_SIZE, times spec.leaf (in Classic 0.21 to 0.62 m, against the litter's 0.6 to
-    // 1.9); its radius (aDetail.w, size times the shape's reach) is 0.11 to 0.385 m in Classic.
+    // species' LEAF_SIZE (a third of the litter's 0.6 to 1.2), times its real-size growth.
     const size = LEAF_SIZE[kind] * (0.21 + rng() * 0.18) * grow[kind];
     form.fold = 0.1 + rng() * 0.2;
     form.cup = 0.2 + rng() * (kind === 'oak' ? 0.5 : 0.3);

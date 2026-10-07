@@ -4,7 +4,6 @@ import { createPaintedMaterial, sharedLighting } from '../render/paintedMaterial
 import { makeShadeAt } from './treeShadows';
 import { terrainHeight, WORLD_HALF } from './terrain';
 import { groundHeight, groundNormal, litterDepth } from './litterDepth';
-import { scaleSpec, type ScaleSpec } from './worldScale';
 
 /** Uniform grid spacing covers +-INNER; a few wide rings reach out to +-OUTER under the fog. */
 const INNER = WORLD_HALF + 2;
@@ -66,20 +65,16 @@ export function groundColor(x: number, z: number, h: number, out: THREE.Color): 
   return out;
 }
 
-let gridCache: { spec: ScaleSpec; lines: number[]; heights: Float64Array } | null = null;
+let gridCache: { lines: number[]; heights: Float64Array } | null = null;
 
-/**
- * The grid lines and the height at every grid vertex (soil plus litter mound), built once per
- * scale mode (the litter drifts against the mode's props). Read-only.
- */
+/** The grid lines and the height at every grid vertex (soil plus litter mound), built once. Read-only. */
 export function heightGrid(): { lines: number[]; heights: Float64Array } {
-  const spec = scaleSpec();
-  if (gridCache?.spec === spec) return gridCache;
+  if (gridCache) return gridCache;
   const lines = gridLines();
   const n = lines.length;
   const heights = new Float64Array(n * n);
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) heights[j * n + i] = groundHeight(lines[i], lines[j]);
-  gridCache = { spec, lines, heights };
+  gridCache = { lines, heights };
   return gridCache;
 }
 

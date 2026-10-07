@@ -34,7 +34,7 @@ export const groundUniforms = {
   uDisturbTrail: { value: trailTexture },
   /** World x, z of the disturbance grid's corner. */
   uDistOrigin: { value: new THREE.Vector2(-DIST_N * DIST_CELL / 2, -DIST_N * DIST_CELL / 2) },
-  /** Where leaves stop reading the map (from, to, as fractions of its half span): the mode's window. */
+  /** Where leaves stop reading the map (from, to, as fractions of its half span): the map's window. */
   uDistFade: { value: new THREE.Vector2(FULL_FADE[0], FULL_FADE[1]) },
   /** The worm's rendered spine (x, y, z per point, head first): the near clutter keeps clear of it. */
   uSpine: { value: new Float32Array(SPINE_POINTS * 3) },
@@ -67,8 +67,8 @@ export function setSpine(spine: Float32Array): void {
 }
 
 /**
- * The mode's window (metres from the map's centre: leafScale.ts disturbReach's fadeFrom, fadeTo):
- * a uniform, so switching modes recompiles nothing.
+ * The map's window (metres from the map's centre: leafScale.ts disturbReach's fadeFrom, fadeTo):
+ * a uniform, so setting it recompiles nothing.
  */
 export function setDisturbFade(from: number, to: number): void {
   groundUniforms.uDistFade.value.set(from / (DIST_SPAN / 2), to / (DIST_SPAN / 2));

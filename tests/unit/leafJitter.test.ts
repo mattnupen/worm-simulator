@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
   createDisturbance, recentre, stampBody, packDisturbance, DIST_N, DIST_CELL, DIST_REACH, type DisturbanceMap,
@@ -16,7 +16,6 @@ import { advance, createStepper } from '../../src/core/stepper';
 import { AUTO_DRIVE_MOVE } from '../../src/game/drive';
 import type { WormPose } from '../../src/worm/wormMesh';
 import { mulberry32 } from '../../src/core/random';
-import { DEFAULT_SCALE, setScale, type ScaleMode } from '../../src/surface/worldScale';
 import { scaledLeafCount } from '../../src/surface/leafScale';
 
 /**
@@ -148,10 +147,8 @@ function crawlFrames(seconds: number, frame: (crawl: Crawl, alpha: number) => vo
   return crawl;
 }
 
-// Part 0 measured Classic; Part A re-measures at True's leaf sizes against the same thresholds.
-describe.each(['classic', 'true'] as ScaleMode[])('%s: leaves over the crawling worm move smoothly (measured frame to frame)', (mode) => {
-  beforeAll(() => { setScale(mode); });
-  afterAll(() => { setScale(DEFAULT_SCALE); });
+// Part 0 measured Step 1a's small leaves; V1 re-measured at real leaf sizes against the same thresholds.
+describe('leaves over the crawling worm move smoothly (measured frame to frame)', () => {
 
   it('litter leaves: on screen, few turn back by more than half a pixel', () => {
     // Every third vertex of the near litter: world position, anchor, dip.
@@ -164,8 +161,8 @@ describe.each(['classic', 'true'] as ScaleMode[])('%s: leaves over the crawling 
       const pos = g.getAttribute('position');
       const anc = g.getAttribute('aAnchor');
       const dip = g.getAttribute('aDip');
-      // Every third vertex; True has a quarter as many (bigger) leaves, so every vertex there.
-      for (let v = 0; v < pos.count; v += mode === 'classic' ? 3 : 1) {
+      // Every vertex: real-size leaves are big and few.
+      for (let v = 0; v < pos.count; v++) {
         P.push(pos.getX(v) + ch.near.position.x, pos.getY(v) + ch.near.position.y, pos.getZ(v) + ch.near.position.z);
         A.push(anc.getX(v), anc.getY(v), anc.getZ(v), anc.getW(v));
         D.push(dip.getX(v));
@@ -235,11 +232,11 @@ describe.each(['classic', 'true'] as ScaleMode[])('%s: leaves over the crawling 
   it('hero leaves: few turn back by more than 2 mm between frames', () => {
     const m4 = new THREE.Matrix4();
     const v = new THREE.Vector3();
-    // The leaves the mode shows at Ultra (the most of any preset): Classic's 32; True's bigger
-    // leaves are fewer (scaledLeafCount: 8), so it crawls three times as long for a like sample.
-    // True measured 2.1 to 2.2% and a p99 of 4.2 to 4.5 mm over seven frame-timing seeds.
+    // The leaves Ultra shows (the most of any preset): real-size leaves are few (scaledLeafCount:
+    // 8), so it crawls 45 s for a like sample. V1 measured 2.1 to 2.2% and a p99 of 4.2 to 4.5 mm
+    // over seven frame-timing seeds.
     const heroes = scaledLeafCount(PRESETS.ultra.hero);
-    const seconds = mode === 'classic' ? 15 : 45;
+    const seconds = 45;
     // Three points on each leaf (its centre and two near its tip), per frame.
     const tracks: number[][][] = Array.from({ length: heroes * 3 }, () => []);
     crawlFrames(seconds, (crawl, alpha) => {

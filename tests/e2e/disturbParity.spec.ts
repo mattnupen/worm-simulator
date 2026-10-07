@@ -5,11 +5,10 @@ import {
   createDisturbance, recentre, stampBody, decay, packDisturbance, DIST_N, DIST_CELL, DIST_SPAN,
 } from '../../src/surface/disturbance';
 import { disturbReach } from '../../src/surface/leafScale';
-import { SCALE_SPECS } from '../../src/surface/worldScale';
 
 /**
- * disturb() on a real GPU for leaves of every size up to True's (the lid rule above LID_FROM) and
- * through each mode's window (uDistFade): the shipped GLSL in Chromium through transform feedback,
+ * disturb() on a real GPU for leaves of every size up to real size (the lid rule above LID_FROM)
+ * and through two windows (uDistFade): the shipped GLSL in Chromium through transform feedback,
  * against its TS twin (disturbVertex).
  */
 
@@ -39,11 +38,13 @@ function spine(x: number, z: number, yaw: number, curve: number): { x: number; y
 }
 
 /**
- * The mode's map around a worm at (x, z), partly under the litter, with an older trail 3.3 m to
- * its side (in Classic's fading window), and leaves of every radius over both.
+ * The map around a worm at (x, z), partly under the litter, with an older trail 3.3 m to its side,
+ * and leaves of every radius over both. `narrow`: read through a narrower window than the game's
+ * (fading out from 3.4 to 3.88 m, V1's Classic window), so the trail lies in its fade; the window
+ * is a uniform, so any one works.
  */
-function makeCase(mode: 'classic' | 'true', x: number, z: number, yaw: number, curve: number, seed: number): Case {
-  const r = disturbReach(SCALE_SPECS[mode]);
+function makeCase(narrow: boolean, x: number, z: number, yaw: number, curve: number, seed: number): Case {
+  const r = { ...disturbReach(), ...(narrow ? { fadeFrom: 3.4, fadeTo: 3.88 } : {}) };
   const m = createDisturbance();
   const old = spine(x + 3.3, z + 0.4, yaw + 0.5, -curve);
   const now = spine(x, z, yaw, curve);
@@ -76,10 +77,10 @@ function makeCase(mode: 'classic' | 'true', x: number, z: number, yaw: number, c
   };
 }
 
-test('disturb runs on the GPU as its TS twin says, for leaves up to True\'s size and in each mode\'s window', async ({ page }) => {
+test('disturb runs on the GPU as its TS twin says, for leaves up to real size and in a narrow and the full window', async ({ page }) => {
   const cases = [
-    makeCase('classic', 0.3, -0.2, 0.7, 0.5, 11), makeCase('true', -4.1, 2.6, 2.2, -0.4, 12),
-    makeCase('true', 7.3, -6.4, -1.1, 0.8, 13),
+    makeCase(true, 0.3, -0.2, 0.7, 0.5, 11), makeCase(false, -4.1, 2.6, 2.2, -0.4, 12),
+    makeCase(false, 7.3, -6.4, -1.1, 0.8, 13),
   ];
   await page.setContent('<canvas id="c"></canvas>');
   const gpu = await page.evaluate(({ glsl, cases, stride, distN }) => {

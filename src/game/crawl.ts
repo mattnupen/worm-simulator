@@ -79,8 +79,8 @@ export class Crawl {
   /** The disturbance map changed since the renderer last uploaded it. */
   disturbed = true;
   /**
-   * The scale mode's reach on the disturbance map (leafScale.ts): how far it is stamped, how much
-   * farther a body on top counts as, and the window the renderer fades it in.
+   * The reach on the disturbance map (leafScale.ts): how far it is stamped, how much farther a body
+   * on top counts as, and the window the renderer fades it in.
    */
   readonly reach: DisturbReach = disturbReach();
   /** Loose physics leaves near the head. */

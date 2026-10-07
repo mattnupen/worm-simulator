@@ -5,7 +5,6 @@ import {
 } from '../../src/surface/disturbance';
 import { leafReach, maxLeafRadius, stampLimit } from '../../src/surface/leafScale';
 import { DRAPE_FOOT } from '../../src/render/leafGlsl';
-import { SCALE_MODES, SCALE_SPECS } from '../../src/surface/worldScale';
 
 const sum = (m: DisturbanceMap) => m.data.reduce((a, v) => a + Math.abs(v), 0);
 const cell = (m: DisturbanceMap, x: number, z: number) => {
@@ -237,15 +236,13 @@ describe('disturbance map', () => {
 
   it('reaches past the biggest leaf plus the drape, inside the map\'s unfaded middle', () => {
     expect(DIST_REACH).toBeGreaterThan(ON_TOP_DISTANCE);
-    // The map centres 7 segments (1.54 m) behind the head; a True leaf whose edge reaches the
-    // drape's foot from the head must sit inside the leaf shader's widest edge fade (85% of the half span).
-    expect(7 * 0.22 + maxLeafRadius(SCALE_SPECS.true) + DRAPE_FOOT).toBeLessThan(0.85 * DIST_SPAN / 2);
-    for (const mode of SCALE_MODES) expect(stampLimit(SCALE_SPECS[mode])).toBeLessThanOrEqual(DIST_REACH);
-    // The whole map's default: a body riding on top reaches 0.2 m (each mode's own: disturbReach.test.ts).
+    // The map centres 7 segments (1.54 m) behind the head; a leaf whose edge reaches the drape's
+    // foot from the head must sit inside the leaf shader's widest edge fade (85% of the half span).
+    expect(7 * 0.22 + maxLeafRadius() + DRAPE_FOOT).toBeLessThan(0.85 * DIST_SPAN / 2);
+    expect(stampLimit()).toBeLessThanOrEqual(DIST_REACH);
+    // The whole map's default: a body riding on top reaches 0.2 m (the real reach's own: disturbReach.test.ts).
     expect(DIST_REACH - ON_TOP_DISTANCE).toBeCloseTo(0.2, 9);
-    // Classic's leaves react exactly as far as before the map grew.
-    expect(leafReach(SCALE_SPECS.classic)).toBeCloseTo(1.6, 9);
-    expect(leafReach(SCALE_SPECS.classic) - maxLeafRadius(SCALE_SPECS.classic)).toBeCloseTo(DRAPE_FOOT, 9);
+    expect(leafReach() - maxLeafRadius()).toBeCloseTo(DRAPE_FOOT, 9);
   });
 
   it('a stamp limit leaves far cells empty and the near ones exactly as before', () => {

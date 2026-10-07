@@ -1,12 +1,11 @@
 import { treeSites, trunkFootOf } from './treeSites';
 import { heroLog, LOG_END, LOG_FOOT, logEnd, rocks, ROCK_FOOT } from './propPlacement';
-import { scaleSpec, type ScaleSpec } from './worldScale';
 import { terrainHeight } from './terrain';
 
 /**
  * The solid things on the forest floor, as footprints on the ground (pure; Step 1b spec 4.4):
- * circles for the trunks (their root flare) and rocks, a capsule for the fallen log. Built from
- * the active ScaleSpec. The worm slides along them (crawl.ts), hero leaves are pushed back out of
+ * circles for the trunks (their root flare) and rocks, a capsule for the fallen log, at real
+ * size. The worm slides along them (crawl.ts), hero leaves are pushed back out of
  * them (heroObstacles.ts), and the camera stops short of the tall ones (crawl.ts).
  */
 
@@ -23,24 +22,23 @@ export interface Footprints {
   readonly log: { x: number; z: number; dx: number; dz: number; half: number; r: number; top: number };
 }
 
-let cache: { spec: ScaleSpec; fp: Footprints } | null = null;
+let cache: Footprints | null = null;
 
-/** The active mode's footprints (built once per mode). Read-only. */
+/** The footprints (built once). Read-only. */
 export function footprints(): Footprints {
-  const spec = scaleSpec();
-  if (cache?.spec === spec) return cache.fp;
-  const log = heroLog(spec);
+  if (cache) return cache;
+  const log = heroLog();
   const fp: Footprints = {
     round: Float64Array.from([
-      ...treeSites().flatMap((t) => [t.x, t.z, trunkFootOf(t, spec), Infinity]),
+      ...treeSites().flatMap((t) => [t.x, t.z, trunkFootOf(t), Infinity]),
       ...rocks().flatMap((k) => [k.x, k.z, k.size * ROCK_FOOT, k.size * ROCK_TOP]),
     ]),
     log: {
-      x: log.x, z: log.z, dx: Math.cos(log.yaw), dz: Math.sin(log.yaw), half: log.length / 2 + logEnd(spec),
+      x: log.x, z: log.z, dx: Math.cos(log.yaw), dz: Math.sin(log.yaw), half: log.length / 2 + logEnd(),
       r: log.radius * LOG_FOOT, top: log.radius * LOG_TOP,
     },
   };
-  cache = { spec, fp };
+  cache = fp;
   return fp;
 }
 

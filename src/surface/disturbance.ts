@@ -1,8 +1,7 @@
 /**
  * The leaf disturbance map (spec 5.3): a 96 x 96 grid covering 12 x 12 m around the worm, scrolled
- * in whole cells as it moves. It is sized once for the biggest leaves of any scale mode (True's,
- * Step 1b spec 4.3), so no shader changes between modes; each mode stamps only as far as its own
- * leaves need (stampBody's `limit`). Each cell holds:
+ * in whole cells as it moves. It is sized for the biggest real-size leaves (Step 1b spec 4.3), and
+ * stamps only as far as the leaves need (stampBody's `limit`). Each cell holds:
  * - path: nearness to the worm's path (1 on it, falling linearly to 0 DIST_REACH away), kept
  *   until the trail there has settled;
  * - (unused, 0);
@@ -20,15 +19,15 @@ export const DIST_CELL = DIST_SPAN / DIST_N;
 /** The trail halves every 6 s, so it settles back in about 20 s. */
 export const TRAIL_HALF_LIFE = 6;
 /**
- * Nearness reaches this far (m): past the biggest leaf's radius (True's, about 3.1) plus the drape's
+ * Nearness reaches this far (m): past the biggest leaf's radius (real size, about 3.1) plus the drape's
  * foot, with room for ON_TOP_DISTANCE (tests/unit/disturbance.test.ts). The map's span holds the body plus this on every side.
  */
 export const DIST_REACH = 3.65;
 /**
  * A segment riding on top of the litter counts as this much farther away, so leaves stay put: on
- * top, the body reaches only 0.2 m. This is the default for the whole map; each mode passes its own
- * (leafScale.ts onTopDistance: 0.2 m past its biggest leaf), so a body partly under the litter
- * lifts that mode's leaves as far as it should.
+ * top, the body reaches only 0.2 m. This is the default for the whole map; the game passes its own
+ * (leafScale.ts onTopDistance: 0.2 m past the biggest leaf), so a body partly under the litter
+ * lifts the leaves as far as it should.
  */
 export const ON_TOP_DISTANCE = DIST_REACH - 0.2;
 /** A trail fresher than this is still settling; below it the cell is cleared. */
@@ -163,7 +162,7 @@ export function stamp(
 /**
  * Stamps the whole body: the segments joining consecutive body points (x, z of each, in order),
  * each end as far under the leaves as `under` says for that point. Cells `limit` or more from the
- * body stay empty: a mode with smaller leaves passes how far they need it (leafScale.ts stampLimit:
+ * body stay empty: the game passes how far its leaves need it (leafScale.ts stampLimit:
  * their reach plus a lookup's spread, so every lookup a reacting leaf takes reads only stamped
  * cells), which saves most of the work. `onTop`: how much farther a segment on top counts as
  * (leafScale.ts onTopDistance).
@@ -232,7 +231,7 @@ export function packDisturbance(m: DisturbanceMap, near: Uint8Array, trail: Uint
  * holding anything, grown by one cell. A leaf moves only where the lookup at its anchor reads a
  * fresh trail (A) or the body (B), and a bilinear lookup reads only cells whose centres are within
  * a cell of it. Clipped to the shaders' window (`window`: metres from the map's centre along x and z,
- * the mode's fadeTo), outside which no leaf reads the map. Empty (Infinity, Infinity, -Infinity,
+ * disturbReach's fadeTo), outside which no leaf reads the map. Empty (Infinity, Infinity, -Infinity,
  * -Infinity) when the map is clear. Allocates nothing.
  */
 export function disturbedBox(m: DisturbanceMap, out: number[] | Float32Array, window = DIST_SPAN / 2): void {

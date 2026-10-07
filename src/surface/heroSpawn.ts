@@ -140,7 +140,7 @@ export function respawn(
     x = fx2;
     z = fz2;
   }
-  // Every spot tried can lie in one big footprint (a True-scale trunk is wider than the spawn
+  // Every spot tried can lie in one big footprint (a real-size trunk is wider than the spawn
   // ring) or on the body, or, where few spots are free (the world's edge, crowded by big props),
   // the best of them can be on top of another leaf: look round the head, in front of it first
   // (RING_ORDER), for the nearest spot off the footprints, off the body and SPACING from the other

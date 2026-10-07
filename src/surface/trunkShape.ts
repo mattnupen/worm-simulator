@@ -15,7 +15,7 @@ export interface TrunkParams {
   /** Number of buttress roots around the base. */
   lobes: number;
   phase: number;
-  /** Height (m) over which the root collar fades; 0.4 when absent (a Classic trunk). */
+  /** Height (m) over which the root collar fades; 0.4 when absent. */
   collar?: number;
 }
 

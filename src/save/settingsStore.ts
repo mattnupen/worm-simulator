@@ -106,10 +106,11 @@ export function saveSettings(store: KeyValueStore | null, s: Settings): boolean 
 
 /**
  * Changes some settings and keeps the rest as stored, so two owners (the Graphics menu and, from
- * V2, the underground camera) never overwrite each other's choice. Graphics and autoSettled are
- * always written (older builds read them); a field with a class-vote default is written only when
- * it is in `patch` (the player picked it). Fields this build does not know are kept. Returns the
- * full settings as now saved (or as they would be, if storage failed).
+ * V2, the underground camera) never overwrite each other's choice. `fields` is what gets written:
+ * graphics and autoSettled always (older builds read them). A field with a class-vote default joins
+ * `fields` only when it is in `patch` (the player picked it) or was already stored. Fields this
+ * build does not know are kept. Returns the full settings as now saved (or as they would be, if
+ * storage failed).
  */
 export function updateSettings(store: KeyValueStore | null, patch: Partial<Omit<Settings, 'version'>>): Settings {
   let kept: Record<string, unknown> | null;
@@ -121,6 +122,7 @@ export function updateSettings(store: KeyValueStore | null, patch: Partial<Omit<
   }
   const next: Settings = { ...resolve(kept), ...patch, version: 1 };
   if (!store) return next;
-  write(store, kept ?? {}, { graphics: next.graphics, autoSettled: next.autoSettled });
+  const fields: Record<string, unknown> = { graphics: next.graphics, autoSettled: next.autoSettled };
+  write(store, kept ?? {}, fields);
   return next;
 }

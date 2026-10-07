@@ -18,7 +18,6 @@ import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
 import { PRESETS } from '../../src/render/graphics';
 import { mulberry32 } from '../../src/core/random';
 import { HeroWorm, type WormPose } from '../../src/worm/wormMesh';
-import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
 
 describe('near-worm clutter (Ultra)', () => {
   const mesh = buildNearClutter();
@@ -243,20 +242,11 @@ describe('near clutter placement (TS twin of nearClutterPosition)', () => {
     expect(shrunk).toBeGreaterThan(5);
   });
 
-  it.each(SCALE_MODES)('%s: keeps clear of the real worm over seeded crawls (the sedge never pokes through the body)', (mode) => {
-    setScale(mode);
-    inp.litter = litterTextureData();
-    inp.ground = groundTextureData();
-    try {
-      keepsClear();
-    } finally {
-      setScale(DEFAULT_SCALE);
-      inp.litter = litterTextureData();
-      inp.ground = groundTextureData();
-    }
+  it('keeps clear of the real worm over seeded crawls (the sedge never pokes through the body)', () => {
+    keepsClear();
   });
 
-  /** Seeded crawls in the active mode: no near-clutter vertex comes within CLEAR of the spine. */
+  /** Seeded crawls: no near-clutter vertex comes within CLEAR of the spine. */
   function keepsClear(): void {
     const rng = mulberry32(17);
     const crawl = new Crawl();

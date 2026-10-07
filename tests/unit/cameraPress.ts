@@ -62,7 +62,7 @@ export function watcher(c: Crawl) {
 }
 
 /**
- * In the active mode: drives into every prop (straight, and off-centre by 0.3 and 0.6 either
+ * Drives into every prop (straight, and off-centre by 0.3 and 0.6 either
  * way), presses into it, then holds only left or right (`turn`: 1 or -1), so the worm turns where
  * it is, against the prop. Returns the largest change in the camera's step over all of them, the
  * largest turn of its view in one step (rad), and how many steps it spent inside a prop taller

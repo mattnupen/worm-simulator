@@ -5,8 +5,6 @@ import { occluderSegments } from '../../src/render/occluderSegments';
 import { mulberry32 } from '../../src/core/random';
 import { DETAIL_GLSL, detailVertex, type DetailInputs } from '../../src/render/detailGlsl';
 import { DISTURB_GLSL, FULL_FADE, disturbVertex, packedMapSampler } from '../../src/render/leafGlsl';
-import { disturbReach } from '../../src/surface/leafScale';
-import { SCALE_SPECS } from '../../src/surface/worldScale';
 import { litterTextureData, LITTER_TEX_N } from '../../src/render/litterTexture';
 import { groundTextureData, GROUND_TEX_N } from '../../src/render/groundTexture';
 import {
@@ -33,9 +31,11 @@ const TOLERANCE = 2e-4;
 
 interface Case { focus: [number, number]; dist: number[]; trail: number[]; origin: [number, number]; fade: number[] }
 
-/** Classic's window (uDistFade), where leaves fade out from 3.4 to 3.88 m: some detail leaves lie in it. */
-const CLASSIC = disturbReach(SCALE_SPECS.classic);
-const CLASSIC_FADE = [CLASSIC.fadeFrom / (DIST_SPAN / 2), CLASSIC.fadeTo / (DIST_SPAN / 2)];
+/**
+ * A narrower window (uDistFade) than the game's, where leaves fade out from 3.4 to 3.88 m (V1's
+ * Classic window), so some detail leaves lie in its fade. The window is a uniform: any one works.
+ */
+const NARROW_FADE = [3.4 / (DIST_SPAN / 2), 3.88 / (DIST_SPAN / 2)];
 
 function worm(hx: number, hz: number, yaw: number, curve: number, fade: readonly number[] = FULL_FADE): Case {
   const n = 16;
@@ -86,8 +86,8 @@ test('detail placement, meshGround and disturb run on the GPU as their TS twins 
     );
   }
   const cases = [
-    worm(0.31, -0.17, 0.7, 0.5, CLASSIC_FADE), worm(6.4, -3.3, 2.1, -0.4), worm(-6.9, -7.2, 4.0, 0.3, CLASSIC_FADE),
-    worm(18.6, 17.9, 0.9, 0.2), worm(-18.8, 4.2, 3.3, -0.5, CLASSIC_FADE),
+    worm(0.31, -0.17, 0.7, 0.5, NARROW_FADE), worm(6.4, -3.3, 2.1, -0.4), worm(-6.9, -7.2, 4.0, 0.3, NARROW_FADE),
+    worm(18.6, 17.9, 0.9, 0.2), worm(-18.8, 4.2, 3.3, -0.5, NARROW_FADE),
   ];
 
   await page.setContent('<canvas id="c"></canvas>');

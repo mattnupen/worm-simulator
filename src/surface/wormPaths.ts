@@ -1,7 +1,7 @@
 import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../game/drive';
 
 /**
- * The worm's fixed paths, kept clear of solid props and clutter in every scale mode (pure):
+ * The worm's fixed paths, kept clear of solid props and clutter (pure):
  * - the speed test's auto-drive loop: AUTO_DRIVE_MOVE with LOCOMOTION (move {x: 0.35, y: 1} at
  *   speed 1.6 and turn rate 2.2) traces a circle of radius 1.6 / 0.77 ~ 2.08, centred left of the
  *   spawn;

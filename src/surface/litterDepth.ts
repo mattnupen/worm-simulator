@@ -3,7 +3,7 @@ import type { Vec3 } from '../core/vec';
 import { terrainHeight } from './terrain';
 import { treeSites, trunkRadiusOf } from './treeSites';
 import { heroLog, rocks } from './propPlacement';
-import { scaleSpec, type LogSite, type ScaleSpec } from './worldScale';
+import type { LogSite } from './realScale';
 
 /**
  * How deep the leaf litter lies at (x, z), in metres (world units), from LITTER_MIN to
@@ -50,7 +50,6 @@ const TRUNK_DRIFT = 0.17;
 const rockDrift = (size: number): number => Math.min(TRUNK_DRIFT, Math.max(0.1, 0.22 * size));
 
 interface Drifts {
-  spec: ScaleSpec;
   /** Round obstacles that leaves drift against: trunks (with their root flare) and rocks. */
   round: readonly { x: number; z: number; r: number; peak: number }[];
   log: LogSite;
@@ -59,15 +58,13 @@ interface Drifts {
 }
 let drifts: Drifts | null = null;
 
-/** What the leaves drift against in the active mode (built once per mode). */
+/** What the leaves drift against (built once). */
 function driftSources(): Drifts {
-  const spec = scaleSpec();
-  if (drifts?.spec === spec) return drifts;
-  const log = heroLog(spec);
+  if (drifts) return drifts;
+  const log = heroLog();
   drifts = {
-    spec,
     round: [
-      ...treeSites().map((t) => ({ x: t.x, z: t.z, r: trunkRadiusOf(t, spec) * 1.3, peak: TRUNK_DRIFT })),
+      ...treeSites().map((t) => ({ x: t.x, z: t.z, r: trunkRadiusOf(t) * 1.3, peak: TRUNK_DRIFT })),
       ...rocks().map((k) => ({ x: k.x, z: k.z, r: k.size * 1.05, peak: rockDrift(k.size) })),
     ],
     log,

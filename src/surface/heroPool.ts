@@ -1,5 +1,5 @@
 import { LEAF_KINDS } from './leafLitter';
-import { scaleSpec } from './worldScale';
+import { REAL_SCALE } from './realScale';
 
 /**
  * The hero-leaf pool (spec 5.4): the per-slot state of a small set of loose leaves, as plain
@@ -72,11 +72,11 @@ export function hash01(a: number, b: number): number {
 }
 
 /**
- * Sets every slot's leaf length from its fixed base (0.55 to 1 m) times its species' size in the
- * active scale mode (worldScale.ts). createHeroLeaves calls it; call it again after a mode change.
+ * Sets every slot's leaf length from its fixed base (0.55 to 1 m) times its species' real-size
+ * growth (realScale.ts). createHeroLeaves calls it.
  */
 export function sizeHeroLeaves(p: HeroLeaves): void {
-  const grow = scaleSpec().leaf;
+  const grow = REAL_SCALE.leaf;
   for (let i = 0; i < p.max; i++) p.size[i] = (0.55 + 0.45 * hash01(i, p.seed + 101)) * grow[LEAF_KINDS[p.kind[i]]];
 }
 

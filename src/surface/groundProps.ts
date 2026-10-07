@@ -9,10 +9,10 @@ import { terrainHeight } from './terrain';
 import { makeShadeAt } from './treeShadows';
 import { sharedLighting } from '../render/paintedMaterial';
 import { BARK, writeLog } from './trunkGeometry';
-import { scaleSpec } from './worldScale';
+import { REAL_SCALE } from './realScale';
 
 /**
- * One clutter item, at the active scale mode's size. Clutter rests on the terrain mesh exactly as
+ * One clutter item, at real size. Clutter rests on the terrain mesh exactly as
  * drawn (soil plus litter mound), so the mound under deep piles never buries it; rocks and the log
  * stay on the soil.
  */
@@ -30,8 +30,8 @@ export interface GroundProps {
 }
 
 /**
- * Rocks, mushroom clusters, sedge tufts and fern clumps merged into one mesh (one draw), for the
- * active scale mode. Rocks come first and always stay; density tiers trim the clutter after them.
+ * Rocks, mushroom clusters, sedge tufts and fern clumps merged into one mesh (one draw), at real
+ * size. Rocks come first and always stay; density tiers trim the clutter after them.
  */
 export function buildGroundProps(): GroundProps {
   const w = new MeshWriter('aProp', 4);
@@ -61,8 +61,8 @@ export function buildGroundProps(): GroundProps {
   };
 }
 
-/** The hero fallen birch log of the active mode, written into the shared bark mesh (no extra draw). */
+/** The hero fallen birch log, written into the shared bark mesh (no extra draw). */
 export function writeHeroLog(w: MeshWriter): void {
   const log = heroLog();
-  writeLog(w, log.x, log.z, log.yaw, log.length, log.radius, BARK.birch, 1.62, terrainHeight, scaleSpec().log);
+  writeLog(w, log.x, log.z, log.yaw, log.length, log.radius, BARK.birch, 1.62, terrainHeight, REAL_SCALE.log);
 }

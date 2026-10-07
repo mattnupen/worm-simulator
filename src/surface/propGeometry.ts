@@ -109,7 +109,7 @@ const RUSSULA = [new THREE.Color('#c0392b'), new THREE.Color('#7a2018')];
 
 /**
  * A cluster of 3-5 mushrooms (honey mushrooms, or a red russula pair). `grow` scales the whole
- * cluster (the world scale mode's mushroom size, worldScale.ts); it draws no random numbers.
+ * cluster (the real-size mushroom growth, realScale.ts); it draws no random numbers.
  */
 export function writeMushrooms(
   w: MeshWriter, x: number, z: number, scale: number, rng: () => number, groundAt: GroundAt = terrainHeight,
@@ -180,8 +180,9 @@ export function writeFern(
   const base = new THREE.Color(green ? '#5f6e28' : '#8a5a22');
   const tip = new THREE.Color(green ? '#a0a040' : '#d09a3a');
   const fronds = 5;
-  // A grown fern (the big scale modes) gets denser, broader leaflets: at Classic's 8 slim pairs a
-  // frond seen against the sky reads as a sparse comb. The leaflets draw no random numbers.
+  // A grown fern (grow over 1, as at real size) gets denser, broader leaflets: at base size's 8
+  // slim pairs a frond seen against the sky reads as a sparse comb. The leaflets draw no random
+  // numbers.
   const pairs = grow > 1 ? 14 : 8;
   const leafletBase = grow > 1 ? 0.4 : 0.22;
   for (let f = 0; f < fronds; f++) {

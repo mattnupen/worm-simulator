@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { placeLeaves, wetnessLayer } from '../../src/surface/leafLitter';
 import { leafTint } from '../../src/surface/leafPalette';
 import { mulberry32 } from '../../src/core/random';
@@ -17,9 +17,7 @@ import { writeClutterItem } from '../../src/surface/groundProps';
 import { CLUTTER_SINK } from '../../src/surface/propGeometry';
 import { MeshWriter } from '../../src/surface/meshWriter';
 import { clutterGrow } from '../../src/surface/propPlacement';
-import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
 
-afterAll(() => { setScale(DEFAULT_SCALE); });
 
 describe('placeLeaves with a depth field', () => {
   const field = (x: number) => (x > 0 ? 0.2 : 0.02);
@@ -64,10 +62,9 @@ describe('litter and ground on a pile', () => {
   });
 });
 
-describe.each(SCALE_MODES)('%s: litter on the rendered ground', (mode) => {
+describe('litter on the rendered ground', () => {
   let litter: LeafLitter;
   beforeAll(() => {
-    setScale(mode);
     litter = buildLeafLitter(scaledLeafCount(PRESETS.ultra.litter));
   });
   const hit = { nx: 0, nz: 0 };
@@ -113,13 +110,11 @@ describe('clutter on the litter mound', () => {
   const mound = (x: number, z: number) => meshGroundHeight(x, z);
 
   it('some clutter really stands where the mound is deep enough to bury it', () => {
-    setScale('classic');
     const items = placeClutter(150);
     expect(items.filter((c) => mound(c.x, c.z) - terrainHeight(c.x, c.z) > 0.05).length).toBeGreaterThan(0);
   });
 
-  it.each(SCALE_MODES)('%s: sets every item on the rendered ground: its base is never below the mesh surface', (mode) => {
-    setScale(mode);
+  it('sets every item on the rendered ground: its base is never below the mesh surface', () => {
     for (const c of placeClutter(150)) {
       const w = new MeshWriter('aProp', 4);
       writeClutterItem(w, c, () => 0.5);
@@ -128,7 +123,7 @@ describe('clutter on the litter mound', () => {
       const floor = mound(c.x, c.z);
       if (c.kind === 'mushrooms') {
         // Each mushroom stands on the ground under it; across a cluster the mound slopes a little
-        // (the cluster spreads with the mode's mushroom size).
+        // (the cluster spreads with the mushroom size).
         expect(low).toBeGreaterThanOrEqual(floor - 0.06 * clutterGrow('mushrooms'));
       } else {
         // Sedge and fern roots sit CLUTTER_SINK below the ground at the item's centre.

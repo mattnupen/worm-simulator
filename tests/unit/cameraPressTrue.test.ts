@@ -1,15 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { DEFAULT_SCALE, setScale } from '../../src/surface/worldScale';
+import { describe, it, expect } from 'vitest';
 import { pressAndTurn } from './cameraPress';
 
-afterAll(() => { setScale(DEFAULT_SCALE); });
-
-describe('true: the camera never snaps or shakes against a prop', () => {
-  beforeAll(() => { setScale('true'); });
-
+describe('the camera never snaps or shakes against a prop', () => {
   it('pressing into every prop (straight or off-centre), then turning on the spot either way', () => {
     // A hard turn alone changes the camera's step by about 0.004; easing in past a trunk, a few
-    // hundredths. Snapping along its line to the head reached 0.2 in this mode.
+    // hundredths. Snapping along its line to the head reached 0.2 at real size.
     for (const turn of [1, -1]) {
       const { jerk, rotation, inside } = pressAndTurn(turn);
       expect(jerk).toBeLessThan(0.06);

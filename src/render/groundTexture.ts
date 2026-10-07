@@ -14,7 +14,7 @@ export const GROUND_TEX_N = MESH_GRID.innerSegs + 2 * MESH_GRID.outerSegs + 1;
 const { inner: IN, outer: OUT, innerSegs: NI, outerSegs: NO } = MESH_GRID;
 const STEP = (2 * IN) / NI;
 
-/** Mesh vertex heights, row j holding grid line j along z, for the active scale mode. */
+/** Mesh vertex heights, row j holding grid line j along z. */
 export function groundTextureData(): Float32Array {
   return Float32Array.from(heightGrid().heights);
 }

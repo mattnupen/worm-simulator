@@ -9,7 +9,7 @@ const smoothstep = (a: number, b: number, v: number): number => {
   return t * t * (3 - 2 * t);
 };
 
-/** The active mode's near trees as shadow casters (approximate trunk radii by species). */
+/** The near trees as shadow casters (approximate trunk radii by species). */
 export function shadowCasters(): ShadowCaster[] {
   return treeSites().map((t) => ({ x: t.x, z: t.z, radius: trunkRadiusOf(t) }));
 }

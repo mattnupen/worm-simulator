@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { disturbVertex, drapeProfile, packedMapSampler, DRAPE_FOOT, type MapSampler } from '../../src/render/leafGlsl';
 import {
@@ -14,7 +14,7 @@ import { wrapAround } from '../../src/render/wrap';
 import { litterTextureData } from '../../src/render/litterTexture';
 import { groundTextureData } from '../../src/render/groundTexture';
 import { PRESETS } from '../../src/render/graphics';
-import { DEFAULT_SCALE, SCALE_MODES, SCALE_SPECS, setScale } from '../../src/surface/worldScale';
+import { REAL_SCALE } from '../../src/surface/realScale';
 import { leafReach, maxLeafRadius, onTopDistance, scaledLeafCount, stampLimit } from '../../src/surface/leafScale';
 
 
@@ -120,9 +120,7 @@ function clearance(count: number, leaves: (pl: Placement, emit: (t: Tri) => void
   return { placements, covered, failed, worst };
 }
 
-describe.each(SCALE_MODES)('%s: the drape on the real litter and the real worm', (mode) => {
-  beforeAll(() => { setScale(mode); });
-  afterAll(() => { setScale(DEFAULT_SCALE); });
+describe('the drape on the real litter and the real worm', () => {
 
   it('every leaf over the worm clears its body by 5 mm (shipped maths, 400 placements)', () => {
     // The chunked litter's full leaves (the only ones drawn with the drape), as the chunk writer
@@ -169,8 +167,8 @@ describe.each(SCALE_MODES)('%s: the drape on the real litter and the real worm',
   it('so does every detail leaf, placed around the head as the GPU places it (400 placements)', () => {
     const count = scaledLeafCount(PRESETS.ultra.detail);
     const detail = buildDetailLeaves(count);
-    // A detail leaf's radius is at most 0.385 m in Classic, times the mode's biggest leaf size.
-    const reach = 0.9 + 0.39 * Math.max(...Object.values(SCALE_SPECS[mode].leaf));
+    // A detail leaf's radius is at most 0.385 m at base size, times the biggest real-size growth.
+    const reach = 0.9 + 0.39 * Math.max(...Object.values(REAL_SCALE.leaf));
     const g = detail.mesh.geometry;
     const pos = g.getAttribute('position');
     const det = g.getAttribute('aDetail');
@@ -298,9 +296,7 @@ describe('drapeProfile', () => {
   });
 });
 
-describe.each(SCALE_MODES)('%s: litter leaf anchors', (mode) => {
-  beforeAll(() => { setScale(mode); });
-  afterAll(() => { setScale(DEFAULT_SCALE); });
+describe('litter leaf anchors', () => {
 
   it('every vertex of both chunk shapes lies within its leaf radius, which a vertex reaches, and the map reaches the biggest leaf', () => {
     // Many more than any preset draws, so the biggest leaf is about as big as any can be.

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import * as THREE from 'three';
 import { buildLeafLitter, type LeafLitter } from '../../src/surface/leafLitterMesh';
 import {
@@ -11,10 +11,9 @@ import { buildDustMotes, MOTE_COUNT, MOTE_MAX } from '../../src/render/atmospher
 import { buildWorld } from '../../src/game/world';
 import { Crawl } from '../../src/game/crawl';
 import { PRESETS } from '../../src/render/graphics';
+import { scaledLeafCount } from '../../src/surface/leafScale';
 import { sharedLighting } from '../../src/render/paintedMaterial';
-import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
 
-afterAll(() => { setScale(DEFAULT_SCALE); });
 
 /** Index counts drawn by every chunk's full-leaf mesh, and their totals. */
 const drawn = (l: LeafLitter) => l.chunks.reduce((a, c) => a + c.near.geometry.drawRange.count, 0);
@@ -30,7 +29,7 @@ function straightWorm(x: number, z: number): { spine: Float32Array; camX: number
   return { spine, camX: x, camZ: z - 2.6 };
 }
 
-/** A crawl and the world built for it in the active mode, with its atmosphere's two effects. */
+/** A crawl and the world built for it, with its atmosphere's two effects. */
 function makeWorld() {
   const crawl = new Crawl();
   const world = buildWorld(crawl);
@@ -39,8 +38,7 @@ function makeWorld() {
   return { crawl, world, motes, falling };
 }
 
-describe.each(SCALE_MODES)('%s: scene tiers', (mode) => {
-  beforeAll(() => { setScale(mode); });
+describe('scene tiers', () => {
 
 
   describe('leaf litter (chunked)', () => {
@@ -272,20 +270,18 @@ describe.each(SCALE_MODES)('%s: scene tiers', (mode) => {
   });
 });
 
-// The preset counts are Classic's (Step 1a); scaledLeafCount scales them in the other modes,
-// which tests/unit/worldRebuild.test.ts covers.
-describe('classic: world.apply preset counts', () => {
+// The preset counts are at base leaf size (Step 1a); scaledLeafCount gives real size's.
+describe('world.apply preset counts', () => {
   let world: ReturnType<typeof buildWorld>;
   let motes: THREE.Points;
   let falling: THREE.Mesh;
   beforeAll(() => {
-    setScale('classic');
     ({ world, motes, falling } = makeWorld());
   });
 
   it('builds the litter at Ultra size, and the detail layer only once a preset draws it', () => {
-    expect(world.litter.max).toBe(PRESETS.ultra.litter);
-    expect(world.detail.max).toBe(PRESETS.ultra.detail);
+    expect(world.litter.max).toBe(scaledLeafCount(PRESETS.ultra.litter));
+    expect(world.detail.max).toBe(scaledLeafCount(PRESETS.ultra.detail));
     expect(world.detail.built).toBeNull();
     world.apply(PRESETS.low);
     expect(world.detail.built).toBeNull();
@@ -305,7 +301,7 @@ describe('classic: world.apply preset counts', () => {
 
     world.apply(PRESETS.high);
     // Every preset draws the same litter (Task 23): they differ in their detail leaves.
-    expect(world.litter.drawn).toBe(PRESETS.high.litter);
+    expect(world.litter.drawn).toBe(scaledLeafCount(PRESETS.high.litter));
     expect(drawn(world.litter)).toBe(ultraLeaves);
     expect(detail.mesh.geometry.drawRange.count).toBeLessThan(detail.mesh.geometry.index!.count);
     expect(motes.geometry.drawRange.count).toBe(MOTE_COUNT);
@@ -315,15 +311,15 @@ describe('classic: world.apply preset counts', () => {
     expect(detail.mesh.visible).toBe(false);
     expect(world.atmosphere.group.visible).toBe(false);
     expect(sharedLighting.uRim.value).toBe(0);
-    expect(world.litter.drawn).toBe(PRESETS.low.litter);
+    expect(world.litter.drawn).toBe(scaledLeafCount(PRESETS.low.litter));
     expect(drawn(world.litter)).toBe(ultraLeaves);
   });
 
   it('reports the leaves it draws for each preset (Low: litter only, no detail)', () => {
     for (const id of ['low', 'medium', 'high', 'ultra', 'low'] as const) {
       world.apply(PRESETS[id]);
-      expect(world.litter.drawn, `${id} litter`).toBe(PRESETS[id].litter);
-      expect(world.detail.drawn, `${id} detail`).toBe(PRESETS[id].detail);
+      expect(world.litter.drawn, `${id} litter`).toBe(scaledLeafCount(PRESETS[id].litter));
+      expect(world.detail.drawn, `${id} detail`).toBe(scaledLeafCount(PRESETS[id].detail));
     }
     expect(PRESETS.low).toMatchObject({ litter: 1500, detail: 0 });
   });

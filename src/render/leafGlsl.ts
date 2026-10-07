@@ -28,17 +28,17 @@ export const TRAIL_DARKEN = 0.35;
 export const DRAPE_MAX_SLOPE = 1;
 
 /**
- * Leaves bigger than any Classic leaf (radius over LID_FROM, up to True's real sizes) lift level,
+ * Big leaves (radius over LID_FROM, up to the real-size leaves' largest) lift level,
  * like a lid, instead of tilting onto the body: across a leaf that big the worm can curve away from
  * the one direction a tilt follows, under the low side (Step 1b spec 4.5, the known "lid" look).
- * Classic leaves (radius at most 1.26) are never affected.
+ * Leaves of radius up to LID_FROM are never affected.
  */
 export const LID_FROM = 1.3;
 export const LID_TO = 2.0;
 
 /**
  * The map's whole window for uDistFade (from, to, as fractions of its half span): the leaves fade
- * out from 85% to 97% of the way to its edge. Each mode sets its own window (leafScale.ts
+ * out from 85% to 97% of the way to its edge. The game sets its own window (leafScale.ts
  * disturbReach, groundUniforms.ts setDisturbFade); this is the TS twin's default.
  */
 export const FULL_FADE: readonly number[] = [0.85, 0.97];
@@ -84,8 +84,8 @@ const C = {
  *   plane clear of the body (drapeProfile); a leaf centred on the body rests level on top, and so
  *   does a leaf bigger than LID_FROM.
  * Skipped (a uniform branch) when leaves do not react (uLeafReact 0), and for leaves outside the
- * mode's window (uDistFade: from, to, as fractions of the map's half span; a uniform, so a mode
- * switch recompiles nothing). `n` (world normal) is tilted to match.
+ * map's window (uDistFade: from, to, as fractions of the map's half span; a uniform, set once from
+ * leafScale.ts disturbReach). `n` (world normal) is tilted to match.
  * Needs uniforms uDisturb and uDisturbTrail (packed by packDisturbance), uDistOrigin, uDistFade and
  * uLeafReact.
  */

@@ -149,7 +149,7 @@ function start(renderer: THREE.WebGLRenderer): void {
    * from depending on that. The lazily built layers (detail leaves, Ultra's near clutter) are
    * deliberately not built here: their one-time build and compile on first show is accepted (see
    * applySpec). Nor is the litter's reacting (active) program, which no chunk wears yet: it
-   * compiles on the first frame a chunk reacts (a world rebuild lends it out, compileForest).
+   * compiles on the first frame a chunk reacts.
    */
   function warmShaders(): void {
     const group = world.atmosphere.group;

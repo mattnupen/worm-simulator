@@ -18,8 +18,8 @@ export interface TrunkSpec {
   species: number;
   seed: number;
   /**
-   * The trunk's size against a Classic one (the world scale mode's): the bark pattern is laid out
-   * in Classic metres (aBark.y divided by this), so a bigger trunk wears the same bark, bigger.
+   * The trunk's size against its base size (realScale.ts): the bark pattern is laid out in
+   * base-size metres (aBark.y divided by this), so a bigger trunk wears the same bark, bigger.
    * 1 when absent.
    */
   grow?: number;
@@ -125,7 +125,7 @@ export function writeLimb(
 /**
  * A curl of peeling paper-birch bark: a strip hanging from height h0, lifting away from the
  * trunk as it goes down. Two layers: chalky outer bark and the salmon inner face. `grow` scales
- * how far it lifts off the bark (the trunk's size against a Classic one).
+ * how far it lifts off the bark (the trunk's size against its base size).
  */
 export function writeCurl(
   w: MeshWriter, t: TrunkSpec, a0: number, h0: number, len: number, width: number, grow = 1,
@@ -183,8 +183,8 @@ export function writeLog(
       const a = (c / radial) * TAU;
       // Broken ends are jagged, up to LOG_END past the length per unit of grow (a big log's
       // splinters are as big as it is, so its ends do not look sawn off). A grown log's seam
-      // vertex (c = radial) repeats c = 0's jag so the end closes; Classic (grow 1) keeps Step 1a's
-      // hairline open seam, as its geometry is pinned.
+      // vertex (c = radial) repeats c = 0's jag so the end closes; a log at base size (grow 1) keeps
+      // Step 1a's hairline open seam.
       const cj = grow === 1 ? c : c % radial;
       const jag = i === 0 || i === rings - 1 ? (Math.sin(cj * 2.7 + seed * 11) * 0.5 + 0.5) * LOG_END * grow * (i === 0 ? -1 : 1) : 0;
       centre(sMid + jag, c0);

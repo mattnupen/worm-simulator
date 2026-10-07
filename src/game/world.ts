@@ -106,7 +106,7 @@ export function buildWorld(crawl: Crawl): World {
       g.uOccTan.value.set(1 / pe[0], 1 / pe[5]);
       if (crawl.disturbed) {
         uploadDisturbance(crawl.disturbance);
-        // The mode's window: leaves past it never read the map, so chunks there need not react.
+        // The map's window (crawl.reach): leaves past it never read the map, so chunks there need not react.
         setDisturbFade(crawl.reach.fadeFrom, crawl.reach.fadeTo);
         disturbedBox(crawl.disturbance, distBox, crawl.reach.fadeTo);
         crawl.disturbed = false;

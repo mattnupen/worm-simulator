@@ -1,16 +1,14 @@
-import { describe, it, expect, afterAll, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   clearHeroLeaves, createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
   HERO_MAX, HERO_RADIUS, HERO_RECYCLE, HERO_Y_BIAS, PUSHER_STRIDE,
   type HeroLeaves, type SurfaceFn,
 } from '../../src/surface/heroLeaves';
 import { PLAY_HALF } from '../../src/surface/terrain';
-import { DEFAULT_SCALE, SCALE_MODES, setScale } from '../../src/surface/worldScale';
 import { obstacleDepth, footprints } from '../../src/surface/obstacles';
 import { OBSTACLE_PAD } from '../../src/surface/heroSpawn';
 import { LEAF_REACH } from '../../src/surface/heroClearance';
 
-afterAll(() => { setScale(DEFAULT_SCALE); });
 
 const DT = 1 / 60;
 const flat = () => 0.05;
@@ -95,9 +93,7 @@ function recycleAt(hx: number, hz: number, heading: number): number {
   return ahead / p.count;
 }
 
-describe.each(SCALE_MODES)('%s: hero leaves', (mode) => {
-  beforeAll(() => { setScale(mode); });
-  afterAll(() => { setScale(DEFAULT_SCALE); });
+describe('hero leaves', () => {
 
   it('scatters the active leaves within 3 m of the head, on the litter', () => {
     const p = pool();
@@ -201,8 +197,8 @@ describe.each(SCALE_MODES)('%s: hero leaves', (mode) => {
     expect(p.z[0]).toBeGreaterThan(1);
   });
 
-  // A head position at least 1 m from every footprint (in Hybrid a big rock comes within 0.6 m of (-10, 0)).
-  const open = mode === 'hybrid' ? { x: -6, z: 0 } : { x: -10, z: 0 };
+  // A head position at least 1 m from every footprint.
+  const open = { x: -10, z: 0 };
 
   it('recycles a leaf more than 4 m away to a free spot ahead of the worm, off the props and the body', () => {
     expect(obstacleDepth(open.x, open.z, 1, hit)).toBeLessThan(0);
@@ -420,9 +416,7 @@ describe.each(SCALE_MODES)('%s: hero leaves', (mode) => {
   });
 });
 
-describe.each(['hybrid', 'true'] as const)('%s: hero leaves beside the big props', (mode) => {
-  beforeAll(() => { setScale(mode); });
-  afterAll(() => { setScale(DEFAULT_SCALE); });
+describe('hero leaves beside the big props', () => {
 
   /** Head spots `gap` outside the widest trunk's root flare, in the play area and off the props. */
   const mapleSpots = (gap: number) => {
