@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import './ui/parchment.css';
 import './ui/hud.css';
 import { startLoop } from './core/loop';
-import type { Vec2 } from './core/vec';
 import { FpsMeter } from './render/fps';
 import { TIERS } from './render/quality';
 import {
@@ -11,7 +10,8 @@ import {
 import { setResolution, setTime } from './render/paintedMaterial';
 import { KeyboardInput } from './input/keyboard';
 import { TouchJoystick } from './input/touchJoystick';
-import { keysToCommandsInto, mergeCommandsInto, type Commands } from './input/commands';
+import { keysToCommandsInto, mergeCommandsInto, NO_COMMANDS, type Commands } from './input/commands';
+import { createPressEdge } from './input/actionEdge';
 import { parseParams } from './game/params';
 import { initialScreens, transition, type ScreenEvent, type ScreenState } from './game/screens';
 import { GraphicsControl } from './game/graphicsControl';
@@ -26,6 +26,7 @@ import { basicDeviceInfo, deviceInfo } from './perf/device';
 import { createShell } from './ui/shell';
 import { showCrawl, showLost, showPause, showStart } from './ui/menus';
 import { showGraphics } from './ui/graphicsMenu';
+import { createActionPrompt } from './ui/actionPrompt';
 import { showResult, showRunning, showTestIntro } from './ui/speedTestUi';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
@@ -34,7 +35,6 @@ const CRASH_AFTER_TEST_NOTE = 'Something went wrong after the test. These result
   + 'Reload the page to keep playing.';
 /** The Lost card's heading when the game threw (not a graphics reset). */
 const CRASH_TITLE = 'Something went wrong';
-const NO_MOVE: Vec2 = Object.freeze({ x: 0, y: 0 });
 /** The game's frame cap; the speed test lifts it for its uncapped phase. */
 const MAX_FPS = FPS_CAP;
 
@@ -85,6 +85,11 @@ function start(renderer: THREE.WebGLRenderer): void {
   const world = buildWorld(crawl);
   const keyboard = new KeyboardInput();
   const joystick = new TouchJoystick(app);
+  // What Action does now, and the touch Action button. The game sets it from where the worm is;
+  // a ?prompt= test page shows one kind and counts presses (data-action-presses).
+  const actionPrompt = createActionPrompt(app);
+  const pressEdge = createPressEdge();
+  let presses = 0;
   const meter = new FpsMeter();
   const graphics = new GraphicsControl(store, params.preset);
   // The speed test measures a forced ?preset= or, normally, High.
@@ -262,16 +267,21 @@ function start(renderer: THREE.WebGLRenderer): void {
     dispatch({ type: 'testDone', recommended: recommendedPreset(r.tier, testBase.id) });
   }
 
-  // Preallocated: move() runs every 60 Hz step and must not allocate.
+  // Preallocated: commands() runs every 60 Hz step and must not allocate.
   const keyCmds: Commands = { move: { x: 0, y: 0 }, action: false, wormView: false, pause: false };
-  const touchCmds: Commands = { move: NO_MOVE, action: false, wormView: false, pause: false };
+  const touchCmds: Commands = { move: NO_COMMANDS.move, action: false, wormView: false, pause: false };
   const heldCmds: Commands = { move: { x: 0, y: 0 }, action: false, wormView: false, pause: false };
 
-  function move(): Vec2 {
-    if (runner.running) return AUTO_DRIVE_MOVE.move;
-    if (state.screen !== 'crawl') return NO_MOVE;
+  /**
+   * This step's commands: the keyboard, the joystick and the touch Action button merged (Space or
+   * the button hold `action`); the speed test's drive while it runs; nothing off the crawl screen.
+   */
+  function commands(): Commands {
+    if (runner.running) return AUTO_DRIVE_MOVE;
+    if (state.screen !== 'crawl') return NO_COMMANDS;
     touchCmds.move = joystick.value; // the joystick replaces its value object; no copy needed
-    return mergeCommandsInto(keysToCommandsInto(keyboard.down, keyCmds), touchCmds, heldCmds).move;
+    touchCmds.action = actionPrompt.touchHeld;
+    return mergeCommandsInto(keysToCommandsInto(keyboard.down, keyCmds), touchCmds, heldCmds);
   }
 
   /** Paused (or the Graphics menu over a pause): the simulation stops, the last frame stays. */
@@ -280,7 +290,16 @@ function start(renderer: THREE.WebGLRenderer): void {
   }
 
   function update(dt: number): void {
-    if (!frozen()) crawl.step(dt, move());
+    if (!frozen()) {
+      const cmds = commands();
+      crawl.step(dt, cmds.move);
+      if (params.prompt) {
+        actionPrompt.set(state.screen === 'crawl' ? params.prompt : null);
+        if (pressEdge.update(cmds.action)) app.dataset.actionPresses = String(++presses);
+      }
+    }
+    keyboard.endStep();
+    actionPrompt.endStep();
   }
 
   function render(now: number, alpha: number): void {

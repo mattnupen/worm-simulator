@@ -46,6 +46,19 @@ const ICONS = {
   /** A little house: Back to start. */
   home: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
       stroke-linejoin="round"><path d="M3.5 11L12 4l8.5 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/></svg>`,
+  /** The Action prompt (src/ui/actionPrompt.ts). Dig down: an arrow going down through the ground line. */
+  digDown: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
+      stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 9h6M15.5 9h6"/><path d="M12 3v16M6.5 13.5L12 19l5.5-5.5"/></svg>`,
+  /** Come up: an arrow rising out through the ground line. */
+  comeUp: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
+      stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 15h6M15.5 15h6"/><path d="M12 21V5M6.5 10.5L12 5l5.5 5.5"/></svg>`,
+  /** Wide view: four corners pointing out. */
+  viewWide: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
+      stroke-linecap="round" stroke-linejoin="round"><path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6"/>
+    <path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"/></svg>`,
+  /** Close view: a magnifying glass. */
+  viewClose: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
+      stroke-linecap="round"><circle cx="10" cy="10" r="6.5"/><path d="M15 15l6 6M7 10h6M10 7v6"/></svg>`,
   /** A tick: a saved setting. */
   check: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
       stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></svg>`,

@@ -43,3 +43,30 @@
   border: 3px solid var(--bark-dark);
   box-shadow: inset 0 -3px 0 rgba(120, 60, 10, 0.25), 0 4px 8px rgba(30, 14, 2, 0.4);
 }
+
+/* ---------- Action prompt (crawl only; src/ui/actionPrompt.ts) ---------- */
+/* What Space or the touch Action button does now: icon plus word, bottom right, 64px+ tall, never
+   flashing. A real button, so touch, pen and mouse press it; Space presses Action without it. */
+:not([data-ui="crawl"]) > .action-prompt { display: none; }
+.action-prompt.btn {
+  position: fixed; z-index: 1; right: 24px; bottom: 24px; width: auto; min-width: 168px;
+  min-height: 72px; padding: 10px 20px; font-size: 22px;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.action-prompt[hidden] { display: none; }
+.action-prompt .action-icon[hidden] { display: none; }
+.action-prompt.held { transform: translateY(3px); box-shadow: inset 0 2px 4px rgba(90, 50, 10, 0.3), 0 1px 0 #6b3d12; }
+.action-key {
+  margin-left: 4px; padding: 2px 8px; border-radius: 8px; font: 800 18px/1.2 var(--font-body);
+  color: var(--ink); background: var(--parchment-hi); border: 2px solid var(--bark-dark);
+  box-shadow: 0 2px 0 var(--bark-dark);
+}
+/* Touch only (no hover, a coarse pointer): no keyboard, so no key chip; a bigger target. */
+@media (hover: none) and (pointer: coarse) {
+  .action-key { display: none; }
+  .action-prompt.btn { min-width: 176px; min-height: 84px; font-size: 24px; }
+}
+/* Narrow screens: the word under the icon, so the button stays clear of the joystick. */
+@media (max-width: 560px) {
+  .action-prompt.btn { right: 16px; bottom: 16px; min-width: 0; flex-direction: column; gap: 2px; padding: 8px 14px; }
+}
