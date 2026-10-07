@@ -1,7 +1,5 @@
 import { isPresetId, type PresetId } from '../render/graphics';
-import type { ActionKind } from '../ui/actionPrompt';
-
-const ACTION_KINDS: readonly string[] = ['digDown', 'comeUp', 'viewWide', 'viewClose'] satisfies ActionKind[];
+import { ACTION_KINDS, type ActionKind } from '../ui/actionPrompt';
 
 export interface GameParams {
   /** `?preset=low|medium|high|ultra`: forces a preset for this session (benchmarks). Not saved. */
@@ -29,6 +27,6 @@ export function parseParams(search: string): GameParams {
     fps: p.get('fps') === '1',
     quick: p.get('quick') === '1',
     speedTest: p.get('speedtest') === '1',
-    prompt: prompt !== null && ACTION_KINDS.includes(prompt) ? (prompt as ActionKind) : null,
+    prompt: prompt !== null && (ACTION_KINDS as readonly string[]).includes(prompt) ? (prompt as ActionKind) : null,
   };
 }

@@ -86,7 +86,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   const keyboard = new KeyboardInput();
   const joystick = new TouchJoystick(app);
   // What Action does now, and the touch Action button. The game sets it from where the worm is;
-  // a ?prompt= test page shows one kind and counts presses (data-action-presses).
+  // ?prompt= shows one kind (none while #app has data-prompt-off) and counts data-action-presses.
   const actionPrompt = createActionPrompt(app);
   const pressEdge = createPressEdge();
   let presses = 0;
@@ -294,7 +294,7 @@ function start(renderer: THREE.WebGLRenderer): void {
       const cmds = commands();
       crawl.step(dt, cmds.move);
       if (params.prompt) {
-        actionPrompt.set(state.screen === 'crawl' ? params.prompt : null);
+        actionPrompt.set(state.screen === 'crawl' && app.dataset.promptOff === undefined ? params.prompt : null);
         if (pressEdge.update(cmds.action)) app.dataset.actionPresses = String(++presses);
       }
     }

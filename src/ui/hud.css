@@ -72,3 +72,8 @@
 @media (max-width: 560px) {
   .action-prompt.btn { right: 16px; bottom: 16px; min-width: 0; flex-direction: column; gap: 2px; padding: 8px 14px; }
 }
+/* Under 360px even the stacked button would reach the joystick: a 20px word and slim sides keep
+   it 8px+ clear (the longest word, "Close view", leaves about 17px). Still 18px+ text, 84px tall. */
+@media (max-width: 359px) {
+  .action-prompt.btn { right: 12px; padding: 8px 6px; font-size: 20px; }
+}

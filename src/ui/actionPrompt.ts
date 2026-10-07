@@ -13,9 +13,10 @@ export interface ActionPrompt {
   /** Shows the prompt for `kind`, or hides it (null). Call every frame: an unchanged kind does nothing. */
   set(kind: ActionKind | null): void;
   /**
-   * True while the on-screen Action button is pressed (touch, pen or mouse) and the prompt shows,
-   * and also from any press until the next endStep(): a tap shorter than a game step (or than a
-   * slow frame) still reads as held for one step. Reading it changes nothing.
+   * True while the on-screen Action button is pressed (touch, pen or mouse), and also from any
+   * press until the next endStep(): a tap shorter than a game step (or than a slow frame) still
+   * reads as held for one step. A hold outlasts set(null) and a later set(kind), as holding Space
+   * does, so a hidden-then-shown prompt never makes a second press. Reading it changes nothing.
    */
   readonly touchHeld: boolean;
   /** After each game step (main.ts): a press already let go stops reading as held. Allocates nothing. */
@@ -23,7 +24,8 @@ export interface ActionPrompt {
   dispose(): void;
 }
 
-const KINDS: readonly ActionKind[] = ['digDown', 'comeUp', 'viewWide', 'viewClose'];
+/** Every kind, once (params.ts reads ?prompt= against it). */
+export const ACTION_KINDS: readonly ActionKind[] = ['digDown', 'comeUp', 'viewWide', 'viewClose'];
 const ICONS: Readonly<Record<ActionKind, IconName>> = {
   digDown: 'digDown', comeUp: 'comeUp', viewWide: 'viewWide', viewClose: 'viewClose',
 };
@@ -42,7 +44,7 @@ export function createActionPrompt(root: HTMLElement): ActionPrompt {
   btn.tabIndex = -1;
   btn.hidden = true;
   btn.setAttribute('aria-keyshortcuts', 'Space');
-  const icons = KINDS.map((k) => {
+  const icons = ACTION_KINDS.map((k) => {
     const s = icon(ICONS[k], 'btn-icon action-icon');
     s.hidden = true;
     return s;
@@ -58,13 +60,17 @@ export function createActionPrompt(root: HTMLElement): ActionPrompt {
   /** Pressed since the last endStep(): a quick tap still reads as held for a step. */
   let tapped = false;
 
-  const release = (e: PointerEvent): void => {
-    if (e.pointerId !== pointer) return;
+  const end = (): void => {
     pointer = null;
     btn.classList.remove('held');
   };
+  /** On the window, so the lift ends the hold wherever it lands, even while the button is hidden. */
+  const release = (e: PointerEvent): void => {
+    if (e.pointerId === pointer) end();
+  };
   const down = (e: PointerEvent): void => {
-    if (e.button !== 0 || pointer !== null) return;
+    // A hidden prompt starts no press.
+    if (e.button !== 0 || pointer !== null || kind === null) return;
     // No focus, no text selection, no long-press menu: it is a game button.
     e.preventDefault();
     pointer = e.pointerId;
@@ -72,39 +78,50 @@ export function createActionPrompt(root: HTMLElement): ActionPrompt {
     btn.setPointerCapture(e.pointerId);
     btn.classList.add('held');
   };
-  const noMenu = (e: Event): void => e.preventDefault();
+  // Switch Access and screen readers send only a click (detail 0), never a pointerdown: one press.
+  // A pointer's own click (detail 1+) was already counted by pointerdown.
+  const click = (e: MouseEvent): void => {
+    if (e.detail === 0 && kind !== null) tapped = true;
+  };
+  // No menu on a long press; no click after a tap, which would land on whatever card replaced
+  // the button by then (Esc pressed mid-tap: "Back to start").
+  const cancel = (e: Event): void => e.preventDefault();
   btn.addEventListener('pointerdown', down);
-  btn.addEventListener('pointerup', release);
-  btn.addEventListener('pointercancel', release);
-  btn.addEventListener('lostpointercapture', release);
-  btn.addEventListener('contextmenu', noMenu);
+  btn.addEventListener('click', click);
+  btn.addEventListener('contextmenu', cancel);
+  btn.addEventListener('touchend', cancel, { passive: false });
+  window.addEventListener('pointerup', release, true);
+  window.addEventListener('pointercancel', release, true);
+  window.addEventListener('blur', end);
 
   return {
     set(next) {
       if (next === kind) return;
-      if (kind !== null) icons[KINDS.indexOf(kind)].hidden = true;
+      if (kind !== null) icons[ACTION_KINDS.indexOf(kind)].hidden = true;
       kind = next;
       if (next === null) {
         btn.hidden = true;
         tapped = false;
         return;
       }
-      icons[KINDS.indexOf(next)].hidden = false;
+      icons[ACTION_KINDS.indexOf(next)].hidden = false;
       word.textContent = shown(TEXT[next]);
       btn.hidden = false;
     },
     get touchHeld() {
-      return (pointer !== null || tapped) && kind !== null;
+      return pointer !== null || tapped;
     },
     endStep() {
       tapped = false;
     },
     dispose() {
       btn.removeEventListener('pointerdown', down);
-      btn.removeEventListener('pointerup', release);
-      btn.removeEventListener('pointercancel', release);
-      btn.removeEventListener('lostpointercapture', release);
-      btn.removeEventListener('contextmenu', noMenu);
+      btn.removeEventListener('click', click);
+      btn.removeEventListener('contextmenu', cancel);
+      btn.removeEventListener('touchend', cancel);
+      window.removeEventListener('pointerup', release, true);
+      window.removeEventListener('pointercancel', release, true);
+      window.removeEventListener('blur', end);
       btn.remove();
     },
   };

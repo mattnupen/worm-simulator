@@ -53,17 +53,72 @@ test.describe('on a touch screen', () => {
     await expect.poll(() => presses(page)).toBe('2');
   });
 
-  test('every kind fits beside the joystick at 360 px', async ({ page }) => {
-    for (const kind of ['digDown', 'comeUp', 'viewWide', 'viewClose']) {
-      await page.goto(PAGE + `?prompt=${kind}`);
-      await crawl(page);
-      await expect(prompt(page)).toBeVisible();
-      const box = (await prompt(page).boundingBox())!;
-      const stick = (await page.locator('.joystick').boundingBox())!;
-      expect(box.x, kind).toBeGreaterThan(stick.x + stick.width);
-      expect(box.x + box.width, kind).toBeLessThanOrEqual(360);
+  test('every kind fits beside the joystick, 8 px clear, at 360 and 320 px', async ({ page }) => {
+    for (const width of [360, 320]) {
+      await page.setViewportSize({ width, height: 640 });
+      for (const kind of ['digDown', 'comeUp', 'viewWide', 'viewClose']) {
+        const at = `${kind} at ${width} px`;
+        await page.goto(PAGE + `?prompt=${kind}`);
+        await crawl(page);
+        await expect(prompt(page)).toBeVisible();
+        const box = (await prompt(page).boundingBox())!;
+        const stick = (await page.locator('.joystick').boundingBox())!;
+        expect(box.x, at).toBeGreaterThanOrEqual(stick.x + stick.width + 8);
+        expect(box.x + box.width, at).toBeLessThanOrEqual(width);
+        expect(box.height, at).toBeGreaterThanOrEqual(64);
+        const size = await prompt(page).locator('.btn-label').evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+        expect(size, at).toBeGreaterThanOrEqual(18);
+      }
     }
   });
+
+  test('a touch held while the prompt hides and comes back is still one press', async ({ page }) => {
+    await page.goto(PAGE + '?prompt=digDown');
+    await crawl(page);
+    const btn = page.getByRole('button', { name: 'Dig down' });
+    const box = (await btn.boundingBox())!;
+    const cdp = await page.context().newCDPSession(page);
+    const touchPoints = [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints });
+    await expect.poll(() => presses(page)).toBe('1');
+    // The game hides the prompt (digging, coming up) and shows it again, the finger still down.
+    await page.evaluate(() => { document.getElementById('app')!.dataset.promptOff = '1'; });
+    await expect(prompt(page)).toBeHidden();
+    await page.waitForTimeout(800);
+    await page.evaluate(() => { delete document.getElementById('app')!.dataset.promptOff; });
+    await expect(btn).toBeVisible();
+    await page.waitForTimeout(800);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForTimeout(500);
+    expect(await presses(page)).toBe('1');
+    // Let go, the next tap is the next press.
+    await btn.tap();
+    await expect.poll(() => presses(page)).toBe('2');
+  });
+
+  test('pausing mid-tap: the lift clicks nothing on the Pause card', async ({ page }) => {
+    await page.goto(PAGE + '?prompt=digDown');
+    await crawl(page);
+    const box = (await page.getByRole('button', { name: 'Dig down' }).boundingBox())!;
+    const cdp = await page.context().newCDPSession(page);
+    const touchPoints = [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints });
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible();
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForTimeout(500);
+    // Still paused: the tap's click did not land on "Back to start" (or anything else).
+    await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible();
+  });
+});
+
+test('a click with no pointer (Switch Access, a screen reader) is one Action press', async ({ page }) => {
+  await page.goto(PAGE + '?prompt=viewWide');
+  await crawl(page);
+  await prompt(page).evaluate((b) => { b.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 })); });
+  await expect.poll(() => presses(page)).toBe('1');
+  await page.waitForTimeout(500);
+  expect(await presses(page)).toBe('1');
 });
 
 test('with a keyboard: icon, word and a Space chip; Space presses Action once per press; it never takes focus', async ({ page }) => {
