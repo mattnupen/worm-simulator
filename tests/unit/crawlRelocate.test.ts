@@ -8,6 +8,7 @@ import { PLAY_HALF } from '../../src/surface/terrain';
 import { DIST_CELL, DIST_N, DIST_REACH, originX, originZ } from '../../src/surface/disturbance';
 import { HERO_RECYCLE } from '../../src/surface/heroLeaves';
 import { bellyHeight, wormSurface } from '../../src/worm/surfaceHeight';
+import { createBody } from '../../src/worm/body';
 import type { Vec3 } from '../../src/core/vec';
 import type { WormPose } from '../../src/worm/wormMesh';
 
@@ -134,6 +135,56 @@ describe('the crawl can start anywhere (the worm coming up out of the cut)', () 
     }
     // Some of them come up with a prop in the camera's way: its reach starts settled too.
     expect(craned).toBeGreaterThan(0);
+  });
+
+  it('the camera aim holds still between the first steps where it starts pulled in by a prop', () => {
+    const camera = new THREE.PerspectiveCamera();
+    const p = pose();
+    let craned = 0;
+    for (const { pts, heading } of sites()) {
+      const c = new Crawl();
+      c.reset(c.hero.count, pts, heading);
+      if (c.cameraReach >= 1) continue;
+      craned++;
+      c.interpolate(0, 0, p, camera);
+      const q0 = camera.quaternion.clone();
+      for (let k = 0; k < 3; k++) {
+        for (const alpha of [0, 0.25, 0.5, 0.75, 1]) {
+          c.interpolate(alpha, k * DT, p, camera);
+          // Under a thousandth of a degree, at any alpha.
+          expect(2 * Math.acos(Math.min(1, Math.abs(q0.dot(camera.quaternion)))) * (180 / Math.PI)).toBeLessThan(1e-3);
+        }
+        c.step(DT, STILL);
+      }
+    }
+    expect(craned).toBeGreaterThan(0);
+  });
+
+  it('points spaced flat (createBody) on a slope are held to the body first: an idle first step still moves nothing', () => {
+    let sloped = 0;
+    let tried = 0;
+    for (let gx = -16; gx <= 16; gx += 2) {
+      for (let gz = -16; gz <= 16; gz += 2) {
+        const heading = 0.37 * gx - 0.61 * gz;
+        const pts = createBody(WORM_SEGMENTS, SPACING, { x: gx, y: 0, z: gz }, heading);
+        if (!clear(pts) || !pts.every((q) => Math.abs(q.x) < PLAY_HALF - 0.5 && Math.abs(q.z) < PLAY_HALF - 0.5)) continue;
+        // Flat spacing over the floor's rise and fall: some gaps are over SPACING in 3D.
+        const over = pts.some((q, i) => i > 0 && Math.hypot(SPACING, rest(q.x, q.z) - rest(pts[i - 1].x, pts[i - 1].z)) > SPACING + 1e-4);
+        if (over) sloped++;
+        tried++;
+        const c = new Crawl();
+        c.reset(c.hero.count, pts, heading);
+        // Held close to where they were given (the gaps shrink by well under a centimetre).
+        for (let i = 0; i < WORM_SEGMENTS; i++) expect(Math.hypot(c.body[i].x - pts[i].x, c.body[i].z - pts[i].z)).toBeLessThan(0.05);
+        expect(c.body[0].x).toBe(pts[0].x);
+        expect(c.body[0].z).toBe(pts[0].z);
+        const frame0 = c.body.map((b) => ({ ...b }));
+        c.step(DT, STILL);
+        for (let i = 0; i < WORM_SEGMENTS; i++) expect(moved(c.body[i], frame0[i])).toBeLessThan(1e-6);
+      }
+    }
+    expect(tried).toBeGreaterThan(60);
+    expect(sloped).toBeGreaterThan(50);
   });
 
   it('crawls on from there smoothly: the head speeds up as from rest, the camera never jumps', () => {

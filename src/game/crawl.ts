@@ -3,17 +3,14 @@ import { copy3 as copy, vec3s as blank, type Vec2, type Vec3 } from '../core/vec
 import { stepFollowCam, type FollowCamState } from '../surface/followCamera';
 import { createBody, followHead } from '../worm/body';
 import { clampToNeck, stepWorm, type WormMotion } from '../worm/locomotion';
-import { advanceWave, type WaveState } from '../worm/wormShape';
+import { advanceWave, probeReach, type HeadProbe, type WaveState } from '../worm/wormShape';
 import {
   WAVES, WORM_HALF_WIDTH, bodyCoordAt, peristalsisAmplitude, swellRange, wormExtent, wormLength,
   type WormExtent, type WormPose,
 } from '../worm/wormMesh';
-import { probeReach, type HeadProbe } from '../worm/wormShape';
 import { bellyHeight, wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import { floorHeight } from '../surface/litterDepth';
-import {
-  createDisturbance, recentre, stampBody, decay, clearDisturbance, type DisturbanceMap,
-} from '../surface/disturbance';
+import { createDisturbance, recentre, stampBody, decay, clearDisturbance, type DisturbanceMap } from '../surface/disturbance';
 import {
   clearHeroLeaves, createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
   HERO_MAX, PUSHER_SPAN, PUSHER_STRIDE, type HeroLeaves,
@@ -119,24 +116,24 @@ export class Crawl {
   }
 
   /**
-   * The worm still, facing `heading`: at `at` (head first, x and z as given, each resting on the
-   * floor), else straight at the spawn. Its camera settles behind it, and the previous step is
-   * the same (nothing to interpolate, so nothing sweeps across a jump).
+   * The worm still, facing `heading`: at `at` (head first, on the floor, then held to the body's
+   * spacing as steps hold it: three passes converge, so an idle first step moves nothing), else
+   * straight at the spawn. Its camera settles behind it, and the previous step is the same
+   * (nothing to interpolate, so nothing sweeps or turns across a jump).
    */
   private place(at: readonly Vec3[] | null, heading: number): void {
     const head = { x: at ? at[0].x : 0, y: 0, z: at ? at[0].z : 0 };
     this.motion = { head, heading };
     head.y = this.rest(head.x, head.z);
     const body = at ?? createBody(WORM_SEGMENTS, SPACING, head, heading);
-    for (let i = 0; i < WORM_SEGMENTS; i++) {
-      this.body[i] = { x: body[i].x, y: at ? this.rest(body[i].x, body[i].z) : head.y, z: body[i].z };
-      copy(this.prevBody[i], this.body[i]);
-    }
+    body.forEach((p, i) => (this.body[i] = { x: p.x, y: at ? this.rest(p.x, p.z) : head.y, z: p.z }));
+    for (let k = 0; at && k < 3; k++) this.trail(head);
+    for (let i = 0; i < WORM_SEGMENTS; i++) copy(this.prevBody[i], this.body[i]);
     this.cam = this.clearance.settle(head, heading);
     copy(this.prevCam, this.cam.pos);
     copy(this.prevHead, head);
     this.prevYaw = this.cam.yaw;
-    this.prevReach = 1;
+    this.prevReach = this.clearance.reach;
     copy(this.focus, head);
     this.wave.phase = this.wave.activity = 0;
     this.prevWave.phase = this.prevWave.activity = 0;
@@ -152,12 +149,14 @@ export class Crawl {
    * order as at the start. The speed test starts here, so its numbers never depend on where the
    * worm had been. `heroes`: how many hero leaves to scatter (the same count as now unless given).
    * With `at` (WORM_SEGMENTS points, head first) the same fresh start happens there, facing
-   * `heading`: the worm coming up out of the cut, with no trail or leaf drawn across the jump.
+   * `heading`: the worm coming up out of the cut, with no trail or leaf drawn across the jump. Frame
+   * 0 is `at` exactly only where the points, rested on the floor, are at most SPACING apart in 3D;
+   * farther apart (flat spacing over a slope) the body is first pulled to SPACING and off props, as a step would.
    */
   reset(heroes = this.hero.count, at: readonly Vec3[] | null = null, heading = 0): void {
     this.place(at, heading);
     clearDisturbance(this.disturbance);
-    recentre(this.disturbance, at ? at[MAP_CENTRE].x : 0, at ? at[MAP_CENTRE].z : 0);
+    recentre(this.disturbance, at ? this.body[MAP_CENTRE].x : 0, at ? this.body[MAP_CENTRE].z : 0);
     this.disturbed = true;
     clearHeroLeaves(this.hero);
     this.pushers.fill(0);
@@ -245,6 +244,15 @@ export class Crawl {
     return bellyHeight(wormSurface(x, z, this.surf));
   }
 
+  /** The body follows `head`, each trailing segment kept out of solid props and on its own surface (head first up a pile). */
+  private trail(head: Vec3): void {
+    followHead(this.body, head, SPACING);
+    for (let i = 1; i < this.body.length; i++) {
+      pushOut(this.body[i], BODY_RADIUS);
+      this.body[i].y = this.rest(this.body[i].x, this.body[i].z);
+    }
+  }
+
   /** One fixed step. `move`: x turns right, y crawls forward (backward input is ignored). */
   step(dt: number, move: Vec2): void {
     const { body, prevBody, wave } = this;
@@ -273,15 +281,7 @@ export class Crawl {
       wave, Math.hypot(head.x - this.prevHead.x, head.z - this.prevHead.z), dt,
       LOCOMOTION.speed, WAVES_PER_UNIT, BREATH_HZ,
     );
-    followHead(body, head, SPACING);
-    // Settle each trailing segment onto its own surface, so the body climbs a pile head first.
-    // On these gentle slopes (< ~20 degrees) this changes the 3D spacing by a few percent.
-    for (let i = 1; i < body.length; i++) {
-      const s = body[i];
-      // The body never cuts through a solid prop either.
-      pushOut(s, BODY_RADIUS);
-      s.y = this.rest(s.x, s.z);
-    }
+    this.trail(head);
     const view = this.clearance.follow(head, dt);
     this.clearance.update(view, this.cam, dt);
     this.cam = stepFollowCam(this.cam, view, this.motion.heading, dt, this.clearance.opts);
