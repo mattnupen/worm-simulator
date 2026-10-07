@@ -92,7 +92,7 @@ describe('the lazily built near clutter layer', () => {
     expect(world.nearClutter.visible).toBe(false);
   });
 
-  it('the world hands the rendered spine to the shader only while it is shown', () => {
+  it('the world hands the rendered spine to the shaders every frame (near clutter, and the pocket\'s leaves on every preset with detail)', () => {
     const crawl = new Crawl();
     const world = buildWorld(crawl);
     const camera = new THREE.PerspectiveCamera();
@@ -100,7 +100,8 @@ describe('the lazily built near clutter layer', () => {
     uSpine.fill(-77);
     world.apply(PRESETS.high);
     world.sync(crawl, 1, 0, camera);
-    expect(uSpine.every((v) => v === -77)).toBe(true);
+    expect(uSpine.some((v) => v === -77)).toBe(false);
+    uSpine.fill(-77);
     world.apply(PRESETS.ultra);
     world.sync(crawl, 1, 0, camera);
     expect(uSpine.some((v) => v === -77)).toBe(false);

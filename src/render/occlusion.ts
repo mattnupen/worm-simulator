@@ -16,6 +16,13 @@ import { SPINE_POINTS } from './groundUniforms';
  * How much of a leaf drops: OCC_DROP for a leaf standing well clear of the body (a hero leaf or
  * a curled litter leaf between the camera and the worm), only OCC_DRAPE for a leaf lying on the
  * body (within OCC_TOUCH of its axis), so a worm under thin litter still reads as under it.
+ *
+ * The funnel (V2 spec 8.2: the worm travels buried in the litter, the leaves above it fade): the
+ * higher above the body's axis a pixel lies (world up, uOccUp), the wider its hole (OCC_FUNNEL per
+ * metre, up to OCC_FUNNEL_HEIGHT), and from OCC_DEEP_FROM to OCC_DEEP_TO above the axis it drops
+ * completely. So the top of the litter (the drawn ground and the top leaves, 2 to 5 cm above the
+ * worm) opens wide and clean over it, while the leaves round it in its pocket keep the V1 shares:
+ * a look down into the litter, not an x-ray outline.
  */
 /** The tube's axis sits this far above the spine (the belly line): a body radius, flattened. */
 export const OCC_AXIS_UP = 0.1;
@@ -29,6 +36,15 @@ export const OCC_DRAPE = 0.4;
 export const OCC_TOUCH = 0.18;
 /** From OCC_TOUCH to OCC_CLEAR from the axis the drop rises from OCC_DRAPE to OCC_DROP. */
 export const OCC_CLEAR = 0.4;
+/** The hole widens by this (m) per metre a pixel lies above the body's axis... */
+export const OCC_FUNNEL = 0.25;
+/** ...up to this high (the deepest litter's top). */
+export const OCC_FUNNEL_HEIGHT = 1.2;
+/** The widest the hole gets (round the axis): occluderSegments' screen box covers this. */
+export const OCC_REACH = OCC_OUTER + OCC_FUNNEL * OCC_FUNNEL_HEIGHT;
+/** From this high above the axis (past the body's top) a pixel drops more, fully by OCC_DEEP_TO. */
+export const OCC_DEEP_FROM = 0.15;
+export const OCC_DEEP_TO = 0.3;
 /**
  * Only body at this view depth or more counts (nearer is below the frame or at the lens), fading
  * in over OCC_NEAR_FADE. Segments are clipped there, so every projected point is in front.
@@ -58,10 +74,11 @@ const smoothstep = (a: number, b: number, v: number): number => {
 /**
  * TS twin of occlusion() below: the share of a leaf's pixels dropped at the pixel whose ray has
  * tan-space direction (tx, ty) (NDC x / p00, y / p11), for a leaf at view depth dl there. seg and
- * count are occluderSegments' output; far its farthest kept depth (box[4], uOccDepth).
+ * count are occluderSegments' output; far its farthest kept depth (box[4], uOccDepth); up the
+ * world's up in view space as (x, y, depth) (uOccUp, worldUpInView).
  */
 export function occlusion(
-  tx: number, ty: number, dl: number, seg: ArrayLike<number>, count: number, far: number,
+  tx: number, ty: number, dl: number, seg: ArrayLike<number>, count: number, far: number, up: ArrayLike<number>,
 ): number {
   // Behind the whole body: the "in front" factor below is 0 for every segment, so skip the loop.
   if (dl >= far - OCC_FRONT) return 0;
@@ -84,9 +101,10 @@ export function occlusion(
       bu = u;
     }
   }
-  if (best >= OCC_OUTER * OCC_OUTER) return 0;
+  if (best >= OCC_REACH * OCC_REACH) return 0;
   const o = bi * 8;
   const ds = 1 / (seg[o + 2] + (seg[o + 6] - seg[o + 2]) * bu);
+  const front = ds - dl;
   // How near the leaf lies to the body: to the line of that segment (stretched to its neighbours'
   // reach, where a slanting ray meets the axis a segment or two from the leaf), in view space.
   const ad = 1 / seg[o + 2];
@@ -100,11 +118,26 @@ export function occlusion(
   const ly = ty * dl - ay;
   const lz = dl - ad;
   const v = Math.min(3, Math.max(-2, (lx * ex + ly * ey + lz * ed) / Math.max(ex * ex + ey * ey + ed * ed, 1e-8)));
-  const touch = Math.hypot(lx - ex * v, ly - ey * v, lz - ed * v);
-  return (1 - smoothstep(OCC_INNER, OCC_OUTER, Math.sqrt(best)))
-    * smoothstep(OCC_FRONT, OCC_FRONT_FULL, ds - dl)
+  const tx3 = lx - ex * v;
+  const ty3 = ly - ey * v;
+  const td3 = lz - ed * v;
+  const touch = Math.hypot(tx3, ty3, td3);
+  // How high above the axis the leaf lies (world up): the funnel.
+  const h = tx3 * up[0] + ty3 * up[1] + td3 * up[2];
+  const grow = OCC_FUNNEL * Math.min(OCC_FUNNEL_HEIGHT, Math.max(0, h));
+  const drop = OCC_DRAPE + (OCC_DROP - OCC_DRAPE) * smoothstep(OCC_TOUCH, OCC_CLEAR, touch);
+  return (1 - smoothstep(OCC_INNER + grow, OCC_OUTER + grow, Math.sqrt(best)))
+    * smoothstep(OCC_FRONT, OCC_FRONT_FULL, front)
     * smoothstep(OCC_NEAR, OCC_NEAR + OCC_NEAR_FADE, ds)
-    * (OCC_DRAPE + (OCC_DROP - OCC_DRAPE) * smoothstep(OCC_TOUCH, OCC_CLEAR, touch));
+    * (drop + (1 - drop) * smoothstep(OCC_DEEP_FROM, OCC_DEEP_TO, h));
+}
+
+/**
+ * The world's up (0, 1, 0) in view space as (x, y, depth), from a view matrix (three's
+ * matrixWorldInverse elements, column-major): uOccUp. Writes `out`.
+ */
+export function worldUpInView(view: ArrayLike<number>, out: { set(x: number, y: number, z: number): unknown }): void {
+  out.set(view[4], view[5], -view[6]);
 }
 
 /**
@@ -116,7 +149,7 @@ export function ign(x: number, y: number): number {
   return fr(52.9829189 * fr(x * 0.06711056 + y * 0.00583715));
 }
 
-/** GLSL occlusion(t, dl), stage-agnostic: needs uOccSeg, uOccCount and uOccDepth declared. */
+/** GLSL occlusion(t, dl), stage-agnostic: needs uOccSeg, uOccCount, uOccDepth and uOccUp declared. */
 export const OCCLUSION_FN_GLSL = /* glsl */ `
   float occlusion(vec2 t, float dl) {
     if (dl >= uOccDepth - ${f(OCC_FRONT)}) return 0.0;
@@ -134,19 +167,24 @@ export const OCCLUSION_FN_GLSL = /* glsl */ `
       float q2 = dot(q, q);
       if (q2 < best * inv * inv) { best = q2 / (inv * inv); bi = i; bu = u; }
     }
-    if (best >= ${f(OCC_OUTER * OCC_OUTER)}) return 0.0;
+    if (best >= ${f(OCC_REACH * OCC_REACH)}) return 0.0;
     vec4 a = uOccSeg[2 * bi];
     vec4 b = uOccSeg[2 * bi + 1];
     float ds = 1.0 / mix(a.z, b.z, bu);
+    float front = ds - dl;
     vec3 A = vec3(a.xy, 1.0) / a.z;
     vec3 e = vec3(b.xy, 1.0) / b.z - A;
     vec3 l = vec3(t, 1.0) * dl - A;
     float v = clamp(dot(l, e) / max(dot(e, e), 1e-8), -2.0, 3.0);
-    float touch = length(l - e * v);
-    return (1.0 - smoothstep(${f(OCC_INNER)}, ${f(OCC_OUTER)}, sqrt(best)))
-      * smoothstep(${f(OCC_FRONT)}, ${f(OCC_FRONT_FULL)}, ds - dl)
+    vec3 off = l - e * v;
+    float touch = length(off);
+    float h = dot(off, uOccUp);
+    float grow = ${f(OCC_FUNNEL)} * clamp(h, 0.0, ${f(OCC_FUNNEL_HEIGHT)});
+    float drop = mix(${f(OCC_DRAPE)}, ${f(OCC_DROP)}, smoothstep(${f(OCC_TOUCH)}, ${f(OCC_CLEAR)}, touch));
+    return (1.0 - smoothstep(${f(OCC_INNER)} + grow, ${f(OCC_OUTER)} + grow, sqrt(best)))
+      * smoothstep(${f(OCC_FRONT)}, ${f(OCC_FRONT_FULL)}, front)
       * smoothstep(${f(OCC_NEAR)}, ${f(OCC_NEAR + OCC_NEAR_FADE)}, ds)
-      * mix(${f(OCC_DRAPE)}, ${f(OCC_DROP)}, smoothstep(${f(OCC_TOUCH)}, ${f(OCC_CLEAR)}, touch));
+      * mix(drop, 1.0, smoothstep(${f(OCC_DEEP_FROM)}, ${f(OCC_DEEP_TO)}, h));
   }
 `;
 
@@ -169,6 +207,7 @@ export const OCCLUDE_GLSL = /* glsl */ `
   uniform vec4 uOccBox;
   uniform vec2 uOccTan;
   uniform float uOccDepth;
+  uniform vec3 uOccUp;
   ${OCCLUSION_FN_GLSL}
   ${IGN_GLSL}
   bool fadedOut() {

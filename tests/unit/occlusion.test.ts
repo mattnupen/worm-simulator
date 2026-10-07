@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { occluderSegments } from '../../src/render/occluderSegments';
 import {
-  occlusion, ign, OCCLUDE_GLSL, OCCLUSION_FN_GLSL, OCC_AXIS_UP, OCC_DRAPE, OCC_DROP, OCC_INNER,
-  OCC_NEAR, OCC_NEAR_FADE, OCC_OUTER, OCC_SEGMENTS,
+  occlusion, ign, worldUpInView, OCCLUDE_GLSL, OCCLUSION_FN_GLSL, OCC_AXIS_UP, OCC_DEEP_TO, OCC_DRAPE, OCC_DROP,
+  OCC_INNER, OCC_NEAR, OCC_NEAR_FADE, OCC_REACH, OCC_SEGMENTS,
 } from '../../src/render/occlusion';
 import { SPINE_POINTS } from '../../src/render/groundUniforms';
 import { mulberry32 } from '../../src/core/random';
@@ -21,10 +21,14 @@ function spineFrom(x: number, z: number, curve = 0): Float32Array {
   return s;
 }
 
-/** The follow camera's view of a head at the origin heading +z: 2.6 m behind, 1.1 m up. */
+/**
+ * The follow camera's view of a head at the origin heading +z, buried in open litter (V2): 2.6 m
+ * behind and 1.1 m over a point 0.1 above the top of the litter (0.55 deep), aiming 1 m ahead
+ * and 0.6 up.
+ */
 function followCamera(): THREE.PerspectiveCamera {
   const c = new THREE.PerspectiveCamera(60, 1366 / 768, 0.2, 120);
-  c.position.set(0, 1.1, -2.6);
+  c.position.set(0, 1.75, -2.6);
   c.lookAt(0, 0.6, 1);
   c.updateMatrixWorld();
   return c;
@@ -36,6 +40,9 @@ function view(c: THREE.PerspectiveCamera, spine: Float32Array) {
   const box = new Float32Array(5);
   const pe = c.projectionMatrix.elements;
   const count = occluderSegments(spine, c.matrixWorldInverse.elements, pe[0], pe[5], seg, box);
+  const up = new THREE.Vector3();
+  worldUpInView(c.matrixWorldInverse.elements, up);
+  const upA = up.toArray();
   const v = new THREE.Vector3();
   /** NDC x, y and view depth of a world point. */
   const project = (p: number[]): number[] => {
@@ -45,9 +52,9 @@ function view(c: THREE.PerspectiveCamera, spine: Float32Array) {
   };
   const at = (p: number[]): number => {
     const [nx, ny, d] = project(p);
-    return occlusion(nx / pe[0], ny / pe[5], d, seg, count, box[4]);
+    return occlusion(nx / pe[0], ny / pe[5], d, seg, count, box[4], upA);
   };
-  return { seg, box, count, project, at };
+  return { seg, box, count, project, at, up: upA };
 }
 
 const camera = followCamera();
@@ -62,7 +69,7 @@ const along = (i: number, t: number, side = 0): number[] => {
 };
 
 describe('occlusion (which leaf pixels in front of the worm fade)', () => {
-  it('fades a leaf well clear of the body anywhere in front of the visible body, head to tail', () => {
+  it('drops a leaf well above the body completely, anywhere in front of the visible body (the top of the litter over the buried worm)', () => {
     for (const curve of [0, 0.8, -1.4]) {
       const s = spineFrom(0, 0, curve);
       const f = view(camera, s);
@@ -74,7 +81,9 @@ describe('occlusion (which leaf pixels in front of the worm fade)', () => {
         checked++;
         for (const t of [0.3, 0.5]) {
           const p = [0, 1, 2].map((k) => cam[k] + (a[k] - cam[k]) * t);
-          expect(f.at(p), `curve ${curve} point ${i} at ${t}`).toBeCloseTo(OCC_DROP, 6);
+          // At least OCC_DEEP_TO above the axis: dropped in full.
+          expect(p[1] - a[1]).toBeGreaterThan(OCC_DEEP_TO);
+          expect(f.at(p), `curve ${curve} point ${i} at ${t}`).toBeCloseTo(1, 6);
         }
       }
       // The head and the body down to the bottom of the frame.
@@ -89,27 +98,44 @@ describe('occlusion (which leaf pixels in front of the worm fade)', () => {
     }
   });
 
+  it('keeps V1\'s shares for the leaves round the body in its pocket, just in front of it', () => {
+    for (const i of [2, 4]) {
+      // 10% of the way back toward the camera from the axis: about 0.1 above it, 0.3 from it.
+      const o = fv.at(along(i, 0.9));
+      expect(o, `point ${i}`).toBeGreaterThan(OCC_DRAPE - 0.01);
+      expect(o, `point ${i}`).toBeLessThan(OCC_DROP + 0.01);
+    }
+  });
+
   it('leaves alone a leaf beside the body, or behind it', () => {
-    expect(fv.at(along(3, 0.5, OCC_OUTER * 2))).toBe(0);
+    expect(fv.at(along(3, 0.5, OCC_REACH * 2))).toBe(0);
     expect(fv.at([1, 0.05, -1])).toBe(0);
     expect(fv.at(along(3, 1.3))).toBe(0);
     expect(fv.at(along(0, 1.15))).toBe(0);
   });
 
-  it('falls off smoothly sideways, the hole a little wider than the body', () => {
-    let prev = OCC_DROP;
-    let first0 = -1;
-    for (let k = 0; k <= 200; k++) {
-      const off = k * 0.002;
-      const o = fv.at(along(2, 0.6, off));
-      expect(o).toBeLessThanOrEqual(prev + 1e-9);
-      if (k > 0) expect(prev - o).toBeLessThan(0.03);
-      if (o === 0 && first0 < 0) first0 = off;
-      prev = o;
-    }
-    // At 0.6 of the way the leaf is 0.6 as far: the miss at the body is the offset / 0.6.
-    expect(first0 / 0.6).toBeGreaterThan(OCC_INNER);
-    expect(first0 / 0.6).toBeLessThan(OCC_OUTER + 0.02);
+  it('falls off smoothly sideways, the hole wider the higher above the body (the funnel)', () => {
+    const edge = (t: number): number => {
+      let prev = 1;
+      let first0 = -1;
+      for (let k = 0; k <= 400; k++) {
+        const off = k * 0.002;
+        const o = fv.at(along(2, t, off));
+        // Next to the body the drop share rises as the leaf leaves it (OCC_DRAPE to OCC_DROP), so
+        // the fade may tick up by a hair; it never jumps.
+        expect(o).toBeLessThanOrEqual(prev + 0.002);
+        if (k > 0) expect(Math.abs(prev - o)).toBeLessThan(0.05);
+        if (o === 0 && first0 < 0) first0 = off;
+        prev = o;
+      }
+      // At t of the way the leaf is t as far: the miss at the body is the offset / t.
+      return first0 / t;
+    };
+    const high = edge(0.6);
+    const low = edge(0.9);
+    expect(low).toBeGreaterThan(OCC_INNER);
+    expect(high).toBeGreaterThan(low + 0.1);
+    expect(high).toBeLessThan(OCC_REACH + 0.02);
   });
 
   it('keeps 40% of a clear occluder, as the spec says', () => {
@@ -136,7 +162,7 @@ describe('occluderSegments (the projected body and the screen box that skips the
       // The depth early-out is exact: without it, the same answer.
       const [tx, ty, d] = f.project(p);
       const pe = c.projectionMatrix.elements;
-      expect(occlusion(tx / pe[0], ty / pe[5], d, f.seg, f.count, Infinity)).toBe(o);
+      expect(occlusion(tx / pe[0], ty / pe[5], d, f.seg, f.count, Infinity, f.up)).toBe(o);
       if (o <= 0) continue;
       hits++;
       const [nx, ny] = f.project(p);
@@ -165,15 +191,15 @@ describe('occluderSegments (the projected body and the screen box that skips the
     expect(fv.count).toBe(1);
     const curving = view(camera, spineFrom(0, 0, 0.5));
     expect(curving.count).toBeGreaterThan(1);
-    expect(curving.count).toBeLessThan(8);
+    expect(curving.count).toBeLessThan(10);
     // A tight curl keeps every segment it needs.
     expect(view(camera, spineFrom(0, 0, 1.6)).count).toBeGreaterThan(curving.count);
   });
 
-  it('keeps only the part in view: the straight worm from the follow camera, a small box', () => {
+  it('keeps only the part in view: the straight worm from the follow camera, a box round it', () => {
     const b = fv.box;
-    // NDC spans 2 x 2: under a sixth of the screen.
-    expect(((Math.min(b[2], 1) - Math.max(b[0], -1)) * (Math.min(b[3], 1) - Math.max(b[1], -1))) / 4).toBeLessThan(1 / 6);
+    // NDC spans 2 x 2: under 40% of the screen (V1's tighter hole, without the funnel, under a sixth).
+    expect(((Math.min(b[2], 1) - Math.max(b[0], -1)) * (Math.min(b[3], 1) - Math.max(b[1], -1))) / 4).toBeLessThan(0.4);
     // Every kept end is in front, at OCC_NEAR or deeper, and box[4] is the farthest of them.
     let far = 0;
     for (let i = 0; i < fv.count * 2; i++) {

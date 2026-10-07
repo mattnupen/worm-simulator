@@ -7,6 +7,7 @@ import {
 } from './wormShape';
 import { createWormMaterial } from './wormMaterial';
 import { WormShadow, type GroundFn } from './wormShadow';
+import { POCKET_ORDER } from '../render/drawOrder';
 
 const RINGS = 48;
 const RADIAL = 14;
@@ -197,6 +198,8 @@ export class HeroWorm {
     geo.setIndex(new THREE.BufferAttribute(tubeIndices(RINGS, RADIAL), 1));
     const mesh = new THREE.Mesh(geo, createWormMaterial());
     mesh.frustumCulled = false;
+    // Buried in the litter: drawn after its top, so only what the hole shows is shaded.
+    mesh.renderOrder = POCKET_ORDER;
     mesh.name = 'worm';
 
     this.shadow = new WormShadow(this.m, SHADOW_STEP, groundAt);

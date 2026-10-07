@@ -1,5 +1,5 @@
 import { WORLD_HALF } from './terrain';
-import { OCC_OUTER } from '../render/occlusion';
+import { OCC_REACH } from '../render/occlusion';
 
 /**
  * The base litter is cut into CHUNKS x CHUNKS square chunks over the world, so that the
@@ -14,19 +14,13 @@ export const LOD_NEAR = 9;
 /** ...and switches back to low-detail leaves only beyond LOD_NEAR + LOD_GAP (no flicker at the line). */
 export const LOD_GAP = 2;
 /**
- * Slack (m) round a chunk's leaves for the disturbance map: a lifted leaf rises up to about 0.5
- * and slides up to PUSH_SLIDE (0.2) sideways (extreme probes moved a vertex 0.71). Pads the
- * bounding spheres and the active test.
+ * A chunk reacts to the worm (the material with the occluder fade) when the x, z box of its
+ * leaves, grown by this, meets the fade's hull (the camera and the body, see hullBox): the fade's
+ * widest reach round the body's axis (OCC_REACH, the funnel's top). Elsewhere its leaves cannot
+ * fade, so the plain material draws them identically, without the discard. The top leaves lie 2
+ * to 5 cm above the buried worm (V2 spec 8.2), so the disturbance map never moves them.
  */
-export const DRAPE_MARGIN = 0.75;
-/**
- * A chunk reacts to the worm (the material with the disturbance map and the occluder fade) when
- * the x, z box of its leaves, grown by this, meets the disturbed part of the map or the fade's
- * hull (the camera and the body, see hullBox): the drape's slack plus the fade's reach round the
- * body's axis (OCC_OUTER). Elsewhere its leaves cannot move or fade, so the plain material draws
- * them identically, without the texture fetches or the discard.
- */
-export const ACTIVE_MARGIN = DRAPE_MARGIN + OCC_OUTER;
+export const ACTIVE_MARGIN = OCC_REACH;
 
 /** Which chunk (x, z) falls in; points outside the world clamp to the edge chunks. */
 export function chunkIndex(x: number, z: number): number {
@@ -92,8 +86,8 @@ export function boxesMeet(a: ArrayLike<number>, b: ArrayLike<number>, pad: numbe
 
 /**
  * The x, z box of the leaf fade's hull: the camera and every point of the rendered spine (x, y, z
- * per point). Every pixel the fade can drop lies within OCC_OUTER of the hull of the camera and
- * the body's axis (occlusion.ts), so within OCC_OUTER of this box seen from above. Allocates nothing.
+ * per point). Every pixel the fade can drop lies within OCC_REACH of the hull of the camera and
+ * the body's axis (occlusion.ts), so within OCC_REACH of this box seen from above. Allocates nothing.
  */
 export function hullBox(camX: number, camZ: number, spine: ArrayLike<number>, out: number[] | Float32Array): void {
   out[0] = camX;

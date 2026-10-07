@@ -246,19 +246,20 @@ const fragmentShader = /* glsl */ `
 `;
 
 /**
- * Which leaves: litter chunks that can react to the worm (disturbance map, occluder fade), other
- * full-leaf litter chunks ('plain', neither), distant low-detail litter ('far'), the close-up
- * detail layer (reacts), the falling leaves (animated), or the hero leaves (instanced, moved by
- * their own physics). The litter swaps between the first three per chunk, never recompiling.
+ * Which leaves: litter chunks near the worm ('litter': they fade over it), other full-leaf litter
+ * chunks ('plain'), distant low-detail litter ('far'), the close-up top leaves ('detail': they
+ * fade), the falling leaves (animated), or the hero leaves (instanced, moved by their own physics).
+ * The litter swaps between the first three per chunk, never recompiling. The top leaves lie 2 to
+ * 5 cm above the worm (V2 spec 8.2), so the disturbance map no longer moves them.
  */
 export type LeafVariant = 'litter' | 'plain' | 'far' | 'falling' | 'detail' | 'hero';
 
 const DEFINES: Record<LeafVariant, Record<string, string>> = {
-  litter: { DISTURB: '', OCCLUDE: '' },
+  litter: { OCCLUDE: '' },
   plain: {},
   far: { LOD: '' },
   falling: { FALLING: '' },
-  detail: { DETAIL: '', DISTURB: '', OCCLUDE: '' },
+  detail: { DETAIL: '', OCCLUDE: '' },
   hero: { HERO: '', OCCLUDE: '' },
 };
 

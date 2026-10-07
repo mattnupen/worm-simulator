@@ -6,7 +6,7 @@ import {
   groundUniforms, setDisturbFade, setFocus, setLeafReaction, setSpine, uploadDisturbance,
 } from '../render/groundUniforms';
 import { occluderSegments } from '../render/occluderSegments';
-import { disturbedBox } from '../surface/disturbance';
+import { worldUpInView } from '../render/occlusion';
 import { PRESETS, type PresetSpec } from '../render/graphics';
 import { buildTerrain } from '../surface/terrainMesh';
 import { buildForestTrees } from '../surface/forestTrees';
@@ -16,6 +16,8 @@ import { buildDetailLayer, type DetailLayer } from '../surface/detailLeaves';
 import { HeroLeafMesh } from '../surface/heroLeafMesh';
 import { buildNearClutterLayer, type NearClutterLayer } from '../surface/nearClutter';
 import { buildGroundProps, writeHeroLog, type GroundProps } from '../surface/groundProps';
+import { buildFloorPatch } from '../surface/floorPatch';
+import { GROUND_ORDER } from '../render/drawOrder';
 import { HeroWorm, type WormPose } from '../worm/wormMesh';
 import { wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import { WORM_SEGMENTS, type Crawl } from './crawl';
@@ -25,7 +27,7 @@ export interface World {
   scene: THREE.Scene;
   /** The base litter in chunks (full and low-detail meshes), built with Ultra's leaf count. */
   readonly litter: LeafLitter;
-  /** The close-up leaf layer around the worm (built when a preset first draws it). */
+  /** The close-up leaf layer around the worm, on the top of the litter (built when a preset first draws it). */
   readonly detail: DetailLayer;
   /** The loose physics leaves near the head (one instanced draw; the crawl's pool sets the count). */
   hero: HeroLeafMesh;
@@ -61,8 +63,11 @@ export function buildWorld(crawl: Crawl): World {
   // The ground fills most of the screen: draw it after everything that sits on it, so the
   // depth test skips ground pixels already covered by leaves, props and trunks.
   const terrain = buildTerrain();
-  terrain.renderOrder = 5;
-  forest.add(terrain, buildForestTrees(writeHeroLog), buildDistantTrees(), litter.group, detail.group, props.mesh);
+  terrain.renderOrder = GROUND_ORDER;
+  forest.add(
+    terrain, buildFloorPatch(), buildForestTrees(writeHeroLog), buildDistantTrees(), litter.group, detail.group,
+    props.mesh,
+  );
   const hero = new HeroLeafMesh(crawl.hero);
   const nearClutter = buildNearClutterLayer();
   const atmosphere = buildAtmosphere();
@@ -72,8 +77,6 @@ export function buildWorld(crawl: Crawl): World {
   const worm = new HeroWorm(WORM_SEGMENTS, (x, z) => wormSurface(x, z, surf).y);
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
   const occBox = new Float32Array(5);
-  // Where the uploaded map can move a leaf (disturbedBox); empty until the first upload.
-  const distBox = new Float32Array([Infinity, Infinity, -Infinity, -Infinity]);
 
   scene.add(forest, hero.mesh, nearClutter.group, worm.group, buildSky(), atmosphere.group);
   return {
@@ -92,7 +95,8 @@ export function buildWorld(crawl: Crawl): World {
       worm.update(pose);
       hero.update(crawl.hero, alpha);
       setFocus(crawl.focus.x, crawl.focus.y, crawl.focus.z);
-      if (nearClutter.visible) setSpine(pose.spine);
+      // The near clutter keeps clear of the spine, and the floor patch centres on it.
+      setSpine(pose.spine);
       // The leaf fade (every preset): the body as this frame's camera sees it.
       camera.updateMatrixWorld();
       const pe = camera.projectionMatrix.elements;
@@ -101,16 +105,16 @@ export function buildWorld(crawl: Crawl): World {
       g.uOccCount.value = occluderSegments(pose.spine, view, pe[0], pe[5], g.uOccSeg.value, occBox);
       g.uOccBox.value.fromArray(occBox);
       g.uOccDepth.value = occBox[4];
+      worldUpInView(view, g.uOccUp.value);
       g.uOccTan.value.set(1 / pe[0], 1 / pe[5]);
       if (crawl.disturbed) {
         uploadDisturbance(crawl.disturbance);
-        // The map's window (crawl.reach): leaves past it never read the map, so chunks there need not react.
+        // The window the pocket's leaves read the map in.
         setDisturbFade(crawl.reach.fadeFrom, crawl.reach.fadeTo);
-        disturbedBox(crawl.disturbance, distBox, crawl.reach.fadeTo);
         crawl.disturbed = false;
       }
-      // Per litter chunk: full or low-detail leaves, and whether it may react (as uploaded now).
-      litter.update(camera.position.x, camera.position.z, pose.spine, distBox);
+      // Per litter chunk: full or low-detail leaves, and whether it may fade.
+      litter.update(camera.position.x, camera.position.z, pose.spine);
     },
   };
 }

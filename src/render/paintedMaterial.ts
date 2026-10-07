@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { getNoiseTexture } from './noiseTexture';
 import { groundUniforms } from './groundUniforms';
-import { TRAIL_GROUND_GLSL } from './leafGlsl';
+import { OCCLUDE_GLSL } from './occlusion';
 
 /** Shared by reference across every painted material (and the sky / atmosphere shaders). */
 export const sharedLighting = {
@@ -143,11 +143,14 @@ const fragmentShader = /* glsl */ `
   varying vec4 vFog;
   ${PAINTED_LIGHT_GLSL}
   ${GRADE_GLSL}
-  #ifdef TRAIL
-  ${TRAIL_GROUND_GLSL}
+  #ifdef OCCLUDE
+  ${OCCLUDE_GLSL}
   #endif
 
   void main() {
+    #ifdef OCCLUDE
+      if (fadedOut()) discard;
+    #endif
     vec3 n = normalize(vNormalW);
     if (!gl_FrontFacing) n = -n;
     // One fetch of the shared tiling noise: R patches, G strokes, B flecks, A hue drift.
@@ -162,9 +165,6 @@ const fragmentShader = /* glsl */ `
     // Warm/cool hue drift and value variation, so lit areas read as paint, not flat fill.
     vec3 tint = mix(vec3(1.08, 0.98, 0.84), vec3(0.88, 0.98, 1.06), hue);
     vec3 base = vColor * mix(vec3(1.0), tint, 0.7 * uBrush) * (1.0 + b * 0.45);
-    #ifdef TRAIL
-      base *= trailShade(vPosW.xz);
-    #endif
     vec3 v = normalize(cameraPosition - vPosW);
     vec3 lit = paintedLight(base, n, v, b, dapple);
 
@@ -181,8 +181,11 @@ export interface PaintedOptions {
   doubleSide?: boolean;
   /** Multiply by the geometry's `color` attribute (baked painted variation). */
   vertexColors?: boolean;
-  /** The ground: darken the soil along the worm's fresh trail (reads the disturbance map). */
-  trail?: boolean;
+  /**
+   * The ground (the top of the litter): its pixels in front of the buried worm drop out in the
+   * leaves' screen-space dither (occlusion.ts), so the worm shows in its pocket.
+   */
+  occlude?: boolean;
 }
 
 export function createPaintedMaterial(opts: PaintedOptions): THREE.ShaderMaterial {
@@ -191,14 +194,16 @@ export function createPaintedMaterial(opts: PaintedOptions): THREE.ShaderMateria
       ...sharedLighting,
       uColor: { value: new THREE.Color(opts.color) },
       uBrush: { value: opts.brush ?? 0.6 },
-      ...(opts.trail ? {
-        uDisturbTrail: groundUniforms.uDisturbTrail,
-        uDistOrigin: groundUniforms.uDistOrigin,
-        uDistFade: groundUniforms.uDistFade,
-        uLeafReact: groundUniforms.uLeafReact,
+      ...(opts.occlude ? {
+        uOccSeg: groundUniforms.uOccSeg,
+        uOccCount: groundUniforms.uOccCount,
+        uOccBox: groundUniforms.uOccBox,
+        uOccTan: groundUniforms.uOccTan,
+        uOccDepth: groundUniforms.uOccDepth,
+        uOccUp: groundUniforms.uOccUp,
       } : {}),
     },
-    defines: opts.trail ? { TRAIL: '' } : {},
+    defines: opts.occlude ? { OCCLUDE: '' } : {},
     vertexShader,
     fragmentShader,
     vertexColors: opts.vertexColors ?? false,

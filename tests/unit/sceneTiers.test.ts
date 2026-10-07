@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as THREE from 'three';
 import { buildLeafLitter, type LeafLitter } from '../../src/surface/leafLitterMesh';
 import {
-  CHUNKS, CHUNK_SIZE, LOD_NEAR, LOD_GAP, ACTIVE_MARGIN, chunkIndex, chunkDistance,
+  CHUNKS, CHUNK_SIZE, LOD_NEAR, LOD_GAP, chunkIndex, chunkDistance,
 } from '../../src/surface/litterChunks';
 import { LOD_POINTS } from '../../src/surface/leafLod';
 import { buildGroundProps } from '../../src/surface/groundProps';
@@ -18,7 +18,6 @@ import { sharedLighting } from '../../src/render/paintedMaterial';
 /** Index counts drawn by every chunk's full-leaf mesh, and their totals. */
 const drawn = (l: LeafLitter) => l.chunks.reduce((a, c) => a + c.near.geometry.drawRange.count, 0);
 const total = (l: LeafLitter) => l.chunks.reduce((a, c) => a + c.near.geometry.index!.count, 0);
-const EMPTY = [Infinity, Infinity, -Infinity, -Infinity];
 /** A straight worm along -z from (x, z) (head first), the camera 2.6 behind its head. */
 function straightWorm(x: number, z: number): { spine: Float32Array; camX: number; camZ: number } {
   const spine = new Float32Array(16 * 3);
@@ -91,7 +90,7 @@ describe('scene tiers', () => {
 
     it('shows full leaves near the camera and low-detail ones far away', () => {
       const w = straightWorm(0, 0);
-      litter.update(w.camX, w.camZ, w.spine, EMPTY);
+      litter.update(w.camX, w.camZ, w.spine);
       const here = litter.chunks[chunkIndex(0, 0)];
       const corner = litter.chunks[chunkIndex(19, 19)];
       expect(here.near.visible).toBe(true);
@@ -105,9 +104,10 @@ describe('scene tiers', () => {
       }
     });
 
-    it('uses the reacting material only where leaves can move or fade, and the three are precompiled variants', () => {
+    it('uses the reacting material only where leaves can fade, and the three are precompiled variants', () => {
       const { active, plain, far } = litter.materials;
-      expect(active.defines).toHaveProperty('DISTURB');
+      // The top leaves lie over the buried worm: they fade over it, but never move (V2 spec 8.2).
+      expect(active.defines).not.toHaveProperty('DISTURB');
       expect(active.defines).toHaveProperty('OCCLUDE');
       for (const m of [plain, far]) {
         expect(m.defines).not.toHaveProperty('DISTURB');
@@ -116,18 +116,12 @@ describe('scene tiers', () => {
       expect(far.defines).toHaveProperty('LOD');
       const w = straightWorm(-3, -3);
       // An empty map (Low, or a still worm before its first step): only the fade's hull reacts.
-      litter.update(w.camX, w.camZ, w.spine, EMPTY);
+      litter.update(w.camX, w.camZ, w.spine);
       const here = litter.chunks[chunkIndex(-3, -3)];
       expect(here.near.material).toBe(active);
       expect(litter.chunks[chunkIndex(-15, 15)].near.material).toBe(plain);
       expect(litter.chunks[chunkIndex(15, 15)].far.material).toBe(far);
-      // The disturbed part of the map reacts too, grown by the drape and the fade's reach.
-      const box = litter.chunks[chunkIndex(15, -15)].box;
-      const dist = [box[2] + ACTIVE_MARGIN - 0.01, -15, box[2] + 1, -14];
-      litter.update(w.camX, w.camZ, w.spine, dist);
-      expect(litter.chunks[chunkIndex(15, -15)].active).toBe(true);
-      dist[0] = box[2] + ACTIVE_MARGIN + 0.01;
-      litter.update(w.camX, w.camZ, w.spine, dist);
+      // Only the fade's hull reacts: chunks far from the camera and the worm do not.
       expect(litter.chunks[chunkIndex(15, -15)].active).toBe(false);
       expect(litter.chunks[chunkIndex(15, -15)].near.material).toBe(plain);
       // Swapping never makes a new material.
@@ -135,17 +129,14 @@ describe('scene tiers', () => {
       for (const m of used) expect([active, plain, far]).toContain(m);
     });
 
-    it('a reacting chunk always shows its full leaves, even beyond LOD_NEAR', () => {
-      const w = straightWorm(-15, -15);
-      const c = chunkIndex(15, 15);
-      const box = litter.chunks[c].box;
-      litter.update(w.camX, w.camZ, w.spine, [box[0], box[1], box[0] + 0.5, box[1] + 0.5]);
-      expect(chunkDistance(c, w.camX, w.camZ)).toBeGreaterThan(LOD_NEAR + 2);
-      expect(litter.chunks[c].active).toBe(true);
-      expect(litter.chunks[c].near.visible).toBe(true);
-      expect(litter.chunks[c].far.visible).toBe(false);
-      litter.update(w.camX, w.camZ, w.spine, EMPTY);
-      expect(litter.chunks[c].far.visible).toBe(true);
+    it('a reacting chunk always shows its full leaves', () => {
+      const w = straightWorm(-3, -3);
+      litter.update(w.camX, w.camZ, w.spine);
+      for (const ch of litter.chunks) {
+        if (!ch.active) continue;
+        expect(ch.near.visible).toBe(true);
+        expect(ch.far.visible).toBe(false);
+      }
     });
 
     it('keeps all positions finite, with tight bounds per chunk', () => {

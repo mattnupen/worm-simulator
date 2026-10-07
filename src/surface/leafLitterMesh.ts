@@ -14,7 +14,7 @@ import { sharedLighting } from '../render/paintedMaterial';
 import { LeafBuffers, type LeafLook } from './leafWriter';
 import { REAL_SCALE } from './realScale';
 import {
-  ACTIVE_MARGIN, DRAPE_MARGIN, boxesMeet, chunkCentreX, chunkCentreZ, chunkDistance, countBelow,
+  ACTIVE_MARGIN, boxesMeet, chunkCentreX, chunkCentreZ, chunkDistance, countBelow,
   groupByChunk, hullBox, nextLod,
 } from './litterChunks';
 
@@ -36,7 +36,7 @@ export interface LitterChunk {
   count: number;
   /** Showing full leaves. */
   isNear: boolean;
-  /** Drawn with the reacting material (disturbance map and occluder fade). */
+  /** Drawn with the reacting material (the occluder fade). */
   active: boolean;
 }
 
@@ -53,12 +53,12 @@ export interface LeafLitter {
   /** Draws the first `n` leaves overall (placement order is random: an even thinning). */
   setCount(n: number): void;
   /**
-   * Once per rendered frame: per chunk, the reacting material where its leaves can be moved by the
-   * map (`disturbed`, disturbedBox) or faded (the hull of the camera and the rendered `spine`),
-   * the plain one elsewhere; full leaves near the camera (and on every reacting chunk), low-detail
-   * ones far away. Swaps materials only (all compiled up front). Allocates nothing.
+   * Once per rendered frame: per chunk, the fading material where its leaves can fade over the
+   * buried worm (the hull of the camera and the rendered `spine`), the plain one elsewhere; full
+   * leaves near the camera (and on every fading chunk), low-detail ones far away. Swaps materials
+   * only (all compiled up front). Allocates nothing.
    */
-  update(camX: number, camZ: number, spine: ArrayLike<number>, disturbed: ArrayLike<number>): void;
+  update(camX: number, camZ: number, spine: ArrayLike<number>): void;
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -152,8 +152,6 @@ function looks(leaves: readonly LeafPlacement[], seed: number): LeafLook[] {
 function chunkMesh(b: LeafBuffers, material: THREE.Material, cx: number, cz: number, name: string): THREE.Mesh {
   const g = b.toGeometry();
   g.computeBoundingSphere();
-  // Room for leaves the disturbance map lifts or slides (only reacting chunks move, but cheap).
-  if (g.boundingSphere) g.boundingSphere.radius += DRAPE_MARGIN;
   const mesh = new THREE.Mesh(g, material);
   // At the chunk's centre, so three culls whole chunks and sorts them near-first.
   mesh.position.set(cx, 0, cz);
@@ -235,12 +233,12 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
         show(ch);
       }
     },
-    update(camX, camZ, spine, disturbed) {
+    update(camX, camZ, spine) {
       hullBox(camX, camZ, spine, hull);
       for (let c = 0; c < chunks.length; c++) {
         const ch = chunks[c];
-        // Conservative: a chunk any of whose leaves could move or fade reacts, so nothing snaps.
-        ch.active = boxesMeet(ch.box, hull, ACTIVE_MARGIN) || boxesMeet(ch.box, disturbed, ACTIVE_MARGIN);
+        // Conservative: a chunk any of whose leaves could fade reacts, so nothing snaps.
+        ch.active = boxesMeet(ch.box, hull, ACTIVE_MARGIN);
         // Only the full-leaf program reacts, so a reacting chunk always shows full leaves.
         ch.isNear = nextLod(ch.isNear, chunkDistance(c, camX, camZ)) || ch.active;
         ch.near.material = ch.active ? active : plain;

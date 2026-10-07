@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import * as THREE from 'three';
-import { occlusion, ign, OCCLUSION_FN_GLSL, IGN_GLSL, OCC_SEGMENTS } from '../../src/render/occlusion';
+import { occlusion, ign, worldUpInView, OCCLUSION_FN_GLSL, IGN_GLSL, OCC_SEGMENTS } from '../../src/render/occlusion';
 import { occluderSegments } from '../../src/render/occluderSegments';
 import { mulberry32 } from '../../src/core/random';
 import { DETAIL_GLSL, detailVertex, type DetailInputs } from '../../src/render/detailGlsl';
@@ -428,6 +428,8 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
     const seg = new Float32Array(OCC_SEGMENTS * 8);
     const box = new Float32Array(5);
     const count = occluderSegments(c.spine, camera.matrixWorldInverse.elements, pe[0], pe[5], seg, box);
+    const up = new THREE.Vector3();
+    worldUpInView(camera.matrixWorldInverse.elements, up);
     // Pixels within the box's reach, leaves at any depth along them: (tan x, tan y, view depth).
     const rng = mulberry32(3);
     const points: number[] = [];
@@ -436,7 +438,7 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
       const ty = (rng() * 2 - 1) / pe[5];
       points.push(tx, ty, 0.3 + rng() * 4, 0);
     }
-    return { seg: Array.from(seg), count, far: box[4], points };
+    return { seg: Array.from(seg), count, far: box[4], points, up: up.toArray() };
   });
 
   await page.setContent('<canvas id="c" width="64" height="64"></canvas>');
@@ -462,7 +464,7 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
     // occlusion() at each pixel and depth, by transform feedback.
     const pr = program(`#version 300 es
       precision highp float; precision highp int;
-      uniform vec4 uOccSeg[${segs * 2}]; uniform int uOccCount; uniform float uOccDepth;
+      uniform vec4 uOccSeg[${segs * 2}]; uniform int uOccCount; uniform float uOccDepth; uniform vec3 uOccUp;
       in vec4 aPoint;
       ${fn}
       out float oOcc;
@@ -483,6 +485,7 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
       gl.uniform4fv(U('uOccSeg[0]'), new Float32Array(c.seg));
       gl.uniform1i(U('uOccCount'), c.count);
       gl.uniform1f(U('uOccDepth'), c.far);
+      gl.uniform3f(U('uOccUp'), c.up[0], c.up[1], c.up[2]);
       const b = gl.createBuffer();
       gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, b);
       gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, n * 4, gl.STATIC_READ);
@@ -526,7 +529,7 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
     let faded = 0;
     let clear = 0;
     for (let k = 0; k < c.points.length / 4; k++) {
-      const ts = occlusion(c.points[k * 4], c.points[k * 4 + 1], c.points[k * 4 + 2], c.seg, c.count, c.far);
+      const ts = occlusion(c.points[k * 4], c.points[k * 4 + 1], c.points[k * 4 + 2], c.seg, c.count, c.far, c.up);
       const d = Math.abs(gpu.occ[ci][k] - ts);
       worst = Math.max(worst, d);
       if (d > 1e-3) off++;
@@ -536,10 +539,10 @@ test('the occluder fade (occlusion, ign) runs on the GPU as its TS twins say', a
     expect(c.count, `case ${ci}`).toBeGreaterThan(3);
     expect(Number.isFinite(worst), `case ${ci}`).toBe(true);
     // Float32 against float64: nearly every pixel agrees to 1e-3 of its drop share. Where two
-    // segments tie for nearest, the GPU may take the other one's line for the touch: still within
-    // about one step of the 8-bit dither.
+    // segments tie for nearest, the GPU may take the other one's line for the touch and the
+    // funnel's height above it: a few hundredths of the share, on under 0.5% of pixels.
     expect(off, `case ${ci}: pixels off by more than 1e-3`).toBeLessThan(c.points.length / 4 / 200);
-    expect(worst, `case ${ci}: worst |GPU - TS|`).toBeLessThan(0.01);
+    expect(worst, `case ${ci}: worst |GPU - TS|`).toBeLessThan(0.06);
     // The sample is real: pixels in the fade and pixels out of it.
     expect(faded, `case ${ci}`).toBeGreaterThan(40);
     expect(clear, `case ${ci}`).toBeGreaterThan(1000);

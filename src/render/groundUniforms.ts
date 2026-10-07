@@ -47,6 +47,8 @@ export const groundUniforms = {
   uOccTan: { value: new THREE.Vector2(1, 1) },
   /** The farthest view depth of the kept body: leaves beyond it skip the segment loop. */
   uOccDepth: { value: 0 },
+  /** The world's up in view space (x, y, depth): how high above the body a pixel lies (the funnel). */
+  uOccUp: { value: new THREE.Vector3(0, 1, 0) },
   /** 1 when leaves react to the worm; 0 (Low) skips every disturbance fetch, without a recompile. */
   uLeafReact: { value: 1 },
 };

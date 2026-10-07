@@ -2,13 +2,12 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
   CHUNKS, CHUNK_SIZE, LOD_NEAR, LOD_GAP, chunkIndex, chunkCentreX, chunkCentreZ, chunkDistance,
-  groupByChunk, countBelow, nextLod, DRAPE_MARGIN, ACTIVE_MARGIN, boxesMeet, hullBox,
+  groupByChunk, countBelow, nextLod, ACTIVE_MARGIN, boxesMeet, hullBox,
 } from '../../src/surface/litterChunks';
-import { occlusion, OCC_OUTER, OCC_SEGMENTS } from '../../src/render/occlusion';
+import { occlusion, worldUpInView, OCC_REACH, OCC_SEGMENTS } from '../../src/render/occlusion';
 import { occluderSegments } from '../../src/render/occluderSegments';
 import { SPINE_POINTS } from '../../src/render/groundUniforms';
 import { mulberry32 } from '../../src/core/random';
-import { PUSH_SLIDE, DRAPE_HEIGHT } from '../../src/render/leafGlsl';
 import { WORLD_HALF } from '../../src/surface/terrain';
 import { placeLeaves } from '../../src/surface/leafLitter';
 
@@ -67,12 +66,8 @@ describe('litter chunks', () => {
     expect(nextLod(true, LOD_NEAR + LOD_GAP + 0.1)).toBe(false);
   });
 
-  it('pads chunks for the drape and the fade', () => {
-    // A lifted leaf rises up to ~0.5 and slides up to PUSH_SLIDE: the bounding spheres need both.
-    // Extreme drape probes moved a vertex up to 0.71 from rest.
-    expect(DRAPE_MARGIN).toBeGreaterThanOrEqual(0.75);
-    expect(DRAPE_MARGIN).toBeGreaterThanOrEqual(Math.hypot(2 * DRAPE_HEIGHT, PUSH_SLIDE));
-    expect(ACTIVE_MARGIN).toBe(DRAPE_MARGIN + OCC_OUTER);
+  it('pads chunks for the fade (the top leaves never move: they lie over the buried worm)', () => {
+    expect(ACTIVE_MARGIN).toBe(OCC_REACH);
   });
 
   it('boxesMeet grows the first box by pad, and an empty box meets nothing', () => {
@@ -93,7 +88,7 @@ describe('litter chunks', () => {
     expect(Array.from(out)).toEqual([0, 0, 0, 0]);
   });
 
-  it('every pixel the fade drops lies within OCC_OUTER of hullBox (random cameras, spines and pixels)', () => {
+  it('every pixel the fade drops lies within OCC_REACH of hullBox (random cameras, spines and pixels)', () => {
     const rng = mulberry32(11);
     const cam = new THREE.PerspectiveCamera(65, 1366 / 768, 0.05, 200);
     const seg = new Float32Array(OCC_SEGMENTS * 8);
@@ -101,6 +96,7 @@ describe('litter chunks', () => {
     const spine = new Float32Array(SPINE_POINTS * 3);
     const hull = new Float32Array(4);
     const p = new THREE.Vector3();
+    const up = new THREE.Vector3();
     let faded = 0;
     let worst = 0;
     for (let t = 0; t < 1500; t++) {
@@ -123,6 +119,7 @@ describe('litter chunks', () => {
       cam.updateMatrixWorld();
       const pe = cam.projectionMatrix.elements;
       const count = occluderSegments(spine, cam.matrixWorldInverse.elements, pe[0], pe[5], seg, box);
+      worldUpInView(cam.matrixWorldInverse.elements, up);
       hullBox(cam.position.x, cam.position.z, spine, hull);
       for (let k = 0; k < 200; k++) {
         // A leaf pixel somewhere along the ray from the camera to a point near the body.
@@ -136,7 +133,7 @@ describe('litter chunks', () => {
         p.applyMatrix4(cam.matrixWorldInverse);
         const dl = -p.z;
         if (dl <= 0.05) continue;
-        if (occlusion(p.x / dl, p.y / dl, dl, seg, count, box[4]) <= 0) continue;
+        if (occlusion(p.x / dl, p.y / dl, dl, seg, count, box[4], up.toArray()) <= 0) continue;
         faded++;
         const dx = Math.max(hull[0] - wx, 0, wx - hull[2]);
         const dz = Math.max(hull[1] - wz, 0, wz - hull[3]);
@@ -146,6 +143,6 @@ describe('litter chunks', () => {
     // The sample is real: many faded pixels, some of them outside the box itself.
     expect(faded).toBeGreaterThan(50000);
     expect(worst).toBeGreaterThan(0.05);
-    expect(worst).toBeLessThanOrEqual(OCC_OUTER + 1e-4);
+    expect(worst).toBeLessThanOrEqual(OCC_REACH + 1e-4);
   });
 });

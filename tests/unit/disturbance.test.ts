@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createDisturbance, recentre, stamp, decay, clearDisturbance, packDisturbance, cellAt, disturbedBox,
+  createDisturbance, recentre, stamp, decay, clearDisturbance, packDisturbance, cellAt,
   originX, originZ, stampBody, DIST_N, DIST_SPAN, DIST_CELL, DIST_REACH, ON_TOP_DISTANCE, type DisturbanceMap,
 } from '../../src/surface/disturbance';
 import { leafReach, maxLeafRadius, stampLimit } from '../../src/surface/leafScale';
@@ -188,50 +188,6 @@ describe('disturbance map', () => {
     packDisturbance(m, near, trail);
     // near: path high, low, body high, low; trail: trail, path.
     expect([...near.subarray(0, 4), ...trail.subarray(0, 2)]).toEqual([255, 0, 255, 0, 128, 255]);
-  });
-
-  it('disturbedBox bounds every cell holding anything, grown by a cell; empty when clear', () => {
-    const m = createDisturbance();
-    const box = [0, 0, 0, 0];
-    disturbedBox(m, box);
-    expect(box).toEqual([Infinity, Infinity, -Infinity, -Infinity]);
-    recentre(m, 1, 1);
-    stamp(m, 1, 1, 1);
-    disturbedBox(m, box);
-    // The stamp reaches DIST_REACH from (1, 1), so its cells span about that, plus a cell each side
-    // (the outermost stamped cell's centre lies within the reach; the box adds a cell).
-    for (const [lo, hi] of [[box[0], box[2]], [box[1], box[3]]]) {
-      expect(lo).toBeLessThanOrEqual(1 - DIST_REACH + 1e-9);
-      expect(lo).toBeGreaterThan(1 - DIST_REACH - 2 * DIST_CELL - 1e-9);
-      expect(hi).toBeGreaterThanOrEqual(1 + DIST_REACH - 1e-9);
-      expect(hi).toBeLessThan(1 + DIST_REACH + 2 * DIST_CELL + 1e-9);
-    }
-    // A fading trail still counts until it is cleared.
-    decay(m, 1);
-    disturbedBox(m, box);
-    expect(box[0]).toBeLessThan(1);
-    clearDisturbance(m);
-    disturbedBox(m, box);
-    expect(box[0]).toBe(Infinity);
-  });
-
-  it('disturbedBox keeps to the shaders\' window around the map\'s centre; empty when nothing is in it', () => {
-    const m = createDisturbance();
-    const box = [0, 0, 0, 0];
-    recentre(m, 0, 0);
-    const cx = originX(m) + DIST_SPAN / 2;
-    const cz = originZ(m) + DIST_SPAN / 2;
-    stamp(m, 0, 0, 1);
-    disturbedBox(m, box, 1.2);
-    expect(box).toEqual([cx - 1.2, cz - 1.2, cx + 1.2, cz + 1.2]);
-    // A trail only past the window: nothing a leaf reads.
-    clearDisturbance(m);
-    stamp(m, 5, 0, 1, 0.3);
-    disturbedBox(m, box, 3.88);
-    expect(box[0]).toBe(Infinity);
-    disturbedBox(m, box);
-    expect(box[0]).toBeGreaterThan(4.5);
-    expect(box[2]).toBeLessThanOrEqual(cx + DIST_SPAN / 2);
   });
 
   it('reaches past the biggest leaf plus the drape, inside the map\'s unfaded middle', () => {

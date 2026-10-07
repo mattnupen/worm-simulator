@@ -4,6 +4,7 @@ import { createDisturbance, recentre, stamp, DIST_CELL } from '../../src/surface
 import { createLeafMaterial } from '../../src/render/leafMaterial';
 import { createPaintedMaterial, sharedLighting } from '../../src/render/paintedMaterial';
 import { createPropMaterial } from '../../src/render/propMaterial';
+import { createFloorMaterial } from '../../src/render/floorMaterial';
 
 describe('groundUniforms', () => {
   it('setFocus stores the head and snaps the wrap centre to the 1 m grid', () => {
@@ -29,12 +30,12 @@ describe('groundUniforms', () => {
 });
 
 describe('createLeafMaterial', () => {
-  it('the floor litter reads the shared disturbance map (both textures)', () => {
-    const m = createLeafMaterial();
-    expect(m.defines).toHaveProperty('DISTURB');
-    expect(m.uniforms.uDisturbTrail).toBe(groundUniforms.uDisturbTrail);
-    expect(m.uniforms.uLightDir).toBe(sharedLighting.uLightDir);
-    expect(m.vertexShader).toContain('disturb(wp.xyz, aAnchor');
+  it('the top leaves (litter and detail) lie above the buried worm: they fade over it, but never move', () => {
+    for (const v of ['litter', 'detail'] as const) {
+      const m = createLeafMaterial(v);
+      expect(m.defines).not.toHaveProperty('DISTURB');
+      expect(m.defines).toHaveProperty('OCCLUDE');
+    }
   });
   it('the falling leaves do not', () => {
     const m = createLeafMaterial('falling');
@@ -44,11 +45,14 @@ describe('createLeafMaterial', () => {
 });
 
 describe('leaf occluder fade', () => {
-  it('is on for every leaf layer the worm moves through (and Ultra\'s near clutter), off for the falling leaves', () => {
-    const faded = [...(['litter', 'detail', 'hero'] as const).map((v) => createLeafMaterial(v)), createPropMaterial(true)];
+  it('is on for every leaf layer over or round the worm, the ground (the top of the litter) and Ultra\'s near clutter, off for the falling leaves', () => {
+    const faded = [
+      ...(['litter', 'detail', 'hero'] as const).map((v) => createLeafMaterial(v)), createPropMaterial(true),
+      createPaintedMaterial({ color: '#ffffff', occlude: true }),
+    ];
     for (const m of faded) {
       expect(m.defines).toHaveProperty('OCCLUDE');
-      for (const u of ['uOccSeg', 'uOccCount', 'uOccBox', 'uOccTan', 'uOccDepth'] as const) expect(m.uniforms[u]).toBe(groundUniforms[u]);
+      for (const u of ['uOccSeg', 'uOccCount', 'uOccBox', 'uOccTan', 'uOccDepth', 'uOccUp'] as const) expect(m.uniforms[u]).toBe(groundUniforms[u]);
       expect(m.uniforms.uResolution).toBe(sharedLighting.uResolution);
       expect(m.fragmentShader).toContain('if (fadedOut()) discard;');
     }
@@ -56,7 +60,10 @@ describe('leaf occluder fade', () => {
     expect(createPropMaterial().defines).not.toHaveProperty('OCCLUDE');
   });
   it('takes every derivative before the fade\'s discard (after a discard they are undefined on some drivers)', () => {
-    const faded = [...(['litter', 'detail', 'hero'] as const).map((v) => createLeafMaterial(v)), createPropMaterial(true)];
+    const faded = [
+      ...(['litter', 'detail', 'hero'] as const).map((v) => createLeafMaterial(v)), createPropMaterial(true),
+      createPaintedMaterial({ color: '#ffffff', occlude: true }),
+    ];
     for (const m of faded) {
       const fs = m.fragmentShader;
       const main = fs.indexOf('void main()');
@@ -80,12 +87,13 @@ describe('leaf occluder fade', () => {
   });
 });
 
-describe('the ground', () => {
-  it('darkens the soil along a fresh trail from the shared map', () => {
-    const m = createPaintedMaterial({ color: '#ffffff', trail: true });
-    expect(m.defines).toHaveProperty('TRAIL');
+describe('the floor under the buried worm', () => {
+  it('darkens along a fresh trail from the shared map', () => {
+    const m = createFloorMaterial();
     expect(m.uniforms.uDisturbTrail).toBe(groundUniforms.uDisturbTrail);
+    expect(m.uniforms.uSpine).toBe(groundUniforms.uSpine);
     expect(m.fragmentShader).toContain('trailShade(vPosW.xz)');
-    expect(createPaintedMaterial({ color: '#ffffff' }).defines).not.toHaveProperty('TRAIL');
+    expect(m.vertexShader).toContain('terrainHeight(xz)');
+    expect(createPaintedMaterial({ color: '#ffffff' }).defines).not.toHaveProperty('OCCLUDE');
   });
 });

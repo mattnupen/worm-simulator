@@ -11,7 +11,8 @@ describe('detail leaves', () => {
   it('is one mesh placed by the shader, with a home for every vertex', () => {
     expect(d.mesh.frustumCulled).toBe(false);
     expect(d.mesh.material).toHaveProperty('defines.DETAIL');
-    expect(d.mesh.material).toHaveProperty('defines.DISTURB');
+    expect(d.mesh.material).toHaveProperty('defines.OCCLUDE');
+    expect(d.mesh.material).not.toHaveProperty('defines.DISTURB');
     const n = g.getAttribute('position').count;
     expect(g.getAttribute('aDetail').count).toBe(n);
     const a = g.getAttribute('aDetail').array as Float32Array;
@@ -98,4 +99,3 @@ describe('the lazily built detail layer', () => {
     expect(d.group.children).toHaveLength(1);
   });
 });
-

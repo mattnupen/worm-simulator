@@ -1,5 +1,5 @@
 import { SPINE_POINTS } from './groundUniforms';
-import { OCC_AXIS_UP, OCC_NEAR, OCC_OUTER, OCC_SIMPLIFY } from './occlusion';
+import { OCC_AXIS_UP, OCC_NEAR, OCC_REACH, OCC_SIMPLIFY } from './occlusion';
 
 /**
  * The CPU half of the leaf fade (occlusion.ts): the worm's body axis as this frame's camera sees
@@ -58,8 +58,8 @@ function put(
   seg[o] = tx;
   seg[o + 1] = ty;
   seg[o + 2] = 1 / d;
-  // occlusion() is 0 past a miss of OCC_OUTER: a disk of OCC_OUTER / d in tan space.
-  const r = OCC_OUTER / d;
+  // occlusion() is 0 past a miss of OCC_REACH: a disk of OCC_REACH / d in tan space.
+  const r = OCC_REACH / d;
   box[0] = Math.min(box[0], (tx - r) * p00);
   box[1] = Math.min(box[1], (ty - r) * p11);
   box[2] = Math.max(box[2], (tx + r) * p00);
@@ -71,7 +71,7 @@ function put(
  * Projects the body axis for this frame's camera (view: the view matrix, column-major as three's
  * elements; p00, p11: the projection matrix's [0] and [5], a symmetric perspective), first
  * simplified to within OCC_SIMPLIFY. Each segment is clipped to depth OCC_NEAR or more and to the
- * frustum's sides pushed out by OCC_OUTER (an axis point beyond that is farther than OCC_OUTER
+ * frustum's sides pushed out by OCC_REACH (an axis point beyond that is farther than OCC_REACH
  * from every on-screen ray, so it cannot fade a pixel); what remains goes into seg (the layout
  * OCC_SEGMENTS describes), compacted. Returns how many. box (NDC xmin, ymin, xmax, ymax) gets
  * every pixel occlusion() can fade: the hole round a segment lies in the hull of its two end
@@ -99,10 +99,10 @@ export function occluderSegments(
   const kx = 1 / Math.hypot(1, 1 / p00);
   const ky = 1 / Math.hypot(1, 1 / p11);
   plane(0, 0, 0, 1, -OCC_NEAR);
-  plane(1, kx, 0, kx / p00, OCC_OUTER);
-  plane(2, -kx, 0, kx / p00, OCC_OUTER);
-  plane(3, 0, ky, ky / p11, OCC_OUTER);
-  plane(4, 0, -ky, ky / p11, OCC_OUTER);
+  plane(1, kx, 0, kx / p00, OCC_REACH);
+  plane(2, -kx, 0, kx / p00, OCC_REACH);
+  plane(3, 0, ky, ky / p11, OCC_REACH);
+  plane(4, 0, -ky, ky / p11, OCC_REACH);
   keep.fill(0);
   keep[0] = 1;
   keep[SPINE_POINTS - 1] = 1;

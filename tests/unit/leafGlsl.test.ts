@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { disturbVertex, drapeProfile, packedMapSampler, DRAPE_FOOT, type MapSampler } from '../../src/render/leafGlsl';
 import {
-  createDisturbance, recentre, stamp, decay, packDisturbance, disturbedBox, DIST_N, DIST_CELL, DIST_REACH, DIST_SPAN,
+  createDisturbance, recentre, stamp, packDisturbance, DIST_N, DIST_CELL, DIST_REACH, DIST_SPAN,
 } from '../../src/surface/disturbance';
 import { HeroWorm, type WormPose } from '../../src/worm/wormMesh';
 import { bellyHeight, wormSurface, type WormSurface } from '../../src/worm/surfaceHeight';
@@ -119,23 +119,20 @@ function clearance(count: number, leaves: (pl: Placement, emit: (t: Tri) => void
 
 describe('the drape on the real litter and the real worm', () => {
 
-  it('every leaf over the worm clears its body by 5 mm (shipped maths, 400 placements)', () => {
-    // The chunked litter's full leaves (the only ones drawn with the drape), as the chunk writer
-    // wrote them: positions relative to each chunk's mesh, anchors in world space.
-    // The shipped litter (every preset draws the same count). About 100,000 worm vertices end
-    // up under a leaf triangle, so the coverage floor below is far from vacuous.
+  it('every top leaf over the buried worm stays clear of it unmoved: 5 mm or more (400 placements)', () => {
+    // The chunked litter's full leaves, as the chunk writer wrote them: positions relative to each
+    // chunk's mesh, anchors in world space. They lie on the top of the litter, 2 cm or more over
+    // the floor, and the disturbance map never moves them (V2 spec 8.2). Thousands of worm
+    // vertices end up under a leaf triangle, so the coverage floor below is far from vacuous.
     const litter = buildLeafLitter(scaledLeafCount(PRESETS.ultra.litter));
     // A leaf can cover the head (1.54 m from body point 7) if its centre is within its radius of it.
     const reach = Math.max(3.5, 1.8 + maxLeafRadius());
     const tri: Tri = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
-    const p = [0, 0, 0];
-    const a4 = [0, 0, 0, 0];
-    const r = clearance(400, ({ pts, sample, ox, oz }, emit) => {
+    const r = clearance(400, ({ pts }, emit) => {
       for (const ch of litter.chunks) {
         const g = ch.near.geometry;
         const pos = g.getAttribute('position');
         const anc = g.getAttribute('aAnchor');
-        const dipA = g.getAttribute('aDip');
         const idx = g.getIndex()!;
         const { x: mx, y: my, z: mz } = ch.near.position;
         for (let t = 0; t < idx.count; t += 3) {
@@ -143,14 +140,9 @@ describe('the drape on the real litter and the real worm', () => {
           if (Math.hypot(anc.getX(a) - pts[7][0], anc.getY(a) - pts[7][1]) > reach) continue;
           for (let c = 0; c < 3; c++) {
             const v = idx.getX(t + c);
-            p[0] = pos.getX(v) + mx;
-            p[1] = pos.getY(v) + my;
-            p[2] = pos.getZ(v) + mz;
-            a4[0] = anc.getX(v);
-            a4[1] = anc.getY(v);
-            a4[2] = anc.getZ(v);
-            a4[3] = anc.getW(v);
-            disturbVertex(sample, ox, oz, true, p, a4, dipA.getX(v), tri[c]);
+            tri[c][0] = pos.getX(v) + mx;
+            tri[c][1] = pos.getY(v) + my;
+            tri[c][2] = pos.getZ(v) + mz;
           }
           emit(tri);
         }
@@ -159,6 +151,10 @@ describe('the drape on the real litter and the real worm', () => {
     expect(r.placements).toBe(400);
     expect(r.covered).toBeGreaterThan(10000);
     expect({ failed: r.failed, worst: r.worst }).toEqual({ failed: 0, worst: expect.any(Number) });
+    // Well clear: the top of the litter is 2 cm or more over the floor in the open, the body under
+    // 1.2 cm tall. Banked against a rock it may be thinner (down to ROCK_BANK_MIN), and these
+    // placements ignore the rocks' collision: the closest, beside a rock, is still 5 mm clear.
+    expect(r.worst).toBeLessThan(-0.1);
   }, 120000);
 
   it('so does every detail leaf, placed around the head as the GPU places it (400 placements)', () => {
@@ -236,53 +232,6 @@ describe('the drape on the real litter and the real worm', () => {
     expect(r.covered).toBeGreaterThan(10000);
     expect({ failed: r.failed, worst: r.worst }).toEqual({ failed: 0, worst: expect.any(Number) });
   }, 180000);
-});
-
-describe('disturbedBox (where litter chunks may draw without the drape)', () => {
-  it('no leaf anchored outside it moves, whatever its size, rest and dip', () => {
-    // A worm crawling a curve, leaving a fading trail; the body re-stamped last, as the crawl does.
-    const m = createDisturbance();
-    const near = new Uint8Array(DIST_N * DIST_N * 4);
-    const trail = new Uint8Array(DIST_N * DIST_N * 2);
-    for (let s = 0; s < 120; s++) {
-      const a = s * 0.02;
-      decay(m, 1 / 30);
-      const hx = Math.sin(a) * 2.2;
-      const hz = 2.2 - Math.cos(a) * 2.2;
-      recentre(m, hx, hz);
-      for (let k = 0; k < 31; k++) {
-        const b = a - k * 0.05;
-        stamp(m, Math.sin(b) * 2.2, 2.2 - Math.cos(b) * 2.2, k % 3 === 0 ? 0 : 1);
-      }
-    }
-    packDisturbance(m, near, trail);
-    const box = [0, 0, 0, 0];
-    disturbedBox(m, box);
-    const sample = packedMapSampler(near, trail);
-    const ox = m.ci * DIST_CELL;
-    const oz = m.cj * DIST_CELL;
-    const out = [0, 0, 0];
-    let outside = 0;
-    let moved = 0;
-    for (let x = ox; x <= ox + DIST_SPAN; x += 0.05) {
-      for (let z = oz; z <= oz + DIST_SPAN; z += 0.05) {
-        const inside = x >= box[0] && x <= box[2] && z >= box[1] && z <= box[3];
-        for (const r of [0.05, 0.5, 1.2]) {
-          for (const rest of [0.006, 0.12]) {
-            const p = [x + r * 0.7, 0.3, z - r * 0.7];
-            disturbVertex(sample, ox, oz, true, p, [x, z, r, rest], 0.05, out);
-            const still = out[0] === p[0] && out[1] === p[1] && out[2] === p[2];
-            if (!inside) {
-              outside++;
-              expect(still).toBe(true);
-            } else if (!still) moved++;
-          }
-        }
-      }
-    }
-    expect(outside).toBeGreaterThan(10000);
-    expect(moved).toBeGreaterThan(1000);
-  });
 });
 
 describe('drapeProfile', () => {

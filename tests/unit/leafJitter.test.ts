@@ -6,15 +6,13 @@ import {
 import { overBody } from '../../src/surface/heroClearance';
 import { PUSHER_STRIDE } from '../../src/surface/heroBody';
 import type { Vec3 } from '../../src/core/vec';
-import { disturbVertex, packedMapSampler } from '../../src/render/leafGlsl';
-import { buildLeafLitter } from '../../src/surface/leafLitterMesh';
+import { packedMapSampler } from '../../src/render/leafGlsl';
 import { heroLeafMatrix } from '../../src/surface/heroLeafMesh';
 import { HERO_MAX } from '../../src/surface/heroLeaves';
 import { PRESETS } from '../../src/render/graphics';
-import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
+import { Crawl } from '../../src/game/crawl';
 import { advance, createStepper } from '../../src/core/stepper';
 import { AUTO_DRIVE_MOVE } from '../../src/game/drive';
-import type { WormPose } from '../../src/worm/wormMesh';
 import { mulberry32 } from '../../src/core/random';
 import { scaledLeafCount } from '../../src/surface/leafScale';
 
@@ -147,87 +145,10 @@ function crawlFrames(seconds: number, frame: (crawl: Crawl, alpha: number) => vo
   return crawl;
 }
 
-// Part 0 measured Step 1a's small leaves; V1 re-measured at real leaf sizes against the same thresholds.
+// Part 0 measured Step 1a's small leaves; V1 re-measured at real leaf sizes against the same
+// thresholds. V2's top leaves lie over the buried worm and never move; the hero leaves, in its
+// pocket, still do.
 describe('leaves over the crawling worm move smoothly (measured frame to frame)', () => {
-
-  it('litter leaves: on screen, few turn back by more than half a pixel', () => {
-    // Every third vertex of the near litter: world position, anchor, dip.
-    const litter = buildLeafLitter(scaledLeafCount(PRESETS.ultra.litter));
-    const P: number[] = [];
-    const A: number[] = [];
-    const D: number[] = [];
-    for (const ch of litter.chunks) {
-      const g = ch.near.geometry;
-      const pos = g.getAttribute('position');
-      const anc = g.getAttribute('aAnchor');
-      const dip = g.getAttribute('aDip');
-      // Every vertex: real-size leaves are big and few.
-      for (let v = 0; v < pos.count; v++) {
-        P.push(pos.getX(v) + ch.near.position.x, pos.getY(v) + ch.near.position.y, pos.getZ(v) + ch.near.position.z);
-        A.push(anc.getX(v), anc.getY(v), anc.getZ(v), anc.getW(v));
-        D.push(dip.getX(v));
-      }
-    }
-    const n = D.length;
-    const camera = new THREE.PerspectiveCamera(60, 1366 / 768, 0.2, 120);
-    const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
-    const near = new Uint8Array(DIST_N * DIST_N * 4);
-    const trail = new Uint8Array(DIST_N * DIST_N * 2);
-    const sample = packedMapSampler(near, trail);
-    // Per frame, each vertex's on-screen offset from where it rests (pixels at 1366 x 768): only
-    // what the map does to it, not the camera's own motion. NaN: off screen (or out of reach).
-    const frames: Float32Array[] = [];
-    const p = [0, 0, 0];
-    const a4 = [0, 0, 0, 0];
-    const moved = [0, 0, 0];
-    const v3 = new THREE.Vector3();
-    crawlFrames(9, (crawl, alpha) => {
-      crawl.interpolate(alpha, 0, pose, camera);
-      camera.updateMatrixWorld();
-      // As uploadDisturbance packs it, and as the GPU reads it back.
-      const m = crawl.disturbance;
-      packDisturbance(m, near, trail);
-      const off = new Float32Array(n * 2).fill(NaN);
-      for (let v = 0; v < n; v++) {
-        if (Math.abs(A[v * 4] - crawl.focus.x) > 4 || Math.abs(A[v * 4 + 1] - crawl.focus.z) > 4) continue;
-        for (let c = 0; c < 3; c++) p[c] = P[v * 3 + c];
-        for (let c = 0; c < 4; c++) a4[c] = A[v * 4 + c];
-        if (camera.position.distanceTo(v3.set(p[0], p[1], p[2])) < 0.6) continue;
-        v3.project(camera);
-        if (Math.abs(v3.x) > 1 || Math.abs(v3.y) > 1 || v3.z > 1) continue;
-        disturbVertex(sample, m.ci * DIST_CELL, m.cj * DIST_CELL, true, p, a4, D[v], moved);
-        if (moved[0] === p[0] && moved[1] === p[1] && moved[2] === p[2]) {
-          off[v * 2] = off[v * 2 + 1] = 0;
-          continue;
-        }
-        const rx = v3.x;
-        const ry = v3.y;
-        v3.set(moved[0], moved[1], moved[2]).project(camera);
-        off[v * 2] = (v3.x - rx) * 683;
-        off[v * 2 + 1] = (ry - v3.y) * 384;
-      }
-      frames.push(off);
-    });
-    const back: number[] = [];
-    const a = [0, 0];
-    const b = [0, 0];
-    const c = [0, 0];
-    for (let k = 1; k + 1 < frames.length; k++) {
-      for (let v = 0; v < n; v++) {
-        a[0] = frames[k - 1][v * 2]; a[1] = frames[k - 1][v * 2 + 1];
-        b[0] = frames[k][v * 2]; b[1] = frames[k][v * 2 + 1];
-        c[0] = frames[k + 1][v * 2]; c[1] = frames[k + 1][v * 2 + 1];
-        // Seen in all three frames, and moved by the map in at least one.
-        if (a[0] !== a[0] || b[0] !== b[0] || c[0] !== c[0]) continue;
-        if (!(a[0] || a[1] || b[0] || b[1] || c[0] || c[1])) continue;
-        back.push(reversal(a, b, c, 2));
-      }
-    }
-    expect(back.length).toBeGreaterThan(5000);
-    // Before the fix (points stamped 11 cm apart, packed to bytes): 4.2% and 1.67 px.
-    expect(over(back, 0.5)).toBeLessThan(0.012);
-    expect(quantile(back, 0.99)).toBeLessThan(0.5);
-  }, 120000);
 
   it('hero leaves: few turn back by more than 2 mm between frames', () => {
     const m4 = new THREE.Matrix4();

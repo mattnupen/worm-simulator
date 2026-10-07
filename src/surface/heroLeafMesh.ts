@@ -8,6 +8,10 @@ import { HERO_FORM, LEAF_RIM } from './heroClearance';
 import { leafTint, LATERAL_VEINS } from './leafPalette';
 import { mulberry32 } from '../core/random';
 import type { HeroLeaves } from './heroLeaves';
+import { POCKET_ORDER } from '../render/drawOrder';
+
+/** The hero leaves lie lowest in the litter: this much of their colour shows. */
+const HERO_DIM = 0.55;
 
 /** A leaf lying face down on the litter rests on its curled rim, sunk in a little: this much (per unit of size) higher. */
 const FLIP_LIFT = 0.12;
@@ -148,9 +152,13 @@ export class HeroLeafMesh {
     this.mesh = new THREE.InstancedMesh(g, createLeafMaterial('hero'), pool.max);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     const tint = new THREE.Color();
-    for (let i = 0; i < pool.max; i++) this.mesh.setColorAt(i, tint.setScalar(0.85 + 0.3 * rng()));
+    // They lie on the floor in the worm's pocket (V2 spec 8.2): older, damper leaves, darker
+    // and duller than this fall's on top.
+    for (let i = 0; i < pool.max; i++) this.mesh.setColorAt(i, tint.setRGB(1, 0.9, 0.78).multiplyScalar(HERO_DIM * (0.85 + 0.3 * rng())));
     // Placed every frame from the physics; the instance bounds are never recomputed.
     this.mesh.frustumCulled = false;
+    // In the worm's pocket, under the top of the litter (drawOrder.ts).
+    this.mesh.renderOrder = POCKET_ORDER;
     this.mesh.count = 0;
     this.mesh.visible = false;
     this.mesh.name = 'heroLeaves';
