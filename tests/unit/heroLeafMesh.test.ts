@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { HeroLeafMesh, heroLeafMatrix } from '../../src/surface/heroLeafMesh';
+import { HeroLeafMesh, heroLeafMatrix, topShare, TOP_EASE, TOP_FROM, TOP_TO } from '../../src/surface/heroLeafMesh';
+import { floorHeight, litterTopHeight } from '../../src/surface/litterDepth';
 import {
   createHeroLeaves, setHeroCount, snapshotHeroLeaves, stepHeroLeaves, HERO_GROW_IN, HERO_MAX,
 } from '../../src/surface/heroLeaves';
@@ -23,7 +24,7 @@ describe('HeroLeafMesh', () => {
   it('starts hidden and shows exactly the active leaves', () => {
     expect(hero.mesh.visible).toBe(false);
     setHeroCount(pool, 12, 0, 0, 0, () => 0.05);
-    hero.update(pool, 1);
+    hero.update(pool, 1, 0);
     expect(hero.mesh.count).toBe(12);
     expect(hero.mesh.visible).toBe(true);
     const m = new THREE.Matrix4();
@@ -38,10 +39,10 @@ describe('HeroLeafMesh', () => {
     pool.x[0] += 1;
     const m = new THREE.Matrix4();
     const p = new THREE.Vector3();
-    hero.update(pool, 0);
+    hero.update(pool, 0, 0);
     hero.mesh.getMatrixAt(0, m);
     expect(p.setFromMatrixPosition(m).x).toBeCloseTo(pool.px[0], 5);
-    hero.update(pool, 0.5);
+    hero.update(pool, 0.5, 0);
     hero.mesh.getMatrixAt(0, m);
     expect(p.setFromMatrixPosition(m).x).toBeCloseTo(pool.px[0] + 0.5, 5);
   });
@@ -107,7 +108,65 @@ describe('HeroLeafMesh', () => {
 
   it('hides itself at zero leaves (Low)', () => {
     setHeroCount(pool, 0, 0, 0, 0, () => 0.05);
-    hero.update(pool, 1);
+    hero.update(pool, 1, 0);
     expect(hero.mesh.visible).toBe(false);
+  });
+});
+
+describe('a hero leaf heaved up through the top of the litter brightens to a top leaf (V2 spec 8.2)', () => {
+  it('topShare: 0 well under the top, 1 well over it, smooth between', () => {
+    expect(topShare(TOP_FROM - 0.2)).toBe(0);
+    expect(topShare(TOP_FROM)).toBe(0);
+    expect(topShare(TOP_TO)).toBe(1);
+    expect(topShare(TOP_TO + 1)).toBe(1);
+    expect(topShare((TOP_FROM + TOP_TO) / 2)).toBeCloseTo(0.5, 9);
+    for (let o = TOP_FROM; o < TOP_TO; o += 0.01) expect(topShare(o + 0.01)).toBeGreaterThanOrEqual(topShare(o));
+  });
+
+  it('a leaf on the floor stays dim, one high over the top turns bright, easing with no jump', () => {
+    const pool = createHeroLeaves(2, 3);
+    const hero = new HeroLeafMesh(pool);
+    setHeroCount(pool, 2, 0, 0, 0, () => 0.05);
+    // Leaf 0 lies on the floor (well under the top: the litter is 0.45 or more deep there); leaf
+    // 1 is held 1 over the top. Grown in, flat, still.
+    for (let i = 0; i < 2; i++) {
+      pool.x[i] = 3 + i * 0.5;
+      pool.z[i] = 2;
+      pool.y[i] = i === 0 ? floorHeight(3, 2) : litterTopHeight(3.5, 2) + 1;
+      pool.flip[i] = pool.pitch[i] = pool.lift[i] = 0;
+      pool.grow[i] = 1;
+    }
+    snapshotHeroLeaves(pool);
+    const colour = hero.mesh.instanceColor!;
+    const dim = [colour.getX(0), colour.getY(0), colour.getZ(0)];
+    const frame = 1 / 30;
+    let worst = 0;
+    let prev = hero.lit[1];
+    for (let f = 0; f <= 30; f++) {
+      colour.needsUpdate = false;
+      hero.update(pool, 1, f * frame);
+      worst = Math.max(worst, Math.abs(hero.lit[1] - prev));
+      prev = hero.lit[1];
+    }
+    expect(hero.lit[0]).toBe(0);
+    expect([colour.getX(0), colour.getY(0), colour.getZ(0)]).toEqual(dim);
+    expect(hero.lit[1]).toBe(1);
+    // A top leaf's colour: grey (the V1 tint), brighter than the pocket's warm dim one.
+    expect(colour.getX(1)).toBeCloseTo(colour.getZ(1), 6);
+    expect(colour.getY(1)).toBeGreaterThan(colour.getY(0) * 1.4);
+    // Eased: no frame moves it by more than a frame's share of TOP_EASE.
+    expect(worst).toBeLessThanOrEqual(frame / TOP_EASE + 1e-6);
+    expect(worst).toBeGreaterThan(0);
+    // Nothing changed: the colours are not re-uploaded.
+    colour.needsUpdate = false;
+    const version = colour.version;
+    hero.update(pool, 1, 31 * frame);
+    expect(colour.version).toBe(version);
+    // Paused (the clock stands still): no easing at all.
+    pool.y[1] = pool.py[1] = floorHeight(3.5, 2);
+    hero.update(pool, 1, 31 * frame);
+    expect(hero.lit[1]).toBe(1);
+    hero.update(pool, 1, 32 * frame);
+    expect(hero.lit[1]).toBeCloseTo(1 - frame / TOP_EASE, 6);
   });
 });

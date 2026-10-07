@@ -9,9 +9,27 @@ import { leafTint, LATERAL_VEINS } from './leafPalette';
 import { mulberry32 } from '../core/random';
 import type { HeroLeaves } from './heroLeaves';
 import { POCKET_ORDER } from '../render/drawOrder';
+import { litterTopHeight } from './litterDepth';
 
 /** The hero leaves lie lowest in the litter: this much of their colour shows. */
 const HERO_DIM = 0.55;
+/** The pocket's older leaves are warmer and duller than this fall's (times HERO_DIM). */
+const DIM_TINT = [1, 0.9, 0.78] as const;
+/**
+ * A hero leaf whose highest point rises from TOP_FROM under the top of the litter to TOP_TO over
+ * it (at its centre) brightens from the pocket's dim tint to a top leaf's colour: one the worm
+ * heaves up through the top reads as a disturbed top leaf, not a dark leaf standing on it.
+ */
+export const TOP_FROM = -0.1;
+export const TOP_TO = 0.1;
+/** The brightening eases over this long (s), so a leaf crossing the top never flashes. */
+export const TOP_EASE = 0.15;
+
+/** 0 (the pocket's dim tint) to 1 (a top leaf's colour) for a leaf whose highest point is `over` the top. */
+export function topShare(over: number): number {
+  const t = Math.min(1, Math.max(0, (over - TOP_FROM) / (TOP_TO - TOP_FROM)));
+  return t * t * (3 - 2 * t);
+}
 
 /** A leaf lying face down on the litter rests on its curled rim, sunk in a little: this much (per unit of size) higher. */
 const FLIP_LIFT = 0.12;
@@ -93,7 +111,14 @@ export function heroLeafMatrix(p: HeroLeaves, i: number, alpha: number, out: THR
  */
 export class HeroLeafMesh {
   readonly mesh: THREE.InstancedMesh;
+  /** Per leaf, 0 (dim, in the pocket) to 1 (bright, heaved up through the top): eased (TOP_EASE). */
+  readonly lit: Float32Array;
   private readonly m = new THREE.Matrix4();
+  /** Per leaf, its random brightness (fixed at build). */
+  private readonly shade: Float32Array;
+  /** Per species, its form's box (min x, y, z, max x, y, z) as built. */
+  private readonly box = new Float32Array(LEAF_KINDS.length * 6);
+  private lastTime = NaN;
 
   constructor(pool: HeroLeaves) {
     const rng = mulberry32(17);
@@ -116,15 +141,22 @@ export class HeroLeafMesh {
     const n: Vec3 = { x: 0, y: 0, z: 0 };
     let v0 = 0;
     let ii = 0;
+    const box = this.box;
     LEAF_KINDS.forEach((kind, ki) => {
       const s = detailShape(kind);
       const np = s.points.length / 2;
+      box.fill(Infinity, ki * 6, ki * 6 + 3);
+      box.fill(-Infinity, ki * 6 + 3, ki * 6 + 6);
       const wet = leafTint(kind, 0.05, rng, inner, edge, stem);
       for (let p = 0; p < np; p++) {
         const u = s.points[p * 2];
         const v = s.points[p * 2 + 1];
         const k = v0 + p;
         pos.set([u, leafLift(u, v, HERO_FORM), -v], k * 3);
+        for (let a = 0; a < 3; a++) {
+          box[ki * 6 + a] = Math.min(box[ki * 6 + a], pos[k * 3 + a]);
+          box[ki * 6 + 3 + a] = Math.max(box[ki * 6 + 3 + a], pos[k * 3 + a]);
+        }
         leafNormal(u, v, HERO_FORM, n);
         nor.set([n.x, n.y, n.z], k * 3);
         const onEdge = p < s.outline ? 1 : 0;
@@ -151,10 +183,16 @@ export class HeroLeafMesh {
 
     this.mesh = new THREE.InstancedMesh(g, createLeafMaterial('hero'), pool.max);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    const tint = new THREE.Color();
     // They lie on the floor in the worm's pocket (V2 spec 8.2): older, damper leaves, darker
-    // and duller than this fall's on top.
-    for (let i = 0; i < pool.max; i++) this.mesh.setColorAt(i, tint.setRGB(1, 0.9, 0.78).multiplyScalar(HERO_DIM * (0.85 + 0.3 * rng())));
+    // and duller than this fall's on top, until the worm heaves one up through the top.
+    this.lit = new Float32Array(pool.max);
+    this.shade = new Float32Array(pool.max);
+    const tint = new THREE.Color();
+    for (let i = 0; i < pool.max; i++) {
+      this.shade[i] = 0.85 + 0.3 * rng();
+      this.mesh.setColorAt(i, tint);
+      this.writeColour(i);
+    }
     // Placed every frame from the physics; the instance bounds are never recomputed.
     this.mesh.frustumCulled = false;
     // In the worm's pocket, under the top of the litter (drawOrder.ts).
@@ -164,11 +202,42 @@ export class HeroLeafMesh {
     this.mesh.name = 'heroLeaves';
   }
 
-  /** Writes every active leaf's matrix, between the last two physics steps by `alpha`. */
-  update(p: HeroLeaves, alpha: number): void {
-    for (let i = 0; i < p.count; i++) this.mesh.setMatrixAt(i, heroLeafMatrix(p, i, alpha, this.m));
+  /**
+   * Writes every active leaf's matrix, between the last two physics steps by `alpha`, and eases
+   * its colour toward a top leaf's as far as it stands up through the top of the litter
+   * (`timeSec`: the game clock, which stands still while paused). Allocates nothing.
+   */
+  update(p: HeroLeaves, alpha: number, timeSec: number): void {
+    const dt = Number.isNaN(this.lastTime) ? 0 : Math.min(0.1, Math.max(0, timeSec - this.lastTime));
+    this.lastTime = timeSec;
+    const step = dt / TOP_EASE;
+    let recoloured = false;
+    for (let i = 0; i < p.count; i++) {
+      const e = heroLeafMatrix(p, i, alpha, this.m).elements;
+      this.mesh.setMatrixAt(i, this.m);
+      // The leaf's highest point: its form's box, as the matrix turns it, over its centre.
+      const b = p.kind[i] * 6;
+      let top = e[13];
+      for (let a = 0; a < 3; a++) top += Math.max(e[1 + a * 4] * this.box[b + a], e[1 + a * 4] * this.box[b + 3 + a]);
+      const target = topShare(top - litterTopHeight(e[12], e[14]));
+      const was = this.lit[i];
+      const now = was + Math.min(step, Math.max(-step, target - was));
+      if (now !== was) {
+        this.lit[i] = now;
+        this.writeColour(i);
+        recoloured = true;
+      }
+    }
     this.mesh.count = p.count;
     this.mesh.visible = p.count > 0;
     if (p.count > 0) this.mesh.instanceMatrix.needsUpdate = true;
+    if (recoloured) this.mesh.instanceColor!.needsUpdate = true;
+  }
+
+  /** Leaf `i`'s colour: the pocket's dim tint, brightened toward a top leaf's by `lit`. */
+  private writeColour(i: number): void {
+    const c = this.mesh.instanceColor!.array as Float32Array;
+    const l = this.lit[i];
+    for (let a = 0; a < 3; a++) c[i * 3 + a] = this.shade[i] * (DIM_TINT[a] * HERO_DIM * (1 - l) + l);
   }
 }

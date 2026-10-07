@@ -93,7 +93,7 @@ export function buildWorld(crawl: Crawl): World {
     sync(crawl, alpha, timeSec, camera) {
       crawl.interpolate(alpha, timeSec, pose, camera);
       worm.update(pose);
-      hero.update(crawl.hero, alpha);
+      hero.update(crawl.hero, alpha, timeSec);
       setFocus(crawl.focus.x, crawl.focus.y, crawl.focus.z);
       // The near clutter keeps clear of the spine, and the floor patch centres on it.
       setSpine(pose.spine);
