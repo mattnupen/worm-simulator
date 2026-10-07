@@ -3,22 +3,9 @@ import { Crawl, BODY_RADIUS } from '../../src/game/crawl';
 import { footprints, obstacleDepth } from '../../src/surface/obstacles';
 import { PLAY_HALF } from '../../src/surface/terrain';
 import { LOCOMOTION } from '../../src/game/drive';
+import { DT, driveTo } from './cameraPress';
 
-const DT = 1 / 60;
 const hit = { nx: 0, nz: 0 };
-const wrap = (a: number) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
-
-/** Steers toward (tx, tz) for `steps` steps; `each` sees the crawl after every step. */
-function driveTo(c: Crawl, tx: number, tz: number, steps: number, each: (c: Crawl) => void = () => {}): void {
-  const move = { x: 0, y: 1 };
-  for (let s = 0; s < steps; s++) {
-    const h = c.motion.head;
-    const err = wrap(Math.atan2(tx - h.x, tz - h.z) - c.motion.heading);
-    move.x = Math.max(-1, Math.min(1, -err * 3));
-    c.step(DT, move);
-    each(c);
-  }
-}
 
 /**
  * The fallen log runs across the world and out past both play edges. A slide along its side into

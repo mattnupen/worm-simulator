@@ -248,8 +248,8 @@ test('the Graphics screen\'s Back button returns focus to the Graphics button th
 
 test('no World scale in V2: the Start menu has no such button, and a V1 save with one still loads and keeps it', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto(PAGE);
-  await page.evaluate(() => localStorage.setItem('wormsim.settings', JSON.stringify({ version: 1, graphics: 'low', autoSettled: null, scale: 'classic' })));
+  // A V1 save, in storage before the page's first script runs (the page loads once).
+  await page.addInitScript(() => localStorage.setItem('wormsim.settings', JSON.stringify({ version: 1, graphics: 'low', autoSettled: null, scale: 'classic' })));
   await page.goto(PAGE + '?scale=hybrid');
   await expect(button(page, 'Crawl')).toBeFocused();
   await expect(page.getByRole('button', { name: /World scale/ })).toHaveCount(0);

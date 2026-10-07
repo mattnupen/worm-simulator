@@ -19,7 +19,8 @@ import type { WormPose } from '../../src/worm/wormMesh';
  * camera's whole motion, its turn and its height bobbing across uneven frames, the worm's height,
  * and its body turning back.
  */
-interface Track { cam: number[][]; dir: number[][]; head: number[]; steps: number[]; body: Float32Array[] }
+/** One seed's course: per drawn frame and per step, how far the head went and how many targets it reached. */
+interface Track { cam: number[][]; dir: number[][]; head: number[]; steps: number[]; body: Float32Array[]; path: number; reached: number }
 
 function drive(seed: number, seconds: number): Track {
   const rng = mulberry32(seed);
@@ -34,7 +35,7 @@ function drive(seed: number, seconds: number): Track {
   const st = createStepper();
   const camera = new THREE.PerspectiveCamera(60, 1366 / 768, 0.2, 120);
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
-  const t: Track = { cam: [], dir: [], head: [], steps: [], body: [] };
+  const t: Track = { cam: [], dir: [], head: [], steps: [], body: [], path: 0, reached: 0 };
   const v = new THREE.Vector3();
   let target = spots[Math.floor(rng() * spots.length)];
   let wall = 0;
@@ -45,11 +46,15 @@ function drive(seed: number, seconds: number): Track {
     const r = advance(st, dt, 1000 / 60, 1000 / 30);
     for (let i = 0; i < r.steps; i++) {
       const h = crawl.motion.head;
-      if (Math.hypot(target[0] - h.x, target[1] - h.z) < 1) target = spots[Math.floor(rng() * spots.length)];
+      if (Math.hypot(target[0] - h.x, target[1] - h.z) < 1) {
+        target = spots[Math.floor(rng() * spots.length)];
+        t.reached++;
+      }
       const err = Math.atan2(target[0] - h.x, target[1] - h.z) - crawl.motion.heading;
       const e = err - 2 * Math.PI * Math.round(err / (2 * Math.PI));
       move.x = Math.max(-1, Math.min(1, -e * 2));
       crawl.step(1 / 60, move);
+      t.path += Math.hypot(crawl.motion.head.x - h.x, crawl.motion.head.z - h.z);
       t.steps.push(h.y);
     }
     if (!r.render || wall < 1500) continue;
@@ -100,12 +105,24 @@ function measure(t: Track) {
     }
   }
   for (let k = 2; k < t.steps.length; k++) stepJerk = Math.max(stepJerk, Math.abs(t.steps[k] - 2 * t.steps[k - 1] + t.steps[k - 2]));
-  return { frames: t.cam.length, camJerk, rot, rotJerk, camYBack, headJerk, stepJerk, bodyBack };
+  return { frames: t.cam.length, path: t.path, reached: t.reached, camJerk, rot, rotJerk, camYBack, headJerk, stepJerk, bodyBack };
 }
 
 const results = tracks.map(measure);
 
 describe('the buried worm and its camera move smoothly over deep, uneven litter (frame to frame, seeds 1 to 6)', () => {
+  // Each course really crawls: 1 to 6 targets reached (18 in all) and 23 to 64 units, of the 64
+  // a free run covers in 40 s. Seeds 2 and 3 slide along the maple's root flare after their first
+  // target and end wedged where it meets the play edge (still measured: a pressed worm must not
+  // shake).
+  it('every course crawls to its targets', () => {
+    for (const [i, r] of results.entries()) {
+      expect(r.reached, `seed ${SEEDS[i]}`).toBeGreaterThanOrEqual(1);
+      expect(r.path, `seed ${SEEDS[i]}`).toBeGreaterThan(20);
+    }
+    expect(results.reduce((n, r) => n + r.reached, 0)).toBeGreaterThanOrEqual(15);
+  });
+
   // V1 (the worm on the soil under thin litter, riding piles), the same courses and frames:
   // camera jerk up to 0.099 a frame, turn 0.113 rad a frame, turn jerk 0.045, camera height
   // turning back 0 to 4 times a seed, head height jerk 0.030 (0.0099 a step), body turning back

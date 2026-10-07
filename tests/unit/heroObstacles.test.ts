@@ -97,10 +97,8 @@ describe('hero leaves and trunks, rocks and the log', () => {
       ...treeSites().map((t) => besideOf(t.x, t.z, trunkFootOf(t))),
       ...rocks().map((k) => besideOf(k.x, k.z, k.size * ROCK_FOOT)),
       besideOf(log.x, log.z, log.radius * LOG_FOOT),
-      // Squeezed between big footprints in True (a rock and a maple's root flare): every spawn
-      // spot tried can be inside one, so the leaves fall back to the ring search. Outside True
-      // it is a deliberately bad head position (in Hybrid the head is 1.75 inside a rock, where
-      // the worm cannot go): a stress test of the fallback.
+      // Squeezed between big footprints (a rock and the maple's root flare): every spawn spot
+      // tried can be inside one, so the leaves fall back to the ring search.
       { x: 3.2, z: -7.0 },
       // At the world's edge: spots are clamped onto it, so few are free.
       { x: -18.8, z: 0 },

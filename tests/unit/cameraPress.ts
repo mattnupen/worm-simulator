@@ -4,15 +4,16 @@ import type { WormPose } from '../../src/worm/wormMesh';
 import { footprints, insideTall } from '../../src/surface/obstacles';
 
 /**
- * Shared by the camera tests: driving the worm at props, and watching its camera for snaps and
- * shake. The press-and-turn runs are split over several test files (cameraPress*.test.ts) so they
- * run side by side.
+ * Shared by the crawl, prop and camera tests: the fixed step, driving the worm at props, and
+ * watching its camera for snaps and shake. The press-and-turn run (pressAndTurn) is in
+ * cameraPressTrue.test.ts.
  */
 export const DT = 1 / 60;
 const wrap = (a: number) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
+const NOTHING = (): void => {};
 
-/** Steers toward (tx, tz) for `steps` steps; `each` sees the crawl after every step. */
-export function driveTo(c: Crawl, tx: number, tz: number, steps: number, each: (c: Crawl) => void): void {
+/** Steers toward (tx, tz) for `steps` steps; `each`, if given, sees the crawl after every step. */
+export function driveTo(c: Crawl, tx: number, tz: number, steps: number, each: (c: Crawl) => void = NOTHING): void {
   const move = { x: 0, y: 1 };
   for (let s = 0; s < steps; s++) {
     const h = c.motion.head;

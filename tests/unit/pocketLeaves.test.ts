@@ -91,6 +91,12 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
     let fading = 0;
     let draped = 0;
     let plainChecked = 0;
+    // Failures are counted (one expect per vertex is slow), with the first of each kind.
+    const failures: Record<string, number> = { pokesThrough: 0, leftOutInHole: 0, plainWouldFade: 0 };
+    const firstFailure: string[] = [];
+    const fail = (kind: string, leaf: number, step: number) => {
+      if (failures[kind]++ === 0) firstFailure.push(`${kind}: leaf ${leaf} at step ${step}`);
+    };
     for (let s = 0; s < 2400; s++) {
       if (s % 300 === 0) {
         tx = (rng() * 2 - 1) * H;
@@ -139,7 +145,7 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
           disturbVertex(sample, m.ci * DIST_CELL, m.cj * DIST_CELL, true, at, a4, 0, moved, fadeWin);
           pocketCap(inp, moved);
           // Draped over the body or not, never up through the top of the litter.
-          expect(litterTopHeight(moved[0], moved[2]) - moved[1]).toBeGreaterThan(0.02);
+          if (!(litterTopHeight(moved[0], moved[2]) - moved[1] > 0.02)) fail('pokesThrough', p, s);
           if (moved[1] - at[1] > 0.1) draped++;
           v.set(moved[0], moved[1], moved[2]).applyMatrix4(camera.matrixWorldInverse);
           const d = -v.z;
@@ -148,16 +154,17 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
           if (!listed[p]) {
             const miss = nearestMiss(v.x / d, v.y / d, seg, n);
             closest = Math.min(closest, miss);
-            expect(miss).toBeGreaterThanOrEqual(OCC_REACH);
+            if (!(miss >= OCC_REACH)) fail('leftOutInHole', p, s);
             checked++;
           } else if (!fades[p]) {
             // Drawn without the fade: none of it would have faded.
-            expect(occlusion(v.x / d, v.y / d, d, seg, n, box[4], upA)).toBe(0);
+            if (occlusion(v.x / d, v.y / d, d, seg, n, box[4], upA) !== 0) fail('plainWouldFade', p, s);
             plainChecked++;
           }
         }
       }
     }
+    expect(failures, firstFailure.join('; ')).toEqual({ pokesThrough: 0, leftOutInHole: 0, plainWouldFade: 0 });
     expect(frames).toBeGreaterThan(150);
     expect(checked).toBeGreaterThan(40000);
     // Left-out leaves come close to the hole (the test is not vacuous)...
@@ -165,7 +172,7 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
     // ...and only a handful of the leaves round the body are drawn.
     expect(shown / frames).toBeGreaterThan(1);
     expect(most).toBeLessThan(count / 4);
-    // Some are draped high over the body, and most of those drawn need no fade.
+    // Some are draped high over the body, and some of those drawn (about a sixth) need no fade.
     expect(draped).toBeGreaterThan(1000);
     expect(plainChecked).toBeGreaterThan(20000);
     expect(fading).toBeLessThan(shown);

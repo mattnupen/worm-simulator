@@ -15,11 +15,12 @@ const MAX_ACCEL = 2.5e-3;
 const MAX_JERK = 2.5e-3;
 /**
  * A nod: within NOD_STEPS (half a second) the camera rises and falls back, or falls and rises back,
- * by more than NOD (4 mm). A rock's crest-and-dip made 0.11 to 0.12; crawling the honest ups and
- * downs of the litter at full speed makes up to 0.07 (V1's camera: up to 0.08). A plain velocity
- * reversal is no test: crossing any hollow at full speed reverses a velocity of 5e-3 a step.
+ * by more than NOD (about 4 mm). A rock's crest-and-dip made 0.11 to 0.13; crawling the honest ups
+ * and downs of the litter at full speed makes up to 0.088 on a waypoint drive (V1's camera: up to
+ * 0.08), so 0.1 leaves that a margin and still catches a rock's bump. A plain velocity reversal is
+ * no test: crossing any hollow at full speed reverses a velocity of 5e-3 a step.
  */
-const NOD = 0.09;
+const NOD = 0.1;
 const NOD_STEPS = 30;
 const MAX_TURN = 0.045;
 /**

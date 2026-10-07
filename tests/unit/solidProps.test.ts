@@ -7,23 +7,9 @@ import { terrainHeight } from '../../src/surface/terrain';
 import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
 import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
 import { CAM_OPTS } from '../../src/game/cameraClearance';
-import { followY, pastTrunk } from './cameraPress';
+import { DT, driveTo, followY, pastTrunk } from './cameraPress';
 
-const DT = 1 / 60;
 const hit = { nx: 0, nz: 0 };
-const wrap = (a: number) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
-
-/** Steers toward (tx, tz) for `steps` steps; `each` sees the crawl after every step. */
-function driveTo(c: Crawl, tx: number, tz: number, steps: number, each: (c: Crawl) => void): void {
-  const move = { x: 0, y: 1 };
-  for (let s = 0; s < steps; s++) {
-    const h = c.motion.head;
-    const err = wrap(Math.atan2(tx - h.x, tz - h.z) - c.motion.heading);
-    move.x = Math.max(-1, Math.min(1, -err * 3));
-    c.step(DT, move);
-    each(c);
-  }
-}
 
 /** Fails if any body point lies inside a footprint grown by the body's radius. */
 function outside(c: Crawl): void {

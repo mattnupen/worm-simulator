@@ -36,7 +36,7 @@ describe('the bark pattern is laid out at base size, so a big trunk wears the sa
   it('the log\'s reach along its bark is its base length, 4.4, and the trunks\' about a base trunk\'s height', () => {
     const r = barkReach();
     expect(r.log).toBeCloseTo(4.4, 5);
-    // In base units (V1 measured Classic's tallest at 14.4, and every mode within 15% of it).
+    // In base units: a base trunk is 11 to 15.5 tall, and the tallest reaches about 14.4 with its limbs.
     expect(r.trunk).toBeGreaterThan(12);
     expect(r.trunk).toBeLessThan(17);
   });
