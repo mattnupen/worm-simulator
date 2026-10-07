@@ -5,9 +5,6 @@ import { createPaintedMaterial } from '../render/paintedMaterial';
 import { terrainHeight, WORLD_HALF } from './terrain';
 import { REAL_SCALE } from './realScale';
 
-/** The most trees the distant ring holds; it draws min(this, REAL_SCALE.distantCount). */
-export const RING_COUNT = 72;
-
 function colored(g: THREE.BufferGeometry, hex: string): THREE.BufferGeometry {
   const geo = g.index ? g.toNonIndexed() : g;
   const c = new THREE.Color(hex);
@@ -66,8 +63,7 @@ const TINTS = ['#ffffff', '#f2d7a8', '#e6b98a', '#d9d0b8', '#c8a07a'];
  * They exist only for depth; the haze does most of the work.
  */
 export function buildDistantTrees(): THREE.InstancedMesh {
-  const { distantScale, distantCount } = REAL_SCALE;
-  const count = Math.min(RING_COUNT, distantCount);
+  const { distantScale, distantCount: count } = REAL_SCALE;
   const mesh = new THREE.InstancedMesh(
     treeGeometry(),
     createPaintedMaterial({ color: '#ffffff', brush: 0.5, vertexColors: true }),

@@ -182,10 +182,9 @@ export function writeLog(
     for (let c = 0; c <= radial; c++) {
       const a = (c / radial) * TAU;
       // Broken ends are jagged, up to LOG_END past the length per unit of grow (a big log's
-      // splinters are as big as it is, so its ends do not look sawn off). A grown log's seam
-      // vertex (c = radial) repeats c = 0's jag so the end closes; a log at base size (grow 1) keeps
-      // Step 1a's hairline open seam.
-      const cj = grow === 1 ? c : c % radial;
+      // splinters are as big as it is, so its ends do not look sawn off). The seam vertex
+      // (c = radial) repeats c = 0's jag so the end closes.
+      const cj = c % radial;
       const jag = i === 0 || i === rings - 1 ? (Math.sin(cj * 2.7 + seed * 11) * 0.5 + 0.5) * LOG_END * grow * (i === 0 ? -1 : 1) : 0;
       centre(sMid + jag, c0);
       const nx = u.x * Math.cos(a) + v.x * Math.sin(a);

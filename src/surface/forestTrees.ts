@@ -14,17 +14,17 @@ const BIRCH_CROWN = ['#e8b830', '#d9a020', '#f0c848', '#c89a28', '#b8a83a'];
 const MAPLE_CROWN = ['#e0602a', '#d4402a', '#ec8a2a', '#c83a24', '#e89a30'];
 
 /**
- * One stem: `scale` makes a clump's second stem smaller; `grow` is the species' real-size growth
- * (realScale.ts), applied to girth, height, lean and the root collar alike.
+ * One trunk: `grow` is the species' real-size growth (realScale.ts), applied to girth, height,
+ * lean and the root collar alike.
  */
-function trunkSpec(x: number, z: number, birch: boolean, rng: () => number, scale = 1, grow = 1): TrunkSpec {
-  const lean = (birch ? 0.9 : 0.45) * rng() * scale * grow;
+function trunkSpec(x: number, z: number, birch: boolean, rng: () => number, grow: number): TrunkSpec {
+  const lean = (birch ? 0.9 : 0.45) * rng() * grow;
   const la = rng() * Math.PI * 2;
   const collar = 0.4 * grow;
   return {
     x, z, ground: terrainHeight(x, z),
     params: birch
-      ? { height: (11 + rng() * 3) * scale * grow, radius: (0.24 + rng() * 0.09) * scale * grow, taper: 0.45, flare: 0.45, buttress: 0.3, lobes: 4, phase: rng() * 6, collar }
+      ? { height: (11 + rng() * 3) * grow, radius: (0.24 + rng() * 0.09) * grow, taper: 0.45, flare: 0.45, buttress: 0.3, lobes: 4, phase: rng() * 6, collar }
       : { height: (13 + rng() * 2.5) * grow, radius: (0.38 + rng() * 0.12) * grow, taper: 0.45, flare: 0.75, buttress: 0.6, lobes: 5, phase: rng() * 6, collar },
     leanX: Math.cos(la) * lean,
     leanZ: Math.sin(la) * lean,
@@ -94,7 +94,7 @@ function writeCrown(w: MeshWriter, cx: number, cy: number, cz: number, R: number
 }
 
 /**
- * The near forest at real size: paper birches (some in clumps) and sugar maples with
+ * The near forest at real size: paper birches and sugar maples with
  * bark-detailed, flared, leaning trunks and limbs (one merged draw), and soft autumn crowns (one
  * merged draw). `addBark` lets other props (the fallen log) share the trunk draw.
  */
@@ -102,22 +102,13 @@ export function buildForestTrees(addBark?: (w: MeshWriter) => void): THREE.Group
   const bark = new MeshWriter('aBark', 4);
   const crowns = new MeshWriter('aCanopy', 4);
   const rng = mulberry32(77);
-  treeSites().forEach(({ x, z, birch, clump }) => {
+  treeSites().forEach(({ x, z, birch }) => {
     const grow = birch ? REAL_SCALE.birch : REAL_SCALE.maple;
-    const stems = [trunkSpec(x, z, birch, rng, 1, grow)];
-    if (clump) {
-      const a = rng() * Math.PI * 2;
-      const s = trunkSpec(x + Math.cos(a) * 0.5 * grow, z + Math.sin(a) * 0.5 * grow, true, rng, 0.8, grow);
-      s.leanX = Math.cos(a) * 1.4 * grow;
-      s.leanZ = Math.sin(a) * 1.4 * grow;
-      stems.push(s);
-    }
-    for (const t of stems) {
-      writeTrunk(bark, t);
-      writeDetails(bark, t, birch, rng, grow);
-      const H = t.params.height;
-      writeCrown(crowns, t.x + t.leanX, t.ground + H * 0.86, t.z + t.leanZ, (birch ? 2.6 : 3.3) * grow, birch, rng);
-    }
+    const t = trunkSpec(x, z, birch, rng, grow);
+    writeTrunk(bark, t);
+    writeDetails(bark, t, birch, rng, grow);
+    const H = t.params.height;
+    writeCrown(crowns, t.x + t.leanX, t.ground + H * 0.86, t.z + t.leanZ, (birch ? 2.6 : 3.3) * grow, birch, rng);
   });
   addBark?.(bark);
 

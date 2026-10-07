@@ -179,11 +179,10 @@ export function writeFern(
   const base = new THREE.Color(green ? '#5f6e28' : '#8a5a22');
   const tip = new THREE.Color(green ? '#a0a040' : '#d09a3a');
   const fronds = 5;
-  // A grown fern (grow over 1, as at real size) gets denser, broader leaflets: at base size's 8
-  // slim pairs a frond seen against the sky reads as a sparse comb. The leaflets draw no random
-  // numbers.
-  const pairs = grow > 1 ? 14 : 8;
-  const leafletBase = grow > 1 ? 0.4 : 0.22;
+  // Dense, broad leaflets: with fewer, slimmer ones a frond seen against the sky reads as a sparse
+  // comb. The leaflets draw no random numbers.
+  const pairs = 14;
+  const leafletBase = 0.4;
   for (let f = 0; f < fronds; f++) {
     const yaw = (f / fronds) * TAU + rng() * 0.5;
     const len = (0.9 + rng() * 0.5) * scale * grow;

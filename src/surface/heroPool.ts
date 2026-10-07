@@ -75,7 +75,7 @@ export function hash01(a: number, b: number): number {
  * Sets every slot's leaf length from its fixed base (0.55 to 1 m) times its species' real-size
  * growth (realScale.ts). createHeroLeaves calls it.
  */
-export function sizeHeroLeaves(p: HeroLeaves): void {
+function sizeHeroLeaves(p: HeroLeaves): void {
   const grow = REAL_SCALE.leaf;
   for (let i = 0; i < p.max; i++) p.size[i] = (0.55 + 0.45 * hash01(i, p.seed + 101)) * grow[LEAF_KINDS[p.kind[i]]];
 }

@@ -111,14 +111,11 @@ describe('clutter and trees grow to real size', () => {
     }
   });
 
-  it('a grown fern has denser leaflets (14 pairs a frond, 8 at base size), so it does not read as a comb', () => {
-    const verts = (grow: number) => {
-      const w = new MeshWriter('aProp', 4);
-      writeFern(w, 0, 0, 1, mulberry32(9), () => 0, grow);
-      return w.vertexCount;
-    };
-    // 5 fronds, 6 more pairs each, two leaflets a pair, three vertices a leaflet.
-    expect(verts(7) - verts(1)).toBe(5 * 6 * 2 * 3);
+  it('a fern has dense leaflets (14 pairs a frond), so it does not read as a comb', () => {
+    const w = new MeshWriter('aProp', 4);
+    writeFern(w, 0, 0, 1, mulberry32(9), () => 0, REAL_SCALE.fern);
+    // 5 fronds: a rachis of 4 rows of two vertices, and 14 pairs of three-vertex leaflets.
+    expect(w.vertexCount).toBe(5 * (4 * 2 + 14 * 2 * 3));
   });
 
   it('the distant ring has the real-size count, each tree its size', () => {
