@@ -14,9 +14,10 @@ import type { WormPose } from '../../src/worm/wormMesh';
  * on a 60 Hz display with uneven frames (about one in seven late) and the 30 fps cap, and measures
  * every rendered frame, as interpolated between steps (handoff lessons).
  *
- * cameraMotion.test.ts already checks the camera's height (accel, jerk, nods) and its turn step by
- * step. This adds what only shows on the drawn frames and on the worm itself: the camera's whole
- * motion and its turn across uneven frames, the worm's height, and its body turning back.
+ * cameraMotion.test.ts checks the camera's height (accel, jerk, nods) and its turn step by step, at
+ * alpha 1. This checks what shows on the drawn, interpolated frames and on the worm itself: the
+ * camera's whole motion, its turn and its height bobbing across uneven frames, the worm's height,
+ * and its body turning back.
  */
 interface Track { cam: number[][]; dir: number[][]; head: number[]; steps: number[]; body: Float32Array[] }
 
@@ -73,16 +74,22 @@ const tracks = SEEDS.map((s) => drive(s, 40));
 /** Every per-frame and per-step measure, for one seed's course. */
 function measure(t: Track) {
   let camJerk = 0;
+  let rot = 0;
   let rotJerk = 0;
+  let camYBack = 0;
   let headJerk = 0;
   let stepJerk = 0;
   let bodyBack = 0;
   for (let k = 2; k < t.cam.length; k++) {
     const [a, b, c] = [t.cam[k - 2], t.cam[k - 1], t.cam[k]];
     camJerk = Math.max(camJerk, Math.hypot(c[0] - 2 * b[0] + a[0], c[1] - 2 * b[1] + a[1], c[2] - 2 * b[2] + a[2]));
+    // The camera bobbing: its height turning back by more than a millimetre between frames.
+    const [y1, y2] = [b[1] - a[1], c[1] - b[1]];
+    if (y1 * y2 < 0 && Math.min(Math.abs(y1), Math.abs(y2)) > 0.001) camYBack++;
     const [da, db, dc] = [t.dir[k - 2], t.dir[k - 1], t.dir[k]];
     const r1 = Math.acos(Math.min(1, da[0] * db[0] + da[1] * db[1] + da[2] * db[2]));
     const r2 = Math.acos(Math.min(1, db[0] * dc[0] + db[1] * dc[1] + db[2] * dc[2]));
+    rot = Math.max(rot, r2);
     rotJerk = Math.max(rotJerk, Math.abs(r2 - r1));
     headJerk = Math.max(headJerk, Math.abs(t.head[k] - 2 * t.head[k - 1] + t.head[k - 2]));
     // Any body point stepping back (along x, z or y) by more than a millimetre between frames.
@@ -93,20 +100,23 @@ function measure(t: Track) {
     }
   }
   for (let k = 2; k < t.steps.length; k++) stepJerk = Math.max(stepJerk, Math.abs(t.steps[k] - 2 * t.steps[k - 1] + t.steps[k - 2]));
-  return { frames: t.cam.length, camJerk, rotJerk, headJerk, stepJerk, bodyBack };
+  return { frames: t.cam.length, camJerk, rot, rotJerk, camYBack, headJerk, stepJerk, bodyBack };
 }
 
 const results = tracks.map(measure);
 
 describe('the buried worm and its camera move smoothly over deep, uneven litter (frame to frame, seeds 1 to 6)', () => {
   // V1 (the worm on the soil under thin litter, riding piles), the same courses and frames:
-  // camera jerk up to 0.099 a frame, turn jerk 0.045, head height jerk 0.030 (0.0099 a step),
-  // body turning back 7 to 232 times. V2 measured 0.099, 0.043, 0.0035 (0.0016), 5 to 26.
-  it('the camera, as drawn on uneven frames: no snap and no shake in its turn (as V1 or better)', () => {
+  // camera jerk up to 0.099 a frame, turn 0.113 rad a frame, turn jerk 0.045, camera height
+  // turning back 0 to 4 times a seed, head height jerk 0.030 (0.0099 a step), body turning back
+  // 7 to 232 times. V2 measured 0.099, 0.105, 0.043, 0 to 3, 0.0035 (0.0016), 5 to 26.
+  it('the camera, as drawn on uneven frames: no snap, no shake, no spin, no bob (as V1 or better)', () => {
     for (const [i, r] of results.entries()) {
       expect(r.frames, `seed ${SEEDS[i]}`).toBeGreaterThan(1000);
       expect(r.camJerk, `seed ${SEEDS[i]}`).toBeLessThan(0.11);
+      expect(r.rot, `seed ${SEEDS[i]}`).toBeLessThan(0.12);
       expect(r.rotJerk, `seed ${SEEDS[i]}`).toBeLessThan(0.05);
+      expect(r.camYBack, `seed ${SEEDS[i]}`).toBeLessThanOrEqual(6);
     }
   });
 
