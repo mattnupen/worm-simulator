@@ -3,8 +3,7 @@ import { Crawl } from '../../src/game/crawl';
 import { HERO_MAX, type HeroLeaves } from '../../src/surface/heroLeaves';
 import { heroShortcuts } from '../../src/surface/heroClearance';
 import { mulberry32 } from '../../src/core/random';
-
-const DT = 1 / 60;
+import { DT } from './cameraPress';
 
 /** Every per-slot array of the pool. */
 function arrays(p: HeroLeaves): ArrayLike<number>[] {

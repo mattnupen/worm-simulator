@@ -5,8 +5,8 @@ import { HeroWorm, type WormPose } from '../../src/worm/wormMesh';
 import { HeroLeafMesh, heroLeafMatrix } from '../../src/surface/heroLeafMesh';
 import { HERO_MAX } from '../../src/surface/heroLeaves';
 import { mulberry32 } from '../../src/core/random';
+import { DT } from './cameraPress';
 
-const DT = 1 / 60;
 /** Vertices per worm ring (RADIAL 14, plus the seam). */
 const RING_VERTS = 15;
 /** A leaf over the worm clears every body vertex under it by this. */

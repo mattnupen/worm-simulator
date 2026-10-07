@@ -4,10 +4,9 @@ import { Crawl, WORM_SEGMENTS } from '../../src/game/crawl';
 import { CAM_GROUND_MARGIN, CAM_OPTS } from '../../src/game/cameraClearance';
 import { bellyHeight, wormSurface } from '../../src/worm/surfaceHeight';
 import { floorHeight, groundHeight, litterTopHeight } from '../../src/surface/litterDepth';
-import { followY } from './cameraPress';
+import { DT, followY } from './cameraPress';
 import type { WormPose } from '../../src/worm/wormMesh';
 
-const DT = 1 / 60;
 const pose = (): WormPose => ({ spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 });
 
 describe('Crawl', () => {

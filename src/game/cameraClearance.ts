@@ -3,8 +3,7 @@ import {
   smoothDampInto, type FollowCamOptions, type FollowCamState, type Spring,
 } from '../surface/followCamera';
 import { pushOutTall, sightReach } from '../surface/obstacles';
-import { litterTopHeight } from '../surface/litterDepth';
-import { groundHeight } from '../surface/litterDepth';
+import { groundHeight, litterTopHeight } from '../surface/litterDepth';
 
 /** The follow camera's settings at full reach: distance behind and height above the point it follows over the head. */
 export const CAM_OPTS: Readonly<FollowCamOptions> = {

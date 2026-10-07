@@ -8,9 +8,8 @@ import { PLAY_HALF } from '../../src/surface/terrain';
 import { obstacleDepth, footprints } from '../../src/surface/obstacles';
 import { OBSTACLE_PAD } from '../../src/surface/heroSpawn';
 import { LEAF_REACH } from '../../src/surface/heroClearance';
+import { DT } from './cameraPress';
 
-
-const DT = 1 / 60;
 const flat = () => 0.05;
 const bumpy = (x: number, z: number) => 0.05 + 0.1 * Math.sin(3 * x) * Math.cos(2 * z);
 const NONE = new Float32Array(0);

@@ -4,6 +4,7 @@ import { HeroLeafMesh, heroLeafMatrix } from '../../src/surface/heroLeafMesh';
 import {
   createHeroLeaves, setHeroCount, snapshotHeroLeaves, stepHeroLeaves, HERO_GROW_IN, HERO_MAX,
 } from '../../src/surface/heroLeaves';
+import { DT } from './cameraPress';
 
 describe('HeroLeafMesh', () => {
   const pool = createHeroLeaves(HERO_MAX, 2);
@@ -79,7 +80,6 @@ describe('HeroLeafMesh', () => {
       return scale.x / p.size[0];
     };
     expect(sizeAt(1)).toBeLessThan(0.02);
-    const DT = 1 / 60;
     let last = sizeAt(1);
     const steps = Math.ceil(HERO_GROW_IN / DT);
     expect(HERO_GROW_IN).toBeGreaterThanOrEqual(0.3);

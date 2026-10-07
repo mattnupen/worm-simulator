@@ -7,8 +7,8 @@ import { OBSTACLE_PAD } from '../../src/surface/heroSpawn';
 import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
 import { heroLog, rocks } from '../../src/surface/propPlacement';
 import { PLAY_HALF } from '../../src/surface/terrain';
+import { DT } from './cameraPress';
 
-const DT = 1 / 60;
 const flat = () => 0.05;
 const NONE = new Float32Array(0);
 const hit = { nx: 0, nz: 0 };
@@ -40,7 +40,6 @@ function coincidentPairs(p: { count: number; x: Float32Array; z: Float32Array })
   }
   return n;
 }
-
 
 describe('hero leaves and trunks, rocks and the log', () => {
   const tree = () => treeSites()[0];
