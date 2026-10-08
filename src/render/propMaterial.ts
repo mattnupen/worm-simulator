@@ -114,28 +114,42 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
-/** `wrap`: the near-worm clutter variant (placed around the worm in the vertex shader). */
-export function createPropMaterial(wrap = false): THREE.ShaderMaterial {
+/** The buried worm's fade (OCCLUDE, occlusion.ts): the shared per-frame uniforms it reads. */
+const occludeUniforms = () => ({
+  uOccSeg: groundUniforms.uOccSeg,
+  uOccCount: groundUniforms.uOccCount,
+  uOccAxis: groundUniforms.uOccAxis,
+  uOccTiles: groundUniforms.uOccTiles,
+  uOccBox: groundUniforms.uOccBox,
+  uOccTan: groundUniforms.uOccTan,
+  uOccDepth: groundUniforms.uOccDepth,
+  uOccUp: groundUniforms.uOccUp,
+});
+
+/**
+ * `wrap`: the near-worm clutter variant (placed around the worm in the vertex shader; it fades).
+ * `occlude`: props that can lie over the buried worm fade where they hide it, as the leaves do
+ * (the burrow middens). Each variant is its own program: compile it at load (warmShaders).
+ */
+export function createPropMaterial(wrap = false, occlude = wrap): THREE.ShaderMaterial {
+  const defines: Record<string, string> = {};
+  if (wrap) defines.WRAP = '';
+  if (occlude) defines.OCCLUDE = '';
   return new THREE.ShaderMaterial({
-    uniforms: wrap
-      ? {
-        ...sharedLighting,
-        uFocus: groundUniforms.uFocus,
-        uWrapCentre: groundUniforms.uWrapCentre,
-        uSpine: groundUniforms.uSpine,
-        uOccSeg: groundUniforms.uOccSeg,
-        uOccCount: groundUniforms.uOccCount,
-        uOccAxis: groundUniforms.uOccAxis,
-        uOccTiles: groundUniforms.uOccTiles,
-        uOccBox: groundUniforms.uOccBox,
-        uOccTan: groundUniforms.uOccTan,
-        uOccDepth: groundUniforms.uOccDepth,
-        uOccUp: groundUniforms.uOccUp,
-        uLitter: { value: getLitterTexture() },
-        uGround: { value: getGroundTexture() },
-      }
-      : { ...sharedLighting },
-    defines: wrap ? { WRAP: '', OCCLUDE: '' } : {},
+    uniforms: {
+      ...sharedLighting,
+      ...(occlude ? occludeUniforms() : {}),
+      ...(wrap
+        ? {
+          uFocus: groundUniforms.uFocus,
+          uWrapCentre: groundUniforms.uWrapCentre,
+          uSpine: groundUniforms.uSpine,
+          uLitter: { value: getLitterTexture() },
+          uGround: { value: getGroundTexture() },
+        }
+        : {}),
+    },
+    defines,
     vertexShader,
     fragmentShader,
     side: THREE.DoubleSide,

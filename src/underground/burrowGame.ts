@@ -45,7 +45,9 @@ const wrap = (a: number): number => a - 2 * Math.PI * Math.round(a / (2 * Math.P
  *   another screen): `hold(cmds.action)`. The prompt is `prompt`, unless `?prompt=` overrides it.
  * - a new `slabVersion`: rebuild the face (`setSlab(slab, grid)`) and the props, staged
  *   (`startSlab`, then `buildStep` once a frame while `slabHidden`, the rest at once when not).
- * - every frame: `middens.update(openings)`; the worm drawn from `worm` (u, v: the axis height)
+ * - every frame: `middens.update(openings)` and `middens.show(mode)` (hidden underground; add its mesh
+ *   to the scene before warmShaders: it is visible and empty from the start, so its fading program
+ *   compiles at load); the worm drawn from `worm` (u, v: the axis height)
  *   and `offW` (off the plane), interpolated from `prevU`, `prevV`, `prevW`; the cut camera from
  *   `camPrev` to `cam`. Coming up, the crawl already lies at the end pose with its camera settled
  *   (`Crawl.reset`), so the swing back ends on it.

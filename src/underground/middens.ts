@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../core/random';
-import { MeshWriter, icosphere } from '../surface/meshWriter';
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { MeshWriter } from '../surface/meshWriter';
 import { PROP } from '../surface/propGeometry';
 import { floorHeight, litterTopHeight } from '../surface/litterDepth';
 import { createPropMaterial } from '../render/propMaterial';
 import { MAX_OPENINGS, type Openings } from './openings';
+import { cameraProgress, type ModeState } from './modeMachine';
 
 /**
  * Burrow openings on the surface (V2 spec 4.2, 6): a dark hole with a nightcrawler midden round it,
@@ -12,27 +14,38 @@ import { MAX_OPENINGS, type Openings } from './openings';
  * litter's top, Great Lakes Worm Watch). On the deep litter (litterDepth.ts) the heap is a plug of castings
  * from the floor (where the burrow opens) up through the leaves, so it rises out of their top and,
  * seen through the hole over the buried worm, reaches down to the floor instead of hanging in the
- * litter. One draw on the prop material for all of them; rewritten only when an opening is added
- * (allocates then, never per frame).
+ * litter. Where it lies over the buried worm it fades as the leaves do (the prop material's
+ * OCCLUDE variant), so a worm crawling through an old opening stays in sight. One draw for all of
+ * them; rewritten only when an opening is added (allocates then, never per frame).
  */
 
 /** Marks a ring on the floor under the litter (the plug's foot and the burrow's mouth). */
 const FLOOR = -9;
 /**
  * The heap's rings out from the burrow (share of its radius) and their height over the litter's
- * top: the burrow's mouth on the floor, its shaft, the crater's lip and rim, the slope, its foot
- * at the litter's top, then tucked in under the leaves down to the floor.
+ * top: the hole (a near-black disc well over the top, so neither the drawn top of the litter nor
+ * its curled close-up leaves cross it), its shaft up to the crater's lip, the rim, the slope, its foot at the
+ * litter's top, then tucked in under the leaves down to the floor.
  */
 const RING_AT = [0, 0.16, 0.17, 0.3, 0.45, 0.62, 0.8, 0.95, 1.04, 0.7];
-const RING_UP = [FLOOR, -0.25, 0.13, 0.28, 0.27, 0.19, 0.1, 0.03, -0.06, FLOOR];
-/** Rings this far in are the hole: near black. */
+const RING_UP = [0.17, 0.18, 0.2, 0.28, 0.26, 0.19, 0.1, 0.03, -0.06, FLOOR];
+/** Rings this far in are the hole: near black, at a fixed height (the heap's lean leaves them be). */
 const HOLE_RINGS = 3;
 const SEGS = 26;
 const LUMPS = 24;
 const LEAF_BITS = 9;
-/** Vertices and indices one midden needs (the heap; LUMPS icospheres of 42 vertices and 80 triangles; the leaf bits). */
-const PER_VERTS = 1 + (RING_AT.length - 1) * SEGS + LUMPS * 42 + LEAF_BITS * 4;
-const PER_INDEX = SEGS * 3 + (RING_AT.length - 2) * SEGS * 6 + LUMPS * 240 + LEAF_BITS * 6;
+
+/** A casting lump: a coarse unit sphere (7 x 4: 23 vertices, 42 triangles), indexed. */
+const CRUMB = (() => {
+  const g = new THREE.SphereGeometry(1, 7, 4);
+  g.deleteAttribute('normal');
+  g.deleteAttribute('uv');
+  const m = mergeVertices(g);
+  return { pos: m.getAttribute('position').array as Float32Array, index: m.getIndex()!.array };
+})();
+/** Vertices and indices one midden needs (the heap; LUMPS crumbs; the leaf bits). */
+const PER_VERTS = 1 + (RING_AT.length - 1) * SEGS + LUMPS * (CRUMB.pos.length / 3) + LEAF_BITS * 4;
+const PER_INDEX = SEGS * 3 + (RING_AT.length - 2) * SEGS * 6 + LUMPS * CRUMB.index.length + LEAF_BITS * 6;
 const MAX_VERTS = PER_VERTS * MAX_OPENINGS;
 const MAX_INDEX = PER_INDEX * MAX_OPENINGS;
 /** Castings: dark grey-brown crumbs (sRGB); the lumps a little paler, as drying crumbs are. */
@@ -46,8 +59,14 @@ const rgba = [0, 0, 0, 0];
 
 export interface Middens {
   readonly mesh: THREE.Mesh;
-  /** Rewrites the mesh if the openings changed (their version). */
+  /** Rewrites the mesh if the openings changed (their version); else does nothing. */
   update(o: Openings): void;
+  /**
+   * Shown on the surface only (an old midden must not stand in front of the cut): hidden from
+   * halfway through the camera's move down until halfway through its move back up (the dark
+   * moment of the reduced-motion dip). Call every frame with the game's mode; allocates nothing.
+   */
+  show(s: ModeState): void;
 }
 
 /** One of `hex` (sRGB), darkened by `dark`, as aProp (linear rgb and the surface code `kind`). */
@@ -72,7 +91,7 @@ function profile(t: number): number {
 function writeMidden(w: MeshWriter, x: number, z: number, turn: number, seed: number): void {
   const rand = mulberry32(seed);
   const radius = 0.56 + rand() * 0.08;
-  const tall = 0.85 + rand() * 0.3;
+  const tall = 0.8 + rand() * 0.25;
   // An uneven outline and a lopsided heap (more castings on the side the worm reached out to).
   const p1 = rand() * 6.28;
   const p2 = rand() * 6.28;
@@ -84,10 +103,10 @@ function writeMidden(w: MeshWriter, x: number, z: number, turn: number, seed: nu
     const up = profile(t);
     return up > 0 ? up * pile(a) : up;
   };
-  // The heap: the burrow's mouth on the floor, then ring after ring out to the plug's foot.
+  // The heap: the hole's dark floor, then ring after ring out to the plug's foot.
   const first = w.vertexCount;
   const firstIdx = w.idx.length;
-  w.vertex(x, floorHeight(x, z), z, 0, 1, 0, [HOLE_RGB[0], HOLE_RGB[1], HOLE_RGB[2], PROP.plain]);
+  w.vertex(x, litterTopHeight(x, z) + RING_UP[0], z, 0, 1, 0, [HOLE_RGB[0], HOLE_RGB[1], HOLE_RGB[2], PROP.plain]);
   for (let r = 1; r < RING_AT.length; r++) {
     for (let k = 0; k < SEGS; k++) {
       const a = (k / SEGS) * Math.PI * 2;
@@ -96,7 +115,8 @@ function writeMidden(w: MeshWriter, x: number, z: number, turn: number, seed: nu
       const d = RING_AT[r] * reach(a) * (1 + (rand() - 0.5) * rough);
       const px = x + Math.cos(a) * d;
       const pz = z + Math.sin(a) * d;
-      const y = RING_UP[r] === FLOOR ? floorHeight(px, pz) : litterTopHeight(px, pz) + heap(RING_AT[r], a) + (rand() - 0.5) * rough;
+      const up = r < HOLE_RINGS ? RING_UP[r] : heap(RING_AT[r], a) + (rand() - 0.5) * rough;
+      const y = RING_UP[r] === FLOOR ? floorHeight(px, pz) : litterTopHeight(px, pz) + up;
       const c = r < HOLE_RINGS ? HOLE_RGB : tint(CAST_HEX, rand, r === 3 ? 0.55 : 0.75 + rand() * 0.5, PROP.plain);
       w.vertex(px, y, pz, 0, 1, 0, [c[0], c[1], c[2], PROP.plain]);
     }
@@ -112,10 +132,10 @@ function writeMidden(w: MeshWriter, x: number, z: number, turn: number, seed: nu
   }
   w.smoothNormals(first, firstIdx);
   // Castings: crumbly lumps half sunk in the heap, most of them round the crater.
-  const { pos, index } = icosphere();
+  const { pos, index } = CRUMB;
   for (let n = 0; n < LUMPS; n++) {
     const a = turn + (n / LUMPS) * Math.PI * 2 + rand() * 0.35;
-    const t = 0.24 + Math.pow(rand(), 1.4) * 0.66;
+    const t = 0.3 + Math.pow(rand(), 1.4) * 0.6;
     const s = 0.04 + Math.pow(rand(), 2) * 0.06;
     const d = t * reach(a);
     const cx = x + Math.cos(a) * d;
@@ -139,23 +159,24 @@ function writeMidden(w: MeshWriter, x: number, z: number, turn: number, seed: nu
     w.smoothNormals(f, fi);
   }
   // Leaf bits pulled in: three stand up out of the hole (a nightcrawler drags leaves in by an end),
-  // the rest lie on the heap.
+  // the rest lie on the heap's slope, clear of the crater so the hole shows.
   for (let n = 0; n < LEAF_BITS; n++) {
     const standing = n < 3;
     const a = turn + (n / LEAF_BITS) * Math.PI * 2 + rand() * 0.6;
-    const t = standing ? 0.08 + rand() * 0.06 : 0.3 + rand() * 0.55;
+    const t = standing ? 0.08 + rand() * 0.06 : 0.45 + rand() * 0.45;
     const d = t * reach(a);
     const cx = x + Math.cos(a) * d;
     const cz = z + Math.sin(a) * d;
     const top = litterTopHeight(cx, cz);
-    const by = standing ? top - 0.05 : top + heap(t, a) + 0.04;
-    const len = standing ? 0.4 + rand() * 0.15 : 0.2 + rand() * 0.12;
-    const wide = standing ? 0.06 + rand() * 0.04 : len * (0.3 + rand() * 0.15);
+    const by = standing ? top + RING_UP[0] - 0.02 : top + heap(t, a) + 0.03;
+    const len = standing ? 0.26 + rand() * 0.1 : 0.2 + rand() * 0.12;
+    const wide = standing ? 0.06 + rand() * 0.04 : len * (0.22 + rand() * 0.12);
     // Standing: up out of the hole, leaning outward; lying: any way, tipped with the heap's slope.
     const yaw = standing ? a + (rand() - 0.5) * 0.8 : rand() * Math.PI * 2;
     const ux = Math.cos(yaw) * (standing ? 0.6 : 1);
     const uz = Math.sin(yaw) * (standing ? 0.6 : 1);
-    const uy = standing ? 1 : ((heap(Math.min(1, t + 0.1), a) - heap(t, a)) / (0.1 * radius)) * Math.cos(yaw - a);
+    // (Pointing uphill a bit tucks its tip into the heap rather than standing proud of it.)
+    const uy = standing ? 1 : Math.min(0.3, ((heap(Math.min(1, t + 0.1), a) - heap(t, a)) / (0.1 * radius)) * Math.cos(yaw - a));
     const ul = Math.hypot(ux, uy, uz);
     const sx = -Math.sin(yaw);
     const sz = Math.cos(yaw);
@@ -200,9 +221,9 @@ export function createMiddens(): Middens {
   geo.setAttribute('aProp', prop);
   geo.setIndex(index);
   geo.setDrawRange(0, 0);
-  const mesh = new THREE.Mesh(geo, createPropMaterial());
+  const mesh = new THREE.Mesh(geo, createPropMaterial(false, true));
   mesh.name = 'middens';
-  mesh.visible = false;
+  // Visible from the start with nothing to draw, so warmShaders compiles its program at load.
   let version = -1;
   const box = new THREE.Box3();
   const pt = new THREE.Vector3();
@@ -233,7 +254,9 @@ export function createMiddens(): Middens {
       box.makeEmpty();
       for (let i = 0; i < nv * 3; i += 3) box.expandByPoint(pt.set(pa[i], pa[i + 1], pa[i + 2]));
       geo.boundingSphere = box.getBoundingSphere(geo.boundingSphere ?? new THREE.Sphere());
-      mesh.visible = o.count > 0;
+    },
+    show(s) {
+      mesh.visible = s.mode === 'surface' || (s.mode !== 'underground' && cameraProgress(s) < 0.5);
     },
   };
 }

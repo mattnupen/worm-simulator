@@ -6,6 +6,8 @@ import { boundaryAt, slabU, B_F } from '../../src/underground/slab';
 import { canEmergeAt } from '../../src/underground/emergeMap';
 import { poseAt, AXIS_UP } from '../../src/underground/bodyPath';
 import { MAX_OPENINGS } from '../../src/underground/openings';
+import { createBody } from '../../src/worm/body';
+import { SPACING, WORM_SEGMENTS } from '../../src/game/crawl';
 import { cameraProgress, FADE_S } from '../../src/underground/modeMachine';
 import { cutPose, type CutPose } from '../../src/underground/cutCamera';
 import { cameraTarget } from '../../src/surface/followCamera';
@@ -236,18 +238,24 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     expect(open).toBeLessThan(400);
   });
 
-  it('keeps at most 8 openings, the oldest replaced; reset clears them and comes back up', () => {
+  it('keeps at most 8 openings, the oldest replaced; one burrow reused keeps one; reset clears them and comes back up', () => {
     const { crawl, game } = makeGame();
-    for (let n = 0; n < MAX_OPENINGS + 2; n++) {
-      crawl.reset();
+    const comeUpFrom = (x: number): void => {
+      crawl.reset(crawl.hero.count, createBody(WORM_SEGMENTS, SPACING, { x, y: 0, z: 0 }, 0), 0);
       run(game, 0.5, UP);
       digDown(game);
       steerToTop(game);
       press(game);
       until(game, 'surface');
-    }
+    };
+    // The same dig twice comes up in the same place: its opening is replaced, not doubled.
+    comeUpFrom(0);
+    comeUpFrom(0);
+    expect(game.openings.count).toBe(1);
+    // Digs 1.5 u apart (the cuts run parallel): each leaves its own.
+    for (let n = 1; n < MAX_OPENINGS + 2; n++) comeUpFrom(n % 2 ? -1.5 * Math.ceil(n / 2) : 1.5 * (n / 2));
     expect(game.openings.count).toBe(MAX_OPENINGS);
-    expect(game.openings.version).toBe(MAX_OPENINGS + 2);
+    expect(game.openings.version).toBe(MAX_OPENINGS + 3);
     digDown(game);
     game.reset();
     expect(game.mode.mode).toBe('surface');
