@@ -1,0 +1,35 @@
+/* Underground (V2): the layer names at the slab's ends, the first visit's hint card, and the
+   reduced-motion fade. Same rules as the HUD: 18px+ text, ink on parchment (well over 7:1),
+   nothing that flashes. */
+
+/* ---------- Layer names (src/underground/layerLabels.ts) ---------- */
+/* Each label and tick is placed by its own transform (whole pixels, written only when they change).
+   Below the HUD (z-index 0): the Pause button, joystick, Action prompt and card stay on top. */
+.cut-labels {
+  position: fixed; z-index: 0; left: 0; top: 0; width: 0; height: 0; pointer-events: none;
+}
+.cut-labels[hidden], :not([data-ui="crawl"]) > .cut-labels, .cut-label[hidden], .cut-tick[hidden] { display: none; }
+.cut-label {
+  position: absolute; left: 0; top: 0; box-sizing: border-box; white-space: nowrap;
+  font-size: 18px; font-weight: 700; line-height: 24px;
+  color: var(--ink); background: var(--parchment-hi); padding: 1px 8px;
+  border: 2px solid var(--bark); border-radius: 10px 13px 10px 13px / 13px 10px 13px 10px;
+  box-shadow: 0 2px 6px rgba(30, 14, 2, 0.35);
+}
+/* The tick: a short ink line at the layer's top, from the slab's end outward (labelLayout.ts TICK_W),
+   haloed so it reads on dark soil and on a label alike. */
+.cut-tick {
+  position: absolute; left: 0; top: -1.5px; width: 20px; height: 3px; background: var(--ink);
+  box-shadow: 0 0 0 1.5px var(--parchment-hi);
+}
+
+/* ---------- First visit's hint card (src/ui/undergroundHint.ts) ---------- */
+.panel .hint-fact { margin-top: 10px; font-size: 18px; }
+/* The Game choice line: "Game choice:" is part of its text (content/text.ts shown()). */
+.panel .hint-note { margin-top: 6px; font-size: 18px; font-style: italic; color: var(--ink-soft); }
+
+/* ---------- Reduced motion: going down or up dips through dark soil instead of swinging ---------- */
+.cut-fade {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; background: #1a120b; opacity: 0;
+}
+.cut-fade[hidden] { display: none; }
