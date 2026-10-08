@@ -21,8 +21,8 @@ import { DEFAULT_UNDERGROUND_VIEW, type UndergroundView } from '../underground/m
  *
  * The underground view (V2) follows the same rule: no key is written until the player switches
  * the view, and a missing or unknown value reads as DEFAULT_UNDERGROUND_VIEW. Careful: a player
- * who tries both views has a stored pick, and a later class vote that changes the default will
- * not reach that device. When a vote needs to, store the default in effect with each pick and
+ * who has switched the view has a stored pick, and a later class vote that changes the default
+ * will not reach that device. When a vote needs to, store the default in effect with each pick and
  * ignore a pick made under an older default (not built: V2 has no such vote yet).
  */
 export const SETTINGS_KEY = 'wormsim.settings';
@@ -122,6 +122,14 @@ export function saveSettings(store: KeyValueStore | null, s: Settings): boolean 
   }
 }
 
+/** The patch without its undefined fields: `{ graphics: undefined }` changes nothing (and never
+ *  spreads an undefined over a stored value, so the result keeps the Settings type). */
+function defined(patch: Partial<Omit<Settings, 'version'>>): Partial<Omit<Settings, 'version'>> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(patch)) if (v !== undefined) out[k] = v;
+  return out as Partial<Omit<Settings, 'version'>>;
+}
+
 /**
  * Changes some settings and keeps the rest as stored, so two owners (the Graphics menu and, from
  * V2, the underground camera) never overwrite each other's choice. `fields` is what gets written:
@@ -136,9 +144,9 @@ export function updateSettings(store: KeyValueStore | null, patch: Partial<Omit<
     kept = store ? storedObject(store) : null;
   } catch {
     // Unreadable storage: never write blind (it could drop a later version's fields).
-    return { ...DEFAULT_SETTINGS, ...patch, version: 1 };
+    return { ...DEFAULT_SETTINGS, ...defined(patch), version: 1 };
   }
-  const next: Settings = { ...resolve(kept), ...patch, version: 1 };
+  const next: Settings = { ...resolve(kept), ...defined(patch), version: 1 };
   if (!store) return next;
   const fields: Record<string, unknown> = { graphics: next.graphics, autoSettled: next.autoSettled };
   if (patch.undergroundView !== undefined || isUndergroundView(kept?.undergroundView)) {

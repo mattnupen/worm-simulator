@@ -64,6 +64,20 @@ describe('the underground camera setting (spec 7)', () => {
     expect(store.raw()).toMatchObject({ later: 7, scale: 'classic', undergroundView: 'wide' });
   });
 
+  it('an undefined field in a patch changes nothing: the settings keep their values and type', () => {
+    const store = memoryStore({ version: 1, graphics: 'low', autoSettled: 'medium', undergroundView: 'close' });
+    const got = updateSettings(store, { graphics: undefined, undergroundView: undefined, autoSettled: undefined });
+    expect(got).toEqual({ version: 1, graphics: 'low', autoSettled: 'medium', undergroundView: 'close' });
+    expect(store.raw()).toMatchObject({ graphics: 'low', autoSettled: 'medium', undergroundView: 'close' });
+    // Never pinned by an undefined view, and a null autoSettled is still a value.
+    const fresh = memoryStore({ version: 1, graphics: 'auto', autoSettled: 'low' });
+    expect(updateSettings(fresh, { undergroundView: undefined, autoSettled: null })).toEqual({
+      version: 1, graphics: 'auto', autoSettled: null, undergroundView: 'wide',
+    });
+    expect(fresh.raw()).not.toHaveProperty('undergroundView');
+    expect(updateSettings(null, { graphics: undefined }).graphics).toBe(DEFAULT_SETTINGS.graphics);
+  });
+
   it('saveSettings follows the same rule', () => {
     const store = memoryStore({ version: 1, graphics: 'auto', autoSettled: null, scale: 'true' });
     saveSettings(store, { ...loadSettings(store), graphics: 'low' });
