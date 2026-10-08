@@ -440,8 +440,9 @@ Also decided: **real (True) size for all future work, and V2 removes World scale
 Plans: `docs/superpowers/plans/2026-10-06-v2-underground-part-a.md` (Plan A: foundations and deep
 litter) and `docs/superpowers/plans/2026-10-06-v2-underground-part-b.md` (Plan B: underground).
 Plan B was written against stubs of Plan A, so where they differ this record follows the code.
-Commits `2f38219..36a533d` on `v2-underground`. Plan A ended at 79 unit files / 660 tests and
-38 e2e passed (1 skipped); Plan B's final counts go in at the release check.
+Commits `2f38219..2696786` on `v2-underground`. Plan A ended at 79 unit files / 660 tests and
+38 e2e passed (1 skipped). Final at merge: 114 unit files / 926 tests, 45 e2e passed (1 skipped),
+`tsc` and `verify:build` clean.
 
 ### 14.1 What was built
 
@@ -534,7 +535,7 @@ Commits `2f38219..36a533d` on `v2-underground`. Plan A ended at 79 unit files / 
 - **Speed test and gates.** `?dig=1` digs a scripted run; the report says where the game really
   is, so a run that never went down fails. The gates run surface and underground.
 - **Allocation.** No per-step garbage in the dig, the dig spot or the crawl's pushers (heap growth
-  per step: underground 80 B, `canDigAt` 48 B; guarded by `stepAllocation.test.ts`).
+  per step: underground about 32 B, `canDigAt` 48 B; guarded by `stepAllocation.test.ts`, 64 B bound).
 
 **Should items (8.1) built:** the burrow opening with a midden. The rest are deferred (14.5).
 
@@ -545,7 +546,8 @@ Commits `2f38219..36a533d` on `v2-underground`. Plan A ended at 79 unit files / 
 | Cut direction | Along the worm's heading | The cut nearest the heading that keeps 0.3 u off every trunk (no trunk section exists). 43% of digs turn: median 20°, up to 80°. The worm turns to lie along the cut while its head sinks |
 | Coming up | Action near the top | Only where the whole body can then lie on the floor along the cut, clear of footprints and inside the play area (`emergeMap.ts`); elsewhere near the top Action stays the view switch. Near-top has hysteresis (in at 0.2 u, out at 0.35 u) |
 | Castings | A blob that partly refills the tunnel | Settles on the downhill wall, about 46% fill, with a guaranteed open band: never seals a tunnel at any angle |
-| Tunnel width | About the body's width | Was up to twice that on curves (every body point dug); now only the head digs and the body follows its trail |
+| Tunnel width | About the body's width | Was up to twice that on curves (every body point dug); now only the head digs (median 0.29 u) |
+| Body underground | Same body chain as the surface | A follow-the-leader chain: links 0.95–1.0 × spacing, each joint turning at most 0.6 rad, the head within 0.6 rad of its neck; a free head turns no tighter than a 0.35 u radius (full rate when pressed). It never shrinks or folds; on tight bends it cuts the inside corner, so the body can sit up to about 0.35–0.45 u over undug soil (cosmetic) |
 | Tunnel look | Dark voids | The layer's own soil, browner, darker than the wall but never black; crisp edge, a thin pressed-wall line, castings as lit granular lumps |
 | Close view | 4–5 worm lengths, more room ahead | About 1.7 worm lengths (4–5 would be as wide as Wide), and it keeps the whole worm in frame, so digging down it has about 2.2 u ahead and 3.8 u behind |
 | Wide view | Surface to about B, follows gently | As spec, plus: capped at the 16:9 width on wider screens, at least 7 u wide on phones, portrait litter top 19% down (clear of Pause) |
@@ -599,6 +601,9 @@ Gates are relative to a Step 0 build run side by side (`node scripts/perf-gates.
 - `buildEmerge` can take about 20 ms on a Chromebook as Come up is pressed (one frame).
 - The camera pulls in fast past the big rock at (−9.5, −10) while turning hard (since V1).
 - Midden leaf bits read well only at play distance.
+- On loops the worm's coil lies partly over undug soil inside its older tunnel ring (the chain
+  cuts corners, up to about 0.35–0.45 u); it reads as a worm curling up.
+- Surface Ultra's gate margin is thin (0.613 against 0.610).
 
 ### 14.5 Deferred (to V3 or Plan C)
 - Spec 8.1 Should items not built: twigs and sticks; conifer needles; still-green and bleached
