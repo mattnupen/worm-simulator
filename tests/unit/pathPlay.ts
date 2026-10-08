@@ -8,8 +8,11 @@ import { Crawl, SPACING } from '../../src/game/crawl';
 export const N = 16;
 export const DT = 1 / 60;
 export const DEG = Math.PI / 180;
-/** A joint never bends more than this during a move, unless the body was already bent more. */
-export const KINK = 45 * DEG;
+/**
+ * A joint never bends more than this during a move, unless the body was already bent more (the
+ * tightest bend, radius 0.31, meets at about 42 degrees; rounding near its ends adds a little).
+ */
+export const KINK = 50 * DEG;
 const BEND_SLACK = 5 * DEG;
 /** The most a point's per-frame step may change between frames (u): a snap or a sudden stop shows as far more. */
 export const MAX_ACCEL = 0.03;

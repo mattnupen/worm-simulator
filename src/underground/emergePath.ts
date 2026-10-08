@@ -1,161 +1,104 @@
 import { SPACING, WORM_SEGMENTS } from '../game/crawl';
-import { TOP_KEEP } from './burrowMotion';
-import { arc, fitSeconds, frame, push, restAt, sampleAt, wrap, TURN_RADIUS, type BodyPath } from './bodyPath';
+import { arc, frame, push, restAt, sampleAt, wrap, TURN_RADIUS, type BodyPath } from './bodyPath';
+import { fitSlide, slidePose } from './slidePath';
 import { OUT_S, RISE_S } from './modeMachine';
 import { emergeSides, LAND_MAX, LAND_MIN, OUT_LENGTH, type EmergeMap } from './emergeMap';
-import { arcRise, arcRun, bendFront, front, landOnFloor, nearestAlong, sweepOf } from './riseArcs';
-import { boundaryAt, B_TOP, type Slab } from './slab';
+import { arcRun, bendFront, front, landOnFloor, nearestAlong, sweepOf } from './riseArcs';
+import { frontUnderTop, goal, plan, planRise, RADII, TIGHT_RADIUS } from './risePlan';
+import type { Slab } from './slab';
 
 /**
- * Coming up out of the cut (V2 spec 4.2): the path the body slides along, from the tail through the
- * head, up to the floor and along it. The rise is the shortest of: an arc (either way round) to a
- * climb or descent angle, a straight, and an arc arriving on the floor at its slope. It never goes
- * above the line TOP_KEEP under the litter's top (it would loop out of the leaves): where there is
- * no room it bends tighter (TIGHT_RADIUS), and if even that will not do, the body's front first
- * bends round into the way the rise must start (a head at the top facing up dips its head down
- * first), easing onto that bend as the move begins. Then the worm crawls OUT_LENGTH along the floor under
- * the litter, its whole body out, lying along the cut. Built once per coming up (bodyPath.ts poses
- * it); the slab's emerge map (emergeMap.ts) says where coming up is possible at all.
+ * Coming up out of the cut (V2 spec 4.2): the path the body slides along. Coming up should look like
+ * the worm simply crawling up and out: the body slides up its own tunnel and on along a rise from
+ * the head as it lies (risePlan.ts: the rise that turns the head least and dips least, either way
+ * out the emerge map allows, under the litter's top less TOP_KEEP), arriving on the floor at its
+ * slope; then it crawls OUT_LENGTH along the floor under the litter, its whole body out, lying along
+ * the cut. Only where no rise from the head fits (say, right at the top facing up) does the body's
+ * front first bend round into the way the rise must start, easing onto that bend as the move
+ * begins. Built once per coming up (slidePath.ts poses it); the slab's emerge map (emergeMap.ts)
+ * says where coming up is possible at all.
  */
 const N = WORM_SEGMENTS;
-/** The tightest bend the body takes smoothly (neighbouring segments then meet at about 39 degrees). */
-const TIGHT_RADIUS = 0.33;
-/** The steepest climb (or descent) toward the floor, in degrees. */
-const CLIMB_MAX = 60;
 /** With no room for a rise as the head faces, the front bends round this much at a time (radians)... */
 const TURN_STEP = Math.PI / 18;
 /** ...the body's last ROUND segments bending as one arc into the new way. */
 const ROUND = 6;
-/** Coming up never takes longer than this for the sake of TURN_RATE (see fitSeconds). */
+/** Coming up never takes longer than this for the sake of the speed caps (see fitSlide). */
 const LONGEST = 5.8;
 /** Coming up, the head cruises at no more than this (u/s; the crawl's top speed is 1.6). */
 export const HEAD_SPEED = 2.4;
-const DEG = Math.PI / 180;
-/** Plans keep this much under the top too: what the landing's small correction may lift a rise by. */
-const ROOF_SPARE = 0.01;
 /** A front point eases onto the path this far ahead of the nearest place to it (see buildEmerge). */
 const LEAD = 0.03;
-/** The run along the floor is drawn this finely (about 0.1 u, ending exactly OUT_LENGTH out). */
-const RUN_DX = OUT_LENGTH / Math.ceil(OUT_LENGTH / 0.1);
-/** A planned rise is checked against the top this often along it (u). */
-const CHECK = 0.01;
-/** The rise chosen: the start's facing, the bend radius, the first arc's way, the climb angle, the straight. */
-const plan = { a0: 0, r: TURN_RADIUS, rho: 1, climb: 0, straight: 0 };
-/** What planRise works against: the slab, the way out, the floor's height and slope where it lands, where the head lay. */
-const goal = { s: null as Slab | null, sign: 1, ev: 0, out: 0, hu: 0 };
-
-/** Whether (u, v) is under the line TOP_KEEP below the litter's top (or the landing height), with `spare` to boot. */
-function underRoof(u: number, v: number, spare: number): boolean {
-  return v <= Math.max(boundaryAt(goal.s!, B_TOP, u) - TOP_KEEP - spare, goal.ev);
+/** The run along the floor is drawn this finely (about 0.02 u, ending exactly OUT_LENGTH out): the body
+ * lies on the floor itself there, so its points stay SPACING apart as the crawl keeps them. */
+const RUN_DX = OUT_LENGTH / Math.ceil(OUT_LENGTH / 0.02);
+/** The best plan over the ways out, with what it aimed at (see buildEmerge). */
+const kept = { ...plan, sign: 1, ev: 0, out: 0, eu: 0, lie: true };
+function keep(sign: number, eu: number): void {
+  Object.assign(kept, plan);
+  kept.sign = sign;
+  kept.ev = goal.ev;
+  kept.out = goal.out;
+  kept.eu = eu;
+  kept.lie = front.lie;
 }
-
-/**
- * Whether the arc of radius r from (u, v) facing a0, turning `rho` through `sweep`, stays under the
- * top every CHECK, its spare growing from `done` to `done` + its length out of `total` (see underTop).
- */
-function arcUnder(u: number, v: number, a0: number, rho: number, sweep: number, r: number, done: number, total: number): boolean {
-  const n = Math.ceil((r * sweep) / CHECK);
-  for (let k = 1; k <= n; k++) {
-    const a = a0 + (rho * sweep * k) / n;
-    const spare = (ROOF_SPARE * (done + (r * sweep * k) / n)) / total;
-    if (!underRoof(u + r * rho * (Math.sin(a) - Math.sin(a0)), v - r * rho * (Math.cos(a) - Math.cos(a0)), spare)) return false;
-  }
-  return true;
+function restore(): void {
+  plan.a0 = kept.a0; plan.r = kept.r; plan.rho = kept.rho; plan.climb = kept.climb; plan.straight = kept.straight;
+  goal.sign = kept.sign; goal.ev = kept.ev; goal.out = kept.out;
+  front.lie = kept.lie;
+  if (!kept.lie) bendFront(kept.a0);
 }
-
 /**
- * Whether the rise (from hu, hv) stays under the litter's top less TOP_KEEP, checked every CHECK along
- * its two arcs and the straight (a start along a top that slopes down shows at once). The landing's
- * small correction (spread along the rise from nothing at the head) may lift it by up to ROOF_SPARE
- * at the far end, so the spare grows along it the same way.
+ * Plans the rise, for the way out in `goal`. From the head as it lies (`fromHead`): the body slides
+ * up its own tunnel and on along the rise. Otherwise from the front bent round as little as will
+ * do (the head swinging to its new start as the move begins), for when no rise from the head fits.
+ * Returns where it lands (u), or NaN if nothing fits.
  */
-function underTop(hu: number, hv: number, a0: number, r: number, rho: number, phi: number, straight: number): boolean {
-  const sw1 = sweepOf(a0, phi, rho);
-  const d3 = wrap(goal.out - phi);
-  const l1 = r * sw1;
-  const total = Math.max(1e-9, l1 + straight + r * Math.abs(d3));
-  if (!arcUnder(hu, hv, a0, rho, sw1, r, 0, total)) return false;
-  const u0 = hu + arcRun(r, a0, rho, sw1);
-  const v0 = hv + arcRise(r, a0, rho, sw1);
-  const n = Math.ceil(straight / CHECK);
-  for (let k = 1; k <= n; k++) {
-    const x = (straight * k) / n;
-    if (!underRoof(u0 + x * Math.cos(phi), v0 + x * Math.sin(phi), (ROOF_SPARE * (l1 + x)) / total)) return false;
-  }
-  const u1 = u0 + straight * Math.cos(phi);
-  const v1 = v0 + straight * Math.sin(phi);
-  return arcUnder(u1, v1, phi, d3 >= 0 ? 1 : -1, Math.abs(d3), r, l1 + straight, total);
-}
-
-/**
- * The shortest rise from the head (hu, hv) facing a0 with bends of radius r, landing LAND_MIN to
- * LAND_MAX along the way out and under the litter's top (unless `free`). Writes `plan`; false if none.
- */
-function planRise(hu: number, hv: number, a0: number, r: number, free: boolean): boolean {
-  const { sign, ev, out } = goal;
-  let best = Infinity;
-  for (let deg = -CLIMB_MAX; deg <= CLIMB_MAX; deg += 2) {
-    if (deg === 0) continue;
-    const phi = sign > 0 ? deg * DEG : Math.PI - deg * DEG;
-    const d3 = wrap(out - phi);
-    const rho3 = d3 >= 0 ? 1 : -1;
-    for (let rho = -1; rho <= 1; rho += 2) {
-      const sw = sweepOf(a0, phi, rho);
-      const straight = (ev - hv - arcRise(r, a0, rho, sw) - arcRise(r, phi, rho3, Math.abs(d3))) / Math.sin(phi);
-      const length = r * (sw + Math.abs(d3)) + straight;
-      if (straight < 0 || length >= best) continue;
-      // Where it lands, from where the head lay (the emerge map counts from there).
-      const along = sign * (hu - goal.hu + arcRun(r, a0, rho, sw) + straight * Math.cos(phi) + arcRun(r, phi, rho3, Math.abs(d3)));
-      if (!free && (along < LAND_MIN || along > LAND_MAX || !underTop(hu, hv, a0, r, rho, phi, straight))) continue;
-      best = length;
-      plan.a0 = a0;
-      plan.r = r;
-      plan.rho = rho;
-      plan.climb = phi;
-      plan.straight = straight;
+function chooseRise(neck: number, fromHead: boolean): number {
+  plan.cost = Infinity;
+  front.lie = fromHead;
+  if (fromHead) {
+    front.fu = goal.hu;
+    front.fv = goal.hv;
+    for (let k = 0; k < RADII.length; k++) planRise(front.fu, front.fv, neck, RADII[k], false);
+    if (plan.cost === Infinity) return NaN;
+  } else {
+    for (let k = 0; k <= 36 && plan.cost === Infinity; k++) {
+      const a0 = neck + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * TURN_STEP;
+      bendFront(a0);
+      if (front.r < TIGHT_RADIUS * 2 || !frontUnderTop()) continue;
+      planRise(front.fu, front.fv, a0, TURN_RADIUS, false);
+      planRise(front.fu, front.fv, a0, TIGHT_RADIUS, false);
     }
-  }
-  return best < Infinity;
-}
-
-/** Whether the bent front stays under the litter's top (it is the start of what the head goes through). */
-function frontUnderTop(): boolean {
-  for (let k = 1; k <= 8; k++) {
-    const sw = (front.turn * k) / 8;
-    const u = Number.isFinite(front.r) ? front.bu + arcRun(front.r, front.from, front.rho, sw) : front.bu + (front.len * k * Math.cos(front.from)) / 8;
-    const v = Number.isFinite(front.r) ? front.bv + arcRise(front.r, front.from, front.rho, sw) : front.bv + (front.len * k * Math.sin(front.from)) / 8;
-    if (!underRoof(u, v, -1e-6)) return false;
-  }
-  return true;
-}
-
-/**
- * Plans the rise: from the head as it faces if it can; else from the front bent round as little as
- * will do (the head swinging to its new start as the move begins). Returns where it lands (u).
- */
-function chooseRise(neck: number): number {
-  let found = false;
-  for (let k = 0; k <= 36 && !found; k++) {
-    const a0 = neck + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * TURN_STEP;
-    bendFront(a0);
-    if (front.r < TIGHT_RADIUS * 2 || !frontUnderTop()) continue;
-    found = planRise(front.fu, front.fv, a0, TURN_RADIUS, false) || planRise(front.fu, front.fv, a0, TIGHT_RADIUS, false);
-  }
-  // Nothing fits under the top: keep at least the front under it, the rise as short as it can be.
-  for (let k = 0; k <= 36 && !found; k++) {
-    const a0 = neck + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * TURN_STEP;
-    bendFront(a0);
-    if (front.r >= TIGHT_RADIUS * 2 && frontUnderTop()) found = planRise(front.fu, front.fv, a0, TURN_RADIUS, true);
-  }
-  if (!found) {
-    bendFront(neck);
-    planRise(front.fu, front.fv, neck, TURN_RADIUS, true);
+    // Nothing fits under the top: keep at least the front under it.
+    for (let k = 0; k <= 36 && plan.cost === Infinity; k++) {
+      const a0 = neck + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * TURN_STEP;
+      bendFront(a0);
+      if (front.r >= TIGHT_RADIUS * 2 && frontUnderTop()) planRise(front.fu, front.fv, a0, TURN_RADIUS, true);
+    }
+    if (plan.cost === Infinity) {
+      bendFront(neck);
+      planRise(front.fu, front.fv, neck, TURN_RADIUS, true);
+    }
+    bendFront(plan.a0);
   }
   const { a0, r, rho, climb, straight } = plan;
-  bendFront(a0);
   const sw = sweepOf(a0, climb, rho);
   const d3 = wrap(goal.out - climb);
   return front.fu + arcRun(r, a0, rho, sw) + straight * Math.cos(climb) + arcRun(r, climb, d3 >= 0 ? 1 : -1, Math.abs(d3));
+}
+
+/** Settles the plan for the way out `sign`: where it lands sets the floor's height and slope it aims at. */
+function settle(p: BodyPath, neck: number, sign: number, fromHead: boolean): number {
+  goal.sign = sign;
+  let eu = goal.hu + (sign * (LAND_MIN + LAND_MAX)) / 2;
+  for (let pass = 0; pass < 8; pass++) {
+    aimAt(p, eu);
+    const was = eu;
+    eu = chooseRise(neck, fromHead);
+    if (Number.isNaN(eu) || Math.abs(eu - was) < 1e-4) break;
+  }
+  return eu;
 }
 
 /** Aims the rise at the floor where it lands (u): its height and, the way out, its slope. */
@@ -169,13 +112,13 @@ function aimAt(p: BodyPath, eu: number): void {
 /**
  * Coming up from the burrower's body (head first, in the plane), the head facing `dir` (0 = +u,
  * pi / 2 = up), in slab `s` with its map `m` (`mapEmerge`). It comes out facing along the cut
- * (spec 4.2): the way its head points along u (or toward the slab's middle when it points up or
- * down), unless only the other way is clear (`emergeSides`), or both are and only the other stays
- * in the playable slab. Sets `p.seconds` (fitted to the speed caps, at least RISE_S + OUT_S).
+ * (spec 4.2), crawling up and out the way that needs the least turning and no dip, on a way out the
+ * map allows (`emergeSides`), and one that stays in the playable slab if either does. Sets
+ * `p.seconds` (fitted to the speed caps, at least RISE_S + OUT_S).
  */
 export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<number>, vs: ArrayLike<number>, dir: number): void {
   frame(p, s);
-  p.posing = null;
+  p.posing = slidePose;
   const hu = us[0];
   const cu = Math.cos(dir);
   const want = Math.abs(cu) > 0.2 ? Math.sign(cu) : hu < (s.playLo + s.playHi) / 2 ? 1 : -1;
@@ -185,33 +128,42 @@ export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<nu
     const end = hu + sign * (LAND_MAX + OUT_LENGTH);
     return end >= s.playLo && end <= s.playHi;
   };
-  let sign = want;
-  if (ok(want) !== ok(-want)) sign = ok(want) ? want : -want;
-  else if (!inSlab(want) && inSlab(-want)) sign = -want;
   goal.s = s;
-  goal.sign = sign;
   goal.hu = hu;
+  goal.hv = vs[0];
   // The front: as it lies from point ROUND to the head.
   front.bu = us[ROUND];
   front.bv = vs[ROUND];
   front.from = Math.atan2(vs[ROUND] - vs[ROUND + 1], us[ROUND] - us[ROUND + 1]);
   front.len = 0;
   for (let i = 0; i < ROUND; i++) front.len += Math.hypot(us[i + 1] - us[i], vs[i + 1] - vs[i]);
-  // The floor's height and slope where it lands depend on where it lands: settle that in a few passes.
   const neck = Math.atan2(vs[0] - vs[1], us[0] - us[1]);
-  let eu = hu + (sign * (LAND_MIN + LAND_MAX)) / 2;
-  for (let pass = 0; pass < 8; pass++) {
-    aimAt(p, eu);
-    const was = eu;
-    eu = chooseRise(neck);
-    if (Math.abs(eu - was) < 1e-4) break;
+  // From the head as it lies, either way out the map allows (one that stays in the playable slab if
+  // there is one): the plan that turns the head least and dips least.
+  const slabbed = ok(1) && ok(-1) && inSlab(1) !== inSlab(-1);
+  kept.cost = Infinity;
+  for (let sign = -1; sign <= 1; sign += 2) {
+    if (!ok(sign) && (ok(-sign) || sign !== want)) continue;
+    if (slabbed && !inSlab(sign)) continue;
+    const eu = settle(p, neck, sign, true);
+    if (!Number.isNaN(eu) && plan.cost < kept.cost) keep(sign, eu);
   }
+  if (kept.cost === Infinity) {
+    // No rise from the head fits (say, at the top facing up): the front bends round first.
+    let sign = want;
+    if (ok(want) !== ok(-want)) sign = ok(want) ? want : -want;
+    else if (!inSlab(want) && inSlab(-want)) sign = -want;
+    keep(sign, settle(p, neck, sign, false));
+    kept.lie = false;
+  }
+  const sign = kept.sign;
+  restore();
   // The body up to point ROUND as it lies, then the front bent into its arc, then the rise.
   p.count = 0;
-  for (let i = N - 1; i >= ROUND; i--) push(p, us[i], vs[i]);
-  const roundAt = p.count - 1;
-  if (Number.isFinite(front.r)) arc(p, front.from, front.rho, front.turn, front.r);
-  else push(p, front.fu, front.fv);
+  for (let i = N - 1; i >= (front.lie ? 0 : ROUND); i--) push(p, us[i], vs[i]);
+  const roundAt = front.lie ? N - 1 - ROUND : p.count - 1;
+  if (!front.lie && Number.isFinite(front.r)) arc(p, front.from, front.rho, front.turn, front.r);
+  else if (!front.lie) push(p, front.fu, front.fv);
   const headAt = p.count - 1;
   const riseFrom = p.s[headAt];
   // The rise, landing exactly on the floor (the last pass's small miss spread along it), then the run.
@@ -220,7 +172,7 @@ export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<nu
   if (straight > 1e-6) push(p, p.u[p.count - 1] + straight * Math.cos(climb), p.v[p.count - 1] + straight * Math.sin(climb));
   const d3 = wrap(goal.out - climb);
   arc(p, climb, d3 >= 0 ? 1 : -1, Math.abs(d3), r);
-  eu = p.u[p.count - 1];
+  let eu = p.u[p.count - 1];
   landOnFloor(p, headAt, sign * RUN_DX);
   p.exitAt = p.s[p.count - 1];
   // The run along the floor, every RUN_DX and ending exactly OUT_LENGTH out.
@@ -234,15 +186,15 @@ export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<nu
   // Each front point's place along the path: the nearest to where it lay, a little ahead, so that
   // easing onto the path never moves it back against the way it will slide; the body's order kept.
   let ahead = p.s[roundAt];
-  for (let i = ROUND - 1; i >= 0; i--) {
+  for (let i = ROUND - 1; i >= 0 && !front.lie; i--) {
     const near = nearestAlong(p, us[i], vs[i], roundAt, riseFrom + 1.5) + LEAD;
     // Never closer than half its segment to the next back, nor further than a hair over SPACING
     // (under the 4% stretch the tests allow; any closer and easing on could pull it backward).
     ahead = Math.min(ahead + SPACING * 1.03, Math.max(near, ahead + 0.5 * Math.hypot(us[i + 1] - us[i], vs[i + 1] - vs[i])));
     p.back[i] = ahead; // its place for now; made relative to the head's below
   }
-  p.headFrom = p.back[0];
-  for (let i = 0; i < N; i++) p.back[i] = p.headFrom - (i >= ROUND ? p.s[N - 1 - i] : p.back[i]);
+  p.headFrom = front.lie ? p.s[headAt] : p.back[0];
+  for (let i = 0; i < N; i++) p.back[i] = p.headFrom - (i >= ROUND || front.lie ? p.s[N - 1 - i] : p.back[i]);
   // Where each point really lay, less where the path puts it at the start (only the front differs).
   let most = 0;
   for (let i = 0; i < N; i++) {
@@ -252,6 +204,6 @@ export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<nu
     most = Math.max(most, Math.hypot(p.offU[i], p.offV[i]));
   }
   // The front bent round to start the rise (or lay well off the arc): it bends onto it before sliding.
-  p.turnFirst = Math.abs(wrap(plan.a0 - neck)) > 1e-6 || most > 0.03;
-  p.seconds = fitSeconds(p, RISE_S + OUT_S, HEAD_SPEED, LONGEST);
+  p.turnFirst = !front.lie && (Math.abs(wrap(plan.a0 - neck)) > 1e-6 || most > 0.03);
+  p.seconds = fitSlide(p, RISE_S + OUT_S, HEAD_SPEED, LONGEST);
 }

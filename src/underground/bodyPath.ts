@@ -1,4 +1,4 @@
-import { SPACING, WORM_SEGMENTS } from '../game/crawl';
+import { WORM_SEGMENTS } from '../game/crawl';
 import { OCC_AXIS_UP } from '../render/occlusion';
 import { bellyHeight, wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import { cruise, smootherstep } from './easing';
@@ -10,25 +10,30 @@ import type { Slab } from './slab';
  * side (0 in the cut). Pure; the moves are built once each, and posing allocates nothing.
  *
  * Going down (sinkPath.ts builds it): the body on the surface swings round to lie along the cut
- * while the head turns down and sinks in the cut's plane. Coming up (emergePath.ts): a path in the
- * plane from the tail through the head, up to the floor and along it under the litter, that every
- * body point slides along. Each move's length (`seconds`) is fitted so that no point outruns
- * POINT_SPEED, the head its own cap, and no segment turns faster than TURN_RATE (`fitSeconds`).
+ * while the head turns down and sinks in the cut's plane. Coming up (emergePath.ts plans it,
+ * slidePath.ts poses it): a path in the plane from the tail through the head, up to the floor and
+ * along it under the litter, that every body point slides along. Each move's length (`seconds`)
+ * is fitted so that no point outruns POINT_SPEED, the head its own cap, and no segment turns
+ * faster than TURN_RATE (`fitSeconds`; coming up, the slide's speed follows them stretch by stretch).
  */
 const N = WORM_SEGMENTS;
-const MAX_POINTS = 320;
+const MAX_POINTS = 640;
 /** The axis rides this far above the belly line the crawl rests on the floor (the drawn tube's middle). */
 export const AXIS_UP = OCC_AXIS_UP;
 /** Bends of a path are arcs this wide where there is room (the digging worm turns about as tightly)... */
 export const TURN_RADIUS = 0.45;
 /** ...drawn as a polyline this fine, so a point sliding along it turns a few degrees at a vertex. */
-const FINE = 0.02;
+const FINE = 0.01;
 /** No body point moves faster than this (u/s; the crawl's top speed is 1.6)... */
 export const POINT_SPEED = 3.2;
 /** ...and no segment turns faster than this (radians a second: 6 degrees a frame at 60 fps). */
 export const TURN_RATE = (6 * Math.PI) / 180 * 60;
+/** Coming up, the move's time is mapped to its progress at this many even steps (slidePath.ts). */
+export const WARP_STEPS = 480;
 /** Segments shorter than this (bunched up, within the tube's width) are not held to TURN_RATE. */
 export const SHORT = 0.1;
+/** The game's fixed steps a second: a move lasts a whole number of them. */
+const STEPS_PER_S = 60;
 /** Progress samples `fitSeconds` measures a move at (finer than its frames). */
 const FIT_STEPS = 400;
 
@@ -65,6 +70,12 @@ export interface BodyPath {
   readonly lift: Float64Array;
   /** Scratch: two poses for `fitSeconds`. */
   readonly fit: readonly Float64Array[];
+  /**
+   * Coming up (slidePath.ts): the slide's progress at each of WARP_STEPS + 1 even steps of the move's
+   * time, and scratch for working it out (the speed each stretch allows, and how fast its fastest
+   * point moves per unit of progress).
+   */
+  readonly warp: Float64Array; readonly allow: Float64Array; readonly reach: Float64Array;
   /** The slab's frame (world x, z of a plane point; posing needs the floor). */
   ox: number; oz: number; tx: number; tz: number; nx: number; nz: number;
 }
@@ -75,6 +86,7 @@ export function createBodyPath(): BodyPath {
     u: f(MAX_POINTS), v: f(MAX_POINTS), s: f(MAX_POINTS), count: 0, headFrom: 0, headTo: 0,
     exitSign: 1, exitU: 0, exitAt: 0, posing: null, seconds: 0, turnRate: 0, back: f(N), offU: f(N), offV: f(N), turnFirst: false,
     bu: f(N), bw: f(N), rad: f(N), ang: f(N), lift: f(N), fit: [f(N), f(N), f(N), f(N), f(N), f(N)],
+    warp: f(WARP_STEPS + 1), allow: f(WARP_STEPS + 1), reach: f(WARP_STEPS + 1),
     ox: 0, oz: 0, tx: 0, tz: 1, nx: 1, nz: 0,
   };
 }
@@ -135,49 +147,17 @@ export function sampleAt(p: BodyPath, at: number, outU: Float64Array, outV: Floa
   outV[i] = p.v[lo] + (p.v[hi] - p.v[lo]) * f;
 }
 
-/** Coming up, the share of the move the head spends speeding up (and slowing down)... */
-const SLIDE_EASE = 0.2;
-/**
- * ...and, when the head first turns where it lies (`turnFirst`), the share over which the front
- * bends round onto the path; the slide starts SLIDE_FROM of the way through it (the offsets, fixed
- * where the body lay, all but gone, so sliding under them cannot stretch it).
- */
-const TURN_SHARE = 0.3;
-const SLIDE_FROM = 0.5;
-/** Otherwise the front's small offsets (it lay not quite on the path's arc) ease out over this share. */
-const SETTLE_SHARE = 0.12;
-
-/**
- * Coming up at progress t: every point slides along the path with the head's easing; a body
- * bunched up in a turn stretches out to its full spacing over the whole move (never sliding back).
- */
-function slidePose(p: BodyPath, t: number, outU: Float64Array, outV: Float64Array, outW: Float64Array): void {
-  const pre = p.turnFirst ? TURN_SHARE : SETTLE_SHARE;
-  const off = 1 - smootherstep(t / pre);
-  const go = pre * SLIDE_FROM;
-  const st = cruise((t - go) / (1 - go), SLIDE_EASE);
-  const head = p.headFrom + (p.headTo - p.headFrom) * st;
-  for (let i = 0; i < N; i++) {
-    const at = head - p.back[i] - (i * SPACING - p.back[i]) * st;
-    sampleAt(p, at, outU, outV, i);
-    if (at >= p.exitAt) outV[i] = restAt(p, outU[i], 0);
-    outU[i] += p.offU[i] * off;
-    outV[i] += p.offV[i] * off;
-    outW[i] = 0;
-  }
-}
-
 /**
  * The body (head first) at linear progress `t` (0..1) of the move: u, v (axis height) and w (off
  * the plane; 0 in it). Exactly as it lay at 0; at rest at both ends. Allocates nothing.
  */
 export function poseAt(p: BodyPath, t: number, outU: Float64Array, outV: Float64Array, outW: Float64Array): void {
-  (p.posing ?? slidePose)(p, t, outU, outV, outW);
+  p.posing?.(p, t, outU, outV, outW);
 }
 
 /** World position of point i of the scratch pose starting at fit[o] (u, v, w) into `pt`. */
-const pt = { x: 0, y: 0, z: 0 };
-function worldOf(p: BodyPath, o: number, i: number): void {
+export const pt = { x: 0, y: 0, z: 0 };
+export function worldOf(p: BodyPath, o: number, i: number): void {
   const u = p.fit[o][i];
   const w = p.fit[o + 2][i];
   pt.x = p.ox + p.tx * u + p.nx * w;
@@ -202,7 +182,8 @@ export function fitSeconds(p: BodyPath, least: number, headSpeed: number, longes
   fitOnce(p, least, headSpeed, FIT_STEPS);
   const first = Math.max(needs.speed, needs.turn);
   if (first * 120 > FIT_STEPS) fitOnce(p, least, headSpeed, Math.ceil(first * 120));
-  const seconds = Math.max(needs.speed, Math.min(needs.turn, longest));
+  // A whole number of the game's 60 Hz steps, so the move's last step lands exactly on its end.
+  const seconds = Math.ceil(Math.max(needs.speed, Math.min(needs.turn, longest)) * STEPS_PER_S - 1e-6) / STEPS_PER_S;
   p.turnRate = TURN_RATE * Math.max(1, needs.turn / seconds);
   return seconds;
 }

@@ -14,8 +14,20 @@ export const arcRun = (r: number, a0: number, rho: number, sweep: number): numbe
  * The body's front (its last few segments, `front.len` long from their back end, arriving there along
  * `front.from`) bent into one arc that leaves facing a0: where the head then stands (fu, fv), the
  * arc's radius and way. The rise starts there; the front eases onto that arc as the move begins.
+ * `lie`: the front is not bent at all; the rise starts from the head as it lies.
  */
-export const front = { bu: 0, bv: 0, from: 0, len: 0, fu: 0, fv: 0, r: 0, rho: 1, turn: 0 };
+export const front = { bu: 0, bv: 0, from: 0, len: 0, fu: 0, fv: 0, r: 0, rho: 1, turn: 0, lie: true };
+
+/**
+ * The lowest an arc of radius r from facing a0, turning `rho` through `sweep`, goes below its start
+ * (0 or less: at an end, or at its trough, where it faces along u).
+ */
+export function arcLow(r: number, a0: number, rho: number, sweep: number): number {
+  let low = Math.min(0, arcRise(r, a0, rho, sweep));
+  const trough = rho > 0 ? 0 : Math.PI;
+  if (sweepOf(a0, trough, rho) <= sweep) low = Math.min(low, -r * (1 - rho * Math.cos(a0)));
+  return low;
+}
 
 export function bendFront(a0: number): void {
   const d = wrap(a0 - front.from);
