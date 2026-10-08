@@ -31,6 +31,13 @@ const WIDE_ABOVE = 1.4;
 const WIDE_H = 8.5;
 /** ...but on a narrow (phone) screen at least this wide. */
 const WIDE_MIN_W = 7;
+/**
+ * A portrait screen's Wide frame is taller (WIDE_MIN_W), so it holds the highest litter top this
+ * share of the screen down from its top instead (clear of the Pause button, and the frame still
+ * reaches into B), from a 3:4 screen (PORTRAIT_FULL) on, blending in from a square one.
+ */
+const PORTRAIT_TOP = 0.19;
+const PORTRAIT_FULL = 0.75;
 /** No frame is taller than this (the narrowest phones). */
 const MAX_H = 13;
 /**
@@ -187,8 +194,12 @@ export function frameAsked(view: UndergroundView, s: Slab, q: FrameAsk, out: Cut
       const keep = Math.min(half, Math.max(WIDE_KEEP, 2 * half * WIDE_KEEP_SHARE));
       cu = Math.min(hi - half, Math.max(lo + half, keepHead(cu, hu, half, keep)));
     }
-    // From just above the highest litter; deeper than that reaches, it follows the head down.
-    cv = Math.min(s.topMax + WIDE_ABOVE - h / 2, hv + h / 2 - h * KEEP_IN);
+    // From just above the highest litter (lower on a portrait screen: continuous in the aspect);
+    // deeper than that reaches, it follows the head down.
+    const land = h / 2 - WIDE_ABOVE;
+    const tall = Math.min(1, Math.max(0, (1 - a) / (1 - PORTRAIT_FULL)));
+    const drop = land + (below(1 - 2 * PORTRAIT_TOP, pitch) * (h / 2) - land) * tall;
+    cv = Math.min(s.topMax - drop, hv + h / 2 - h * KEEP_IN);
   } else {
     h = Math.min(MAX_H, a >= 1 ? CLOSE_SPAN : CLOSE_SPAN / a, (CLOSE_SPAN * WIDEST) / a);
     const w = h * a;

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   createCutCam, frameTarget, snapCutCam, stepCutCam, cutPose,
 } from '../../src/underground/cutCamera';
-import { createSlab, boundaryAt, B_H } from '../../src/underground/slab';
+import { createSlab, boundaryAt, B_H, B_B } from '../../src/underground/slab';
 import { DT, SCREENS, frame, pose, project, screenOnCut, world, sweep } from './cutWorld';
 
 describe('the camera facing the cut (spec 7)', () => {
@@ -25,6 +25,30 @@ describe('the camera facing the cut (spec 7)', () => {
       expect(frameTarget('wide', s, 0, -2, 1, 0, aspect, frame).h).toBeCloseTo((8.5 * 16) / 9 / aspect, 9);
       expect(frameTarget('close', s, 0, -2, 1, 0, aspect, frame).h).toBeCloseTo((6 * 16) / 9 / aspect, 9);
     }
+  });
+
+  it('on a portrait screen Wide holds the surface about a fifth of the way down (clear of Pause), still into B', () => {
+    const s = createSlab(0, 0, 0.4, 1, 2);
+    const hv = boundaryAt(s, B_H, 0);
+    // How far down the screen (0 top, 1 bottom) the highest litter top shows, the head just under the surface.
+    const topAt = (aspect: number) => {
+      frameTarget('wide', s, 0, hv, 1, 0, aspect, frame);
+      cutPose(s, frame.cu, frame.cv, frame.h, frame.pitch, pose);
+      let best = -Infinity;
+      for (let u = s.playLo; u <= s.playHi; u += 0.1) best = Math.max(best, project(pose, aspect, ...world(s, u, s.topMax)).ny);
+      return (1 - best) / 2;
+    };
+    for (const aspect of [360 / 640, 390 / 844, 320 / 568, 3 / 4]) {
+      expect(topAt(aspect)).toBeGreaterThanOrEqual(0.18);
+      expect(topAt(aspect)).toBeLessThanOrEqual(0.22);
+      // The frame still reaches 1.5 u into B.
+      frameTarget('wide', s, 0, hv, 1, 0, aspect, frame);
+      cutPose(s, frame.cu, frame.cv, frame.h, frame.pitch, pose);
+      expect(project(pose, aspect, ...world(s, 0, boundaryAt(s, B_B, 0) - 1.5)).ny).toBeGreaterThan(-1);
+    }
+    // Landscape frames are as before: the surface about a seventh of the way down on 16:9.
+    expect(topAt(16 / 9)).toBeLessThan(0.16);
+    expect(topAt(1)).toBeCloseTo(topAt(16 / 9), 6);
   });
 
   it('Wide holds still while the worm digs near the middle, and follows it toward an end', () => {

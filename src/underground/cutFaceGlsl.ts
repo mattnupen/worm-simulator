@@ -85,17 +85,22 @@ export const CUT_FRAGMENT = /* glsl */ `
     float damp = s.a;
     s *= inside;
 
+    // Each layer's colour, and its mean (what a tunnel's far wall shows, in shadow: below).
     vec3 col;
+    vec3 mean;
     if (y > vBoundsA.y) {
       // L: this fall's leaves edge-on. The lower ones are older: duller and darker.
       float older = clamp((top - y) / max(0.01, top - vBoundsA.y), 0.0, 1.0);
       col = mix(lit.rgb, lit.rgb * vec3(0.55, 0.5, 0.48) + vec3(0.08, 0.05, 0.03), older * 0.6);
+      mean = vec3(0.3, 0.2, 0.1);
     } else if (y > vBoundsA.z) {
       // F: matted fragments, hyphae and fine roots.
       col = old.rgb;
+      mean = vec3(0.144, 0.093, 0.057);
     } else if (y > vBoundsA.w) {
       // H: black crumbs.
       col = hum;
+      mean = vec3(0.07, 0.05, 0.035);
     } else {
       // A, E and B from the grain tile: sand grain (r), mottles (g), pebbles (b), platy streaks (a).
       // Pebbles come in richer and poorer patches; the broad noise also breaks the tile's repeat.
@@ -108,15 +113,18 @@ export const CUT_FRAGMENT = /* glsl */ `
         col = mix(col, vec3(0.62, 0.33, 0.11), smoothstep(0.5, 0.75, mot) * 0.7);
         col = mix(col, vec3(0.36, 0.27, 0.2), (1.0 - smoothstep(0.2, 0.45, mot)) * 0.4);
         col = mix(col, pebCol * 0.85, peb);
+        mean = vec3(0.46, 0.28, 0.14);
       } else if (y < vBoundsB.x) {
         // E: pale grey-white, in thin plates.
         col = vec3(0.66, 0.63, 0.57) * (0.86 + 0.2 * gr.r) * (0.93 + 0.1 * gr.a);
         col = mix(col, pebCol, peb * 0.35);
+        mean = vec3(0.63, 0.6, 0.55);
       } else {
         // A: thin grey-brown grain, stained dark where humus washed in.
         col = vec3(0.25, 0.2, 0.16) * (0.65 + 0.7 * gr.r);
         col = mix(col, vec3(0.1, 0.075, 0.06), smoothstep(0.55, 0.75, mot) * 0.7);
         col = mix(col, pebCol * 0.6, peb * 0.7);
+        mean = vec3(0.22, 0.17, 0.135);
       }
     }
 
@@ -124,20 +132,29 @@ export const CUT_FRAGMENT = /* glsl */ `
     float moss = (1.0 - smoothstep(0.04, 0.24, abs(p.y - vBoundsA.y + 0.08))) * smoothstep(0.3, 0.55, br.g) * old.a;
     col = mix(col, vec3(0.3, 0.46, 0.1) * (0.6 + 0.6 * old.a), moss);
     col *= 1.0 - 0.22 * damp;
-    // Mixed walls: darker and crumbly (H's crumbs).
-    col = mix(col, vec3(0.03, 0.02, 0.015) + hum * 0.9, smoothstep(0.3, 0.7, s.b) * 0.8);
-    // The tunnel, cut in half: a void in shadow, darkest under its roof, its floor catching a
-    // little light; the wall just outside it pressed smooth and darker. Soft edged.
-    float open = smoothstep(0.35, 0.65, s.r);
-    col *= 1.0 - 0.22 * smoothstep(0.08, 0.35, s.r) * (1.0 - open);
+    // The tunnel, cut in half: a round hole the worm's own width. Its edge is crisp, broken a
+    // little by the grain, and a little inside the dug cells' edge (where the softened bore crosses
+    // 0.5), so a 3-cell bore draws about the body's width.
+    float e = s.r + (gr.r - 0.5) * 0.3;
+    float open = smoothstep(0.53, 0.59, e);
+    // Just outside it, a thin line of wall pressed darker; where the worm ate through F or H, a
+    // mixed rim a little wider, darker still and broken into H's crumbs.
+    col *= 1.0 - 0.35 * smoothstep(0.4, 0.53, e) * (1.0 - open);
+    float mixed = smoothstep(0.22, 0.42, e + (lit.a - 0.25) * 0.4) * (1.0 - open) * smoothstep(0.25, 0.6, s.b);
+    col = mix(col, vec3(0.03, 0.02, 0.015) + hum * 0.8, mixed * 0.9);
+    // Inside: the burrow's far half in shadow, the layer's own soil, browner and nearly even:
+    // darker than the wall around it, but a deep soil brown, never black. Its roof is in shadow
+    // and its floor catches a little light.
     float floorLit = smoothstep(0.05, 0.6, hi.r - lo.r) * inside;
     float roof = clamp((lo.r - hi.r) * 2.5, 0.0, 1.0);
-    vec3 hollow = mix((vec3(0.05, 0.034, 0.022) + col * 0.14) * (1.0 - 0.5 * roof), col * 0.6 + vec3(0.03, 0.02, 0.012), floorLit);
+    vec3 hollow = mix(max(mean * vec3(0.6, 0.48, 0.38), vec3(0.13, 0.085, 0.052)), col * 0.5, 0.2);
+    hollow *= (1.0 - 0.15 * smoothstep(0.62, 0.95, s.r)) * (1.0 - 0.35 * roof);
+    hollow = mix(hollow, col * 0.6, floorLit * 0.4);
     col = mix(col, hollow, open);
-    // Castings settled in the tunnel: dark granular lumps (H's crumbs), darker for a
-    // gut full of leaves.
-    vec3 castCol = mix(vec3(0.32, 0.22, 0.15), vec3(0.17, 0.11, 0.07), clamp(s.g * 1.6 - 0.3, 0.0, 1.0));
-    col = mix(col, castCol * (0.35 + 0.9 * smoothstep(0.05, 0.35, lit.a)), smoothstep(0.06, 0.2, s.g));
+    // Castings settled in the tunnel: granular lumps of dark crumbs (H's), darker for a gut full
+    // of leaves, their tops catching more light than the tunnel's shadowed depth behind them.
+    vec3 castCol = mix(vec3(0.3, 0.2, 0.13), vec3(0.17, 0.11, 0.07), clamp(s.g * 1.6 - 0.3, 0.0, 1.0));
+    col = mix(col, castCol * (0.35 + 1.4 * smoothstep(0.05, 0.35, lit.a)), smoothstep(0.12, 0.3, s.g * (0.7 + 0.6 * lit.a)));
 
     // Warm light from the surface fades with depth; the bottom darkens away (burrows go deeper).
     float below = top - p.y;
