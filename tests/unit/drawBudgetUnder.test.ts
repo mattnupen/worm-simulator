@@ -141,6 +141,7 @@ describe('draw-call budget underground', () => {
     expect(named('floorPatch').visible).toBe(true);
     expect(sharedLighting.uRim.value).toBe(1);
     const fogNear = sharedLighting.uFogNear.value;
+    const own = camera.projectionMatrix.clone();
     press(game, STILL, each);
     until(game, 'underground', 8, STILL, each);
     run(game, 0.5, RIGHT, each);
@@ -153,7 +154,8 @@ describe('draw-call budget underground', () => {
     expect(sharedLighting.uRim.value).toBe(0);
     expect(named('underground').visible).toBe(true);
     expect(named('middens').visible).toBe(false);
-    expect(camera.near).toBeGreaterThan(1);
+    // What lies in front of the cut is cut away (cutClip.ts): the projection's depth row is the clip's.
+    expect(camera.projectionMatrix.equals(own)).toBe(false);
     steerOut(game, each);
     press(game, STILL, each);
     until(game, 'surface', 8, STILL, each);
@@ -163,6 +165,7 @@ describe('draw-call budget underground', () => {
     expect(sharedLighting.uRim.value).toBe(1);
     expect(sharedLighting.uFogNear.value).toBe(fogNear);
     expect(camera.near).toBe(0.2);
+    expect(camera.projectionMatrix.equals(own)).toBe(true);
     expect(named('underground').visible).toBe(false);
     expect(named('middens').visible).toBe(true);
     expect(world.worm.up).toEqual({ x: 0, y: 1, z: 0 });

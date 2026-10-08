@@ -50,7 +50,7 @@ describe('the camera facing the cut (spec 7)', () => {
             const head = project(p, w / h, ...world(s, hu, hv));
             expect(Math.abs(head.nx)).toBeLessThan(0.95);
             expect(Math.abs(head.ny)).toBeLessThan(0.95);
-            expect(head.d - 0.2).toBeGreaterThan(p.near);
+            expect(head.d).toBeGreaterThan(1);
             const step = Math.hypot(p.px - q.px, p.py - q.py, p.pz - q.pz);
             expect(step).toBeLessThan(0.08);
             // Smooth: the camera's speed changes only a little from frame to frame.
@@ -88,21 +88,5 @@ describe('the camera facing the cut (spec 7)', () => {
       last = cam.h.value;
     }
     expect(cam.h.value).toBeCloseTo(frame.h, 1);
-  });
-
-  it('the near plane stands just in front of the cut: the forest in front is cut away, the cut is not', () => {
-    const s = createSlab(0, 0, 0, 1, 2);
-    for (const view of ['wide', 'close'] as const) {
-      frameTarget(view, s, 0, -2, 0, -1, 1.5, frame);
-      cutPose(s, frame.cu, frame.cv, frame.h, frame.pitch, pose);
-      // The cut's top just in front of the plane is beyond the near plane...
-      const top = project(pose, 1.5, s.ox + s.nx * 0.2, s.topMax, s.oz + s.nz * 0.2);
-      expect(top.d).toBeGreaterThan(pose.near);
-      // ...while anything a body length in front of the cut is nearer than it (not drawn).
-      for (const y of [s.topMax, s.topMax + 1, s.topMax + 4]) {
-        const front = project(pose, 1.5, s.ox + s.nx * 1.5, y, s.oz + s.nz * 1.5);
-        expect(front.d).toBeLessThan(pose.near);
-      }
-    }
   });
 });

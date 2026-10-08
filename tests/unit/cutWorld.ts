@@ -18,7 +18,7 @@ const TAN = Math.tan((FOV_DEG * Math.PI) / 360);
 /** A Chromebook full screen, a phone, a maximised Chromebook browser (two heights), a wide monitor. */
 export const SCREENS = [[1366, 768], [360, 640], [1366, 640], [1366, 600], [1920, 800]] as const;
 export const frame: CutFrame = { cu: 0, cv: 0, h: 0, pitch: 0 };
-export const pose: CutPose = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0, near: 0 };
+export const pose: CutPose = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0 };
 
 /** The point (x, y, z) in the camera's view: NDC x, y and depth. */
 export function project(p: CutPose, aspect: number, x: number, y: number, z: number): { nx: number; ny: number; d: number } {

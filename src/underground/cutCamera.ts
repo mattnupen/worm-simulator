@@ -10,10 +10,9 @@ export { frameAsked, frameTarget, FACE_BELOW, FACE_PAST, FOV_DEG, LABEL_ROOM, ty
  * The camera facing the cut (V2 spec 7). It stands square to the cut on the slab's camera side,
  * pitched a little down, and frames a rectangle of the plane: Wide shows the whole slab from just
  * above the surface down to about the B layer, following gently only when the slab is wider than
- * the screen; Close frames a few worm lengths around the head, with more room ahead. Its near
- * plane sits just in front of the cut, so the forest between the camera and the cut is never
- * drawn (no shader changes; the projection does it). Where each view wants the frame is
- * cutFrame.ts. Pure; allocates nothing per step.
+ * the screen; Close frames a few worm lengths around the head, with more room ahead. The forest
+ * between the camera and the cut is never drawn (cutClip.ts: no shader changes, the projection
+ * does it). Where each view wants the frame is cutFrame.ts. Pure; allocates nothing per step.
  */
 const TAN_HALF = Math.tan((FOV_DEG * Math.PI) / 360);
 /** Seconds for the frame to settle: Wide follows gently, Close more closely. */
@@ -28,9 +27,10 @@ const ZOOM_SMOOTH = 0.6;
 export const SWITCH_S = 1.0;
 const AHEAD_SMOOTH = 0.8;
 /**
- * The near plane stays this far in front of the cut's top (the worm stands out of it by 0.13; the
- * props' nearest point stays over 0.5 behind the cut's top as the camera sees it, measured on 40
- * slabs in both views): close in, so the forest's own rocks and log just in front are not drawn.
+ * What lies further than this in front of the cut is not drawn (cutClip.ts; the worm stands out of
+ * the cut by 0.13; the props' nearest point stays over 0.5 behind the cut's top as the camera sees
+ * it, measured on 40 slabs in both views): close in, so the forest's own rocks and log just in
+ * front are not drawn.
  */
 export const CUT_MARGIN = 0.3;
 
@@ -60,10 +60,9 @@ export interface CutCam {
 }
 
 export interface CutPose {
-  /** Camera position and the point it looks at (world), and its near plane. */
+  /** Camera position and the point it looks at (world). */
   px: number; py: number; pz: number;
   lx: number; ly: number; lz: number;
-  near: number;
 }
 
 export function createCutCam(): CutCam {
@@ -194,9 +193,8 @@ function stepChannel(c: CutCam, f: CutFrame, view: UndergroundView, i: number, d
 
 /**
  * The camera for a frame centred at (cu, cv), `h` tall at the cut, pitched down by `pitch`:
- * square to the cut on its camera side, looking at the frame's centre. The near plane is just in
- * front of the highest point of the cut that can show (spec: the forest in front of the cut is
- * not drawn).
+ * square to the cut on its camera side, looking at the frame's centre. (What lies in front of the
+ * cut is cut away by cutClip.ts.)
  */
 export function cutPose(s: Slab, cu: number, cv: number, h: number, pitch: number, out: CutPose): CutPose {
   const d = h / (2 * TAN_HALF);
@@ -209,8 +207,5 @@ export function cutPose(s: Slab, cu: number, cv: number, h: number, pitch: numbe
   out.px = lx + s.nx * back;
   out.py = cv + d * Math.sin(pitch);
   out.pz = lz + s.nz * back;
-  // View depth of a point of the cut at height y: back cos(pitch) + (py - y) sin(pitch).
-  const top = s.topMax + 0.1;
-  out.near = Math.max(0.2, back * Math.cos(pitch) + (out.py - top) * Math.sin(pitch) - CUT_MARGIN);
   return out;
 }

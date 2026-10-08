@@ -22,8 +22,8 @@ function watchSweep(view: ViewAt, w: number, h: number, seed: number, steer?: (k
     const head = project(p, w / h, ...world(s, hu, hv));
     expect(Math.abs(head.nx)).toBeLessThan(0.95);
     expect(Math.abs(head.ny)).toBeLessThan(0.95);
-    // The near plane never cuts any of the body.
-    for (let i = 0; i < b.u.length; i++) expect(project(p, w / h, ...world(s, b.u[i], b.v[i])).d - 0.2).toBeGreaterThan(p.near);
+    // The whole body is well in front of the camera (the cut-away keeps the cut: cutClip.test.ts).
+    for (let i = 0; i < b.u.length; i++) expect(project(p, w / h, ...world(s, b.u[i], b.v[i])).d).toBeGreaterThan(1);
     // How far the screen's corners show past the face's ends.
     for (const x of [-1, 1]) {
       for (const y of [-1, 1]) {

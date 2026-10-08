@@ -12,7 +12,7 @@ import { createSlab, boundaryAt, slabX, slabZ, B_TOP, B_E } from '../../src/unde
 import { frameTarget, cutPose, FOV_DEG, type CutFrame, type CutPose } from '../../src/underground/cutCamera';
 
 function camAt(p: CutPose, aspect: number): THREE.PerspectiveCamera {
-  const c = new THREE.PerspectiveCamera(FOV_DEG, aspect, p.near, 200);
+  const c = new THREE.PerspectiveCamera(FOV_DEG, aspect, 0.2, 200);
   c.position.set(p.px, p.py, p.pz);
   c.lookAt(p.lx, p.ly, p.lz);
   c.updateMatrixWorld();
@@ -22,7 +22,7 @@ function camAt(p: CutPose, aspect: number): THREE.PerspectiveCamera {
 /** Wide's camera for the head at (hu, hv) on a w x h screen. */
 function wideCam(s: ReturnType<typeof createSlab>, hu: number, hv: number, w: number, h: number): THREE.PerspectiveCamera {
   const f: CutFrame = { cu: 0, cv: 0, h: 0, pitch: 0 };
-  const p: CutPose = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0, near: 0 };
+  const p: CutPose = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0 };
   frameTarget('wide', s, hu, hv, 1, 0, w / h, f);
   return camAt(cutPose(s, f.cu, f.cv, f.h, f.pitch, p), w / h);
 }
@@ -214,7 +214,7 @@ describe('the nearer end always names its layers (answer 11.2)', () => {
     expect(near.count).toBe(LABEL_COUNT);
     // Both ends are off screen at the entry: the near end's names sit at its side's edge.
     const edge = near.right ? 1366 : 0;
-    const pose: CutPose = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0, near: 0 };
+    const pose: CutPose = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0 };
     const fr: CutFrame = { cu: 0, cv: 0, h: 0, pitch: 0 };
     frameTarget('wide', s, 0.1, boundaryAt(s, B_TOP, 0.1) - 0.6, 1, 0, 1366 / 768, fr);
     cutPose(s, fr.cu, fr.cv, fr.h, fr.pitch, pose);

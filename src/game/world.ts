@@ -59,9 +59,12 @@ export interface World {
    * while the crawl, its hero leaves and its leaf map stand still). `hole` false (the camera at the
    * cut, the worm under no litter): the surface is drawn whole, with no fade, its patches emptied,
    * every litter chunk plain, and their per-frame lists skipped; `hole` true again restores it all.
-   * Uniforms, visibility and draw ranges only: nothing recompiles. Allocates nothing.
+   * `floor` false leaves out what lies under the hole (its floor patch and pocket leaves): the
+   * camera's swing, once the ground in front of the cut is cut away, when the cut face shows below
+   * the worm instead. Uniforms, visibility and draw ranges only: nothing recompiles. Allocates
+   * nothing.
    */
-  syncWorm(pose: WormPose, focus: Vec3, camera: THREE.PerspectiveCamera, hole: boolean): void;
+  syncWorm(pose: WormPose, focus: Vec3, camera: THREE.PerspectiveCamera, hole: boolean, floor?: boolean): void;
   /** The rim light at this share (0..1) of the preset's: 0 in the cut (V2), so nothing glows there. */
   setRimShare(k: number): void;
 }
@@ -149,7 +152,7 @@ export function buildWorld(crawl: Crawl): World {
         crawl.disturbed = false;
       }
     },
-    syncWorm(p, focus, camera, hole) {
+    syncWorm(p, focus, camera, hole, floorOn = true) {
       worm.update(p);
       setFocus(focus.x, focus.y, focus.z);
       if (!hole) {
@@ -185,7 +188,8 @@ export function buildWorld(crawl: Crawl): World {
       fade.count = g.uOccCount.value;
       fade.far = occBox[4];
       top.update(fade, camera.position.x, camera.position.z, p.spine);
-      updateFloorPatch(floor, p.spine, view, g.uOccSeg.value, g.uOccCount.value);
+      if (!floorOn) fade.count = 0;
+      updateFloorPatch(floor, p.spine, view, g.uOccSeg.value, fade.count);
       const wrap = g.uWrapCentre.value;
       pocket.built?.update(fade, p.spine, focus.x, focus.z, wrap.x, wrap.y, crawl.disturbance);
       // Per litter chunk: full or low-detail leaves, and whether it may fade.

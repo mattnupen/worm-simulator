@@ -8,11 +8,14 @@ import type { Slab } from './slab';
 import { createCutFace } from './cutFace';
 import { createSlabProps } from './slabProps';
 import { createMiddens } from './middens';
-import { cutPose, CUT_MARGIN, FOV_DEG, type CutPose } from './cutCamera';
+import { cutPose, CUT_MARGIN, type CutPose } from './cutCamera';
+import { clipBeyond } from './cutClip';
+import { swingPose } from './swingCamera';
 import { bodyProgress, cameraProgress, dipDarkness, type Mode } from './modeMachine';
 import { smootherstep } from './easing';
 import { AXIS_UP } from './bodyPath';
 import { slabX, slabZ } from './slab';
+import { litterTopHeight } from '../surface/litterDepth';
 
 /** What the cut scene shows over the canvas (DOM: burrowing.ts; nothing in the unit tests). */
 export interface CutHud {
@@ -40,42 +43,14 @@ const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 /** The forest beyond the cut fades into haze from just behind it (spec 4.1: "dimmed by depth haze"). */
 const HAZE_FROM = 1.5;
 const HAZE_SPAN = 26;
-/** The camera's swing rises this much at its middle, up over the leaves rather than through them. */
-const SWING_ARC = 1.2;
 /**
  * Behind everything (the clear colour): deep soil, the colour the cut face fades to at its ends and
- * bottom as it comes out on screen. Mid-swing the camera can see past the face's end and under the
- * ground its near plane opens: that reads as more soil, never a black void. Over the surface the
- * sky and the ground cover it. (sRGB, matched to the face's fade by eye.)
+ * bottom as it comes out on screen: anything the camera sees past them reads as more soil, never a
+ * black void. Over the surface the sky and the ground cover it. (sRGB, matched to the face's fade
+ * by eye.)
  */
 export const DEEP_SOIL = '#140d08';
-/** The near plane reaches the cut's plane over this share of the camera's swing. */
-const CLIP_IN = 0.25;
-const TAN_HALF = Math.tan((FOV_DEG * Math.PI) / 360);
-const fwd = new THREE.Vector3();
 const headAt = new THREE.Vector3();
-const right = new THREE.Vector3();
-const upV = new THREE.Vector3();
-
-/**
- * The nearest depth (along the view) at which the camera sees the cut's plane, anywhere on screen,
- * or Infinity where it is behind or edge-on. A point at image-plane (x, y) lies at depth
- * dist / (a + b x + c y), so the nearest is at the corner where that is largest.
- */
-function planeDepth(s: Slab, camera: THREE.PerspectiveCamera): number {
-  const p = camera.position;
-  const dist = s.nx * (p.x - s.ox) + s.nz * (p.z - s.oz);
-  if (!(dist > 0)) return Infinity;
-  const q = camera.quaternion;
-  fwd.set(0, 0, -1).applyQuaternion(q);
-  right.set(1, 0, 0).applyQuaternion(q);
-  upV.set(0, 1, 0).applyQuaternion(q);
-  const a = -(s.nx * fwd.x + s.nz * fwd.z);
-  const b = Math.abs(s.nx * right.x + s.nz * right.z) * TAN_HALF * camera.aspect;
-  const c = Math.abs(s.nx * upV.x + s.nz * upV.z) * TAN_HALF;
-  const most = a + b + c;
-  return most > 0 ? dist / most : Infinity;
-}
 
 /**
  * Draws the underground (V2 spec 4, 5, 7): the cut face, its stones, roots and life, the burrow
@@ -102,10 +77,8 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
   const scratch: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
   const focus = { x: 0, y: 0, z: 0 };
   const surfCam = new THREE.PerspectiveCamera();
-  const cutCam = new THREE.PerspectiveCamera();
-  const cp: CutPose = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0, near: 0.2 };
+  const cp: CutPose = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0 };
   const baseFog = { near: sharedLighting.uFogNear.value, far: sharedLighting.uFogFar.value };
-  let baseNear = -1;
   /** Showing the game's moves or the cut (not the surface as V1 drew it). */
   let away = false;
   /** The slab the face shows, and whether its props are still building (one part a frame). */
@@ -114,12 +87,6 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
   let place: Mode | null = null;
   /** How far the body lies off the cut toward the camera, at most (it slides in as it sinks). */
   let offMost = 0;
-
-  function setNear(camera: THREE.PerspectiveCamera, near: number): void {
-    if (camera.near === near) return;
-    camera.near = near;
-    camera.updateProjectionMatrix();
-  }
 
   /** Back on the surface: everything as before the dig. */
   function home(camera: THREE.PerspectiveCamera): void {
@@ -131,7 +98,7 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
     world.setRimShare(1);
     sharedLighting.uFogNear.value = baseFog.near;
     sharedLighting.uFogFar.value = baseFog.far;
-    setNear(camera, baseNear);
+    camera.updateProjectionMatrix();
     hud.dip(0);
   }
 
@@ -178,7 +145,6 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
   return {
     group,
     sync(alpha, timeSec, camera, width, height) {
-      if (baseNear < 0) baseNear = camera.near;
       const m = game.mode;
       if (m.mode !== place) {
         place = m.mode;
@@ -199,29 +165,23 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
       }
       rebuild(s);
 
-      // The camera: from the (still) surface follow camera to the cut camera, eased; or a dip
-      // through dark soil with reduced motion.
+      // The camera: from the (still) surface follow camera round to the cut camera (swingCamera.ts),
+      // the forest in front of the cut cut away as it comes (the body still sliding into the cut
+      // kept); or a dip through dark soil with reduced motion, the camera cut in the dark.
       crawl.interpolate(1, timeSec, scratch, surfCam);
       const c = game.cam;
       const q = game.camPrev;
       cutPose(s, lerp(q.cu, c.cu.value, alpha), lerp(q.cv, c.cv.value, alpha), lerp(q.h, c.h.value, alpha),
         lerp(q.pitch, c.pitch.value, alpha), cp);
-      cutCam.position.set(cp.px, cp.py, cp.pz);
-      cutCam.up.set(0, 1, 0);
-      cutCam.lookAt(cp.lx, cp.ly, cp.lz);
       const p = cameraProgress(m);
-      const e = m.reduced ? (p < 0.5 ? 0 : 1) : smootherstep(p);
+      const e = smootherstep(p);
       hud.dip(dipDarkness(m));
-      camera.position.lerpVectors(surfCam.position, cutCam.position, e);
-      camera.position.y += SWING_ARC * Math.sin(Math.PI * e);
-      camera.quaternion.slerpQuaternions(surfCam.quaternion, cutCam.quaternion, e);
-      // The near plane: just in front of the cut wherever the camera stands off it (the forest between
-      // is not drawn; the body still sliding into the cut is kept), closing in on cutPose's at the end.
       poseWorm(s, alpha, timeSec);
-      // It moves out from the surface's over the camera's first CLIP_IN of the swing (never a jump).
-      const clear = Math.max(baseNear, planeDepth(s, camera) - CUT_MARGIN - offMost);
-      const near = lerp(baseNear, Number.isFinite(clear) ? clear : baseNear, Math.min(1, e / CLIP_IN));
-      setNear(camera, Math.max(near, lerp(baseNear, cp.near, e ** 6)));
+      headAt.set(crawl.focus.x, crawl.focus.y, crawl.focus.z);
+      const ahead = swingPose(surfCam, headAt, cp, s, p, CUT_MARGIN + offMost, camera);
+      camera.updateMatrixWorld();
+      camera.updateProjectionMatrix();
+      if (ahead < Infinity) clipBeyond(camera, s, ahead);
       // Shown once the camera starts to move (until then the worm sinks seen from behind, as on the
       // surface). Coming up, the props go once the camera is halfway home: the worm crawls out along
       // the cut's top, where they stand.
@@ -238,8 +198,13 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
       const up = world.worm.up;
       const ul = Math.hypot(s.nx * b, 1 - b, s.nz * b) || 1;
       up.x = (s.nx * b) / ul; up.y = (1 - b) / ul; up.z = (s.nz * b) / ul;
-      // At the cut (e = 1) no litter lies between the camera and the worm: the surface is whole.
-      world.syncWorm(pose, focus, camera, e < 1);
+      // The worm is seen through the litter (the hole in it: the leaf fade, the floor patch) only
+      // while the camera is over the litter. Under it (at the cut, and as the camera comes down to
+      // it) the litter's top is not drawn from below: the surface is whole. And once the ground in
+      // front of the cut is being cut away, the hole shows the cut face below the worm, not a patch
+      // of floor hanging in front of it.
+      const over = camera.position.y > litterTopHeight(camera.position.x, camera.position.z);
+      world.syncWorm(pose, focus, camera, e < 1 && over, ahead === Infinity);
       const headU = lerp(game.worm.prevU[0], game.worm.u[0], alpha);
       hud.labels(camera, s, m.mode === 'underground' && e > 0.98, width, height, headU);
       if (m.mode === 'underground') {
