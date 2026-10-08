@@ -173,6 +173,11 @@ export class HeroWorm {
   private readonly nor: THREE.BufferAttribute;
   private readonly tan: THREE.BufferAttribute;
   private readonly shadow: WormShadow;
+  /**
+   * The tube's back (dorsal side) faces this way: world up on the surface, the camera in the cut
+   * (V2: blended as the worm sinks, so its frames never flip when the body points straight down).
+   */
+  readonly up = { x: 0, y: 1, z: 0 };
 
   /** `groundAt`: the surface the worm rests on; its contact shadow is draped over it. */
   constructor(spinePoints: number, groundAt?: GroundFn) {
@@ -208,6 +213,11 @@ export class HeroWorm {
     this.group.name = 'heroWorm';
   }
 
+  /** The contact shadow lies on the forest floor: hidden in the cut (V2). */
+  showShadow(on: boolean): void {
+    this.shadow.mesh.visible = on;
+  }
+
   update(pose: WormPose): void {
     const { spine, m, s, k, r, rN, rB, slope, c, T, N, B, probe } = this;
     fitSpine(spine, pose.spine);
@@ -240,7 +250,7 @@ export class HeroWorm {
         c[o + 2] -= fx * probe.sway * w;
       }
     }
-    transportFrames(c, RINGS, T, N, B);
+    transportFrames(c, RINGS, T, N, B, this.up.x, this.up.y, this.up.z);
     for (let i = 0; i < RINGS; i++) {
       const a = i > 0 ? i - 1 : 0;
       const b = i < RINGS - 1 ? i + 1 : RINGS - 1;
@@ -262,7 +272,7 @@ export class HeroWorm {
     this.pos.needsUpdate = true;
     this.nor.needsUpdate = true;
     this.tan.needsUpdate = true;
-    this.shadow.update(c, T, rB);
+    if (this.shadow.mesh.visible) this.shadow.update(c, T, rB);
   }
 }
 

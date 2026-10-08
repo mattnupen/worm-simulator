@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildSky } from '../render/sky';
 import { buildAtmosphere, type Atmosphere } from '../render/atmosphere';
-import { setRimLight } from '../render/paintedMaterial';
+import { sharedLighting } from '../render/paintedMaterial';
 import {
   groundUniforms, occTileWords, setDisturbFade, setFocus, setLeafReaction, setSpine, uploadDisturbance,
 } from '../render/groundUniforms';
@@ -26,6 +26,7 @@ import { HeroWorm, type WormPose } from '../worm/wormMesh';
 import { wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import { WORM_SEGMENTS, type Crawl } from './crawl';
 import { scaledLeafCount } from '../surface/leafScale';
+import type { Vec3 } from '../core/vec';
 
 export interface World {
   scene: THREE.Scene;
@@ -52,6 +53,17 @@ export interface World {
   apply(spec: PresetSpec): void;
   /** Poses everything that moves with the simulation for this rendered frame. Allocates nothing. */
   sync(crawl: Crawl, alpha: number, timeSec: number, camera: THREE.PerspectiveCamera): void;
+  /**
+   * The part of sync that poses the worm and what reads it (the fade, the hole's patches, the
+   * litter chunks), from a pose the caller made (V2: the worm in the cut and the moves between,
+   * while the crawl, its hero leaves and its leaf map stand still). `hole` false (the camera at the
+   * cut, the worm under no litter): the surface is drawn whole, with no fade, its patches emptied,
+   * every litter chunk plain, and their per-frame lists skipped; `hole` true again restores it all.
+   * Uniforms, visibility and draw ranges only: nothing recompiles. Allocates nothing.
+   */
+  syncWorm(pose: WormPose, focus: Vec3, camera: THREE.PerspectiveCamera, hole: boolean): void;
+  /** The rim light at this share (0..1) of the preset's: 0 in the cut (V2), so nothing glows there. */
+  setRimShare(k: number): void;
 }
 
 /**
@@ -92,7 +104,24 @@ export function buildWorld(crawl: Crawl): World {
   const fade: FadeFrame = { view: occBox, seg: groundUniforms.uOccSeg.value, count: 0, far: 0 };
 
   scene.add(forest, hero.mesh, nearClutter.group, worm.group, buildSky(), atmosphere.group);
-  return {
+  /** The preset's rim light (0 or 1) and the share of it shown. */
+  let rim = 1;
+  let rimShare = 1;
+  /** The hole over the worm is closed (the surface whole): its lists were emptied once, then skipped. */
+  let closed = false;
+
+  /** Empties the fade and what draws the hole, once: the surface whole (uniforms and draw ranges). */
+  function closeHole(p: WormPose, focus: Vec3): void {
+    closed = true;
+    const g = groundUniforms;
+    g.uOccCount.value = 0;
+    fade.count = 0;
+    top.update(fade, 0, 0, p.spine);
+    updateFloorPatch(floor, p.spine, fade.view, g.uOccSeg.value, 0);
+    pocket.built?.update(fade, p.spine, focus.x, focus.z, g.uWrapCentre.value.x, g.uWrapCentre.value.y, crawl.disturbance);
+  }
+
+  const world: World = {
     scene, litter, detail, pocket, props, hero, nearClutter, atmosphere, worm,
     apply(spec) {
       litter.setCount(scaledLeafCount(spec.litter));
@@ -101,23 +130,44 @@ export function buildWorld(crawl: Crawl): World {
       props.setDensity(spec.clutter);
       nearClutter.show(spec.nearClutter);
       atmosphere.setLevel(spec.effects, spec.extraEffects);
-      setRimLight(spec.rim);
+      rim = spec.rim ? 1 : 0;
+      sharedLighting.uRim.value = rim * rimShare;
       setLeafReaction(spec.reaction);
+    },
+    setRimShare(k) {
+      rimShare = k;
+      sharedLighting.uRim.value = rim * k;
     },
     sync(crawl, alpha, timeSec, camera) {
       crawl.interpolate(alpha, timeSec, pose, camera);
-      worm.update(pose);
       hero.update(crawl.hero, alpha, timeSec);
-      setFocus(crawl.focus.x, crawl.focus.y, crawl.focus.z);
+      world.syncWorm(pose, crawl.focus, camera, true);
+      if (crawl.disturbed) {
+        uploadDisturbance(crawl.disturbance);
+        // The window the pocket's leaves read the map in.
+        setDisturbFade(crawl.reach.fadeFrom, crawl.reach.fadeTo);
+        crawl.disturbed = false;
+      }
+    },
+    syncWorm(p, focus, camera, hole) {
+      worm.update(p);
+      setFocus(focus.x, focus.y, focus.z);
+      if (!hole) {
+        if (!closed) closeHole(p, focus);
+        // Per litter chunk: full or low-detail leaves; none can fade.
+        litter.update(camera.position.x, camera.position.z, p.spine, false);
+        return;
+      }
+      closed = false;
       // The near clutter keeps clear of the spine, the floor patch centres on it, and the pocket's
       // leaves keep round it.
-      setSpine(pose.spine);
+      setSpine(p.spine);
       // The leaf fade (every preset): the body as this frame's camera sees it.
       camera.updateMatrixWorld();
       const pe = camera.projectionMatrix.elements;
       const g = groundUniforms;
       const view = camera.matrixWorldInverse.elements;
-      g.uOccCount.value = occluderSegments(pose.spine, view, pe[0], pe[5], g.uOccSeg.value, occBox);
+      g.uOccCount.value = occluderSegments(p.spine, view, pe[0], pe[5], g.uOccSeg.value, occBox);
       occluderAxis(g.uOccSeg.value, g.uOccCount.value, g.uOccAxis.value);
       // Only on-screen pixels fade: the box clipped to the screen, cut into the fade's tiles.
       for (let k = 0; k < 2; k++) {
@@ -134,18 +184,13 @@ export function buildWorld(crawl: Crawl): World {
       fade.view = view;
       fade.count = g.uOccCount.value;
       fade.far = occBox[4];
-      top.update(fade, camera.position.x, camera.position.z, pose.spine);
-      updateFloorPatch(floor, pose.spine, view, g.uOccSeg.value, g.uOccCount.value);
+      top.update(fade, camera.position.x, camera.position.z, p.spine);
+      updateFloorPatch(floor, p.spine, view, g.uOccSeg.value, g.uOccCount.value);
       const wrap = g.uWrapCentre.value;
-      pocket.built?.update(fade, pose.spine, crawl.focus.x, crawl.focus.z, wrap.x, wrap.y, crawl.disturbance);
-      if (crawl.disturbed) {
-        uploadDisturbance(crawl.disturbance);
-        // The window the pocket's leaves read the map in.
-        setDisturbFade(crawl.reach.fadeFrom, crawl.reach.fadeTo);
-        crawl.disturbed = false;
-      }
+      pocket.built?.update(fade, p.spine, focus.x, focus.z, wrap.x, wrap.y, crawl.disturbance);
       // Per litter chunk: full or low-detail leaves, and whether it may fade.
-      litter.update(camera.position.x, camera.position.z, pose.spine);
+      litter.update(camera.position.x, camera.position.z, p.spine);
     },
   };
+  return world;
 }

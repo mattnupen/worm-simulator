@@ -177,9 +177,13 @@ test('Space on a focused Crawl or Resume button starts or resumes, and is never 
   await expect.poll(() => presses(page)).toBe('1');
 });
 
-test('no prompt shows while crawling unless the game sets one', async ({ page }) => {
+test('without ?prompt= the game sets the prompt: none on the Start card, Dig down at the spawn (V2), none while paused', async ({ page }) => {
   await page.goto(PAGE);
-  await crawl(page);
   await page.waitForTimeout(300);
+  await expect(prompt(page)).toBeHidden();
+  await crawl(page);
+  // The worm may dig where it starts.
+  await expect(page.getByRole('button', { name: 'Dig down' })).toBeVisible();
+  await page.keyboard.press('Escape');
   await expect(prompt(page)).toBeHidden();
 });

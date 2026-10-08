@@ -28,6 +28,9 @@ import { showCrawl, showLost, showPause, showStart } from './ui/menus';
 import { showGraphics } from './ui/graphicsMenu';
 import { createActionPrompt } from './ui/actionPrompt';
 import { showResult, showRunning, showTestIntro } from './ui/speedTestUi';
+import { showUnderground } from './ui/undergroundHint';
+import { warmShaders } from './render/warmShaders';
+import { createBurrowing } from './underground/burrowing';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
@@ -88,6 +91,11 @@ function start(renderer: THREE.WebGLRenderer): void {
   // What Action does now, and the touch Action button. The game sets it from where the worm is;
   // ?prompt= shows one kind (none while #app has data-prompt-off) and counts data-action-presses.
   const actionPrompt = createActionPrompt(app);
+  // Surface or underground (V2): the game steps the crawl on the surface and digs below it.
+  const { game, cut } = createBurrowing(crawl, world, app, store);
+  /** The crawl screen's card: 0 the surface one, 1 the first underground visit's hint, 2 none. */
+  let shownCard = 0;
+  const cardNow = (): number => (game.mode.mode === 'surface' ? 0 : game.hintShowing ? 1 : 2);
   const pressEdge = createPressEdge();
   let presses = 0;
   const meter = new FpsMeter();
@@ -109,6 +117,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     // Every run starts at the spawn, whatever the player did before opening the test.
     resetWorld: () => {
       crawl.reset();
+      game.reset();
       dirty = true;
     },
     setMaxFps: (fps) => loop.setMaxFps(fps),
@@ -145,32 +154,11 @@ function start(renderer: THREE.WebGLRenderer): void {
     applySpec(PRESETS[graphics.active]);
   }
 
-  /**
-   * Compiles every eagerly built program once, now, while the Start card is up. On Low the
-   * atmosphere (light shafts, motes, falling leaves) is hidden, so without this three would
-   * compile those programs on the first switch up from Low and the game would hitch once.
-   * three r186's renderer.compile prepares hidden objects too, so the hidden near litter chunks'
-   * plain program is compiled here as well; showing the atmosphere for the call only keeps this
-   * from depending on that. The lazily built layers (detail leaves, Ultra's near clutter) are
-   * deliberately not built here: their one-time build and compile on first show is accepted (see
-   * applySpec). Nor is the litter's reacting (active) program, which no chunk wears yet: it
-   * compiles on the first frame a chunk reacts.
-   */
-  function warmShaders(): void {
-    const group = world.atmosphere.group;
-    const wasVisible = group.visible;
-    group.visible = true;
-    try {
-      renderer.compile(world.scene, camera);
-    } finally {
-      group.visible = wasVisible;
-    }
-  }
-
   function resize(): void {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    game.aspect = camera.aspect;
     updateResolution();
     dirty = true;
   }
@@ -225,7 +213,8 @@ function start(renderer: THREE.WebGLRenderer): void {
           onSpeedTest: () => dispatch({ type: 'speedTest' }),
         }, fromGraphics);
       case 'crawl':
-        return showCrawl(shell);
+        shownCard = cardNow();
+        return shownCard === 0 ? showCrawl(shell) : showUnderground(shell, shownCard === 1);
       case 'pause':
         return showPause(shell, {
           onResume: () => dispatch({ type: 'resume' }),
@@ -274,11 +263,12 @@ function start(renderer: THREE.WebGLRenderer): void {
 
   /**
    * This step's commands: the keyboard, the joystick and the touch Action button merged (Space or
-   * the button hold `action`); the speed test's drive while it runs; nothing off the crawl screen.
+   * the button hold `action`); the speed test's drive while it runs; nothing off the crawl screen
+   * (paused, they are only watched: a press held through the pause stays spent).
    */
   function commands(): Commands {
     if (runner.running) return AUTO_DRIVE_MOVE;
-    if (state.screen !== 'crawl') return NO_COMMANDS;
+    if (state.screen !== 'crawl' && !frozen()) return NO_COMMANDS;
     touchCmds.move = joystick.value; // the joystick replaces its value object; no copy needed
     touchCmds.action = actionPrompt.touchHeld;
     return mergeCommandsInto(keysToCommandsInto(keyboard.down, keyCmds), touchCmds, heldCmds);
@@ -290,13 +280,16 @@ function start(renderer: THREE.WebGLRenderer): void {
   }
 
   function update(dt: number): void {
-    if (!frozen()) {
-      const cmds = commands();
-      crawl.step(dt, cmds.move);
-      if (params.prompt) {
-        actionPrompt.set(state.screen === 'crawl' && app.dataset.promptOff === undefined ? params.prompt : null);
-        if (pressEdge.update(cmds.action)) app.dataset.actionPresses = String(++presses);
-      }
+    const cmds = commands();
+    if (frozen()) game.hold(cmds.action);
+    else {
+      game.step(dt, cmds.move, cmds.action);
+      // ?prompt= shows one kind over the game's own and counts the presses (tests, screenshots).
+      if (params.prompt && pressEdge.update(cmds.action)) app.dataset.actionPresses = String(++presses);
+      const on = state.screen === 'crawl' && !runner.running && app.dataset.promptOff === undefined;
+      actionPrompt.set(on ? params.prompt ?? game.prompt : null);
+      // Gone down, come up, or the first visit's hint has had its time: the crawl card changes.
+      if (state.screen === 'crawl' && shownCard !== cardNow()) draw();
     }
     keyboard.endStep();
     actionPrompt.endStep();
@@ -312,7 +305,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (still && !dirty) return;
     dirty = false;
     setTime(clock / 1000);
-    world.sync(crawl, alpha, clock / 1000, camera);
+    cut.sync(alpha, clock / 1000, camera, window.innerWidth, window.innerHeight);
     renderer.render(world.scene, camera);
     shell.setFps(meter.fps, CHOICE_LABELS[spec.id], runner.running ? runner.quality.tier : undefined);
     // Auto is fed only by frames actually drawn on the crawl screen: never menus, pauses or the
@@ -322,7 +315,7 @@ function start(renderer: THREE.WebGLRenderer): void {
 
   applyActive();
   resize();
-  warmShaders();
+  warmShaders(renderer, world, camera);
   window.addEventListener('resize', resize);
   const loop = startLoop(update, render, {
     maxFps: MAX_FPS,

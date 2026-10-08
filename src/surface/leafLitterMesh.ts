@@ -57,9 +57,10 @@ export interface LeafLitter {
    * Once per rendered frame: per chunk, the fading material where its leaves can fade over the
    * buried worm (the hull of the camera and the rendered `spine`), the plain one elsewhere; full
    * leaves near the camera (and on every fading chunk), low-detail ones far away. Swaps materials
-   * (all compiled up front); rewrites the far draw's list only when it changes. Allocates nothing.
+   * (all compiled up front); rewrites the far draw's list only when it changes. `fades` false (the
+   * worm in the cut, V2): no leaf can fade, so every chunk draws plain. Allocates nothing.
    */
-  update(camX: number, camZ: number, spine: ArrayLike<number>): void;
+  update(camX: number, camZ: number, spine: ArrayLike<number>, fades?: boolean): void;
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -229,13 +230,13 @@ export function buildLeafLitter(count: number, seed = 1): LeafLitter {
       }
       far.refresh(chunks);
     },
-    update(camX, camZ, spine) {
+    update(camX, camZ, spine, fades = true) {
       hullBox(camX, camZ, spine, hull);
       let changed = false;
       for (let c = 0; c < chunks.length; c++) {
         const ch = chunks[c];
         // Conservative: a chunk any of whose leaves could fade reacts, so nothing snaps.
-        ch.active = boxesMeet(ch.box, hull, ACTIVE_MARGIN);
+        ch.active = fades && boxesMeet(ch.box, hull, ACTIVE_MARGIN);
         // Only the full-leaf program reacts, so a reacting chunk always shows full leaves.
         const isNear = nextLod(ch.isNear, chunkDistance(c, camX, camZ)) || ch.active;
         changed ||= isNear !== ch.isNear;

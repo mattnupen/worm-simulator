@@ -27,8 +27,12 @@ const ZOOM_SMOOTH = 0.6;
  */
 export const SWITCH_S = 1.0;
 const AHEAD_SMOOTH = 0.8;
-/** The near plane stays this far in front of the cut's top (the worm stands out of it by 0.13). */
-export const CUT_MARGIN = 0.45;
+/**
+ * The near plane stays this far in front of the cut's top (the worm stands out of it by 0.13; the
+ * props' nearest point stays over 0.5 behind the cut's top as the camera sees it, measured on 40
+ * slabs in both views): close in, so the forest's own rocks and log just in front are not drawn.
+ */
+export const CUT_MARGIN = 0.3;
 
 export interface CutCam {
   /**
