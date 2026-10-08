@@ -104,7 +104,7 @@ that column never leaves `codev-raw/`.
 
 ## Version names and builds
 
-Name rules: 2 to 4 plain words a 6th grader understands, saying what's new or what the topic
+Name rules (one word is fine when Matt picks it, as with "V2 · Underground"): 2 to 4 plain words a 6th grader understands, saying what's new or what the topic
 is. The name is set when the version is planned, never changes after release, and is used
 everywhere: the Start-screen label, slides, form, Canvas post, version doc and changelog. URLs use
 the number only (`/v2/`), so they're easy to type.

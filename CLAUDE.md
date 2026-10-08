@@ -29,7 +29,7 @@ npm run dev            # Vite dev server
 npm test               # Vitest unit tests
 npm run test:e2e       # build + Playwright
 npm run verify:build   # build + single-file check
-npm run build && node scripts/perf-gates.mjs 4   # perf gates (True and Classic), relative to a Step 0 build
+npm run build && node scripts/perf-gates.mjs 4   # perf gates (every preset, surface and underground), relative to a Step 0 build
 npm run release -- <N> # freeze the build as releases/vN/index.html (after Matt approves the root build)
 ```
 
@@ -69,6 +69,7 @@ Step 0 build side by side rather than absolute fps.
   version keeps its number and is noted in its changelog entry.
 - **Every version has a short descriptive name:**
   - 2 to 4 plain words a 6th grader understands, saying what's new or what the topic is
+    (one word is fine when Matt picks it, as with "V2 · Underground")
     (for example "V2 · First Bite");
   - set when the version is planned, and never changed after release;
   - used everywhere: the Start-screen label, slides, form title, Canvas post, version doc and
@@ -110,10 +111,13 @@ Step 0 build side by side rather than absolute fps.
 - **Real size always (Matt, 2026-10-06):** every version from V2 on uses real (True) size. World
   scale was retired in V2; V1 keeps it, frozen at `/v1/`.
 - **Ballot choices ship as settings behind one default.** World scale (Classic, Hybrid, True) was
-  the first example: students try each option, then vote.
-  - One table holds every option (`src/surface/worldScale.ts`); nothing else knows which is on.
-  - Switching rebuilds in place through one entry point (`World.switchForest`), with no shader
-    compiles.
+  the first example: students try each option, then vote. V2's underground camera (Wide or Close,
+  `undergroundView` in `src/save/settingsStore.ts`) is the current one.
+  - One place holds every option, and nothing else knows which is on. (V1's table,
+    `src/surface/worldScale.ts`, was deleted with World scale; V2 keeps one `REAL_SCALE`
+    in `src/surface/realScale.ts`.)
+  - Switching never compiles shaders: everything is built at load, and a switch changes only
+    uniforms, visibility or draw ranges.
   - A setting is saved only when the player really picks it, so a device that never chose
     follows the default. Applying a vote is then a one-line default change that reaches every
     device that hasn't picked. Careful: students who try every option end up with a stored pick,
