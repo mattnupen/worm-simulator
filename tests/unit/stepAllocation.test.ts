@@ -60,10 +60,10 @@ describe('no per-step garbage, as built (bytes the heap grows per step)', () => 
     expect(m.modes).toEqual(['underground', 'surface']);
     expect(m.digs).toBeGreaterThan(0);
     expect(m.offered).toBeGreaterThan(0);
-    // The worm digging about, its tunnel and castings, the cut camera and the prompt. Measured 80
+    // The worm digging about, its tunnel and castings, the cut camera and the prompt. Measured 32
     // (Node 26, V8 14.6: a few numbers still boxed where V8 does not inline a small helper; it was
     // about 2.8 KB). The bounds leave room for V8 inlining a little differently as code changes.
-    expect(m.underground).toBeLessThan(128);
+    expect(m.underground).toBeLessThan(64);
     // The dig spot the prompt asks for every few steps on the surface (48 measured; it was 6.7 KB).
     expect(m.canDigAt).toBeLessThan(96);
     // What the game adds to the crawl on the surface: the mode machine, the dig spot it asks every

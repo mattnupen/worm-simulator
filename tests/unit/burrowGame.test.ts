@@ -256,6 +256,9 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     for (let n = 1; n < MAX_OPENINGS + 2; n++) comeUpFrom(n % 2 ? -1.5 * Math.ceil(n / 2) : 1.5 * (n / 2));
     expect(game.openings.count).toBe(MAX_OPENINGS);
     expect(game.openings.version).toBe(MAX_OPENINGS + 3);
+    // Crawl on until Dig down shows (where it comes up depends on how its body lay below; after 3 s,
+    // turning, round whatever is in the way).
+    for (let k = 0; k < 100 && game.prompt !== 'digDown'; k++) run(game, 0.1, { x: k > 30 ? 0.5 : 0, y: 1 });
     digDown(game);
     game.reset();
     expect(game.mode.mode).toBe('surface');

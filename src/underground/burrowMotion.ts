@@ -24,6 +24,21 @@ export { TUNNEL_R, CAST_EVERY };
 export { createBurrower, placeBurrower, type Burrower } from './burrower';
 /** Most the head turns per second toward the way pointed. */
 export const DIG_TURN = 2.6;
+/**
+ * ...and its path turns no tighter than this radius (u) at the speed it goes: turning fast while
+ * all but still, it dug corners the body could only follow with an elbow (bodyTrail.ts)...
+ */
+export const MIN_TURN_R = 0.35;
+/** ...but it can still turn this fast (radians a second) when it hardly moves... */
+export const TURN_FLOOR = 0.8;
+/**
+ * ...and it turns at DIG_TURN pressed against a stone, root, the top, the slab's ends or bottom,
+ * easing back to the limit over this long once free again (turning away from them is how it gets
+ * out; held there, it backed up in fits and starts).
+ */
+const FREE_S = 0.3;
+/** A spent backing re-arms when the stick turns this far (radians) from where it was, or is let go. */
+const SPENT_TURN = 0.5;
 /** The head never comes nearer than this to the litter's top (solidShapes.ts). */
 export { TOP_KEEP };
 /** The head is "near the top" (Action = Come up) within this of the F top... */
@@ -115,10 +130,18 @@ export function stepBurrowing(b: Burrower, s: Slab, g: SoilGrid, o: Solids, p: P
   way.mag = mag;
   // Pointing back against the body while stuck: back up (and on while it points back).
   // (Back is measured from the neck: the head itself never turns more than MAX_NECK_BEND off it.)
-  const back = mag > DEAD && Math.abs(wrap(Math.atan2(dv, du) - Math.atan2(b.v[0] - b.v[1], b.u[0] - b.u[1]))) > (b.backing ? BACK_KEEP : BACK_ANGLE);
+  const stick = Math.atan2(dv, du);
+  const back = mag > DEAD && Math.abs(wrap(stick - Math.atan2(b.v[0] - b.v[1], b.u[0] - b.u[1]))) > (b.backing ? BACK_KEEP : BACK_ANGLE);
   const was = b.backing;
-  if (!back) b.backSpent = false;
+  // Once backing has ended it does not start again until the stick is let go or turned SPENT_TURN
+  // (the neck's way swings as the body goes round its tunnel's bends: held still, the stick came to
+  // point back, and not, by turns, and the worm backed up in fits and starts).
+  if (b.backSpent && (mag <= DEAD || Math.abs(wrap(stick - b.spentWay)) > SPENT_TURN)) b.backSpent = false;
   b.backing = back && !b.backSpent && (b.backing || (b.stuck >= STUCK_S && b.tried >= STUCK_TRIED));
+  if (was && !b.backing && !b.backSpent) {
+    b.backSpent = true;
+    b.spentWay = stick;
+  }
   // Each way starts from rest (the head never flips from one way to the other at speed).
   if (b.backing !== was) b.want = b.speed = 0;
   if (b.backing) {
@@ -151,6 +174,7 @@ function backStep(b: Burrower, s: Slab, g: SoilGrid, o: Solids, dt: number): voi
   if (b.speed > 0.5 * BACK_SPEED * mag && moved < STUCK_SHARE * b.speed * dt) {
     b.backing = false;
     b.backSpent = true;
+    b.spentWay = Math.atan2(way.dv, way.du);
     b.want = b.speed = 0;
   }
   advanceWave(b.wave, moved, dt, 0.3, WAVES_PER_UNIT, BREATH_HZ);
@@ -165,7 +189,10 @@ function steer(b: Burrower, g: SoilGrid, dt: number): void {
   let fresh = 0;
   if (way.mag > DEAD) {
     const err = wrap(Math.atan2(way.dv, way.du) - b.dir);
-    b.dir += Math.max(-DIG_TURN * dt, Math.min(DIG_TURN * dt, err));
+    // At most DIG_TURN, and while free no tighter than MIN_TURN_R for the speed it goes (but TURN_FLOOR at rest).
+    const held = Math.min(DIG_TURN, Math.max(TURN_FLOOR, b.speed / MIN_TURN_R));
+    const most = (DIG_TURN + (held - DIG_TURN) * b.free) * dt;
+    b.dir += Math.max(-most, Math.min(most, err));
     soilAhead(g, b);
     fresh = ahead.fresh;
     // Slower in a sharp turn, never coiling back into the neck.
@@ -196,6 +223,11 @@ function moveHead(b: Burrower, s: Slab, o: Solids, dt: number): void {
   b.u[0] = Math.max(lo, Math.min(hi, h0 + mu));
   b.v[0] = Math.max(s.bottom + BOTTOM_KEEP, v0 + mv);
   keepOut(s, o, b.u, b.v, b.prevU, b.prevV, 0);
+  // Pressed against something (it did not get where it aimed): free 0; else easing back up to 1.
+  const au = Math.cos(b.dir) * b.speed * dt;
+  const av = Math.sin(b.dir) * b.speed * dt;
+  const missed = hypot2(b.u[0] - h0 - au, b.v[0] - v0 - av);
+  b.free = missed > 0.05 * hypot2(au, av) + 1e-7 ? 0 : Math.min(1, b.free + dt / FREE_S);
 }
 
 /** After the head moves: stuck or not, the tunnel dug, the body after it, a casting, the wave. */

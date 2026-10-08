@@ -148,7 +148,8 @@ describe('digging in the plane (spec 6)', () => {
       }
       if (size >= 0 && w.b.castLeft === 0) sizes.push(size);
     }
-    expect(sizes.length).toBeGreaterThan(60);
+    // (Turning round now takes a curve, MIN_TURN_R, so it covers less ground, and casts less often.)
+    expect(sizes.length).toBeGreaterThan(50);
     expect(sizes.filter((n) => n === 0).length / sizes.length).toBeLessThanOrEqual(0.03);
     expect(sizes.reduce((a, n) => a + n, 0) / sizes.length).toBeGreaterThanOrEqual(3);
   });

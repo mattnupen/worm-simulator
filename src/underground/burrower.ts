@@ -32,6 +32,12 @@ export interface Burrower {
   /** The head is near the litter (Action = Come up). */
   nearTop: boolean;
   /**
+   * 1 while the head has lately gone where it aimed (no stone, root, top, end or bottom in its way),
+   * eased up from 0 as soon as it was pressed against one: its turning is held to MIN_TURN_R only
+   * when free (burrowMotion.ts).
+   */
+  free: number;
+  /**
    * Seconds the head has tried to move (`tried`: how far its speed would have taken it) and stayed
    * near `stuckU`, `stuckV`, getting nowhere; and whether it is backing up (burrowBack.ts).
    */
@@ -41,19 +47,23 @@ export interface Burrower {
   stuckV: number;
   backing: boolean;
   /**
-   * Backing stopped with the tail blocked (or at its tunnel's end): it does not start again until
-   * the stick stops pointing back (then pointing back again tries again, once stuck).
+   * Backing ended (the tail blocked, at its tunnel's end, or the stick no longer pointing back): it
+   * does not start again until the stick is let go or turned (burrowMotion.ts SPENT_TURN).
    */
   backSpent: boolean;
+  /** The stick's way (radians) as backing was spent. */
+  spentWay: number;
 }
 
 export function createBurrower(): Burrower {
   const n = WORM_SEGMENTS;
+  // `free` and `spentWay` start as fractions: a field that first held a whole number had V8 box
+  // every fractional value written to it later (stepAllocation.test.ts).
   return {
     u: new Float64Array(n), v: new Float64Array(n), prevU: new Float64Array(n), prevV: new Float64Array(n), trail: createTrail(n),
     dir: -Math.PI / 2, prevDir: -Math.PI / 2, speed: 0, want: 0,
     wave: { phase: 0, activity: 0 }, prevWave: { phase: 0, activity: 0 },
-    eating: false, eat: 0, sinceCast: 0, castLeft: 0, gut: 0.5, nearTop: false, stuck: 0, tried: 0, stuckU: 0, stuckV: 0, backing: false, backSpent: false,
+    eating: false, eat: 0, sinceCast: 0, castLeft: 0, gut: 0.5, nearTop: false, free: 0.5, stuck: 0, tried: 0, stuckU: 0, stuckV: 0, backing: false, backSpent: false, spentWay: 0.5,
   };
 }
 
@@ -72,6 +82,7 @@ export function placeBurrower(b: Burrower, us: ArrayLike<number>, vs: ArrayLike<
   b.sinceCast = 0;
   b.castLeft = 0;
   b.nearTop = false;
+  b.free = 1;
   b.stuck = b.tried = 0;
   b.stuckU = us[0];
   b.stuckV = vs[0];

@@ -3,11 +3,11 @@ import { stepBurrower, TUNNEL_R } from '../../src/underground/burrowMotion';
 import { cellAt, cellU, cellV, CELL, GRID_W, type SoilGrid } from '../../src/underground/soilGrid';
 import { boundaryAt, B_F, B_H } from '../../src/underground/slab';
 import { mulberry32 } from '../../src/core/random';
-import { DT, N, setup, midOf } from './burrowWorld';
+import { DT, N, setup, midOf, tunnel } from './burrowWorld';
 import { makeGame, digDown, run } from './burrowPlay';
 
 // The tunnel in section is a round tube the worm's own width (TUNNEL_R about the body's radius):
-// only the head eats fresh soil, and the body follows inside its tunnel (bodyTrail.ts). Before,
+// only the head digs, and the body follows inside its tunnel (bodyTrail.ts). Before,
 // every body point dug and cut each bend's inside: curves came out 0.4 to 0.6 u wide, 2x the worm.
 
 /** The open run across the head's path at each of its samples (every 3rd), along the path's normal. */
@@ -59,6 +59,8 @@ describe('the tunnel is the worm\'s own width (a round tube)', () => {
         const tail0 = w.b.u[N - 1];
         const head0 = w.b.u[0];
         const v0 = w.b.v[0];
+        // The tunnel it lies in (as digging down leaves it: burrowMoves.ts arriveBelow).
+        tunnel(w, tail0, head0);
         const pu: number[] = [];
         const pv: number[] = [];
         for (let k = 0; k < 6 / DT; k++) {

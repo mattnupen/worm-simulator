@@ -1,5 +1,5 @@
 import { hypot2 } from '../core/vec';
-import { keepOut } from './burrowBack';
+import { settleOut } from './burrowBack';
 import { followHead } from './bodyTrail';
 import { digDiscAt, type Eaten, type SoilGrid } from './soilGrid';
 import { castBlobAt, type CastSpot } from './castings';
@@ -18,8 +18,8 @@ export const TUNNEL_R = 0.14;
 export const CAST_EVERY = 4.5;
 const CAST_R = 0.15;
 /**
- * A casting is left this far behind the tail: just out of the tail's own keeping-open (TUNNEL_R),
- * so the body never eats it (at the tail itself the next step's dig ate about 44% of each one).
+ * A casting is left this far behind the tail, clear of the tail's own end (when the body dug, the
+ * next step's dig at the tail itself ate about 44% of each one).
  */
 const CAST_BACK = TUNNEL_R + CAST_R + 0.02;
 /**
@@ -35,26 +35,22 @@ const cast: CastSpot = { u: 0, v: 0, shade: 0, dirU: 0, dirV: 0 };
 
 /**
  * The head's tunnel (eating fresh soil feeds the gut: darker castings), then the body after it.
- * Only the head eats fresh soil: the body follows inside its tunnel (bodyTrail.ts) and only keeps
- * it open, at the same radius, so the tunnel is the body's own width (V2: a round tube).
+ * Only the head digs: the body follows inside its tunnel (bodyTrail.ts), so the tunnel is the
+ * body's own width (V2: a round tube). (Where every body point dug, each bend came out 0.4 to 0.6 u
+ * wide, twice the worm.)
  */
 export function digTunnel(b: Burrower, s: Slab, g: SoilGrid, o: Solids): void {
   pt.u = b.u[0];
   pt.v = b.v[0];
   digDiscAt(g, pt, TUNNEL_R, ate);
   if (ate.cells > 0) b.gut += (ate.organic / ate.cells - b.gut) * 0.15;
-  trailBody(b, s, g, o);
+  trailBody(b, s, o);
 }
 
-/** The body along the head's path (each point that moved kept out of the top and the solids), keeping its tunnel open. */
-function trailBody(b: Burrower, s: Slab, g: SoilGrid, o: Solids): void {
+/** The body along the head's path, each point that moved kept out of the top and the solids. */
+function trailBody(b: Burrower, s: Slab, o: Solids): void {
   followHead(b);
-  for (let i = 1; i < b.u.length; i++) {
-    if (b.u[i] !== b.prevU[i] || b.v[i] !== b.prevV[i]) keepOut(s, o, b.u, b.v, b.prevU, b.prevV, i);
-    pt.u = b.u[i];
-    pt.v = b.v[i];
-    digDiscAt(g, pt, TUNNEL_R, ate);
-  }
+  settleOut(b, s, o, 1);
 }
 
 /**

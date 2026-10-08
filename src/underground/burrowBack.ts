@@ -4,7 +4,7 @@ import type { Solids } from './solids';
 import { pushOutFrom } from './solidPush';
 import { TOP_KEEP, type UV } from './solidShapes';
 import { cellAt, type SoilGrid } from './soilGrid';
-import { followTail, type BodyTrail } from './bodyTrail';
+import { followTail, settleBody, type BodyTrail } from './bodyTrail';
 
 /**
  * Backing up (V2 spec 6: nightcrawlers crawl backward as well as forward, and pull back into their
@@ -67,6 +67,18 @@ export interface BackBody {
   readonly trail: BodyTrail;
 }
 
+/**
+ * Body points from..n-1 settled on their shape (bodyTrail.ts), each one that moved kept out of the
+ * top and the solids from where it was. (The shape rounds the head's path off: where it grazes a
+ * stone the head slid round, the point is pushed out and eases back as it moves on. Pushing the
+ * shape itself out jumped wherever it grazed two blockers' crotch.) Moving on and backing up.
+ */
+export function settleOut(b: BackBody, s: Slab, o: Solids, from: number): void {
+  const n = b.u.length;
+  settleBody(b, from, n);
+  for (let i = from; i < n; i++) if (b.u[i] !== b.prevU[i] || b.v[i] !== b.prevV[i]) keepOut(s, o, b.u, b.v, b.prevU, b.prevV, i);
+}
+
 /** backUp's step: how far the tail goes, the playable slab's ends and the bottom it keeps above. */
 export interface BackLimits { step: number; lo: number; hi: number; bottom: number }
 
@@ -97,8 +109,8 @@ export function backUp(s: Slab, o: Solids, g: SoilGrid, b: BackBody, lim: BackLi
     break;
   }
   keepOut(s, o, u, v, prevU, prevV, t);
-  // The rest follows the tail back along the way the head came (bodyTrail.ts), each point at most
-  // SPACING ahead of the one behind it.
+  // The tail goes that far back along the way the head came while there is one, and the rest
+  // follows it (bodyTrail.ts), each point at most SPACING ahead of the one behind it.
   followTail(b);
-  for (let i = t - 1; i >= 0; i--) if (u[i] !== prevU[i] || v[i] !== prevV[i]) keepOut(s, o, u, v, prevU, prevV, i);
+  settleOut(b, s, o, 0);
 }
