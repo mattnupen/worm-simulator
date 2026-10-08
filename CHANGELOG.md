@@ -13,7 +13,7 @@ How to write an entry (for Matt and Claude):
   "## VN · Name (YYYY-MM-DD)" and start a new "Coming next" above it.
 -->
 
-## Coming next: V2 · Underground
+## V2 · Underground (2026-10-08)
 
 ### New
 - The Start screen shows which version you are playing: V2 · Underground.
