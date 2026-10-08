@@ -99,6 +99,11 @@ export interface ModeMachine {
    * Call it on the `startDig` or `startUp` step, once the path is built.
    */
   setMoveTime(seconds: number): void;
+  /**
+   * Back on the surface, settled (the speed test's fresh start). The Action level is still
+   * watched as it was, so a press held through the reset does not fire on the next step.
+   */
+  reset(): void;
 }
 
 export function createModeMachine(): ModeMachine {
@@ -108,6 +113,12 @@ export function createModeMachine(): ModeMachine {
     state,
     hold(action: boolean): void {
       edge.update(action);
+    },
+    reset(): void {
+      state.mode = 'surface';
+      state.t = 0;
+      state.reduced = false;
+      state.moveS = SINK_S + SWING_S;
     },
     setMoveTime(seconds: number): void {
       if (!Number.isFinite(seconds)) return;

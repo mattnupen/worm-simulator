@@ -1,7 +1,9 @@
 import { mulberry32 } from '../core/random';
 import { boundaryAt, B_F, B_TOP, type Slab } from './slab';
 import { SOLID_STONE } from './soilGrid';
-import { ENTRY_HI, ENTRY_LO } from './solidRoots';
+import { ENTRY_HI } from './solidRoots';
+import { SPACING, WORM_SEGMENTS } from '../game/crawl';
+import { TURN_RADIUS } from './bodyPath';
 import { addCap, blockerDepth, BLOCKER_GAP, type SolidHit, type Solids } from './solidShapes';
 
 /**
@@ -28,13 +30,21 @@ export interface Hints {
   beetleU: number; beetleV: number; beetleLen: number; beetleDir: number;
 }
 
+/**
+ * How far back the worm's body can lie along the floor once it has sunk (sinkPath.ts: straight back
+ * along -u from the hole at u = 0, its length less at least the dive's quarter turn): the hints
+ * keep off it as well as the entry, or the body would lie through one, and the burrower's first
+ * move push it out in a single step (a visible jump).
+ */
+export const BODY_BACK = -((WORM_SEGMENTS - 1) * SPACING - (TURN_RADIUS * Math.PI) / 2);
+
 const hit: SolidHit = { nu: 0, nv: 0 };
 
-/** A u for something `half` wide in the playable slab, off the entry and the sections, or NaN. */
+/** A u for something `half` wide in the playable slab, off the entry, the sunk body and the sections, or NaN. */
 function spot(s: Slab, o: Solids, half: number, rand: () => number): number {
   for (let tries = 0; tries < 40; tries++) {
     const u = s.playLo + 0.8 + half + rand() * (s.playHi - s.playLo - 1.6 - 2 * half);
-    if (u + half > ENTRY_LO - 0.6 && u - half < ENTRY_HI + 0.4) continue;
+    if (u + half > BODY_BACK - 0.6 && u - half < ENTRY_HI + 0.4) continue;
     let clear = true;
     for (let i = 0; i < o.sectionCount; i++) {
       if (u + half > o.sections[i].uLo - 0.4 && u - half < o.sections[i].uHi + 0.4) clear = false;
@@ -60,8 +70,10 @@ export function placeHints(s: Slab, o: Solids): void {
       addCap(o, SOLID_STONE, u, v, SNAIL_REACH, u, v, SNAIL_REACH);
     }
   }
-  u = spot(s, o, BEETLE_LEN * 0.6, rand);
-  if (!Number.isNaN(u)) {
+  // The beetle tries a few spots: the snail may already lie in the first.
+  for (let tries = 0; tries < 4 && Number.isNaN(h.beetleU); tries++) {
+    u = spot(s, o, BEETLE_LEN * 0.6, rand);
+    if (Number.isNaN(u)) break;
     const v = floor(u) + 0.2;
     const dir = (rand() < 0.5 ? 0 : Math.PI) + (rand() - 0.5) * 0.5;
     const r = BEETLE_HALF_WIDTH * BEETLE_LEN;

@@ -52,8 +52,9 @@ const BOTTOM_KEEP = 0.3;
 const MAX_NECK_BEND = 1.3;
 /** Peristalsis runs this much faster per unit moved while eating (spec 6). */
 const EAT_WAVES = 1.9;
-const BREATH_HZ = 0.22;
-const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
+/** The resting breath, and the peristalsis waves per unit moved (the moves in and out use them too: burrowGame.ts). */
+export const BREATH_HZ = 0.22;
+export const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
 /** Stick input below this is no input. */
 const DEAD = 0.15;
 /**

@@ -392,4 +392,19 @@ describe('the surface / underground state machine (spec 4, 10)', () => {
       }
     }
   });
+
+  it('reset brings it back to the surface, settled, and a press held through it does not fire', () => {
+    const m = createModeMachine();
+    m.step(true, true, false, false, DT);
+    m.step(true, true, false, false, DT);
+    expect(m.state.mode).toBe('diggingDown');
+    m.reset();
+    expect(m.state.mode).toBe('surface');
+    expect(m.state.t).toBe(0);
+    expect(bodyProgress(m.state)).toBe(0);
+    expect(m.step(true, true, false, false, DT)).toBe('none');
+    m.step(false, true, false, false, DT);
+    expect(m.step(true, true, false, false, DT)).toBe('startDig');
+    expect(moveDuration(m.state)).toBeCloseTo(SINK_S + SWING_S, 9);
+  });
 });

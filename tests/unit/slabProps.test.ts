@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { writeSlabProps, MAX_VERTS, MAX_INDEX } from '../../src/underground/slabProps';
+import { createSlabProps, writeSlabProps, BUILD_STEPS, MAX_VERTS, MAX_INDEX } from '../../src/underground/slabProps';
 import { createSlab } from '../../src/underground/slab';
 import { createSolids, placeSolids } from '../../src/underground/solids';
 import { footprints } from '../../src/surface/obstacles';
@@ -64,6 +64,37 @@ describe('the slab\'s stones, roots and life fit their one mesh', () => {
     // bends, where its three rings fold over each other inside the root (hidden).
     expect(tris).toBeGreaterThan(1000);
     expect(wrong / tris).toBeLessThan(0.02);
+    }
+  });
+
+  it('a staged rewrite (one part a frame) ends exactly as the one-shot one, the last slab shown until then', () => {
+    const a = createSlab(4, 6, 0.4, 1, 12345);
+    const b = createSlab(-3, 2, 1.1, -1, 777);
+    const oa = placeSolids(a, createSolids());
+    const ob = placeSolids(b, createSolids());
+    const once = createSlabProps();
+    once.setSlab(b, ob);
+    const staged = createSlabProps();
+    staged.setSlab(a, oa);
+    const before = staged.mesh.geometry.drawRange.count;
+    staged.startSlab(b, ob);
+    let steps = 0;
+    while (!staged.buildStep()) {
+      steps++;
+      expect(staged.mesh.geometry.drawRange.count).toBe(before);
+    }
+    expect(steps + 1).toBe(BUILD_STEPS);
+    expect(BUILD_STEPS).toBeGreaterThanOrEqual(2);
+    expect(staged.buildStep()).toBe(true);
+    const ga = once.mesh.geometry;
+    const gb = staged.mesh.geometry;
+    expect(gb.drawRange.count).toBe(ga.drawRange.count);
+    const n = ga.drawRange.count;
+    expect(Array.from((gb.index!.array as Uint16Array).subarray(0, n))).toEqual(Array.from((ga.index!.array as Uint16Array).subarray(0, n)));
+    const nv = writeSlabProps(b, ob).vertexCount;
+    for (const name of ['position', 'normal', 'aProp']) {
+      const k = nv * ga.getAttribute(name).itemSize;
+      expect(gb.getAttribute(name).array.subarray(0, k)).toEqual(ga.getAttribute(name).array.subarray(0, k));
     }
   });
 });

@@ -203,19 +203,21 @@ const hit: SolidHit = { nu: 0, nv: 0 };
  * side each frame (a jitter). With `topKeep`, (u, v) also stays that far under the leaves' top,
  * kept the same way. In a tight corner (where the leaves' top meets a rock's or the log's flank)
  * the pushes may not settle: then, given the point it came from (`fromU`, `fromV`, itself clear),
- * it goes back there, stopping short of the corner rather than ending inside the rock. Returns the
- * distance moved. Allocates nothing.
+ * it goes back there, stopping short of the corner rather than ending inside the rock; it stops
+ * there too rather than be thrown back against the way it moved. Returns the distance moved.
+ * Allocates nothing.
  */
 export function pushOutSolids(
   o: Solids, p: { u: number; v: number }, radius: number, topKeep = NaN, fromU = NaN, fromV = NaN,
 ): number {
   const u0 = p.u;
   const v0 = p.v;
-  for (let k = 0; k < 8; k++) {
-    if (!(pushOnce(o, p, radius, topKeep) > 0)) return Math.hypot(p.u - u0, p.v - v0);
-  }
   const from = fromU === fromU && fromV === fromV;
-  if (from && inside(o, p.u, p.v, radius, topKeep) && !inside(o, fromU, fromV, radius, topKeep)) {
+  let settled = false;
+  for (let k = 0; k < 8 && !settled; k++) settled = !(pushOnce(o, p, radius, topKeep) > 0);
+  // Thrown back (in a root's crotch with its branch, back one frame and forward the next: a jitter).
+  const back = from && (p.u - fromU) * (u0 - fromU) + (p.v - fromV) * (v0 - fromV) < 0;
+  if ((back || (from && !settled && inside(o, p.u, p.v, radius, topKeep))) && !inside(o, fromU, fromV, radius, topKeep)) {
     p.u = fromU;
     p.v = fromV;
   }

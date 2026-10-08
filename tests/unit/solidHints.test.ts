@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createSlab, boundaryAt, B_F, B_TOP } from '../../src/underground/slab';
 import { createSolids, placeSolids, markSolids, pushOutSolids, solidDepth, ENTRY_HI, ENTRY_LO } from '../../src/underground/solids';
-import { SNAIL_REACH } from '../../src/underground/solidHints';
+import { SNAIL_REACH, BODY_BACK } from '../../src/underground/solidHints';
 import { createSoilGrid, fillSoilGrid, digDisc, SOLID_STONE, GRID_W } from '../../src/underground/soilGrid';
 import { BODY_RADIUS } from '../../src/game/crawl';
 import { mulberry32 } from '../../src/core/random';
@@ -9,7 +9,7 @@ import { mulberry32 } from '../../src/core/random';
 const hit = { nu: 0, nv: 0 };
 
 describe('the snail shell and the beetle are never dug', () => {
-  it('lie in the litter, off the entry, and block as small stones the worm slides round', () => {
+  it('lie in the litter, off the entry and the sunk body, and block as small stones the worm slides round', () => {
     const rand = mulberry32(8);
     let snails = 0;
     let beetles = 0;
@@ -26,7 +26,8 @@ describe('the snail shell and the beetle are never dug', () => {
       for (const [u, v, r] of spots) {
         expect(v).toBeGreaterThan(boundaryAt(s, B_F, u));
         expect(v).toBeLessThan(boundaryAt(s, B_TOP, u));
-        expect(u + r < ENTRY_LO || u - r > ENTRY_HI).toBe(true);
+        // Off the entry, and off the floor behind it where the sunk body lies.
+        expect(u + r < Math.min(ENTRY_LO, BODY_BACK) || u - r > ENTRY_HI).toBe(true);
         // Never dug: the grid holds it as stone, and a dig there eats nothing.
         expect(g.solid[Math.floor((v - g.v0) / 0.1) * GRID_W + Math.floor((u + 8) / 0.1)]).toBe(SOLID_STONE);
         const eaten = { cells: 0, organic: 0 };

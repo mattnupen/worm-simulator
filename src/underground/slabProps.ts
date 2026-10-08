@@ -17,7 +17,26 @@ export interface SlabProps {
   readonly mesh: THREE.Mesh;
   /** Rewrites the mesh for a new slab (once per dig: built through a MeshWriter, then copied in place). */
   setSlab(s: Slab, o: Solids): void;
+  /**
+   * The same rewrite, staged (about 4-6 ms warm in all, far more on a slow Chromebook): startSlab
+   * begins it and each buildStep does the next of BUILD_STEPS parts, the last one copying the new
+   * shapes in, and returns true once the mesh shows the new slab (and while nothing is pending).
+   * Until then the mesh still shows the last slab. FOR TASK 17: on a new `BurrowGame.slabVersion`
+   * call startSlab, then buildStep once a frame while `game.slabHidden`, and loop it to the end as
+   * soon as it is not. `s` and `o` must stay unchanged until it ends (the game's own do: a new
+   * slab comes only with the next dig).
+   */
+  startSlab(s: Slab, o: Solids): void;
+  buildStep(): boolean;
 }
+
+/** The parts a staged rewrite takes, one a frame (each about 1-2 ms warm on this Mac). */
+const PARTS: readonly ((p: Pen, o: Solids) => void)[] = [
+  (p, o) => { writeStones(p, o); writeRoots(p, o); writeRootlets(p, o); writeDots(p, o); },
+  (p, o) => writeSections(p, o),
+  (p, o) => writeLife(p, o),
+];
+export const BUILD_STEPS = PARTS.length;
 
 /**
  * Everything solid or alive in the cut, in one draw on the forest's prop material (so no new
@@ -42,42 +61,59 @@ export function createSlabProps(): SlabProps {
   mesh.name = 'slabProps';
   mesh.frustumCulled = false;
 
-  return {
+  /** Copies a written slab into the buffers, in place. */
+  function fill(w: MeshWriter): void {
+    const nv = Math.min(MAX_VERTS, w.vertexCount);
+    const pa = pos.array as Float32Array;
+    const na = nor.array as Float32Array;
+    const xa = prop.array as Float32Array;
+    for (let i = 0; i < nv * 3; i++) { pa[i] = w.pos[i]; na[i] = w.nor[i]; }
+    for (let i = 0; i < nv * 4; i++) xa[i] = w.extra[i];
+    // Whole triangles only, and only those whose vertices fit.
+    const idx = index.array as Uint16Array;
+    let ni = 0;
+    for (let t = 0; t + 2 < w.idx.length && ni + 3 <= MAX_INDEX; t += 3) {
+      if (w.idx[t] >= nv || w.idx[t + 1] >= nv || w.idx[t + 2] >= nv) continue;
+      idx[ni++] = w.idx[t]; idx[ni++] = w.idx[t + 1]; idx[ni++] = w.idx[t + 2];
+    }
+    for (const a of [pos, nor, prop]) { a.clearUpdateRanges(); a.addUpdateRange(0, nv * a.itemSize); a.needsUpdate = true; }
+    index.clearUpdateRanges();
+    index.addUpdateRange(0, ni);
+    index.needsUpdate = true;
+    geo.setDrawRange(0, ni);
+  }
+
+  let pen: Pen | null = null;
+  let solids: Solids | null = null;
+  let part = 0;
+  const api: SlabProps = {
     mesh,
     setSlab(s, o) {
-      const w = writeSlabProps(s, o);
-      const nv = Math.min(MAX_VERTS, w.vertexCount);
-      const pa = pos.array as Float32Array;
-      const na = nor.array as Float32Array;
-      const xa = prop.array as Float32Array;
-      for (let i = 0; i < nv * 3; i++) { pa[i] = w.pos[i]; na[i] = w.nor[i]; }
-      for (let i = 0; i < nv * 4; i++) xa[i] = w.extra[i];
-      // Whole triangles only, and only those whose vertices fit.
-      const idx = index.array as Uint16Array;
-      let ni = 0;
-      for (let t = 0; t + 2 < w.idx.length && ni + 3 <= MAX_INDEX; t += 3) {
-        if (w.idx[t] >= nv || w.idx[t + 1] >= nv || w.idx[t + 2] >= nv) continue;
-        idx[ni++] = w.idx[t]; idx[ni++] = w.idx[t + 1]; idx[ni++] = w.idx[t + 2];
-      }
-      for (const a of [pos, nor, prop]) { a.clearUpdateRanges(); a.addUpdateRange(0, nv * a.itemSize); a.needsUpdate = true; }
-      index.clearUpdateRanges();
-      index.addUpdateRange(0, ni);
-      index.needsUpdate = true;
-      geo.setDrawRange(0, ni);
+      api.startSlab(s, o);
+      while (!api.buildStep());
+    },
+    startSlab(s, o) {
+      pen = createPen(new MeshWriter('aProp', 4), s);
+      solids = o;
+      part = 0;
+    },
+    buildStep() {
+      if (!pen || !solids) return true;
+      PARTS[part++](pen, solids);
+      if (part < PARTS.length) return false;
+      fill(pen.w);
+      pen = solids = null;
+      return true;
     },
   };
+  return api;
 }
 
 /** Everything the slab shows, written into a fresh MeshWriter (once per dig). */
 export function writeSlabProps(s: Slab, o: Solids): MeshWriter {
   const w = new MeshWriter('aProp', 4);
   const p = createPen(w, s);
-  writeStones(p, o);
-  writeRoots(p, o);
-  writeRootlets(p, o);
-  writeDots(p, o);
-  writeSections(p, o);
-  writeLife(p, o);
+  for (const write of PARTS) write(p, o);
   return w;
 }
 
