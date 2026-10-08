@@ -130,6 +130,8 @@ describe('digging in the plane (spec 6)', () => {
     for (let seed = 1; seed <= 12; seed++) {
       const rand = mulberry32(seed);
       const w = setup(0, midOf(B_H), true, seed);
+      // Lying in its tunnel, as digging down leaves it (the body digs nothing: burrowTrail.ts).
+      tunnel(w, w.b.u[w.b.u.length - 1], w.b.u[0]);
       const before = new Uint8Array(w.g.cast.length);
       let du = 1;
       let dv = 0;

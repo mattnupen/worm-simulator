@@ -1,6 +1,5 @@
 import type { WaveState } from '../worm/wormShape';
 import { WORM_SEGMENTS } from '../game/crawl';
-import { createTrail, resetTrail, type BodyTrail } from './bodyTrail';
 
 /** The worm in the cut's plane (moved from burrowMotion.ts, which steps it). */
 export interface Burrower {
@@ -9,8 +8,6 @@ export interface Burrower {
   readonly v: Float64Array;
   readonly prevU: Float64Array;
   readonly prevV: Float64Array;
-  /** The head's path, which the body follows inside its tunnel (bodyTrail.ts). */
-  readonly trail: BodyTrail;
   /** The way the head faces, as an angle in the plane (0 = +u, pi / 2 = up). Unwrapped. */
   dir: number;
   prevDir: number;
@@ -60,14 +57,14 @@ export function createBurrower(): Burrower {
   // `free` and `spentWay` start as fractions: a field that first held a whole number had V8 box
   // every fractional value written to it later (stepAllocation.test.ts).
   return {
-    u: new Float64Array(n), v: new Float64Array(n), prevU: new Float64Array(n), prevV: new Float64Array(n), trail: createTrail(n),
+    u: new Float64Array(n), v: new Float64Array(n), prevU: new Float64Array(n), prevV: new Float64Array(n),
     dir: -Math.PI / 2, prevDir: -Math.PI / 2, speed: 0, want: 0,
     wave: { phase: 0, activity: 0 }, prevWave: { phase: 0, activity: 0 },
     eating: false, eat: 0, sinceCast: 0, castLeft: 0, gut: 0.5, nearTop: false, free: 0.5, stuck: 0, tried: 0, stuckU: 0, stuckV: 0, backing: false, backSpent: false, spentWay: 0.5,
   };
 }
 
-/** Puts the body at the given points (head first), facing `dir`, still, with nothing to interpolate; its trail is the body as it lies. */
+/** Puts the body at the given points (head first), facing `dir`, still, with nothing to interpolate. */
 export function placeBurrower(b: Burrower, us: ArrayLike<number>, vs: ArrayLike<number>, dir: number, wave: WaveState): void {
   for (let i = 0; i < b.u.length; i++) {
     b.u[i] = b.prevU[i] = us[i];
@@ -88,5 +85,4 @@ export function placeBurrower(b: Burrower, us: ArrayLike<number>, vs: ArrayLike<
   b.stuckV = vs[0];
   b.backing = false;
   b.backSpent = false;
-  resetTrail(b);
 }

@@ -1,10 +1,10 @@
-import { BODY_RADIUS } from '../game/crawl';
+import { BODY_RADIUS, SPACING } from '../game/crawl';
+import { hypot2 } from '../core/vec';
 import { boundaryOf, bound, B_TOP, type Slab } from './slab';
 import type { Solids } from './solids';
 import { pushOutFrom } from './solidPush';
 import { TOP_KEEP, type UV } from './solidShapes';
 import { cellAt, type SoilGrid } from './soilGrid';
-import { followTail, settleBody, type BodyTrail } from './bodyTrail';
 
 /**
  * Backing up (V2 spec 6: nightcrawlers crawl backward as well as forward, and pull back into their
@@ -64,19 +64,6 @@ export interface BackBody {
   readonly v: Float64Array;
   readonly prevU: Float64Array;
   readonly prevV: Float64Array;
-  readonly trail: BodyTrail;
-}
-
-/**
- * Body points from..n-1 settled on their shape (bodyTrail.ts), each one that moved kept out of the
- * top and the solids from where it was. (The shape rounds the head's path off: where it grazes a
- * stone the head slid round, the point is pushed out and eases back as it moves on. Pushing the
- * shape itself out jumped wherever it grazed two blockers' crotch.) Moving on and backing up.
- */
-export function settleOut(b: BackBody, s: Slab, o: Solids, from: number): void {
-  const n = b.u.length;
-  settleBody(b, from, n);
-  for (let i = from; i < n; i++) if (b.u[i] !== b.prevU[i] || b.v[i] !== b.prevV[i]) keepOut(s, o, b.u, b.v, b.prevU, b.prevV, i);
 }
 
 /** backUp's step: how far the tail goes, the playable slab's ends and the bottom it keeps above. */
@@ -93,8 +80,6 @@ export function backUp(s: Slab, o: Solids, g: SoilGrid, b: BackBody, lim: BackLi
   const { u, v, prevU, prevV } = b;
   const { step, lo, hi, bottom } = lim;
   const t = u.length - 1;
-  b.trail.fromU = u[t];
-  b.trail.fromV = v[t];
   const eu = u[t] - u[t - 1];
   const ev = v[t] - v[t - 1];
   const along = Math.atan2(ev, eu);
@@ -109,8 +94,27 @@ export function backUp(s: Slab, o: Solids, g: SoilGrid, b: BackBody, lim: BackLi
     break;
   }
   keepOut(s, o, u, v, prevU, prevV, t);
-  // The tail goes that far back along the way the head came while there is one, and the rest
-  // follows it (bodyTrail.ts), each point at most SPACING ahead of the one behind it.
-  followTail(b);
-  settleOut(b, s, o, 0);
+  // The rest follows the tail, each point drawn after the one behind it (drawLink).
+  for (let i = t - 1; i >= 0; i--) {
+    drawLink(u, v, i, i + 1);
+    if (u[i] !== prevU[i] || v[i] !== prevV[i]) keepOut(s, o, u, v, prevU, prevV, i);
+  }
 }
+
+/**
+ * Point i drawn after point `lead`, the way it lay: pulled to SPACING from it when farther, pushed
+ * out to SLACK x SPACING when nearer (a rope alone let the links close up where the leader came
+ * back toward it, and the worm shrank; a little slack keeps the chain from jolting). Follow the
+ * leader, as the crawl's body: it keeps its length and bends smoothly, cutting a tight bend's inside.
+ */
+export function drawLink(u: Float64Array, v: Float64Array, i: number, lead: number): void {
+  const du = u[i] - u[lead];
+  const dv = v[i] - v[lead];
+  const d = hypot2(du, dv);
+  if (!(d > 1e-9) || (d <= SPACING && d >= SLACK * SPACING)) return;
+  const k = (d > SPACING ? SPACING : SLACK * SPACING) / d;
+  u[i] = u[lead] + du * k;
+  v[i] = v[lead] + dv * k;
+}
+/** A link may go this slack (share of SPACING) before it is pushed out. */
+const SLACK = 0.95;

@@ -26,7 +26,7 @@ export { createBurrower, placeBurrower, type Burrower } from './burrower';
 export const DIG_TURN = 2.6;
 /**
  * ...and its path turns no tighter than this radius (u) at the speed it goes: turning fast while
- * all but still, it dug corners the body could only follow with an elbow (bodyTrail.ts)...
+ * all but still, it dug corners the body (a chain after it, burrowTrail.ts) cut across...
  */
 export const MIN_TURN_R = 0.35;
 /** ...but it can still turn this fast (radians a second) when it hardly moves... */

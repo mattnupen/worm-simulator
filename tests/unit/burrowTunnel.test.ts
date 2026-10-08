@@ -3,7 +3,7 @@ import { stepBurrower, TUNNEL_R } from '../../src/underground/burrowMotion';
 import { cellAt, cellU, cellV, CELL, GRID_W, type SoilGrid } from '../../src/underground/soilGrid';
 import { boundaryAt, B_F, B_H } from '../../src/underground/slab';
 import { mulberry32 } from '../../src/core/random';
-import { DT, N, setup, midOf, tunnel } from './burrowWorld';
+import { DT, N, setup, midOf, tunnel, strayOf } from './burrowWorld';
 import { makeGame, digDown, run } from './burrowPlay';
 
 // The tunnel in section is a round tube the worm's own width (TUNNEL_R about the body's radius):
@@ -51,9 +51,12 @@ describe('the tunnel is the worm\'s own width (a round tube)', () => {
     's-curve': (t) => [1, Math.sin(1.4 * t)],
     wandering: (t) => [Math.cos(0.37 * t + 0.5), Math.sin(0.61 * t) - 0.15],
   };
+  /** How far (u) a body point may sit outside open tunnel, by way (measured 0, 0.20, 0.20, 0.16). */
+  const STRAY_MAX: Record<string, number> = { straight: 0, 'gentle curve': 0.25, 's-curve': 0.25, wandering: 0.25 };
   for (const [name, way] of Object.entries(ways)) {
-    it(`${name}: about 2 x TUNNEL_R across, every open cell within the head's own dig, the body inside it`, () => {
+    it(`${name}: about 2 x TUNNEL_R across, every open cell within the head's own dig, the body by it`, () => {
       const all: number[] = [];
+      let stray = 0;
       for (const seed of [1, 2, 3, 5, 8]) {
         const w = setup(-3, midOf(B_H), false, seed);
         const tail0 = w.b.u[N - 1];
@@ -68,8 +71,10 @@ describe('the tunnel is the worm\'s own width (a round tube)', () => {
           stepBurrower(w.b, w.s, w.g, w.o, du, dv, DT);
           pu.push(w.b.u[0]);
           pv.push(w.b.v[0]);
-          // The whole body, head included, lies in open tunnel.
-          for (let i = 0; i < N; i++) expect(w.g.open[cellAt(w.g, w.b.u[i], w.b.v[i])], `seed ${seed} point ${i}`).toBe(1);
+          // The head lies in its open tunnel, and the body (a chain after it, cutting the bends'
+          // insides a little) close by it.
+          expect(w.g.open[cellAt(w.g, w.b.u[0], w.b.v[0])]).toBe(1);
+          for (let i = 1; i < N; i++) stray = Math.max(stray, strayOf(w.g, w.b.u[i], w.b.v[i]));
         }
         all.push(...widths(w.g, pu, pv));
         // Nothing is open beyond the head's own dig (a cell opens where its centre is within
@@ -80,6 +85,8 @@ describe('the tunnel is the worm\'s own width (a round tube)', () => {
       // only where the path itself turns back over its own tunnel.
       expect(at(all, 0.5)).toBeLessThanOrEqual(0.31);
       expect(at(all, 0.9)).toBeLessThanOrEqual(0.36);
+      if (process.env.BODY_REPORT) process.stderr.write(`\n${name}: stray max ${stray.toFixed(3)}`);
+      expect(stray).toBeLessThanOrEqual(STRAY_MAX[name]);
     });
   }
 

@@ -2,7 +2,7 @@ import {
   createBurrower, placeBurrower, stepBurrower, TUNNEL_R, type Burrower,
 } from '../../src/underground/burrowMotion';
 import { createSlab, boundaryAt, type Slab } from '../../src/underground/slab';
-import { createSoilGrid, fillSoilGrid, digDisc, type SoilGrid } from '../../src/underground/soilGrid';
+import { createSoilGrid, fillSoilGrid, digDisc, cellU, cellV, colOf, rowOf, CELL, GRID_W, GRID_H, type SoilGrid } from '../../src/underground/soilGrid';
 import { createSolids, placeSolids, markSolids, solidDepth, type Solids } from '../../src/underground/solids';
 import { BODY_RADIUS, SPACING } from '../../src/game/crawl';
 
@@ -82,3 +82,25 @@ export function watch(b: Burrower) {
     },
   });
 }
+
+/**
+ * How far (u) the point lies outside open tunnel: 0 in an open cell, else its distance to the
+ * nearest open cell's edge (looked for within 0.4 u; farther counts as 0.4).
+ */
+export function strayOf(g: SoilGrid, u: number, v: number): number {
+  const c0 = colOf(u);
+  const r0 = rowOf(g, v);
+  if (c0 >= 0 && c0 < GRID_W && r0 >= 0 && r0 < GRID_H && g.open[r0 * GRID_W + c0]) return 0;
+  let best = 0.4;
+  for (let r = r0 - 4; r <= r0 + 4; r++) {
+    if (r < 0 || r >= GRID_H) continue;
+    for (let c = c0 - 4; c <= c0 + 4; c++) {
+      if (c < 0 || c >= GRID_W || !g.open[r * GRID_W + c]) continue;
+      const du = Math.max(0, Math.abs(cellU(c) - u) - CELL / 2);
+      const dv = Math.max(0, Math.abs(cellV(g, r) - v) - CELL / 2);
+      best = Math.min(best, Math.hypot(du, dv));
+    }
+  }
+  return best;
+}
+

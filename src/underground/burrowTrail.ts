@@ -1,6 +1,5 @@
 import { hypot2 } from '../core/vec';
-import { settleOut } from './burrowBack';
-import { followHead } from './bodyTrail';
+import { drawLink, keepOut } from './burrowBack';
 import { digDiscAt, type Eaten, type SoilGrid } from './soilGrid';
 import { castBlobAt, type CastSpot } from './castings';
 import type { Burrower } from './burrower';
@@ -18,8 +17,8 @@ export const TUNNEL_R = 0.14;
 export const CAST_EVERY = 4.5;
 const CAST_R = 0.15;
 /**
- * A casting is left this far behind the tail, clear of the tail's own end (when the body dug, the
- * next step's dig at the tail itself ate about 44% of each one).
+ * A casting is left this far behind the tail, clear of its end (when the body dug, the next step's
+ * dig at the tail itself ate about 44% of each one).
  */
 const CAST_BACK = TUNNEL_R + CAST_R + 0.02;
 /**
@@ -35,9 +34,8 @@ const cast: CastSpot = { u: 0, v: 0, shade: 0, dirU: 0, dirV: 0 };
 
 /**
  * The head's tunnel (eating fresh soil feeds the gut: darker castings), then the body after it.
- * Only the head digs: the body follows inside its tunnel (bodyTrail.ts), so the tunnel is the
- * body's own width (V2: a round tube). (Where every body point dug, each bend came out 0.4 to 0.6 u
- * wide, twice the worm.)
+ * Only the head digs: where every body point dug too, each bend came out 0.4 to 0.6 u wide, twice
+ * the worm; now the tunnel is the body's own width (V2: a round tube).
  */
 export function digTunnel(b: Burrower, s: Slab, g: SoilGrid, o: Solids): void {
   pt.u = b.u[0];
@@ -47,10 +45,17 @@ export function digTunnel(b: Burrower, s: Slab, g: SoilGrid, o: Solids): void {
   trailBody(b, s, o);
 }
 
-/** The body along the head's path, each point that moved kept out of the top and the solids. */
+/**
+ * Follow the leader: each point drawn after the one ahead (burrowBack.ts drawLink) and kept out of
+ * the top and the solids (a body laid down through a stone comes out of it at once, at rest too). The chain keeps its length and bends smoothly; on the
+ * inside of a tight bend a point may sit over undug soil (the chain cuts the corner: the head's
+ * turning radius, MIN_TURN_R in burrowMotion.ts, keeps that small). The body digs nothing.
+ */
 function trailBody(b: Burrower, s: Slab, o: Solids): void {
-  followHead(b);
-  settleOut(b, s, o, 1);
+  for (let i = 1; i < b.u.length; i++) {
+    drawLink(b.u, b.v, i, i - 1);
+    keepOut(s, o, b.u, b.v, b.prevU, b.prevV, i);
+  }
 }
 
 /**
@@ -65,10 +70,18 @@ export function castTail(b: Burrower, g: SoilGrid, spend: boolean): void {
   const tu = b.u[t] - b.u[t - 1];
   const tv = b.v[t] - b.v[t - 1];
   const tl = hypot2(tu, tv) || 1;
-  cast.u = b.u[t] + (tu / tl) * CAST_BACK;
-  cast.v = b.v[t] + (tv / tl) * CAST_BACK;
   cast.shade = 90 + 160 * b.gut;
   cast.dirU = tu;
   cast.dirV = tv;
-  if (castBlobAt(g, cast, CAST_R) >= CAST_MIN) b.castLeft = 0;
+  // Straight behind the tail, else a little to either side: the tail, cutting a bend's inside, may
+  // lie beside its tunnel rather than in it.
+  let filled = 0;
+  for (let k = 0; k < CAST_SIDE.length && filled < CAST_MIN; k++) {
+    cast.u = b.u[t] + (tu / tl) * CAST_BACK - (tv / tl) * CAST_SIDE[k];
+    cast.v = b.v[t] + (tv / tl) * CAST_BACK + (tu / tl) * CAST_SIDE[k];
+    filled += castBlobAt(g, cast, CAST_R);
+  }
+  if (filled >= CAST_MIN) b.castLeft = 0;
 }
+/** Offsets (u) to the side a casting is tried at, in turn. */
+const CAST_SIDE = [0, 0.12, -0.12, 0.24, -0.24] as const;
