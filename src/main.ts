@@ -117,7 +117,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     // Every run starts at the spawn, whatever the player did before opening the test (or dug: no
     // openings). ?dig=1 starts it underground there, in Wide (scripts/perf-gates.mjs's run below).
     resetWorld: () => { crawl.reset(); if (params.dig) game.enterNow(); else game.reset(); dirty = true; },
-    where: () => (params.dig ? 'Underground' : 'Surface'),
+    where: () => (game.mode.mode === 'surface' ? 'Surface' : 'Underground'),
     setMaxFps: (fps) => loop.setMaxFps(fps),
     applyTier: (tier) => applySpec(tierSpec(testBase, TIERS[tier])),
     showPhase: (p) => showRunning(shell,
