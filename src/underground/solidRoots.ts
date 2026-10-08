@@ -1,8 +1,10 @@
-import { valueNoise2 } from '../core/noise';
 import { footprints } from '../surface/obstacles';
 import { boundaryAt, slabU, B_B, B_F, B_H, type Slab } from './slab';
 import { SOLID_ROOT } from './soilGrid';
-import { addCap, blockerDepth, BLOCKER_GAP, MAX_ROOT_SEGS, ROOT_STRIDE, type SolidHit, type Solids } from './solidShapes';
+import {
+  addCap, blockerDepth, capDepth, BLOCKER_GAP, CAP_STRIDE, DOT_STRIDE, MAX_ROOT_DOTS, MAX_ROOT_SEGS, ROOT_STRIDE,
+  type SolidHit, type Solids,
+} from './solidShapes';
 
 /** The entry's sink (the head arcs down 0.45 u ahead to 0.85 u below the F top, bodyPath.ts) stays
  *  clear: no stone or root comes within this u range of the entry and ENTRY_DEPTH of the F top. */
@@ -11,8 +13,19 @@ export const ENTRY_HI = 1.0;
 export const ENTRY_DEPTH = 1.3;
 /** A trunk whose footprint comes within this of the playable slab sends 2-3 big roots through it. */
 export const ROOT_REACH = 10;
-/** A growing root tries its way on, then steers down, further down, or up around a blocker. */
-const NUDGES = [0, -0.12, -0.24, 0.12] as const;
+/** A big root leaves the trunk's side diving this steeply (radians below level), and levels out with depth. */
+const DIVE_LO = (15 * Math.PI) / 180;
+const DIVE_HI = (30 * Math.PI) / 180;
+/** Its segments are this long, each this much thinner than the last, and it wanders this much (radians) each. */
+const SEG_LO = 0.4;
+const SEG_HI = 0.6;
+const TAPER_LO = 0.82;
+const TAPER_HI = 0.86;
+const WANDER = 0.45;
+/** It ends in a tip once it is this thin (after about 5-8 u). */
+export const ROOT_TIP = 0.035;
+/** A growing root that meets a blocker turns this much (radians) to get round it, either way. */
+const DODGES = [0, -0.35, 0.35, -0.7, 0.7] as const;
 
 const hit: SolidHit = { nu: 0, nv: 0 };
 
@@ -21,67 +34,128 @@ function rootTop(s: Slab, u: number, r: number): number {
   const top = boundaryAt(s, B_H, u) - r - 0.08;
   return u > ENTRY_LO - 1.2 && u < ENTRY_HI + 1.2 ? Math.min(top, boundaryAt(s, B_F, u) - ENTRY_DEPTH - r - 0.05) : top;
 }
-const rootBottom = (s: Slab, u: number) => boundaryAt(s, B_B, u) - 0.2;
+const rootBottom = (s: Slab, u: number) => boundaryAt(s, B_B, u) - 0.05;
 
-// One root's points while it grows (committed only if it is long enough).
+// One root's points while it grows, and a branch's (committed only if long enough).
 const gu: number[] = [];
 const gv: number[] = [];
 const gr: number[] = [];
+const bu: number[] = [];
+const bv: number[] = [];
+const br: number[] = [];
 
-/** True when a root segment from the last grown point to (u, v, r) is clear of the placed blockers. */
-function clearSeg(o: Solids, u: number, v: number, r: number): boolean {
-  const n = gu.length - 1;
+/** True when a segment from the last of (us, vs, rs) to (u, v, r) is clear of the placed blockers. */
+function clearSeg(o: Solids, us: number[], vs: number[], rs: number[], u: number, v: number, r: number): boolean {
+  const n = us.length - 1;
   for (let t = 0.25; t <= 1; t += 0.25) {
-    const pu = gu[n] + (u - gu[n]) * t;
-    const pv = gv[n] + (v - gv[n]) * t;
-    const pr = gr[n] + (r - gr[n]) * t;
+    const pu = us[n] + (u - us[n]) * t;
+    const pv = vs[n] + (v - vs[n]) * t;
+    const pr = rs[n] + (r - rs[n]) * t;
     if (blockerDepth(o, pu, pv, pr + BLOCKER_GAP, o.capCount, hit) > 0) return false;
   }
   return true;
 }
 
 /**
- * Grows one root from (u, v) with radius r toward `dir` (into gu, gv, gr, starting fresh when
- * `fresh`): segments of 0.7-1 u tapering 10% each, nearly level (big lateral roots run through
- * the upper soil) with a gentle downward slope and a slow wobble,
- * kept in its band and clear of other blockers (it steers down, or up, around them, else stops).
+ * Grows a root from the last point of (us, vs, rs) toward `dir` (-1: down the cut, +1: up it),
+ * starting `dive` radians below level: segments of SEG_LO-SEG_HI u, each TAPER_LO-TAPER_HI as thick
+ * as the last, wandering up to WANDER each; it levels out near `level` of the way up its band (0:
+ * its bottom), kept
+ * in the band and clear of other blockers (it turns round them, else stops). It stops as a tip at
+ * ROOT_TIP, or past the slab's ends. `room` caps its segments. With `first`, the first segment
+ * heads exactly that way (radians from level toward `dir`, a branch leaving its parent), or none.
  */
-function grow(s: Slab, o: Solids, rand: () => number, u: number, v: number, r: number, dir: number, n: number, fresh: boolean): void {
-  if (fresh) { gu.length = 0; gv.length = 0; gr.length = 0; }
-  gu.push(u); gv.push(v); gr.push(r);
-  let slope = -0.03 - 0.1 * rand();
-  const segs = 7 + Math.floor(rand() * 4);
-  for (let i = 0; i < segs && gu.length < MAX_ROOT_SEGS; i++) {
-    const len = 0.7 + 0.3 * rand();
-    const wob = (valueNoise2(i * 0.7, n * 3.1 + (dir > 0 ? 0 : 1.7), s.seed + 17) - 0.5) * 0.3;
-    const nu = u + dir * len;
-    const nr = Math.max(0.06, r * 0.9);
-    const want = v + (slope + wob) * len;
+function grow(
+  s: Slab, o: Solids, rand: () => number, us: number[], vs: number[], rs: number[], dir: number, dive: number, room: number,
+  level: number, first = NaN,
+): void {
+  let a = -dive;
+  for (let i = 0; i < room; i++) {
+    const n = us.length - 1;
+    const u = us[n];
+    const v = vs[n];
+    // A root thins slowly for its first two segments (away from the trunk), then as TAPER_*.
+    const nr = rs[n] * (i < 2 && first !== first ? 0.95 : TAPER_LO + (TAPER_HI - TAPER_LO) * rand());
+    if (nr < ROOT_TIP) break;
+    let len = SEG_LO + (SEG_HI - SEG_LO) * rand();
+    const exact = i === 0 && first === first;
+    if (exact) {
+      a = first;
+      // A branch's first segment is shorter where its parent runs low in the band.
+      const fall = -Math.sin(a);
+      if (fall > 0) len = Math.min(len, (v - rootBottom(s, u + dir * Math.cos(a) * len) - 0.02) / fall);
+      if (len < 0.25) break;
+    }
+    else {
+      // Dive until near the depth it levels out at (`level` of the way up its band), then run level.
+      const lo = rootBottom(s, u);
+      const at = lo + level * Math.max(0, rootTop(s, u, nr) - lo);
+      const want = Math.max(-dive, Math.min(0.25, (at - v) * 1.5));
+      a += (want - a) * 0.5 + (rand() - 0.5) * 2 * WANDER;
+      a = Math.max(-1.2, Math.min(0.5, a));
+    }
     let placed = false;
-    for (const nudge of NUDGES) {
-      const nv = Math.max(rootBottom(s, nu), Math.min(rootTop(s, nu, nr), want + nudge));
-      if (!clearSeg(o, nu, nv, nr)) continue;
-      gu.push(nu); gv.push(nv); gr.push(nr);
-      u = nu; v = nv; r = nr;
+    for (const dodge of exact ? DODGES.slice(0, 1) : DODGES) {
+      const want = v + Math.sin(a + dodge) * len;
+      const nu = u + dir * Math.cos(a + dodge) * len;
+      const nv = Math.max(rootBottom(s, nu), Math.min(rootTop(s, nu, nr), want));
+      if ((exact && Math.abs(nv - want) > 1e-6) || !clearSeg(o, us, vs, rs, nu, nv, nr)) continue;
+      us.push(nu); vs.push(nv); rs.push(nr);
+      a = Math.atan2(nv - v, dir * (nu - u));
       placed = true;
       break;
     }
-    if (!placed || u < s.playLo - 1 || u > s.playHi + 1) break;
-    slope *= 0.8;
+    if (!placed || us[n + 1] < s.playLo - 0.6 || us[n + 1] > s.playHi + 0.6) break;
   }
 }
 
-/** Commits the grown points as a chain of root segments (and their capsules). */
-function commit(o: Solids): void {
-  for (let i = 0; i + 1 < gu.length && o.rootCount < MAX_ROOT_SEGS; i++) {
+/** Commits the points (us, vs, rs) as a chain of root segments (and their capsules). */
+function commit(o: Solids, us: number[], vs: number[], rs: number[]): void {
+  for (let i = 0; i + 1 < us.length && o.rootCount < MAX_ROOT_SEGS; i++) {
     const k = o.rootCount++ * ROOT_STRIDE;
-    o.roots[k] = gu[i]; o.roots[k + 1] = gv[i]; o.roots[k + 2] = gr[i];
-    o.roots[k + 3] = gu[i + 1]; o.roots[k + 4] = gv[i + 1]; o.roots[k + 5] = gr[i + 1];
-    addCap(o, SOLID_ROOT, gu[i], gv[i], gr[i], gu[i + 1], gv[i + 1], gr[i + 1]);
+    o.roots[k] = us[i]; o.roots[k + 1] = vs[i]; o.roots[k + 2] = rs[i];
+    o.roots[k + 3] = us[i + 1]; o.roots[k + 4] = vs[i + 1]; o.roots[k + 5] = rs[i + 1];
+    addCap(o, SOLID_ROOT, us[i], vs[i], rs[i], us[i + 1], vs[i + 1], rs[i + 1]);
   }
 }
 
-/** A clear start for a root at u: the highest depth in its band (from `from` down), or NaN. */
+/** True when the branch's points well past its fork keep BLOCKER_GAP off its parent (us, vs, rs). */
+function offParent(us: number[], vs: number[], rs: number[]): boolean {
+  for (let j = 3; j < bu.length; j++) {
+    for (let i = 0; i + 1 < us.length; i++) {
+      scratch[0] = us[i]; scratch[1] = vs[i]; scratch[2] = rs[i];
+      scratch[3] = us[i + 1]; scratch[4] = vs[i + 1]; scratch[5] = rs[i + 1];
+      if (capDepth(scratch, 0, bu[j], bv[j], br[j] + BLOCKER_GAP, hit) > 0) return false;
+    }
+  }
+  return true;
+}
+const scratch = new Float32Array(CAP_STRIDE);
+
+/**
+ * Commits the grown root (gu, gv, gr) with one branch: from the middle of one of its first
+ * segments, 0.6 as thick there, leaving 60-75 degrees below the parent's way (so the corner between
+ * them is wide enough for the slide to settle in: a narrow fork would trap the worm's head between
+ * two pushes) and then levelling out like any root. It touches its parent only at the fork.
+ */
+function commitWithBranch(s: Slab, o: Solids, rand: () => number): void {
+  bu.length = 0; bv.length = 0; br.length = 0;
+  const room = MAX_ROOT_SEGS - o.rootCount - (gu.length - 1);
+  for (let tries = 0; tries < 6 && bu.length === 0 && room > 2; tries++) {
+    const j = Math.floor(rand() * Math.max(1, Math.min(5, gu.length - 3)));
+    const r = (gr[j] + gr[j + 1]) / 2;
+    if (j + 3 > gu.length || r < 0.08) continue;
+    const dir = gu[j + 1] > gu[j] ? 1 : -1;
+    const slope = Math.atan2(gv[j + 1] - gv[j], dir * (gu[j + 1] - gu[j]));
+    bu.push((gu[j] + gu[j + 1]) / 2); bv.push((gv[j] + gv[j + 1]) / 2); br.push(r * 0.6);
+    grow(s, o, rand, bu, bv, br, dir, DIVE_HI, Math.min(8, room), 0.05, slope - (60 + 15 * rand()) * (Math.PI / 180));
+    if (bu.length < 3 || !offParent(gu, gv, gr)) { bu.length = 0; bv.length = 0; br.length = 0; }
+  }
+  commit(o, gu, gv, gr);
+  if (bu.length) commit(o, bu, bv, br);
+}
+
+/** A clear start for a root at u: the highest depth in its band from `from` down, or NaN. */
 function startDepth(s: Slab, o: Solids, u: number, r: number, from: number): number {
   for (let v = Math.min(from, rootTop(s, u, r)); v >= rootBottom(s, u); v -= 0.04) {
     if (blockerDepth(o, u, v, r + BLOCKER_GAP, o.capCount, hit) <= 0) return v;
@@ -89,12 +163,17 @@ function startDepth(s: Slab, o: Solids, u: number, r: number, from: number): num
   return NaN;
 }
 
+/** A random height in the band at u, from its top down to `share` of the way to its bottom. */
+const anyDepth = (s: Slab, u: number, r: number, share: number, rand: () => number) =>
+  rootTop(s, u, r) - share * rand() * Math.max(0, rootTop(s, u, r) - rootBottom(s, u));
+
 /**
  * Big roots (spec 5.2), placed after the sections and before the stones. A trunk near the slab
- * sends 2-3: with the trunk beside the cut, one root runs through the slab from the trunk's point
- * both ways (two roots, thickest at the trunk) and a third may enter from the nearer end; with the
- * trunk past an end, they enter from that end, one below the other. With no trunk near, one
- * thinner root enters from a random end.
+ * sends 2-3: with the trunk beside the cut, one root runs from the trunk's point down both ways
+ * (two roots, thickest at the trunk) and a third may enter from the nearer end; with the trunk past
+ * an end, they enter from that end at random depths. With no trunk near, one thinner root enters
+ * from a random end. Each dives from the trunk's side, levels out, and ends in a tip after 5-8 u,
+ * with one branch heading down. Then 1-3 small roots cut square across (rootDots).
  */
 export function placeRoots(s: Slab, o: Solids, rand: () => number): void {
   const { round } = footprints();
@@ -111,47 +190,66 @@ export function placeRoots(s: Slab, o: Solids, rand: () => number): void {
   const count = near > 0 ? 2 + Math.floor(rand() * 2) : 1;
   let done = 0;
   if (near > 0 && ut > s.playLo && ut < s.playHi) {
-    const r = 0.14 + 0.12 * near + 0.04 * rand();
+    const r = 0.16 + 0.1 * near + 0.04 * rand();
     const v = startDepth(s, o, ut, r, rootTop(s, ut, r) - 0.1 * rand());
     if (!Number.isNaN(v)) {
-      grow(s, o, rand, ut, v, r, -1, 0, true);
+      gu.length = 0; gv.length = 0; gr.length = 0;
+      gu.push(ut); gv.push(v); gr.push(r);
+      const half = (MAX_ROOT_SEGS - 16) / 2;
+      const level = 0.4 + 0.25 * rand();
+      grow(s, o, rand, gu, gv, gr, -1, DIVE_LO + (DIVE_HI - DIVE_LO) * rand(), half, level);
       gu.reverse(); gv.reverse(); gr.reverse();
-      gu.pop(); gv.pop(); gr.pop();
-      grow(s, o, rand, ut, v, r, 1, 1, false);
-      if (gu.length >= 3) { commit(o); done = 2; }
+      grow(s, o, rand, gu, gv, gr, 1, DIVE_LO + (DIVE_HI - DIVE_LO) * rand(), half, level);
+      if (gu.length >= 5) { commitWithBranch(s, o, rand); done = 2; }
     }
   }
   const from = near > 0 ? (ut < (s.playLo + s.playHi) / 2 ? -1 : 1) : rand() < 0.5 ? -1 : 1;
-  below[0] = Infinity;
-  below[1] = Infinity;
   for (let n = done; n < count; n++) {
-    const r0 = near > 0 ? (0.14 + 0.12 * near + 0.04 * rand()) * 0.85 ** n : 0.12 + 0.03 * rand();
+    const r0 = near > 0 ? (0.16 + 0.1 * near + 0.04 * rand()) * 0.85 ** n : 0.13 + 0.03 * rand();
     // From the trunk's end; if a rock, the log or another root fills that end, from the other.
-    if (!fromEnd(s, o, rand, r0, from, n) && !fromEnd(s, o, rand, r0, -from, n)) break;
+    if (!fromEnd(s, o, rand, r0, from) && !fromEnd(s, o, rand, r0, -from)) break;
   }
+  placeDots(s, o, rand);
 }
 
-/** How deep the next root from each end (index 0: the low end) may start: below the last one. */
-const below = [Infinity, Infinity];
-
 /**
- * One root entering from an end (-1: playLo, +1: playHi), at the highest clear depth below the
- * last root from that end; at the end, or a little further in and thinner if the way is blocked.
- * False if none fits or it would be too short.
+ * One root entering from an end (-1: playLo, +1: playHi) at a random clear depth, diving inward;
+ * at the end, or a little further in and thinner if the way is blocked. False if none fits or it
+ * would be too short.
  */
-function fromEnd(s: Slab, o: Solids, rand: () => number, r0: number, end: number, n: number): boolean {
-  const e = end < 0 ? 0 : 1;
+function fromEnd(s: Slab, o: Solids, rand: () => number, r0: number, end: number): boolean {
   for (let shift = 0; shift <= 4; shift += 0.5) {
     const u = (end < 0 ? s.playLo - 0.4 : s.playHi + 0.4) - end * shift;
     for (let r = r0, shrink = 0; shrink < 4; shrink++, r = Math.max(0.08, r * 0.8)) {
-      const v = startDepth(s, o, u, r, below[e]);
+      // A random depth, or the highest clear one if everything below it is taken.
+      let v = startDepth(s, o, u, r, anyDepth(s, u, r, 0.6, rand));
+      if (Number.isNaN(v)) v = startDepth(s, o, u, r, Infinity);
       if (Number.isNaN(v)) continue;
-      grow(s, o, rand, u, v, r, -end, n, true);
-      if (gu.length < 3) return false;
-      commit(o);
-      below[e] = v - r - BLOCKER_GAP;
+      gu.length = 0; gv.length = 0; gr.length = 0;
+      gu.push(u); gv.push(v); gr.push(r);
+      grow(s, o, rand, gu, gv, gr, -end, DIVE_LO + (DIVE_HI - DIVE_LO) * rand(), Math.min(14, MAX_ROOT_SEGS - o.rootCount), 0.35 + 0.3 * rand());
+      if (gu.length < 4) return false;
+      commitWithBranch(s, o, rand);
       return true;
     }
   }
   return false;
+}
+
+/** 1-3 small roots cut square across: discs in H, A and E, inside the playable slab, apart from every blocker. */
+function placeDots(s: Slab, o: Solids, rand: () => number): void {
+  o.dotCount = 0;
+  const want = 1 + Math.floor(rand() * 3);
+  for (let tries = 0; o.dotCount < Math.min(want, MAX_ROOT_DOTS) && tries < 60; tries++) {
+    const r = 0.05 + 0.06 * rand();
+    const u = s.playLo + 0.6 + rand() * (s.playHi - s.playLo - 1.2);
+    const top = rootTop(s, u, r);
+    const lo = rootBottom(s, u) + r;
+    if (top <= lo) continue;
+    const v = lo + rand() * (top - lo);
+    if (blockerDepth(o, u, v, r + BLOCKER_GAP, o.capCount, hit) > 0) continue;
+    const k = o.dotCount++ * DOT_STRIDE;
+    o.dots[k] = u; o.dots[k + 1] = v; o.dots[k + 2] = r;
+    addCap(o, SOLID_ROOT, u, v, r, u, v, r);
+  }
 }

@@ -85,19 +85,21 @@ function writeTopLife(p: Pen, sec: Section, rand: () => number, fungi: boolean):
     });
   }
   if (!fungi) return;
-  // Turkey-tail shelves low on a flank, just above the litter (where the Wide view shows them):
-  // thin brackets in brown, tan and cream bands, the biggest lowest.
+  // Turkey-tail brackets low on a flank, just above the litter (where the Wide view shows them):
+  // fans in brown, tan and cream bands, the biggest lowest.
   const side = rand() < 0.5 ? -1 : 1;
   const v0 = boundaryAt(s, B_TOP, side < 0 ? sec.uLo : sec.uHi) + 0.25;
   for (let n = 0; n < 3; n++) {
-    const v = v0 + n * 0.13;
+    const v = v0 + n * 0.16;
     if (v > sec.vHi - 0.2) break;
     const u = edgeAt(sec, v, side);
     const r = 0.2 - n * 0.045;
-    writeBlob(p, u + side * r * 0.5, v, 0.05, r, 0.035, r * 0.8, side * 0.15, {
-      hex: (x, _y, z) => {
-        const d = Math.hypot(x, z);
-        return d > 0.85 ? '#e0d4b0' : d > 0.66 ? '#6a4a30' : d > 0.48 ? '#b08c5c' : d > 0.3 ? '#4e3828' : '#8a6a46';
+    // A fan facing the camera, half a disc out from the bark, banded round where it grows from.
+    writeBlob(p, u, v, 0.04, r, r * 0.7, 0.035, side * 0.2, {
+      shape: (x) => (x * side < 0 ? 0.12 : 1),
+      hex: (x, y) => {
+        const d = Math.hypot(x, y);
+        return d > 0.86 ? '#e2d6b2' : d > 0.7 ? '#6a4a30' : d > 0.52 ? '#b08c5c' : d > 0.34 ? '#4e3828' : '#8a6a46';
       },
       code: PROP.plain, face: 0.4, lump: 0.08, seed: n + 3,
     });
@@ -126,7 +128,7 @@ function centre(sec: Section): [number, number] {
   return [u / sec.count, v / sec.count];
 }
 
-/** A rock cut through: speckled granite inside a darker weathered rind, damp and dark low down. */
+/** A rock cut through: fresh granite (no lichen inside) in a darker weathered rind, damp and dark low down. */
 function writeRockSection(p: Pen, sec: Section): void {
   const seed = rockSeed(sec.rock);
   const [cu, cv] = centre(sec);
@@ -139,10 +141,10 @@ function writeRockSection(p: Pen, sec: Section): void {
   const z = seed * 10;
   writeFill(p, sec.pts, sec.count, cu, cv, 0.015, [0.25, 0.5, 0.7, 0.86, 0.95, 1], (f, _k, u, v) => {
     if (f > 0.9) return rind;
-    // Broad, smooth patches of grey, pink feldspar and dark mica (the stone shading adds the grain).
+    // Broad, smooth patches of grey, pink feldspar and dark mica.
     const a = Math.sin(u * 2.3 + z) * Math.sin(v * 2.9 - u * 1.1 + z) + 0.4 * Math.sin(u * 6.1 + v * 5.3);
     return col.copy(grey).lerp(a > 0 ? pink : dark, Math.min(1, Math.abs(a)) * (a > 0 ? 0.8 : 0.5));
-  }, PROP.stone, (_u, v) => 0.7 + 0.3 * Math.min(1, (v - sec.vLo) / (0.35 * tall)), 0.12);
+  }, PROP.plain, (_u, v) => 0.7 + 0.3 * Math.min(1, (v - sec.vLo) / (0.35 * tall)), 0.12);
   writeTopLife(p, sec, mulberry32(Math.floor(seed * 1e6)), false);
 }
 
@@ -153,6 +155,8 @@ for (let j = 0; j < 7; j++) {
   LOG_RINGS.push(f - 0.018, f, f + 0.018);
 }
 LOG_RINGS.push(0.86, 0.885, 0.91, 0.95, 1);
+/** The pith: one colour out to here, so the middle has no spokes. */
+LOG_RINGS.unshift(0.04);
 
 /**
  * The fallen birch cut through: punky brown heartwood and pale rotting rings with dark ring lines,
@@ -168,12 +172,12 @@ function writeLogSection(p: Pen, sec: Section, log: LogCut): void {
     }
     if (f > 0.87) return '#4a3424';
     if (f < 0.1) return '#5e3e24';
-    // Rot spreads from the heart: soft orange-brown blotches inside, fewer outward.
-    const th = Math.atan2(v - log.v, u - log.u);
-    const rot = Math.sin(th * 3 + 1) + 0.6 * Math.sin(th * 7 + f * 3) > 0.9 + f * 1.4;
-    const line = LOG_RINGS.indexOf(f) % 3 === 1;
-    return line ? (rot ? '#6a4228' : '#7a5634') : rot ? '#9a6a3e' : Math.sin(th * 11 + f * 20) > 0.7 ? '#b08c5a' : '#c09a68';
-  }, PROP.plain, (_u, v) => 0.8 + 0.2 * Math.min(1, (v - sec.vLo) / (0.3 * (sec.vHi - sec.vLo))), 0.14);
+    // Rot spreads from the heart in soft patches (smooth in u, v: no spokes), fewer outward.
+    const patch = Math.sin(u * 3.1 + 1) * Math.sin(v * 2.7 - u * 0.8) + 0.5 * Math.sin(u * 5.3 - v * 4.1);
+    const rot = patch > 0.2 + f * 1.3;
+    const line = (LOG_RINGS.indexOf(f) - 1) % 3 === 1;
+    return line ? (rot ? '#6a4228' : '#7a5634') : rot ? '#9a6a3e' : patch < -0.6 ? '#b08c5a' : '#c09a68';
+  }, PROP.plain, (_u, v) => 0.8 + 0.2 * Math.min(1, (v - sec.vLo) / (0.3 * (sec.vHi - sec.vLo))), 0.08, 64, { rx: log.rx, ry: log.ry });
   writeTopLife(p, sec, mulberry32(77), true);
 }
 
@@ -181,12 +185,14 @@ function writeLogSection(p: Pen, sec: Section, log: LogCut): void {
  * A flat patch filling the convex outline pts (u, v pairs, `count` of them) at depth d, in `rings`
  * rings about (cu, cv) out to the outline, which is walked at even steps (so rings come out round
  * even where the outline has few corners); `hex(f, k, u, v)` colours ring fraction f (0 centre,
- * 1 outline) at step k, point (u, v); inner rings wander by up to `wobble` of their size. Faces the camera.
+ * 1 outline) at step k, point (u, v); inner rings wander by up to `wobble` of their size. `steps`
+ * fixes how many steps round; with `round`, rings inside f 0.75 are the ellipse (rx, ry) instead,
+ * blending to the outline by f 0.87. Faces the camera.
  */
-function writeFill(
+export function writeFill(
   p: Pen, pts: ArrayLike<number>, count: number, cu: number, cv: number, d: number, rings: readonly number[],
   hex: (f: number, k: number, u: number, v: number) => string | THREE.Color, code: number, mul: (u: number, v: number) => number,
-  wobble = 0,
+  wobble = 0, steps = 0, round?: { rx: number; ry: number },
 ): void {
   const w = p.w;
   let perim = 0;
@@ -194,7 +200,7 @@ function writeFill(
     const j = (k + 1) % count;
     perim += Math.hypot(pts[j * 2] - pts[k * 2], pts[j * 2 + 1] - pts[k * 2 + 1]);
   }
-  const m = Math.max(24, Math.min(48, Math.round(perim / 0.25)));
+  const m = steps || Math.max(24, Math.min(48, Math.round(perim / 0.25)));
   const ou: number[] = [];
   const ov: number[] = [];
   for (let k = 0, along = 0; k < count; k++) {
@@ -208,12 +214,31 @@ function writeFill(
     along -= len;
   }
   const n = ou.length;
+  // The ellipse shrunk to fit inside the outline everywhere (rings inside it are drawn on it).
+  let fit = 1;
+  if (round) {
+    for (let k = 0; k < n; k++) {
+      const du = ou[k] - cu;
+      const dv = ov[k] - cv;
+      const ro = Math.hypot(du, dv) || 1;
+      fit = Math.min(fit, ro * Math.hypot(du / ro / round.rx, dv / ro / round.ry));
+    }
+  }
   const first = dot(p, cu, cv, d, p.fx, p.fy, p.fz, 1, hex(0, 0, cu, cv), mul(cu, cv), code);
   for (const f of rings) {
     for (let k = 0; k < n; k++) {
       // Inner rings wander a little (smoothly in f, so close rings keep together); the outline does not.
       const th = (k / n) * TAU;
-      const g = f * (1 + wobble * (1 - f) * (Math.sin(th * 3 + f * 2) * 0.6 + Math.sin(th * 5 + 1.3 + f * 3) * 0.4));
+      let g = f * (1 + wobble * (1 - f) * (Math.sin(th * 3 + f * 2) * 0.6 + Math.sin(th * 5 + 1.3 + f * 3) * 0.4));
+      if (round) {
+        // Inner rings follow the ellipse (rx, ry) about the centre, never past the outline; the outer ones the outline.
+        const du = ou[k] - cu;
+        const dv = ov[k] - cv;
+        const ro = Math.hypot(du, dv) || 1;
+        const re = fit / Math.hypot(du / ro / round.rx, dv / ro / round.ry);
+        const t = Math.min(1, Math.max(0, (f - 0.75) / 0.12));
+        g *= re / ro + (1 - re / ro) * t * t * (3 - 2 * t);
+      }
       const u = cu + (ou[k] - cu) * g;
       const v = cv + (ov[k] - cv) * g;
       dot(p, u, v, d, p.fx, p.fy, p.fz, 1, hex(f, k, u, v), mul(u, v), code);

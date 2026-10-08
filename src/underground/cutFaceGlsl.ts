@@ -1,6 +1,7 @@
 import { GRADE_GLSL } from '../render/paintedMaterial';
 import { glslFloat as f } from '../render/glslNumber';
 import { FACE_BELOW, FACE_PAST } from './cutFrame';
+import { BEYOND_LEVEL, BEYOND_SPAN, BOTTOM_FADE, DIM_DEPTH, DIM_LEVEL, FACE_GAMMA, WARM_ADD, WARM_DEPTH } from './faceLight';
 import { GRID_H } from './soilGrid';
 import { LITTER_TILE_U, OLD_TILE_U, SOIL_TILE_U } from './soilTiles';
 
@@ -140,17 +141,17 @@ export const CUT_FRAGMENT = /* glsl */ `
 
     // Warm light from the surface fades with depth; the bottom darkens away (burrows go deeper).
     float below = top - p.y;
-    col *= mix(1.0, 0.45, smoothstep(0.0, 6.0, below));
-    col += col * uLightColor * 0.3 * (1.0 - smoothstep(0.0, 1.2, below));
-    col = mix(col, vec3(0.012, 0.008, 0.005), (1.0 - smoothstep(uBottom - ${f(FACE_BELOW)}, uBottom + 2.0, p.y)));
+    col *= mix(1.0, ${f(DIM_LEVEL)}, smoothstep(0.0, ${f(DIM_DEPTH)}, below));
+    col += col * uLightColor * ${f(WARM_ADD)} * (1.0 - smoothstep(0.0, ${f(WARM_DEPTH)}, below));
+    col = mix(col, vec3(0.012, 0.008, 0.005), (1.0 - smoothstep(uBottom - ${f(FACE_BELOW)}, uBottom + ${f(BOTTOM_FADE)}, p.y)));
     // Beyond the playable slab the soil dims a little; past the face's ends it fades to dark.
     float beyond = max(uPlay.x - p.x, p.x - uPlay.y);
-    col *= mix(1.0, 0.55, smoothstep(0.0, 2.0, beyond));
+    col *= mix(1.0, ${f(BEYOND_LEVEL)}, smoothstep(0.0, ${f(BEYOND_SPAN)}, beyond));
     col *= smoothstep(uFace.x - ${f(FACE_PAST)}, uFace.x, p.x) * (1.0 - smoothstep(uFace.y, uFace.y + ${f(FACE_PAST)}, p.x));
     // Painted variation: broad value patches and a warm/cool drift.
     col *= 0.9 + 0.2 * br.r;
     col *= mix(vec3(1.05, 0.99, 0.9), vec3(0.93, 0.98, 1.04), br.a);
-    gl_FragColor = vec4(paintedGrade(pow(col, vec3(2.2))), 1.0);
+    gl_FragColor = vec4(paintedGrade(pow(col, vec3(${f(FACE_GAMMA)}))), 1.0);
     #include <colorspace_fragment>
   }
 `;

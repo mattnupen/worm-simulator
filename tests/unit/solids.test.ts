@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createSolids, placeSolids, pushOutSolids, solidDepth, markSolids, BLOCKER_GAP, ENTRY_DEPTH, ENTRY_HI, ENTRY_LO,
-  ROOT_REACH, ROOT_STRIDE, STONE_STRIDE, type Solids,
+  ROOT_REACH, ROOT_STRIDE, ROOT_TIP, STONE_STRIDE, type Solids,
 } from '../../src/underground/solids';
 import { createSlab, boundaryAt, slabU, B_TOP, B_F, B_H, B_A, B_B, type Slab } from '../../src/underground/slab';
 import { createSoilGrid, fillSoilGrid, digDisc, cellU, cellV, GRID_H, GRID_W, SOLID_ROOT, SOLID_STONE, AIR } from '../../src/underground/soilGrid';
@@ -36,33 +36,39 @@ const SLABS = sweep(240, 3);
 const diggable = (x: number, z: number) =>
   obstacleDepth(x, z, 0.5, { nx: 0, nz: 0 }) <= 0 && Math.abs(x) < PLAY_HALF - 2.5 && Math.abs(z) < PLAY_HALF - 2.5;
 
-/** Each blocker as capsules [u0, v0, r0, u1, v1, r1] with an id (stones: their ellipse's; a root chain shares one id). */
+/** Each blocker as capsules [u0, v0, r0, u1, v1, r1] with an id: every capsule its own, except a
+ *  root chain's segments and its branch (which starts on it) share one. */
 function capsules(o: Solids): { id: number; c: number[] }[] {
   const out: { id: number; c: number[] }[] = [];
-  for (let i = 0; i < o.stoneCount; i++) {
-    const [u, v, r, sx, sy, rot] = o.stones.subarray(i * STONE_STRIDE, i * STONE_STRIDE + 6);
-    const wide = sx >= sy;
-    const [au, av] = wide ? [Math.cos(rot), Math.sin(rot)] : [-Math.sin(rot), Math.cos(rot)];
-    const half = r * Math.abs(sx - sy);
-    const rr = r * Math.min(sx, sy);
-    out.push({ id: i, c: [u - au * half, v - av * half, rr, u + au * half, v + av * half, rr] });
-  }
-  let id = 1000;
-  for (let i = 0; i < o.rootCount; i++) {
-    const k = i * ROOT_STRIDE;
-    if (i > 0 && Math.hypot(o.roots[k] - o.roots[k - 3], o.roots[k + 1] - o.roots[k - 2]) > 1e-6) id++;
-    out.push({ id, c: Array.from(o.roots.subarray(k, k + 6)) });
+  for (let i = 0; i < o.capCount; i++) {
+    const c = Array.from(o.caps.subarray(i * 6, i * 6 + 6));
+    let id = i;
+    if (o.capKind[i] === SOLID_ROOT) {
+      const prev = out[i - 1];
+      if (prev && o.capKind[i - 1] === SOLID_ROOT && Math.hypot(c[0] - prev.c[3], c[1] - prev.c[4]) < 1e-6) id = prev.id;
+      else {
+        const on = out.find((q, j) => o.capKind[j] === SOLID_ROOT && capGap([c[0], c[1], 0, c[0], c[1], 0], q.c) < -1e-3);
+        if (on) id = on.id;
+      }
+    }
+    out.push({ id, c });
   }
   return out;
 }
 
-/** Root chains: [first segment, last segment + 1). */
-function chains(o: Solids): [number, number][] {
-  const out: [number, number][] = [];
+/** Root chains: [first segment, last segment + 1), and whether it branches off an earlier one. */
+function chains(o: Solids): [number, number, boolean][] {
+  const out: [number, number, boolean][] = [];
   for (let i = 0; i < o.rootCount; i++) {
     const k = i * ROOT_STRIDE;
-    if (i === 0 || Math.hypot(o.roots[k] - o.roots[k - 3], o.roots[k + 1] - o.roots[k - 2]) > 1e-6) out.push([i, i + 1]);
-    else out[out.length - 1][1] = i + 1;
+    if (i === 0 || Math.hypot(o.roots[k] - o.roots[k - 3], o.roots[k + 1] - o.roots[k - 2]) > 1e-6) {
+      let branch = false;
+      for (let j = 0; j < i; j++) {
+        const c = Array.from(o.roots.subarray(j * ROOT_STRIDE, j * ROOT_STRIDE + 6));
+        if (capGap([o.roots[k], o.roots[k + 1], 0, o.roots[k], o.roots[k + 1], 0], c) < -1e-3) branch = true;
+      }
+      out.push([i, i + 1, branch]);
+    } else out[out.length - 1][1] = i + 1;
   }
   return out;
 }
@@ -70,7 +76,8 @@ function chains(o: Solids): [number, number][] {
 /** Roots as the spec counts them: a chain thickest inside (it runs both ways from a trunk) is two. */
 function rootCount(o: Solids): number {
   let n = 0;
-  for (const [a, b] of chains(o)) {
+  for (const [a, b, branch] of chains(o)) {
+    if (branch) continue;
     let thick = a;
     for (let i = a; i < b; i++) if (o.roots[i * ROOT_STRIDE + 2] > o.roots[thick * ROOT_STRIDE + 2]) thick = i;
     n += thick > a ? 2 : 1;
@@ -113,7 +120,7 @@ describe('stones and big roots in the slab (spec 5.2)', () => {
     }
   });
 
-  it('big roots run through H, A and E, below the fine-root mat of F, and taper', () => {
+  it('big roots run through H, A and E, below the fine-root mat of F, and taper to a tip', () => {
     for (const { s, o } of SLABS) {
       for (let i = 0; i < o.rootCount; i++) {
         const [u0, v0, r0, u1, v1, r1] = o.roots.subarray(i * ROOT_STRIDE, i * ROOT_STRIDE + 6);
@@ -124,9 +131,9 @@ describe('stones and big roots in the slab (spec 5.2)', () => {
           expect(v + r).toBeLessThan(boundaryAt(s, B_H, u));
           expect(v).toBeGreaterThan(boundaryAt(s, B_B, u) - 0.3);
         }
-        expect(Math.min(r0, r1)).toBeGreaterThan(0.06 - 1e-6);
+        expect(Math.min(r0, r1)).toBeGreaterThan(ROOT_TIP - 1e-6);
         expect(Math.max(r0, r1)).toBeLessThanOrEqual(0.3);
-        expect(Math.abs(r1 - r0)).toBeLessThanOrEqual(0.1 * Math.max(r0, r1) + 1e-6);
+        expect(Math.abs(r1 - r0)).toBeLessThanOrEqual(0.18 * Math.max(r0, r1) + 1e-6);
       }
     }
   });
@@ -311,13 +318,15 @@ describe('blockers in the soil grid', () => {
       const g = createSoilGrid();
       fillSoilGrid(g, s);
       markSolids(g, o);
-      const sectionsOnly = { ...o, capCount: 0 };
+      // The snail shell and beetle (placed first) block in the litter, as the rocks and the log do.
+      const hints = (Number.isNaN(o.hints.snailU) ? 0 : 1) + (Number.isNaN(o.hints.beetleU) ? 0 : 1);
+      const sectionsOnly = { ...o, capCount: hints };
       for (let r = 0; r < GRID_H; r++) {
         for (let c = 0; c < GRID_W; c++) {
           const i = r * GRID_W + c;
           const d = solidDepth(o, cellU(c), cellV(g, r), 0, hit);
           if ((d > 0.01 && !g.solid[i]) || (d < -0.01 && g.solid[i])) wrong++;
-          // The litter and F (dense fine roots) block only where a rock or the log lies in them.
+          // The litter and F (dense fine roots) block only where a rock, the log or a hint lies in them.
           if (g.layer[i] !== AIR && g.layer[i] <= LAYER.F && g.solid[i] && !(solidDepth(sectionsOnly, cellU(c), cellV(g, r), 0.01, hit) > 0)) fineBlocks++;
         }
       }

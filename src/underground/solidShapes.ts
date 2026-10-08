@@ -1,9 +1,10 @@
 import { boundaryAt, B_TOP, type Slab } from './slab';
 import { createSection, type LogCut, type Section } from './sections';
+import type { Hints } from './solidHints';
 
 /**
  * The blockers of a slab (solids.ts places them) as data, and the distances the worm collides
- * and slides with: tapering capsules (stones and big roots) and convex outlines (rocks and the log
+ * and slides with: tapering capsules (stones, big roots, root discs and the hints) and convex outlines (rocks and the log
  * in section). The depth functions return how far (u, v) lies inside a shape grown by `pad`
  * (0 or less: clear) and write the way straight out. Nothing here allocates.
  */
@@ -13,12 +14,16 @@ export const MAX_STONES = 16;
 /** Floats per stone: u, v, radius, x scale, y scale, rotation, shade 0..1. The stone is the ellipse
  *  of radii radius * x scale and radius * y scale (one of them 1), turned by the rotation. */
 export const STONE_STRIDE = 7;
-export const MAX_ROOT_SEGS = 40;
-/** Floats per root segment: u0, v0, r0, u1, v1, r1. A root is a chain of joined segments. */
+export const MAX_ROOT_SEGS = 64;
+/** Floats per root segment: u0, v0, r0, u1, v1, r1. A root is a chain of joined segments; a
+ *  branch is a chain that starts on its parent. */
 export const ROOT_STRIDE = 6;
+/** Small roots cut square across: discs of wood (DOT_STRIDE floats: u, v, radius). */
+export const MAX_ROOT_DOTS = 3;
+export const DOT_STRIDE = 3;
 export const MAX_SECTIONS = 4;
-/** Collision capsules (stones and root segments), CAP_STRIDE floats each as ROOT_STRIDE. */
-const MAX_CAPS = MAX_STONES + MAX_ROOT_SEGS;
+/** Collision capsules (stones, root segments, root discs and the two hints), CAP_STRIDE floats each as ROOT_STRIDE. */
+const MAX_CAPS = MAX_STONES + MAX_ROOT_SEGS + MAX_ROOT_DOTS + 2;
 export const CAP_STRIDE = 6;
 /**
  * Separate blockers stay at least this far apart: more than the worm is thick (2 x BODY_RADIUS,
@@ -39,6 +44,10 @@ export interface Solids {
   sectionCount: number;
   /** The cut through the log, if the slab crosses it (rx 0: none); its outline is also in sections. */
   readonly log: LogCut;
+  readonly dots: Float32Array;
+  dotCount: number;
+  /** The static hints that block like small stones (solidHints.ts). */
+  readonly hints: Hints;
   /** Collision capsules: one per stone (its ellipse's) and one per root segment... */
   readonly caps: Float32Array;
   /** ...and each one's grid kind (soilGrid's SOLID_STONE or SOLID_ROOT). */
@@ -53,6 +62,8 @@ export function createSolids(): Solids {
     roots: new Float32Array(MAX_ROOT_SEGS * ROOT_STRIDE), rootCount: 0,
     sections: Array.from({ length: MAX_SECTIONS }, createSection), sectionCount: 0,
     log: { u: 0, v: 0, rx: 0, ry: 0 },
+    dots: new Float32Array(MAX_ROOT_DOTS * DOT_STRIDE), dotCount: 0,
+    hints: { snailU: NaN, snailV: 0, snailSize: 0, snailTurn: 0, beetleU: NaN, beetleV: 0, beetleLen: 0, beetleDir: 0 },
     caps: new Float32Array(MAX_CAPS * CAP_STRIDE), capKind: new Uint8Array(MAX_CAPS), capCount: 0,
   };
 }

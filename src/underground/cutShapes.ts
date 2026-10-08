@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { sharedLighting } from '../render/paintedMaterial';
 import { icosphere, type MeshWriter } from '../surface/meshWriter';
-import { boundaryAt, B_TOP, type Slab } from './slab';
-import { FACE_BELOW, FACE_PAST } from './cutFrame';
+import type { Slab } from './slab';
+import { faceShade, smooth } from './faceLight';
 
 /**
  * Shape writers for what stands in the cut (V2 spec 5.2), into a MeshWriter for the forest's prop
@@ -32,11 +32,6 @@ export interface Pen {
   readonly mirror: boolean;
 }
 
-const smooth = (a: number, b: number, x: number) => {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-};
-
 /** The prop material's light (paintedLight, with average dapple) on normal n, as luminance. */
 function lightOn(nx: number, ny: number, nz: number): number {
   const L = sharedLighting.uLightDir.value;
@@ -56,22 +51,6 @@ export function createPen(w: MeshWriter, s: Slab): Pen {
   const fy = 0.45 / l;
   const fz = s.nz / l;
   return { w, s, fx, fy, fz, k: 1 / lightOn(fx, fy, fz), mirror: s.tx * s.nz - s.tz * s.nx < 0 };
-}
-
-/**
- * The face's own shading at plane point (u, v), as a linear-light factor: darker with depth below
- * the litter top, warmer just under it, dimmer past the playable slab and fading out past the
- * drawn face's ends and below the slab (cutFaceGlsl.ts, which does it before its gamma 2.2).
- * Above the litter top, 1 (the forest's own light).
- */
-export function faceShade(s: Slab, u: number, v: number): number {
-  const below = boundaryAt(s, B_TOP, u) - v;
-  if (below <= 0) return 1;
-  let f = (1 - 0.55 * smooth(0, 6, below)) * (1 + 0.22 * smooth(1.2, 0, below));
-  f *= 1 - 0.45 * smooth(0, 2, Math.max(s.playLo - u, u - s.playHi));
-  f *= smooth(s.faceLo - FACE_PAST, s.faceLo, u) * smooth(s.faceHi + FACE_PAST, s.faceHi, u);
-  f *= 1 - smooth(s.bottom + 2, s.bottom - FACE_BELOW, v);
-  return Math.pow(Math.max(0, f), 2.2);
 }
 
 const col = new THREE.Color();
@@ -103,10 +82,10 @@ export function dot(
 }
 
 let ico2: { pos: Float32Array; index: ArrayLike<number> } | null = null;
-/** A unit icosphere of detail 2 (92 vertices): rounder than meshWriter's (42) for shapes seen up close. */
+/** A unit icosphere of detail 3 (162 vertices): rounder than meshWriter's (42) for shapes seen up close. */
 export function roundSphere(): { pos: Float32Array; index: ArrayLike<number> } {
   if (ico2) return ico2;
-  const g = new THREE.IcosahedronGeometry(1, 2);
+  const g = new THREE.IcosahedronGeometry(1, 3);
   g.deleteAttribute('normal');
   g.deleteAttribute('uv');
   const m = mergeVertices(g);
@@ -123,7 +102,9 @@ export interface BlobLook {
   /** Lumpiness (0.1: a pebble) and its seed. */
   lump: number;
   seed: number;
-  /** A rounder sphere (92 vertices, not 42), for big or close-up shapes. */
+  /** Pulls the two halves (x < 0, x > 0) this far apart along u: a capsule, not an ellipsoid. */
+  stretch?: number;
+  /** A rounder sphere (162 vertices, not 42), for big or close-up shapes. */
   fine?: boolean;
   /** Shape the unit sphere point before scaling (a pear, a dome): returns its radius scale. */
   shape?: (x: number, y: number, z: number) => number;
@@ -148,7 +129,7 @@ export function writeBlob(
     const y = pos[i + 1];
     const z = pos[i + 2];
     const lump = (1 + look.lump * Math.sin(2.7 * x + 1.9 * z + sd) * Math.cos(2.3 * y + sd * 0.3)) * (look.shape ? look.shape(x, y, z) : 1);
-    const a = x * ru * lump;
+    const a = x * ru * lump + Math.sign(x) * (look.stretch ?? 0);
     const b = y * rv * lump;
     dot(p, u + a * c - b * sn, v + a * sn + b * c, d + z * rd * lump, 0, 1, 0, look.face, look.hex(x, y, z), look.mul ? look.mul(x, y, z) : 1, look.code);
   }
@@ -174,49 +155,88 @@ export function leanNormals(p: Pen, first: number, face: number): void {
  * A tube through plane points (u[i], v[i], d[i]) with radius r[i], `sides` round: roots, stalks,
  * legs, the snail's whorl. `hex(i, a)` colours point i at angle a round it (a = PI/2 faces the camera
  * for a tube in the plane), lit from above by `up` (brighter on top, darker below); the parameter
- * of its kind code runs 0..1 along it.
+ * of its kind code runs 0..1 along it. With `sharp`, each bend gets three rings (square to the way
+ * in, the bisector, square to the way out), so the tube's outline is its capsules' to within a
+ * few thousandths: straight sides meeting in the crease inside a bend, round outside it.
  */
 export function writeTube(
   p: Pen, u: readonly number[], v: readonly number[], d: readonly number[], r: readonly number[],
-  hex: (i: number, a: number) => string | THREE.Color, kind: number, sides: number, face: number, up = 0,
+  hex: (i: number, a: number) => string | THREE.Color, kind: number, sides: number, face: number, up = 0, sharp = false,
 ): void {
-  const s = p.s;
   const w = p.w;
   const first = w.vertexCount;
   const n = u.length;
+  let rows = 0;
   for (let i = 0; i < n; i++) {
-    const a = Math.max(0, i - 1);
-    const b = Math.min(n - 1, i + 1);
-    // Tangent in (u, v, d) and a frame round it: `side` across it in the plane where it can be.
-    let tu = u[b] - u[a];
-    let tv = v[b] - v[a];
-    let td = d[b] - d[a];
-    const tl = Math.hypot(tu, tv, td) || 1;
-    tu /= tl; tv /= tl; td /= tl;
-    // side = t x (0, 0, 1) in (u, v, d), or t x (0, 1, 0) for a tube pointing at the camera.
-    let su = tv;
-    let sv = -tu;
-    let sd = 0;
-    if (Math.hypot(su, sv) < 0.2) { su = -td; sv = 0; sd = tu; }
-    const sl = Math.hypot(su, sv, sd) || 1;
-    su /= sl; sv /= sl; sd /= sl;
-    // out = side x t
-    const ou = sv * td - sd * tv;
-    const ov = sd * tu - su * td;
-    const od = su * tv - sv * tu;
-    for (let k = 0; k <= sides; k++) {
-      const ang = (k / sides) * TAU;
-      const cs = Math.cos(ang);
-      const sn = Math.sin(ang);
-      const nu = su * cs + ou * sn;
-      const nv = sv * cs + ov * sn;
-      const nd = sd * cs + od * sn;
-      dot(
-        p, u[i] + nu * r[i], v[i] + nv * r[i], d[i] + nd * r[i],
-        s.tx * nu + s.nx * nd, nv, s.tz * nu + s.nz * nd, face,
-        hex(i, ang), Math.max(0.3, 1 + up * nv), kind + Math.min(0.99, i / Math.max(1, n - 1)),
-      );
+    if (sharp && i > 0 && i < n - 1) {
+      ring(p, u, v, d, r, i, i - 1, i, hex, kind, sides, face, up, true);
+      ring(p, u, v, d, r, i, i - 1, i + 1, hex, kind, sides, face, up, true);
+      ring(p, u, v, d, r, i, i, i + 1, hex, kind, sides, face, up, true);
+      rows += 3;
+    } else {
+      ring(p, u, v, d, r, i, Math.max(0, i - 1), Math.min(n - 1, i + 1), hex, kind, sides, face, up);
+      rows++;
     }
   }
-  w.grid(first, n, sides + 1, p.mirror);
+  w.grid(first, rows, sides + 1, p.mirror);
+}
+
+/** One ring of writeTube round point i, square to the way from point a to point b. */
+function ring(
+  p: Pen, u: readonly number[], v: readonly number[], d: readonly number[], r: readonly number[], i: number, a: number, b: number,
+  hex: (i: number, a: number) => string | THREE.Color, kind: number, sides: number, face: number, up: number,
+  joint = false,
+): void {
+  const s = p.s;
+  const n = u.length;
+  // At a bend in the plane, the half of the ring inside it sits on the crease where the two
+  // segments' surfaces meet (the same for all three of the bend's rings, so they never fold over).
+  let iu = 0;
+  let iv = 0;
+  let miter = 0;
+  if (joint && d[i - 1] === d[i] && d[i + 1] === d[i]) {
+    const l1 = Math.hypot(u[i] - u[i - 1], v[i] - v[i - 1]) || 1;
+    const l2 = Math.hypot(u[i + 1] - u[i], v[i + 1] - v[i]) || 1;
+    const au = (u[i] - u[i - 1]) / l1;
+    const av = (v[i] - v[i - 1]) / l1;
+    const bu = (u[i + 1] - u[i]) / l2;
+    const bv = (v[i + 1] - v[i]) / l2;
+    const half = Math.hypot(au + bu, av + bv) / 2;
+    const il = Math.hypot(bu - au, bv - av);
+    if (il > 1e-6 && half > 0.2) { iu = (bu - au) / il; iv = (bv - av) / il; miter = 1 / half; }
+  }
+  // Tangent in (u, v, d) and a frame round it: `side` across it in the plane where it can be.
+  let tu = u[b] - u[a];
+  let tv = v[b] - v[a];
+  let td = d[b] - d[a];
+  const tl = Math.hypot(tu, tv, td) || 1;
+  tu /= tl; tv /= tl; td /= tl;
+  // side = t x (0, 0, 1) in (u, v, d), or t x (0, 1, 0) for a tube pointing at the camera.
+  let su = tv;
+  let sv = -tu;
+  let sd = 0;
+  if (Math.hypot(su, sv) < 0.2) { su = -td; sv = 0; sd = tu; }
+  const sl = Math.hypot(su, sv, sd) || 1;
+  su /= sl; sv /= sl; sd /= sl;
+  // out = side x t
+  const ou = sv * td - sd * tv;
+  const ov = sd * tu - su * td;
+  const od = su * tv - sv * tu;
+  for (let k = 0; k <= sides; k++) {
+    const ang = (k / sides) * TAU;
+    const cs = Math.cos(ang);
+    const sn = Math.sin(ang);
+    const nu = su * cs + ou * sn;
+    const nv = sv * cs + ov * sn;
+    const nd = sd * cs + od * sn;
+    // How far this vertex lies toward the inside of the bend (in the plane).
+    const inward = (su * iu + sv * iv) * cs;
+    const pu = miter && inward > 0 ? iu * Math.abs(cs) * miter : nu;
+    const pv = miter && inward > 0 ? iv * Math.abs(cs) * miter : nv;
+    dot(
+      p, u[i] + pu * r[i], v[i] + pv * r[i], d[i] + nd * r[i],
+      s.tx * nu + s.nx * nd, nv, s.tz * nu + s.nz * nd, face,
+      hex(i, ang), Math.max(0.3, 1 + up * nv), kind + Math.min(0.99, i / Math.max(1, n - 1)),
+    );
+  }
 }

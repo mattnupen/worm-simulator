@@ -5,6 +5,7 @@ import { GRID_H, GRID_W, SOLID_ROOT, SOLID_STONE, cellU, cellV, colOf, rowOf, ty
 import { dampen } from './soilGridEdit';
 import { logSection, rockSection } from './sections';
 import { ENTRY_DEPTH, ENTRY_HI, ENTRY_LO, placeRoots } from './solidRoots';
+import { placeHints } from './solidHints';
 import {
   addCap, blockerDepth, capDepth, sectionDepth, BLOCKER_GAP, CAP_STRIDE, MAX_SECTIONS, STONE_STRIDE,
   type SolidHit, type Solids,
@@ -12,18 +13,20 @@ import {
 
 /**
  * What blocks the worm in a slab (V2 spec 5.2): stones in the mineral soil, big roots from the
- * nearest trunk (solidRoots.ts), and the cut-through parts of surface rocks and the log
+ * nearest trunk and small roots cut across (solidRoots.ts), the snail shell and beetle hints
+ * (solidHints.ts), and the cut-through parts of surface rocks and the log
  * (sections.ts). Fine roots are only drawn: the worm passes through them. The worm slides along
  * blockers: collide-and-slide on circles, tapering capsules and the sections' convex outlines
  * (solidShapes.ts), as V1's props. Pure, deterministic per slab seed; fills preallocated arrays.
  * Placing and marking run once per dig.
  */
 export {
-  createSolids, pushOutSolids, solidDepth, BLOCKER_GAP, MAX_ROOT_SEGS, MAX_SECTIONS, MAX_STONES, ROOT_STRIDE,
-  STONE_STRIDE, type SolidHit, type Solids,
+  createSolids, pushOutSolids, solidDepth, BLOCKER_GAP, DOT_STRIDE, MAX_ROOT_DOTS, MAX_ROOT_SEGS, MAX_SECTIONS, MAX_STONES,
+  ROOT_STRIDE, STONE_STRIDE, type SolidHit, type Solids,
 } from './solidShapes';
-export { ENTRY_DEPTH, ENTRY_HI, ENTRY_LO, ROOT_REACH } from './solidRoots';
+export { ENTRY_DEPTH, ENTRY_HI, ENTRY_LO, ROOT_REACH, ROOT_TIP } from './solidRoots';
 export { rockReach, type LogCut, type Section } from './sections';
+export type { Hints } from './solidHints';
 
 const hit: SolidHit = { nu: 0, nv: 0 };
 
@@ -41,6 +44,7 @@ export function placeSolids(s: Slab, o: Solids): Solids {
   o.stoneCount = 0;
   o.rootCount = 0;
   o.capCount = 0;
+  o.dotCount = 0;
   o.sectionCount = 0;
   o.slab = s;
   const rand = mulberry32(s.seed ^ 0x5f3759df);
@@ -49,6 +53,7 @@ export function placeSolids(s: Slab, o: Solids): Solids {
     if (rockSection(s, i, o.sections[o.sectionCount])) o.sectionCount++;
   }
   if (o.sectionCount < MAX_SECTIONS && logSection(s, o.log, o.sections[o.sectionCount])) o.sectionCount++;
+  placeHints(s, o);
   placeRoots(s, o, rand);
   placeStones(s, o, rand);
   return o;
