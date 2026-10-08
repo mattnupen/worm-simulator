@@ -22,6 +22,7 @@ are newcomers that eat it, and the forest floor changes where they arrive.
 | Earthworms come in three groups: worms that live in the leaf litter, worms that live in and eat the topsoil, and deep burrowers. | Great Lakes Worm Watch, *Earthworm Ecological Groups* | Re-check before class |
 | Our worm is a nightcrawler, a deep burrower. Real nightcrawlers dig one burrow that goes straight down, as deep as 2 meters. (The game's hint card says this too.) | Great Lakes Worm Watch, *Earthworm Ecological Groups* | Re-check before class |
 | Nightcrawlers pull fresh leaves down into their burrows, and leave piles of castings and leaf bits (middens) at the opening. | Great Lakes Worm Watch, *Earthworm Ecological Groups* | Re-check before class |
+| A midden is about 5 cm across and 1 to 2 cm high. (The game's middens are this size too.) | Great Lakes Worm Watch, *Earthworm Ecological Groups*: "about 5 cm in diameter and perhaps 1-2 cm high" (checked 2026-10-07) | Re-check before class |
 | People spread nightcrawlers, for example with fishing bait. | Minnesota DNR, *Earthworms* | Re-check before class |
 | Blue-spotted salamanders breathe through moist skin and eat forest-floor insects. | Great Lakes Worm Watch, *Vertebrate Animals* | Re-check before class |
 | Shrews and red-backed voles do best where the forest floor is thick. | Great Lakes Worm Watch, *Vertebrate Animals* | Re-check before class |
@@ -67,6 +68,7 @@ This matches the "V2 · Underground" entry in `CHANGELOG.md`.
   up. You leave a burrow opening with a midden.
 - **Stuck?** Point back along your worm's body to back up through your tunnel.
 - The first time you go underground, a card shows the controls and a nightcrawler fact.
+- Both hint cards end with "Mushrooms and puffballs: look, don't eat."
 - Reduce motion turns the camera swing into a quick fade.
 - How to try it: Start → **Crawl** → find open ground (away from rocks, logs and trees) → **Space**
   or the Action button.
@@ -99,23 +101,37 @@ mites (no source yet). The robin and the mole are separate topics.
 
 ### Next topic (Q7, picks V4)
 Checked against `topics.md` and the roadmap: prerequisites built or being built by V4, sources
-listed, and the game part buildable in about a week. Both ready options go on the form.
+listed, and the game part buildable in about a week. All three ready options go on the form.
 
 | Option (as students read it) | Game part | Needs first | Sources | Ready? |
 |---|---|---|---|---|
 | Skin that senses light: worms have no eyes, but their skin can sense light | Light in a new Worm View; your worm avoids bright sun | Breathing through skin (being built in V3) | Hess, *Photoreceptors in Lumbricus terrestris* (parent spec 5) | Yes |
 | Growing up: the band on an adult worm, and cocoons | The band (clitellum) appears when your worm is full grown; leave cocoons with Action | First bite (being built in V3) | UMN Extension, *Earthworms* (parent spec 5) | Yes |
+| The mole: northern Minnesota's star-nosed mole finds worms with the tentacles on its nose | A mole in the slice that comes, strikes and leaves. Its digging vibrations warn your worm, and you flee up (a game mechanic V4 would build, not a sourced fact) | Underground (built in V2) | Minnesota DNR, *Moles* | Yes |
+
+**The mole's facts** (Minnesota DNR, *Moles*, https://dnr.state.mn.us/mammals/moles.html, checked
+2026-10-08):
+
+| Fact | Source | Status |
+|---|---|---|
+| Star-nosed moles live in wet areas of northern forests. | Minnesota DNR, *Moles* | Re-check before class |
+| The tentacles on a star-nosed mole's nose help it find worms and insects. | Minnesota DNR, *Moles* | Re-check before class |
+| Minnesota's other mole, the eastern mole, lives only in the southeast fourth of the state. Worms are 85 percent of its food, and it eats insects too. | Minnesota DNR, *Moles* | Re-check before class |
+
+- The 85 percent is the eastern mole's diet, not the star-nosed mole's. Don't give it to the
+  star-nosed mole on slides.
+- "Digging vibrations warn your worm" is how V4's game would work. The parent spec lists a
+  ScienceDaily article on worm grunting for it, but it isn't in the research notes and hasn't been
+  checked, so don't state it as a fact unless that source is checked first.
+- The star-nosed mole lives in wet areas, so if the mole wins, V4 should bring it where the ground
+  is wet (V3's Moisture), or label it a game choice.
 
 **Not on this ballot:**
-- **The mole:** its Minnesota diet and range have no source yet (parent spec 5; not in the
-  research notes). If Matt finds one before the form goes out, add it as a third option ("A mole
-  hunts underground. Its digging warns your worm, and you flee up"), and add the source to
-  `topics.md`.
 - **The robin:** same problem (diet and range in Minnesota).
 - **Following your nose:** needs Worm View from "Skin that senses light" first.
 - **Racing the frost:** needs "Growing up" and a source.
 
-So Q7 has two options plus Other, not the usual three.
+So Q7 has the usual three options, plus Other.
 
 ### Ideas from last version (Q8)
 V1's form had the first idea box. When V1's Results are in, group its write-ins into themes, vet
@@ -169,9 +185,10 @@ correct)
 **Q6. Why did you choose your answer to Q5?** (Short answer)
 Help text: Try this starter: "In the slice I noticed ___, and in a real forest ___."
 
-**Q7. What should worms learn to do in V4?** (Multiple choice)
+**Q7. What should V4 be about?** (Multiple choice)
 - Skin that senses light: worms have no eyes, but their skin can sense light
 - Growing up: the band on an adult worm, and cocoons
+- The mole: northern Minnesota's star-nosed mole finds worms with the tentacles on its nose
 - Other: ____
 
 **Q8. Which ideas from last week should we build?** (Checkboxes, pick up to 2; only if V1's
@@ -259,8 +276,9 @@ Screenshots are in `docs/codev/versions/v02-underground/`.
    - Text: "Earthworms come in three groups: litter worms, topsoil worms and deep burrowers. Our
      worm is a nightcrawler, a deep burrower and the classic fishing worm. It digs one burrow
      straight down, as deep as 2 meters, and pulls leaves down into it. At the top it leaves a
-     pile of castings and leaf bits called a midden. People spread nightcrawlers, for example with
-     fishing bait. Game choice: in the game you can dig any way you like."
+     pile of castings and leaf bits called a midden, about 5 cm across and 1 to 2 cm high. People
+     spread nightcrawlers, for example with fishing bait. Game choice: in the game you can dig any
+     way you like."
    - Image idea: `v02-underground/tunnels.jpg`.
    - Alt text: "The worm's tunnels drawn as dark brown paths looping down through the layers. The
      worm is in the topsoil."
@@ -286,9 +304,12 @@ Screenshots are in `docs/codev/versions/v02-underground/`.
 
 9. **Your vote: what forest-floor life comes next?**
    - Text: "Blue-spotted salamander. Fungi at work. Small hunters and helpers (snails, spiders,
-     beetles). Shrews and red-backed voles. The winner comes alive in V3. And pick what worms
-     learn in V4: skin that senses light, or growing up."
+     beetles). Shrews and red-backed voles. The winner comes alive in V3. And pick what V4 is
+     about: skin that senses light, growing up, or the mole. Northern Minnesota's mole is the
+     star-nosed mole. It lives in wet parts of northern forests and finds worms with the
+     tentacles on its nose."
    - Image idea: none, or `life.jpg` again.
+   - Source footer: "Source for the mole: Minnesota DNR, Moles."
 
 10. **Now fill out the form**
     - Text: "The form is in Canvas. It takes about 10 minutes. Tell us what you noticed. Your
@@ -305,7 +326,7 @@ Screenshots are in `docs/codev/versions/v02-underground/`.
 > 3. Fill out the form: [FORM LINK]
 >
 > **Due: Thursday, October 15, at night.** Your votes decide which forest-floor life we add in V3,
-> and what worms learn in V4.
+> and what V4 is about.
 
 ---
 
@@ -332,14 +353,16 @@ Screenshots are in `docs/codev/versions/v02-underground/`.
 ## Note for Matt (not for students)
 - **Before class:** re-check every fact row against its source page, and find a published source
   for the mushrooms-and-puffballs row or leave it off the slides.
-- **Fungi:** the parent spec (section 5) says any fungus shown carries "Look, don't eat." The game
-  shows a puffball in the slice (and V1's mushrooms) without that line, so slide 4 says it.
+- **Fungi:** the parent spec (section 5) says any fungus shown carries "Look, don't eat." Both hint
+  cards now end with "Mushrooms and puffballs: look, don't eat." (the crawl card on the surface,
+  and the first card underground), and slide 4 says it too.
 - **Known limits students may notice** (spec section 14.4):
   - Close is only a little closer than Wide on phones.
   - About 4 in 10 digs turn the slice a little (up to 80°) to miss tree trunks.
   - Come up only shows where your worm has room to lie on the forest floor.
   - The leaves round the worm on the surface are a little sparser than in your photos.
   - Q9's first four checkboxes are there to catch these.
-- **Q7 has two options**, because the mole and the robin still need Minnesota diet and range
-  sources. Update `topics.md` statuses ("on ballot") when the form goes out.
+- **Q7 has three options.** The mole's source (Minnesota DNR, *Moles*) was found on 2026-10-08,
+  so it is the third. The robin still needs a Minnesota diet and range source. The mole is marked
+  "on ballot (V2)" in `topics.md`; mark the other two "on ballot" when the form goes out.
 - **Version name:** "Underground" is one word, which `CLAUDE.md` allows when Matt picks it.

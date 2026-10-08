@@ -621,9 +621,13 @@ Gates are relative to a Step 0 build run side by side (`node scripts/perf-gates.
    keep it as a game choice?
 6. **Reduced motion:** a dip through dark soil, not a true cross-fade. OK?
 7. **Surface Ultra** passes by 0.004. Accept, or trim Ultra further before release?
-8. **Fungi:** the parent spec (section 5) says any fungus shown carries "Look, don't eat." V2
-   shows a puffball in the cut (and V1's mushrooms on the surface) with no such line. Add a `ui`
-   line in V3, and say it on the slides now?
-9. **The mole** needs a source for its Minnesota diet and range before it can go on the V4 topic
-   ballot, so V2's topic vote has two options (version doc).
+8. **Fungi:** done in V2 (2026-10-08). The parent spec (section 5) says any fungus shown carries
+   "Look, don't eat." The `ui` line `TEXT.lookDontEat` ("Mushrooms and puffballs: look, don't
+   eat.") is the last line of both hint cards: the crawl card on the surface (V1's mushrooms and
+   puffballs) and the first visit's card underground (the puffball in the cut), keyboard and touch.
+   Slide 4 says it too. On a 360 × 640 phone the underground card stays within about 35% of the
+   screen (tighter line spacing and padding there, text still 18 px).
+9. **The mole:** done (2026-10-08). Minnesota DNR, *Moles*, gives its range and diet (northern
+   Minnesota's mole is the star-nosed mole), so it is the third option in V2's topic vote for V4
+   (version doc).
 10. **Pocket density and jitter** (14.4): tune in Plan C, or leave?

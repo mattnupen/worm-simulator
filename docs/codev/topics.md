@@ -26,7 +26,7 @@ Status values: `pool` (can go on a ballot) · `needs source` · `blocked` (prere
 | Worms change the forest | Less leaf litter; fewer trillium, ferns and ground-nesting birds; more sedge | Forest change screen and neighbours (driven by how much the worm ate and dug) | First bite; Underground | UMN global invasion; Great Lakes Now; Lawrence et al. 2003 | chosen (V8, Matt's finale); needs source (sedge increase) |
 | Three kinds of worms (Underground) | Litter, topsoil and deep-burrowing groups; the topsoil worm eats soil | Side-view cross-section reached by digging down from the forest floor: free dig, tunnels, castings (first slice) | none | Great Lakes Worm Watch; UMN Extension | chosen (V2) |
 | Down the burrow | Worms move between the leaf litter and the soil | Dig down from the forest floor into the cross-section and back | none | Great Lakes Worm Watch | chosen (V2, with Underground) |
-| The mole | Moles hunt worms underground; digging vibrations drive worms up | Mole warn → strike → leave in the cross-section | Underground | ScienceDaily (worm grunting) | needs source (mole diet and range in MN) |
+| The mole | Northern Minnesota's star-nosed mole lives in wet areas of northern forests and finds worms with the tentacles on its nose; in the game, its digging vibrations warn the worm, which flees up | Mole warn → strike → leave in the cross-section | Underground | MN DNR, *Moles* (range and diet, found 2026-10-08); ScienceDaily (worm grunting, unchecked) | on ballot (V2) |
 | Jumping worms | The newest invader | Chapter 4 (later) | Three kinds of worms | UMN Jumping Worm handbook | blocked |
 
 Add vetted student topic ideas here as new rows, and credit the class period in the version doc.
