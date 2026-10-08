@@ -1,53 +1,55 @@
 import type { Camera } from 'three';
-import { TEXT, shown } from '../content/text';
+import { TEXT, shown, type Line } from '../content/text';
 import type { Slab } from './slab';
 import { LAYER_LABEL_KEYS } from './layers';
-import {
-  LABEL_COUNT, createEndPoints, createEndPixels, projectEnd, namesShown, layoutEnd, writeChanged,
-  type EndPoints, type EndPixels, type PixelSink,
-} from './labelLayout';
+import { LABEL_COUNT, createEndPixels, writeChanged, type EndPixels, type PixelSink } from './labelLayout';
+import { createLabelFrame, clearLabelFrame, layoutLabels, type LabelEnd } from './labelFrame';
 
 /**
  * The layer names (V2 spec 5.3, 11.2): Leaf litter, Old leaves, Humus, Topsoil, Subsoil, always
- * shown at the two far ends of the playable slab only (nothing in the middle), each beside a small
- * tick line at its layer's top. Real DOM text (18 px bold ink on parchment, well over 7:1:
- * underground.css) over the canvas, below the HUD, never focusable. Placed each frame
- * (labelLayout.ts), but a style is written only when a whole-pixel position changes, so a still
- * camera writes nothing. Each name hides on its own once its point of the end leaves the screen,
- * and is held on screen where the world's edge leaves the end too little room. Screen readers get
- * one end's names as a list ("Soil layers"); the other end repeats them, so it is hidden from them
- * while the first shows all five. The ticks are decoration.
+ * shown, only at the slab's ends (never in the middle of the screen), each beside a small tick
+ * line at its layer's top. The end nearer the head always shows all five, docked at the screen's
+ * edge while the end is off screen; the far end's show where it is on screen (labelFrame.ts).
+ * Real DOM text (18 px bold ink on parchment, well over 7:1: underground.css) over the canvas,
+ * below the HUD and clear of its controls, never focusable. Placed each frame, but a style is
+ * written only when a whole-pixel position changes, so a still camera writes nothing. Screen
+ * readers get the near end's five names as one list; the far end's repeat them, so they are
+ * hidden from them. The ticks are decoration.
  */
 export interface LayerLabels {
   /**
    * Places the labels for this frame's camera on a `width` x `height` screen, or hides them (`s`
-   * null or `show` false). Allocates nothing unless a position changes.
+   * null or `show` false). `headU`: the worm's head along the cut (the nearer end shows all its
+   * names); without it, the middle of the camera's frame. Allocates nothing unless a position changes.
    */
-  update(camera: Camera, s: Slab | null, show: boolean, width: number, height: number): void;
+  update(camera: Camera, s: Slab | null, show: boolean, width: number, height: number, headU?: number): void;
 }
+
+/** The controls the names keep clear of (hud.css), read from the page. */
+const CONTROLS = ['.joystick', '.action-prompt', '.pause-btn'] as const;
+/** The controls are read again this often (frames): the Action prompt's word changes its width. */
+const RECHECK = 60;
+/** The list's name for screen readers (TEXT.layerListLabel, once content/text.ts has it). */
+const LIST_LABEL: Line | undefined = (TEXT as Readonly<Record<string, Line | undefined>>)['layerListLabel'];
 
 interface End {
   readonly box: HTMLDivElement;
   readonly labels: HTMLSpanElement[];
   readonly ticks: HTMLSpanElement[];
-  /** Each label's width in pixels, measured once it is first laid out (0: not yet). */
-  readonly widths: Float64Array;
-  readonly pts: EndPoints;
-  /** Positions on the page now, and this frame's. */
+  /** Positions on the page now. */
   readonly last: EndPixels;
-  readonly next: EndPixels;
   readonly sink: PixelSink;
-  /** Which names show (each by its own point of the end: labelLayout.ts namesShown), and how many. */
-  readonly on: Uint8Array;
-  count: number;
   shown: boolean;
+  /** The near end (the one screen readers hear), as last written. */
+  heard: boolean;
 }
 
 function makeEnd(root: HTMLElement): End {
   const box = document.createElement('div');
   box.className = 'cut-labels';
   box.setAttribute('role', 'list');
-  box.setAttribute('aria-label', 'Soil layers');
+  if (LIST_LABEL) box.setAttribute('aria-label', shown(LIST_LABEL));
+  box.setAttribute('aria-hidden', 'true');
   box.hidden = true;
   const labels: HTMLSpanElement[] = [];
   const ticks: HTMLSpanElement[] = [];
@@ -68,8 +70,7 @@ function makeEnd(root: HTMLElement): End {
   box.append(...labels, ...ticks);
   root.appendChild(box);
   return {
-    box, labels, ticks, widths: new Float64Array(LABEL_COUNT), pts: createEndPoints(),
-    last: createEndPixels(), next: createEndPixels(), on: new Uint8Array(LABEL_COUNT), count: 0, shown: false,
+    box, labels, ticks, last: createEndPixels(), shown: false, heard: false,
     sink: {
       label: (k, x, y) => { labels[k].style.transform = `translate(${x}px, ${y}px) translateY(-50%)`; },
       tick: (k, x, y) => { ticks[k].style.transform = `translate(${x}px, ${y}px)`; },
@@ -83,57 +84,90 @@ function setShown(e: End, on: boolean): void {
   e.box.hidden = !on;
 }
 
-/** Shows the names whose point of the end is on screen; the set shows while any does. */
-function showNames(e: End, width: number): void {
-  e.count = namesShown(e.pts, width, e.on);
-  setShown(e, e.count > 0);
+/** Shows this frame's names (the set while any shows), and lets screen readers hear the near end. */
+function showNames(e: End, f: LabelEnd): void {
+  setShown(e, f.count > 0);
   for (let k = 0; k < LABEL_COUNT; k++) {
-    const hide = e.on[k] === 0;
+    const hide = f.on[k] === 0;
     if (e.labels[k].hidden !== hide) e.labels[k].hidden = e.ticks[k].hidden = hide;
+  }
+  if (e.heard !== f.near) {
+    e.heard = f.near;
+    if (f.near) e.box.removeAttribute('aria-hidden');
+    else e.box.setAttribute('aria-hidden', 'true');
   }
 }
 
-/** Reads each label's width once it renders (a layout read only until all are known). */
-function measure(e: End): void {
-  for (let k = 0; k < LABEL_COUNT; k++) if (e.widths[k] === 0) e.widths[k] = e.labels[k].offsetWidth;
-}
-
-function place(e: End, right: boolean, width: number): void {
-  if (!e.shown) return;
-  measure(e);
-  writeChanged(e.last, layoutEnd(e.pts, right, e.widths, width, e.next), e.sink);
+/** Reads the widths of shown labels not yet measured (a layout read only until each is known). */
+function measure(e: End, f: LabelEnd): boolean {
+  let got = false;
+  for (let k = 0; k < LABEL_COUNT; k++) {
+    if (f.widths[k] !== 0 || f.on[k] === 0) continue;
+    f.widths[k] = e.labels[k].offsetWidth;
+    got ||= f.widths[k] > 0;
+  }
+  return got;
 }
 
 export function createLayerLabels(root: HTMLElement): LayerLabels {
   const lo = makeEnd(root);
   const hi = makeEnd(root);
-  let hiSilent = false;
+  const frame = createLabelFrame();
+  /** Each control's last seen rectangle (kept while it is hidden: it comes back in the same place). */
+  const seen = new Float64Array(CONTROLS.length * 4);
+  let seenW = -1;
+  let seenH = -1;
+  let frames = 0;
+  let showing = false;
+
+  function readControls(width: number, height: number): void {
+    if (width !== seenW || height !== seenH) {
+      seen.fill(0);
+      seenW = width;
+      seenH = height;
+    }
+    let n = 0;
+    for (let i = 0; i < CONTROLS.length; i++) {
+      const el = root.querySelector(CONTROLS[i]);
+      const r = el?.getBoundingClientRect();
+      if (r && r.width > 0 && r.height > 0) {
+        seen[i * 4] = r.left; seen[i * 4 + 1] = r.top; seen[i * 4 + 2] = r.right; seen[i * 4 + 3] = r.bottom;
+      }
+      if (seen[i * 4 + 2] > seen[i * 4]) {
+        for (let j = 0; j < 4; j++) frame.rects[n * 4 + j] = seen[i * 4 + j];
+        n++;
+      }
+    }
+    frame.rectCount = n;
+  }
+
   return {
-    update(camera, s, show, width, height) {
+    update(camera, s, show, width, height, headU) {
       if (!s || !show) {
-        // Hidden names start afresh (each shows again only once it is on screen).
-        lo.on.fill(0);
-        hi.on.fill(0);
-        setShown(lo, false);
-        setShown(hi, false);
+        if (showing) {
+          showing = false;
+          clearLabelFrame(frame);
+          setShown(lo, false);
+          setShown(hi, false);
+        }
         return;
       }
       camera.updateMatrixWorld();
-      projectEnd(camera, s, s.playLo, width, height, lo.pts);
-      projectEnd(camera, s, s.playHi, width, height, hi.pts);
-      showNames(lo, width);
-      showNames(hi, width);
-      // Screen readers hear one full set of names: the high end's repeats the low end's.
-      const silent = lo.count === LABEL_COUNT;
-      if (hiSilent !== silent) {
-        hiSilent = silent;
-        if (hiSilent) hi.box.setAttribute('aria-hidden', 'true');
-        else hi.box.removeAttribute('aria-hidden');
+      if (!showing || width !== seenW || height !== seenH || ++frames >= RECHECK) {
+        frames = 0;
+        readControls(width, height);
       }
-      // Whichever end is on the screen's right hangs its names to its right.
-      const hiRight = !(hi.pts.tx[0] < lo.pts.tx[0]);
-      place(lo, !hiRight, width);
-      place(hi, hiRight, width);
+      showing = true;
+      const e = camera.matrixWorld.elements;
+      const hu = headU ?? (e[12] - s.ox) * s.tx + (e[14] - s.oz) * s.tz;
+      layoutLabels(frame, camera, s, hu, width, height);
+      showNames(lo, frame.lo);
+      showNames(hi, frame.hi);
+      // Newly shown labels: measured once, then laid out again with their real widths.
+      const newLo = measure(lo, frame.lo);
+      if (measure(hi, frame.hi) || newLo) layoutLabels(frame, camera, s, hu, width, height);
+      if (lo.shown) writeChanged(lo.last, frame.lo.px, lo.sink);
+      if (hi.shown) writeChanged(hi.last, frame.hi.px, hi.sink);
     },
   };
 }

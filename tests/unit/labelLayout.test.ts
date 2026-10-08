@@ -2,9 +2,12 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
   LABEL_COUNT, LABEL_GAP, LABEL_SIDE, SCREEN_EDGE, TICK_W, HIDE_PAD,
-  createEndPoints, createEndPixels, projectPoint, px, projectEnd, pushApart, endShows, namesShown, layoutEnd, writeChanged,
-  type EndPoints, type PixelSink,
+  CONTROL_GAP, CONTROL_RAMP,
+  createEndPoints, createEndPixels, projectPoint, px, projectEnd, endShows, namesShown, layoutEnd, writeChanged,
+  fitColumn, type EndPoints, type PixelSink,
 } from '../../src/underground/labelLayout';
+import { createLabelFrame, layoutLabels, NEAR_SWITCH, type LabelFrame } from '../../src/underground/labelFrame';
+import { screenOnCut } from './cutWorld';
 import { createSlab, boundaryAt, slabX, slabZ, B_TOP, B_E } from '../../src/underground/slab';
 import { frameTarget, cutPose, FOV_DEG, type CutFrame, type CutPose } from '../../src/underground/cutCamera';
 
@@ -67,12 +70,18 @@ describe('layer names on screen (spec 5.3)', () => {
   });
 
   it('pushes thin layers apart top to bottom, and leaves spaced ones alone', () => {
+    const lx = new Float64Array(LABEL_COUNT).fill(600);
+    const w = [100, 100, 100, 100, 100];
     const ys = new Float64Array([100, 110, 115, 300, 305]);
-    pushApart(ys, LABEL_GAP);
+    fitColumn(ys, lx, w, new Float64Array(0), 0, 768);
     expect([...ys]).toEqual([100, 130, 160, 300, 330]);
-    const apart = new Float64Array([10, 60, 200, 260, 400]);
-    pushApart(apart, LABEL_GAP);
-    expect([...apart]).toEqual([10, 60, 200, 260, 400]);
+    const apart = new Float64Array([30, 60, 200, 260, 400]);
+    fitColumn(apart, lx, w, new Float64Array(0), 0, 768);
+    expect([...apart]).toEqual([30, 60, 200, 260, 400]);
+    // Off the screen's top or bottom: held on it, still apart.
+    const off = new Float64Array([-80, -40, 300, 900, 1000]);
+    fitColumn(off, lx, w, new Float64Array(0), 0, 768);
+    expect([...off]).toEqual([21, 51, 300, 717, 747]);
   });
 
   it('lays out in whole pixels: names hang outward, ticks sit on the end', () => {
@@ -176,5 +185,136 @@ describe('layer names on screen (spec 5.3)', () => {
     expect(writeChanged(last, layoutEnd(points(mx, moved), true, widths, 1366, next), sink)).toBe(2);
     expect(sink.labels).toBe(LABEL_COUNT + 1);
     expect(sink.ticks).toBe(LABEL_COUNT + 1);
+  });
+});
+
+describe('the nearer end always names its layers (answer 11.2)', () => {
+  const WIDTHS = [102, 109, 81, 81, 84];
+  /** The controls as hud.css places them on a w x h screen: joystick, Action prompt, Pause. */
+  function controls(w: number, h: number): Float64Array {
+    const narrow = w <= 560;
+    const prompt = narrow ? [w - 16 - 120, h - 16 - 110, w - 16, h - 16] : [w - 24 - 240, h - 24 - 72, w - 24, h - 24];
+    return new Float64Array([24, h - 164, 164, h - 24, ...prompt, w - 12 - 141, 12, w - 12, 72]);
+  }
+  function frameFor(w: number, h: number): LabelFrame {
+    const f = createLabelFrame();
+    f.rects.set(controls(w, h));
+    f.rectCount = 3;
+    f.lo.widths.set(WIDTHS);
+    f.hi.widths.set(WIDTHS);
+    return f;
+  }
+
+  it('at the entry in Wide, the nearer end docks at the screen edge, each name beside its layer there', () => {
+    const s = createSlab(0, 0, 0.3, 1, 9);
+    const f = frameFor(1366, 768);
+    const cam = wideCam(s, 0.1, boundaryAt(s, B_TOP, 0.1) - 0.6, 1366, 768);
+    layoutLabels(f, cam, s, 0.1, 1366, 768);
+    const near = f.nearHi === 1 ? f.hi : f.lo;
+    expect(near.count).toBe(LABEL_COUNT);
+    // Both ends are off screen at the entry: the near end's names sit at its side's edge.
+    const edge = near.right ? 1366 : 0;
+    const pose: CutPose = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0, near: 0 };
+    const fr: CutFrame = { cu: 0, cv: 0, h: 0, pitch: 0 };
+    frameTarget('wide', s, 0.1, boundaryAt(s, B_TOP, 0.1) - 0.6, 1, 0, 1366 / 768, fr);
+    cutPose(s, fr.cu, fr.cv, fr.h, fr.pitch, pose);
+    for (let k = 0; k < LABEL_COUNT; k++) {
+      expect(near.pts.tx[k]).toBe(edge);
+      // The docked tick lies on its layer's top where the screen's edge meets the cut.
+      const at = screenOnCut(pose, s, 1366 / 768, edge / 683 - 1, 1 - near.pts.ty[k] / 384);
+      expect(at.v).toBeCloseTo(boundaryAt(s, k, at.u), 2);
+      expect(near.px.tx[k]).toBe(near.right ? 1366 - TICK_W : 0);
+      expect(near.px.lx[k]).toBe(near.right ? 1366 - SCREEN_EDGE - WIDTHS[k] : SCREEN_EDGE);
+    }
+    // The far end is off screen: its names hide.
+    expect((f.nearHi === 1 ? f.lo : f.hi).count).toBe(0);
+  });
+
+  for (const [w, h] of [[1366, 768], [1366, 640], [640, 360], [360, 640]] as const) {
+    it(`a sweep along the slab at ${w} x ${h}: names never flicker, jump, leave the screen or cover a control`, () => {
+      for (const [x, z, heading] of [[0, 0, 0.3], [12, 14, 0.8], [-6, 3, 2.2]] as const) {
+        const s = createSlab(x, z, heading, 1, 9);
+        const f = frameFor(w, h);
+        const rects = controls(w, h);
+        const steps = 300;
+        for (const dir of [1, -1]) {
+          const toggles = new Uint8Array(2 * LABEL_COUNT);
+          const was = new Uint8Array(2 * LABEL_COUNT).fill(255);
+          const prevY = new Float64Array(2 * LABEL_COUNT).fill(NaN);
+          let switches = 0;
+          let near = -1;
+          for (let i = 0; i <= steps; i++) {
+            const t = dir > 0 ? i / steps : 1 - i / steps;
+            const hu = s.playLo + 0.2 + (s.playHi - s.playLo - 0.4) * t;
+            const cam = wideCam(s, hu, boundaryAt(s, B_TOP, hu) - 0.6, w, h);
+            layoutLabels(f, cam, s, hu, w, h);
+            if (near >= 0 && f.nearHi !== near) switches++;
+            near = f.nearHi;
+            ([f.lo, f.hi] as const).forEach((e, j) => {
+              if (e.near) expect(e.count).toBe(LABEL_COUNT);
+              for (let k = 0; k < LABEL_COUNT; k++) {
+                const q = j * LABEL_COUNT + k;
+                if (was[q] !== 255 && was[q] !== e.on[k]) toggles[q]++;
+                was[q] = e.on[k];
+                if (!e.on[k]) { prevY[q] = NaN; continue; }
+                const lx = e.px.lx[k];
+                const ly = e.px.ly[k];
+                expect(lx).toBeGreaterThanOrEqual(SCREEN_EDGE - 0.5);
+                expect(lx + WIDTHS[k]).toBeLessThanOrEqual(w - SCREEN_EDGE + 0.5);
+                for (let r = 0; r < 3; r++) {
+                  const apart = lx + WIDTHS[k] <= rects[r * 4] || lx >= rects[r * 4 + 2]
+                    || ly + LABEL_GAP / 2 <= rects[r * 4 + 1] || ly - LABEL_GAP / 2 >= rects[r * 4 + 3];
+                  expect(apart, `name ${k} over control ${r} at u ${hu.toFixed(2)}`).toBe(true);
+                }
+                // A shown name moves smoothly with the camera (no jump on docking).
+                if (!Number.isNaN(prevY[q])) expect(Math.abs(ly - prevY[q])).toBeLessThan(40);
+                prevY[q] = ly;
+              }
+            });
+          }
+          for (const n of toggles) expect(n).toBeLessThanOrEqual(1);
+          expect(switches).toBeLessThanOrEqual(1);
+        }
+      }
+    });
+  }
+
+  it('the nearer end changes only past the middle by NEAR_SWITCH (no back and forth near it)', () => {
+    const s = createSlab(0, 0, 0.3, 1, 9);
+    const f = frameFor(1366, 768);
+    const mid = (s.playLo + s.playHi) / 2;
+    const cam = wideCam(s, 0, boundaryAt(s, B_TOP, 0) - 0.6, 1366, 768);
+    layoutLabels(f, cam, s, mid + 0.1, 1366, 768);
+    expect(f.nearHi).toBe(1);
+    for (const d of [-0.3, 0.2, -0.45, 0.4]) {
+      layoutLabels(f, cam, s, mid + d, 1366, 768);
+      expect(f.nearHi).toBe(1);
+    }
+    layoutLabels(f, cam, s, mid - NEAR_SWITCH - 0.01, 1366, 768);
+    expect(f.nearHi).toBe(0);
+    layoutLabels(f, cam, s, mid + 0.3, 1366, 768);
+    expect(f.nearHi).toBe(0);
+  });
+
+  it('slides labels past a control vertically (below Pause, above the joystick), easing in beside it', () => {
+    // Pause top right, the joystick bottom left, on 640 x 360.
+    const rects = new Float64Array([487, 12, 628, 72, 24, 190, 170, 336]);
+    const w = [102, 109, 81, 81, 84];
+    const right = new Float64Array([532, 525, 553, 553, 550]);
+    const ys = new Float64Array([60, 100, 140, 170, 200]);
+    fitColumn(ys, right, w, rects, 2, 360);
+    expect(ys[0]).toBe(72 + CONTROL_GAP + LABEL_GAP / 2);
+    expect(ys[1]).toBe(ys[0] + LABEL_GAP);
+    const left = new Float64Array([6, 6, 6, 6, 6]);
+    const low = new Float64Array([100, 140, 170, 200, 260]);
+    fitColumn(low, left, w, rects, 2, 360);
+    expect(low[4]).toBe(190 - CONTROL_GAP - LABEL_GAP / 2);
+    for (let k = 1; k < LABEL_COUNT; k++) expect(low[k] - low[k - 1]).toBeGreaterThanOrEqual(LABEL_GAP);
+    // A label nearing the joystick sideways is moved part way, and clear of it.
+    const near = new Float64Array([6, 6, 6, 6, 170 + CONTROL_GAP + CONTROL_RAMP / 2]);
+    const part = new Float64Array([100, 140, 170, 200, 260]);
+    fitColumn(part, near, w, rects, 2, 360);
+    expect(part[4]).toBeGreaterThan(190 - CONTROL_GAP - LABEL_GAP / 2);
+    expect(part[4]).toBeLessThan(260);
   });
 });

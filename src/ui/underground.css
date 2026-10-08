@@ -3,8 +3,9 @@
    nothing that flashes. */
 
 /* ---------- Layer names (src/underground/layerLabels.ts) ---------- */
-/* Each label and tick is placed by its own transform (whole pixels, written only when they change).
-   Below the HUD (z-index 0): the Pause button, joystick, Action prompt and card stay on top. */
+/* Each label and tick is placed by its own transform (whole pixels, written only when they change),
+   kept clear of the joystick, Action prompt and Pause button (labelLayout.ts clearControls). Below
+   the HUD (z-index 0) all the same, so the card and controls stay on top. */
 .cut-labels {
   position: fixed; z-index: 0; left: 0; top: 0; width: 0; height: 0; pointer-events: none;
 }
