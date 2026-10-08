@@ -1,0 +1,69 @@
+import { describe, it, expect } from 'vitest';
+import { SPACING, WORM_SEGMENTS } from '../../src/game/crawl';
+import { createBody } from '../../src/worm/body';
+import { canDigAt } from '../../src/underground/digSpot';
+import { mulberry32 } from '../../src/core/random';
+import { B_A } from '../../src/underground/slab';
+import { makeGame, press, run, until } from './burrowPlay';
+import { midOf, run as runWorm, setup } from './burrowWorld';
+
+/** Steps it backed up in (canGetOut). */
+let backed = 0;
+
+/** Holds each of 8 ways for 1.5 s in turn until the head gets 0.25 u from where it was; false when none does. */
+function canGetOut(game: ReturnType<typeof makeGame>['game']): boolean {
+  const w = game.worm;
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2;
+    const u0 = w.u[0];
+    const v0 = w.v[0];
+    run(game, 1.5, { x: Math.cos(a), y: Math.sin(a) }, () => { if (w.backing) backed++; });
+    if (Math.hypot(w.u[0] - u0, w.v[0] - v0) > 0.25) return true;
+  }
+  return false;
+}
+
+describe('the worm is never trapped underground (it backs up out of dead ends)', () => {
+  it('wandering into the top, the ends, rocks and roots, some way always gets it out', () => {
+    let checks = 0;
+    for (const seed of [7, 31]) {
+      const rand = mulberry32(seed);
+      let visits = 0;
+      for (let tries = 0; visits < 12 && tries < 300; tries++) {
+        const x = (rand() - 0.5) * 30;
+        const z = (rand() - 0.5) * 30;
+        const h = rand() * 6.28;
+        if (!canDigAt(x, z, h, createBody(WORM_SEGMENTS, SPACING, { x, y: 0, z }, h))) continue;
+        visits++;
+        const { crawl, game } = makeGame();
+        crawl.reset(crawl.hero.count, createBody(WORM_SEGMENTS, SPACING, { x, y: 0, z }, h), h);
+        run(game, 0.2);
+        press(game);
+        until(game, 'underground');
+        for (let leg = 0; leg < 12; leg++) {
+          // Wander a random way for 2-4 s, often pressing up into the top.
+          const a = rand() * 6.28;
+          run(game, 2 + rand() * 2, { x: Math.cos(a), y: Math.sin(a) * 0.6 + (rand() < 0.4 ? 0.6 : 0) });
+          checks++;
+          expect(canGetOut(game), `seed ${seed} visit ${visits} at u ${game.worm.u[0].toFixed(2)} v ${game.worm.v[0].toFixed(2)}`).toBe(true);
+        }
+      }
+      expect(visits).toBe(12);
+    }
+    expect(checks).toBe(288);
+    // Some ways out were backing up (a dead end the head could not turn round in).
+    expect(backed).toBeGreaterThan(0);
+  });
+
+  it('a U-turn in open soil turns round as before: it never backs up when it can move', () => {
+    const w = setup(0, midOf(B_A));
+    let backed = 0;
+    for (let k = 0; k < 60 * 4; k++) {
+      runWorm(w, -1, 0, 1);
+      if (w.b.backing) backed++;
+    }
+    expect(backed).toBe(0);
+    // It turned round and went the way pointed.
+    expect(Math.cos(w.b.dir)).toBeLessThan(-0.9);
+  });
+});

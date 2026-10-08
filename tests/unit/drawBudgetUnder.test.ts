@@ -23,7 +23,7 @@ import { DT, RIGHT, STILL, makeGame, press, run, until } from './burrowPlay';
  * the surface is whole: no fade, the hole's patches empty, every litter chunk plain, no rim light;
  * back on the surface each of them is as it was.
  */
-const NO_HUD: CutHud = { place: () => {}, dip: () => {}, labels: () => {} };
+const NO_HUD: CutHud = { place: () => {}, dip: () => {}, labels: () => {}, head: () => {} };
 
 /** The spawn, and a spot 2.5 u from each rock's edge facing it (where the worm may dig there). */
 const SPOTS: [string, number, number, number][] = [['spawn', 0, 0, 0]];

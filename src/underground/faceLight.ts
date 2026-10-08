@@ -16,6 +16,12 @@ export const WARM_DEPTH = 1.2;
 /** Past the playable slab the soil dims to this, over BEYOND_SPAN. */
 export const BEYOND_LEVEL = 0.55;
 export const BEYOND_SPAN = 2;
+/**
+ * Past the face's ends the soil carries on this far (at least FACE_PAST), fading to deep soil: the
+ * camera's swing in and out of the cut can look along the face past its end, and a short fade there
+ * read as a hard dark edge (the clear colour beyond is the same deep soil: cutScene.ts).
+ */
+export const FACE_FADE = Math.max(FACE_PAST, 4);
 /** The fade to dark under the slab starts this far above its bottom (and ends FACE_BELOW under it). */
 export const BOTTOM_FADE = 2;
 /** The face's colours are written in a roughly perceptual space and raised to this power. */
@@ -38,7 +44,7 @@ export function faceShade(s: Slab, u: number, v: number): number {
   if (below <= 0) return 1;
   let f = (1 - (1 - DIM_LEVEL) * smooth(0, DIM_DEPTH, below)) * (1 + WARM_ADD * sunLum() * (1 - smooth(0, WARM_DEPTH, below)));
   f *= 1 - (1 - BEYOND_LEVEL) * smooth(0, BEYOND_SPAN, Math.max(s.playLo - u, u - s.playHi));
-  f *= smooth(s.faceLo - FACE_PAST, s.faceLo, u) * (1 - smooth(s.faceHi, s.faceHi + FACE_PAST, u));
+  f *= smooth(s.faceLo - FACE_FADE, s.faceLo, u) * (1 - smooth(s.faceHi, s.faceHi + FACE_FADE, u));
   f *= smooth(s.bottom - FACE_BELOW, s.bottom + BOTTOM_FADE, v);
   return Math.pow(Math.max(0, f), FACE_GAMMA);
 }

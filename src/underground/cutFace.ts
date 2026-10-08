@@ -5,12 +5,13 @@ import {
 } from './slab';
 import { CELL, GRID_W, GRID_H, takeDirty, touch, type SoilGrid } from './soilGrid';
 import { packRows } from './soilGridEdit';
-import { FACE_BELOW, FACE_PAST } from './cutFrame';
+import { FACE_BELOW } from './cutFrame';
+import { FACE_FADE } from './faceLight';
 import { CUT_FRAGMENT, CUT_VERTEX } from './cutFaceGlsl';
 import { createSoilTiles } from './soilTiles';
 
-/** Columns drawn past each end of the face (at least FACE_PAST), where it fades to dark. */
-const PAST_COLS = Math.ceil(FACE_PAST / COLUMN_STEP);
+/** Columns drawn past each end of the face (FACE_FADE), where it fades to deep soil. */
+const PAST_COLS = Math.ceil(FACE_FADE / COLUMN_STEP);
 /** Most columns any slab's face has: the full drawn width and the fading columns past its ends. */
 const MAX_COLS = Math.round((2 * (SLAB_HALF + FACE_EXTRA)) / COLUMN_STEP) + 1 + 2 * PAST_COLS;
 const ROW_BYTES = GRID_W * 4;
@@ -50,7 +51,7 @@ export interface CutFace {
 /**
  * The cut face (V2 spec 5, 10): one strip mesh and one shader, built once at load at its biggest
  * and reused for every slab, with the layers' pattern tiles painted once (soilTiles.ts). It
- * reaches FACE_BELOW under the slab and FACE_PAST past the face's ends, fading to dark there, so
+ * reaches FACE_BELOW under the slab and FACE_FADE past the face's ends, fading to deep soil there, so
  * no frame of the cut camera (cutFrame.ts) shows its edge. The soil grid is a GRID_W x GRID_H
  * data texture (packRows, with the tunnels softened: blurBores): after a new slab it uploads
  * whole, then only the rows that changed, one update range per row (three r186 uploads each

@@ -31,6 +31,11 @@ export const CAP_STRIDE = 6;
  * of one pushes it into the other).
  */
 export const BLOCKER_GAP = 0.32;
+/**
+ * The head never comes nearer than this to the litter's top: steering up never pops it out (spec
+ * 4.2). Defined here, beside the blockers it is kept with (burrowMotion re-exports it).
+ */
+export const TOP_KEEP = 0.12;
 
 export interface Solids {
   /** The slab they were placed in (placeSolids). */

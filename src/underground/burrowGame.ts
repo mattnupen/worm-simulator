@@ -103,9 +103,12 @@ export class BurrowGame implements MoveState {
     this.view = view;
   }
 
-  /** The hint card shows: the session's first visit, for its first HINT_S seconds (spec 6). */
+  /**
+   * The hint card shows: the session's first visit, for its first HINT_S seconds underground (spec
+   * 6), from the end of the camera's swing (never over the surface view or the moves).
+   */
   get hintShowing(): boolean {
-    return this.visits === 1 && this.firstVisitT < HINT_S && this.mode.mode !== 'surface';
+    return this.visits === 1 && this.firstVisitT < HINT_S && this.mode.mode === 'underground';
   }
 
   /** Nothing underground can show yet: digging down, the camera still behind the worm (stage work then). */
@@ -130,9 +133,10 @@ export class BurrowGame implements MoveState {
     const reduced = this.host.reducedMotion();
     if (m.mode === 'surface') this.stepSurface(dt, move, action, fresh, reduced);
     else {
-      if (this.visits === 1) this.firstVisitT += dt;
-      if (m.mode === 'underground') this.stepUnder(dt, move, action, reduced, auto);
-      else stepMove(this, dt, action, reduced);
+      if (m.mode === 'underground') {
+        if (this.visits === 1) this.firstVisitT += dt;
+        this.stepUnder(dt, move, action, reduced, auto);
+      } else stepMove(this, dt, action, reduced);
       // Back up (the move just ended): the crawl takes over, and the dig spot is asked afresh.
       if ((m.mode as Mode) === 'surface') this.digSpot(true);
       else this.frameCut(dt);

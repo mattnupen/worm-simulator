@@ -32,6 +32,11 @@ export const TEXT = {
     kind: 'ui',
     text: 'Point the way to dig with the arrow keys, W A S D, or the joystick. Space: switch view, or come up near the top. Esc or P: pause.',
   },
+  undergroundHintTouch: {
+    kind: 'ui',
+    text: 'Point the way to dig with the joystick. Tap the button to switch view, or to come up near the top.',
+  },
+  layerListLabel: { kind: 'ui', text: 'Soil layers' },
   burrowFact: {
     kind: 'fact',
     text: 'Real nightcrawlers dig one burrow that goes straight down, as deep as 2 meters.',

@@ -92,7 +92,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   // ?prompt= shows one kind (none while #app has data-prompt-off) and counts data-action-presses.
   const actionPrompt = createActionPrompt(app);
   // Surface or underground (V2): the game steps the crawl on the surface and digs below it.
-  const { game, cut } = createBurrowing(crawl, world, app, store);
+  const { game, cut } = createBurrowing(crawl, world, app, shell.panel, store);
   /** The crawl screen's card: 0 the surface one, 1 the first underground visit's hint, 2 none. */
   let shownCard = 0;
   const cardNow = (): number => (game.mode.mode === 'surface' ? 0 : game.hintShowing ? 1 : 2);

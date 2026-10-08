@@ -9,7 +9,7 @@ import { createCutFace } from './cutFace';
 import { createSlabProps } from './slabProps';
 import { createMiddens } from './middens';
 import { cutPose, CUT_MARGIN, FOV_DEG, type CutPose } from './cutCamera';
-import { bodyProgress, cameraProgress, type Mode } from './modeMachine';
+import { bodyProgress, cameraProgress, dipDarkness, type Mode } from './modeMachine';
 import { smootherstep } from './easing';
 import { AXIS_UP } from './bodyPath';
 import { slabX, slabZ } from './slab';
@@ -20,8 +20,13 @@ export interface CutHud {
   place(mode: Mode): void;
   /** The reduced-motion dip through dark soil: 0 clear .. 1 dark. */
   dip(o: number): void;
-  /** The layer names at the slab's ends (layerLabels.ts), shown once the camera is at the cut. */
-  labels(camera: THREE.Camera, s: Slab | null, show: boolean, width: number, height: number): void;
+  /**
+   * The layer names at the slab's ends (layerLabels.ts), shown once the camera is at the cut;
+   * `headU` is the drawn head's place along the cut.
+   */
+  labels(camera: THREE.Camera, s: Slab | null, show: boolean, width: number, height: number, headU: number): void;
+  /** The drawn head on screen underground (CSS pixels): the hint card keeps off it (hintPlace.ts). */
+  head(x: number, y: number): void;
 }
 
 export interface CutScene {
@@ -37,10 +42,18 @@ const HAZE_FROM = 1.5;
 const HAZE_SPAN = 26;
 /** The camera's swing rises this much at its middle, up over the leaves rather than through them. */
 const SWING_ARC = 1.2;
+/**
+ * Behind everything (the clear colour): deep soil, the colour the cut face fades to at its ends and
+ * bottom as it comes out on screen. Mid-swing the camera can see past the face's end and under the
+ * ground its near plane opens: that reads as more soil, never a black void. Over the surface the
+ * sky and the ground cover it. (sRGB, matched to the face's fade by eye.)
+ */
+export const DEEP_SOIL = '#140d08';
 /** The near plane reaches the cut's plane over this share of the camera's swing. */
 const CLIP_IN = 0.25;
 const TAN_HALF = Math.tan((FOV_DEG * Math.PI) / 360);
 const fwd = new THREE.Vector3();
+const headAt = new THREE.Vector3();
 const right = new THREE.Vector3();
 const upV = new THREE.Vector3();
 
@@ -83,6 +96,7 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
   group.add(face.mesh, props.mesh);
   group.visible = false;
   world.scene.add(group, middens.mesh);
+  world.scene.background = new THREE.Color(DEEP_SOIL);
 
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
   const scratch: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
@@ -176,7 +190,7 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
       if (m.mode === 'surface' || !s) {
         if (away) home(camera);
         world.sync(crawl, alpha, timeSec, camera);
-        hud.labels(camera, null, false, width, height);
+        hud.labels(camera, null, false, width, height, NaN);
         return;
       }
       if (!away) {
@@ -197,7 +211,7 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
       cutCam.lookAt(cp.lx, cp.ly, cp.lz);
       const p = cameraProgress(m);
       const e = m.reduced ? (p < 0.5 ? 0 : 1) : smootherstep(p);
-      hud.dip(m.reduced ? 1 - Math.abs(2 * p - 1) : 0);
+      hud.dip(dipDarkness(m));
       camera.position.lerpVectors(surfCam.position, cutCam.position, e);
       camera.position.y += SWING_ARC * Math.sin(Math.PI * e);
       camera.quaternion.slerpQuaternions(surfCam.quaternion, cutCam.quaternion, e);
@@ -226,7 +240,12 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
       up.x = (s.nx * b) / ul; up.y = (1 - b) / ul; up.z = (s.nz * b) / ul;
       // At the cut (e = 1) no litter lies between the camera and the worm: the surface is whole.
       world.syncWorm(pose, focus, camera, e < 1);
-      hud.labels(camera, s, m.mode === 'underground' && e > 0.98, width, height);
+      const headU = lerp(game.worm.prevU[0], game.worm.u[0], alpha);
+      hud.labels(camera, s, m.mode === 'underground' && e > 0.98, width, height, headU);
+      if (m.mode === 'underground') {
+        headAt.set(focus.x, focus.y + AXIS_UP, focus.z).project(camera);
+        hud.head(((headAt.x + 1) / 2) * width, ((1 - headAt.y) / 2) * height);
+      }
     },
   };
 }

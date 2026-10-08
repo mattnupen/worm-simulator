@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createModeMachine, createModeState, moveDuration, bodyProgress, cameraProgress, promptKind,
+  createModeMachine, createModeState, moveDuration, bodyProgress, cameraProgress, dipDarkness, promptKind,
   DEFAULT_UNDERGROUND_VIEW, SINK_S, SWING_S, FADE_S, RISE_S, OUT_S,
   type ModeEvent, type ModeMachine,
 } from '../../src/underground/modeMachine';
@@ -142,7 +142,9 @@ describe('the surface / underground state machine (spec 4, 10)', () => {
 
   it('pins the spec timings (4.1, 4.2) in seconds', () => {
     // [reduced, sink + camera, camera starts; coming up: move, camera starts, camera ends]
-    for (const [reduced, down, up, camEnd] of [[false, 2.5, 2.5, 2.5], [true, 1.7, 2.1, 1.7]] as const) {
+    // (Reduced, coming up: the camera cuts at RISE_S, in the dark, when the game has not said when
+    // the head comes out.)
+    for (const [reduced, down, up, camEnd] of [[false, 2.5, 2.5, 2.5], [true, 1.7, 2.1, 1.0]] as const) {
       const m = createModeMachine();
       m.step(true, true, false, reduced, DT);
       expect(moveDuration(m.state)).toBeCloseTo(down, 9);
@@ -157,7 +159,7 @@ describe('the surface / underground state machine (spec 4, 10)', () => {
       runMove(m, false);
       m.step(true, false, true, reduced, DT);
       expect(moveDuration(m.state)).toBeCloseTo(up, 9);
-      m.state.t = 1.0;
+      m.state.t = reduced ? 0.99 : 1.0;
       expect(cameraProgress(m.state)).toBe(1);
       m.state.t = camEnd;
       expect(cameraProgress(m.state)).toBeCloseTo(0, 9);
@@ -176,6 +178,8 @@ describe('the surface / underground state machine (spec 4, 10)', () => {
       m.setMoveTime(1.5); // never shorter than the rise and the crawl out
       expect(m.state.moveS).toBe(RISE_S + OUT_S);
       m.setMoveTime(4.6);
+      // The head comes out on the floor 3.3 s in (reduced: the dip is dark from then on).
+      m.setOutTime(3.3);
       const s = m.state;
       expect(moveDuration(s)).toBeCloseTo(4.6, 9);
       s.t = 3.1;
@@ -186,6 +190,14 @@ describe('the surface / underground state machine (spec 4, 10)', () => {
       expect(bodyProgress(s)).toBeCloseTo(0.5, 9);
       s.t = 3.1 + (reduced ? FADE_S : SWING_S);
       expect(cameraProgress(s)).toBeCloseTo(0, 9);
+      if (reduced) {
+        // Dark from as the head comes out until the worm is all but at rest, clear at its end.
+        for (const t of [3.3, 3.8, 4.2]) { s.t = t; expect(dipDarkness(s)).toBe(1); }
+        s.t = 4.6;
+        expect(dipDarkness(s)).toBe(0);
+        s.t = 2.9;
+        expect(dipDarkness(s)).toBe(0);
+      }
       s.t = 0;
       const { n } = runMove(m, false, false, true);
       expect(Math.abs(n * DT - 4.6)).toBeLessThan(2 * DT);

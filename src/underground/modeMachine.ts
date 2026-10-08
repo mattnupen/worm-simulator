@@ -32,7 +32,12 @@ export const DEFAULT_UNDERGROUND_VIEW: UndergroundView = 'wide';
 export const SINK_S = 1.0;
 /** ...then swings to side-on for this long, ending with the worm's move (spec 4.1). */
 export const SWING_S = 1.5;
-/** With reduced motion the swing is a short cross-fade instead. */
+/**
+ * With reduced motion the swing is a dip through dark soil instead: going down, FADE_S in all
+ * (darkest halfway, the camera cut there). Coming up the screen goes dark over FADE_S / 2 as the
+ * head comes out on the floor, stays dark while the worm crawls out, and clears over FADE_S / 2 as
+ * it comes to rest: nothing slides into view (the camera cut when it is fully dark).
+ */
 export const FADE_S = 0.7;
 /** Coming up: the head rises through the cut, then the worm crawls out while the camera swings back. */
 export const RISE_S = 1.0;
@@ -55,21 +60,26 @@ export interface ModeState {
    * move or more (the whole move), coming up UP_S or more.
    */
   moveS: number;
+  /** Coming up: seconds into the move when the head comes out on the floor (NaN: not known). */
+  outS: number;
 }
 
 export type ModeEvent = 'none' | 'startDig' | 'arrive' | 'startUp' | 'emerge' | 'switchView';
 
 export function createModeState(): ModeState {
-  return { mode: 'surface', t: 0, reduced: false, moveS: SINK_S + SWING_S };
+  return { mode: 'surface', t: 0, reduced: false, moveS: SINK_S + SWING_S, outS: NaN };
 }
 
-const camTime = (s: ModeState): number => (s.reduced ? FADE_S : SWING_S);
+/** Coming up with reduced motion: the dip starts as the head comes out on the floor (or at RISE_S). */
+const dipFrom = (s: ModeState): number => Math.max(0, Math.min(s.moveS - FADE_S, (Number.isFinite(s.outS) ? s.outS : RISE_S) - FADE_S / 2));
+const upReduced = (s: ModeState): boolean => s.mode === 'comingUp' && s.reduced;
+const camTime = (s: ModeState): number => (upReduced(s) ? s.moveS - dipFrom(s) : s.reduced ? FADE_S : SWING_S);
 /**
  * When the camera's move starts. Digging down: so that it ends with the worm's move. Coming up:
- * after the rise, and so that a full swing ends with the worm's move.
+ * after the rise, and so that a full swing ends with the worm's move; reduced, as the head comes out.
  */
 const camFrom = (s: ModeState): number =>
-  (s.mode === 'diggingDown' ? s.moveS - camTime(s) : Math.max(RISE_S, s.moveS - SWING_S));
+  (s.mode === 'diggingDown' ? s.moveS - camTime(s) : upReduced(s) ? dipFrom(s) : Math.max(RISE_S, s.moveS - SWING_S));
 
 /** How long the current move lasts (0 on the surface and underground). */
 export function moveDuration(s: ModeState): number {
@@ -99,6 +109,8 @@ export interface ModeMachine {
    * Call it on the `startDig` or `startUp` step, once the path is built.
    */
   setMoveTime(seconds: number): void;
+  /** Coming up: the head comes out on the floor `seconds` into the move (the reduced-motion dip's timing). */
+  setOutTime(seconds: number): void;
   /**
    * Back on the surface, settled (the speed test's fresh start). The Action level is still
    * watched as it was, so a press held through the reset does not fire on the next step.
@@ -119,6 +131,10 @@ export function createModeMachine(): ModeMachine {
       state.t = 0;
       state.reduced = false;
       state.moveS = SINK_S + SWING_S;
+      state.outS = NaN;
+    },
+    setOutTime(seconds: number): void {
+      if (state.mode === 'comingUp' && Number.isFinite(seconds)) state.outS = seconds;
     },
     setMoveTime(seconds: number): void {
       if (!Number.isFinite(seconds)) return;
@@ -143,6 +159,7 @@ export function createModeMachine(): ModeMachine {
           s.t = 0;
           s.reduced = reduced;
           s.moveS = UP_S;
+          s.outS = NaN;
           return 'startUp';
         case 'diggingDown':
         case 'comingUp': {
@@ -167,11 +184,26 @@ export function bodyProgress(s: ModeState): number {
   return s.mode === 'underground' ? 1 : 0;
 }
 
-/** Linear 0..1 progress of the camera's move from the surface view (0) to the cut (1). */
+/**
+ * Linear 0..1 progress of the camera's move from the surface view (0) to the cut (1). Coming up with
+ * reduced motion it is 1, then 0 from the moment the dip is fully dark (the cut is a jump).
+ */
 export function cameraProgress(s: ModeState): number {
   if (s.mode === 'diggingDown') return Math.max(0, Math.min(1, (s.t - camFrom(s)) / camTime(s)));
+  if (upReduced(s)) return s.t < camFrom(s) + FADE_S / 2 ? 1 : 0;
   if (s.mode === 'comingUp') return 1 - Math.max(0, Math.min(1, (s.t - camFrom(s)) / camTime(s)));
   return s.mode === 'underground' ? 1 : 0;
+}
+
+/** With reduced motion, how dark the dip through soil is now (0 clear .. 1 dark); 0 otherwise. */
+export function dipDarkness(s: ModeState): number {
+  if (!s.reduced) return 0;
+  // Going down: darkest halfway through the dip (the camera cut there).
+  if (s.mode === 'diggingDown') return 1 - Math.abs(2 * cameraProgress(s) - 1);
+  if (s.mode !== 'comingUp') return 0;
+  const half = FADE_S / 2;
+  const from = camFrom(s);
+  return Math.max(0, Math.min(1, (s.t - from) / half, (moveDuration(s) - s.t) / half));
 }
 
 /**

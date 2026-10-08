@@ -52,9 +52,7 @@ const STEPS_PER_S = 60;
 export function slideAt(p: BodyPath, q: number, outU: Float64Array, outV: Float64Array, outW: Float64Array): void {
   const pre = p.turnFirst ? TURN_SHARE : SETTLE_SHARE;
   const off = 1 - smootherstep(q / pre);
-  const go = p.turnFirst ? pre * SLIDE_FROM : 0;
-  // (Behind the front's bend the slide eases in, its speed in step with the bend's easing out.)
-  const st = p.turnFirst ? cruise((q - go) / (1 - go), SLIDE_EASE) : Math.min(1, Math.max(0, q));
+  const st = slid(p, q);
   const head = p.headFrom + (p.headTo - p.headFrom) * st;
   const win = p.turnFirst ? 0 : ROUND_OFF * smootherstep(st / ROUND_IN) * (1 - smootherstep((st - 1 + ROUND_OUT) / ROUND_OUT));
   for (let i = 0; i < N; i++) {
@@ -79,11 +77,38 @@ export function slideAt(p: BodyPath, q: number, outU: Float64Array, outV: Float6
   }
 }
 
-/** The slide's progress at linear time t (0..1) of the move (`p.warp`, worked out by fitSlide). */
-export function slidePose(p: BodyPath, t: number, outU: Float64Array, outV: Float64Array, outW: Float64Array): void {
+/** How far through its slide the body is (0..1) at progress q. */
+function slid(p: BodyPath, q: number): number {
+  const go = p.turnFirst ? TURN_SHARE * SLIDE_FROM : 0;
+  // (Behind the front's bend the slide eases in, its speed in step with the bend's easing out.)
+  return p.turnFirst ? cruise((q - go) / (1 - go), SLIDE_EASE) : Math.min(1, Math.max(0, q));
+}
+
+/** The slide's progress at linear time t (0..1) of the move (`p.warp`). */
+function warped(p: BodyPath, t: number): number {
   const x = Math.min(1, Math.max(0, t)) * WARP_STEPS;
   const k = Math.min(WARP_STEPS - 1, Math.floor(x));
-  slideAt(p, p.warp[k] + (p.warp[k + 1] - p.warp[k]) * (x - k), outU, outV, outW);
+  return p.warp[k] + (p.warp[k + 1] - p.warp[k]) * (x - k);
+}
+
+/**
+ * The share of the move's time (0..1) at which the head comes out on the floor (passes `exitAt`):
+ * from then on the worm crawls out (the reduced-motion dip is dark over it: burrowMoves.ts).
+ */
+export function slideOutAt(p: BodyPath): number {
+  let lo = 0;
+  let hi = 1;
+  for (let k = 0; k < 24; k++) {
+    const t = (lo + hi) / 2;
+    if (p.headFrom + (p.headTo - p.headFrom) * slid(p, warped(p, t)) >= p.exitAt) hi = t;
+    else lo = t;
+  }
+  return hi;
+}
+
+/** The slide's progress at linear time t (0..1) of the move (`p.warp`, worked out by fitSlide). */
+export function slidePose(p: BodyPath, t: number, outU: Float64Array, outV: Float64Array, outW: Float64Array): void {
+  slideAt(p, warped(p, t), outU, outV, outW);
 }
 
 /**

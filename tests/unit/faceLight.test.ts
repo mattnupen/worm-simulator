@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { CUT_FRAGMENT } from '../../src/underground/cutFaceGlsl';
 import { faceShade, smooth } from '../../src/underground/faceLight';
 import { createSlab, boundaryAt, B_TOP } from '../../src/underground/slab';
-import { FACE_BELOW, FACE_PAST } from '../../src/underground/cutFrame';
+import { FACE_BELOW } from '../../src/underground/cutFrame';
 import { glslFloat as f } from '../../src/render/glslNumber';
 import { sharedLighting } from '../../src/render/paintedMaterial';
 import {
-  BEYOND_LEVEL, BEYOND_SPAN, BOTTOM_FADE, DIM_DEPTH, DIM_LEVEL, FACE_GAMMA, WARM_ADD, WARM_DEPTH,
+  BEYOND_LEVEL, BEYOND_SPAN, BOTTOM_FADE, DIM_DEPTH, DIM_LEVEL, FACE_FADE, FACE_GAMMA, WARM_ADD, WARM_DEPTH,
 } from '../../src/underground/faceLight';
 
 describe('what is drawn on the cut face is lit as the face is', () => {
@@ -16,6 +16,7 @@ describe('what is drawn on the cut face is lit as the face is', () => {
     expect(src).toContain(`col += col * uLightColor * ${f(WARM_ADD)} * (1.0 - smoothstep(0.0, ${f(WARM_DEPTH)}, below));`);
     expect(src).toContain(`smoothstep(uBottom - ${f(FACE_BELOW)}, uBottom + ${f(BOTTOM_FADE)}, p.y)`);
     expect(src).toContain(`col *= mix(1.0, ${f(BEYOND_LEVEL)}, smoothstep(0.0, ${f(BEYOND_SPAN)}, beyond));`);
+    expect(src).toContain(`smoothstep(uFace.y, uFace.y + ${f(FACE_FADE)}, p.x)`);
     expect(src).toContain(`pow(col, vec3(${f(FACE_GAMMA)}))`);
   });
 
@@ -32,7 +33,7 @@ describe('what is drawn on the cut face is lit as the face is', () => {
         col += col * warm * (1 - smooth(0, WARM_DEPTH, below));
         col *= smooth(s.bottom - FACE_BELOW, s.bottom + BOTTOM_FADE, v); // mixed toward near black
         col *= 1 + (BEYOND_LEVEL - 1) * smooth(0, BEYOND_SPAN, Math.max(s.playLo - u, u - s.playHi));
-        col *= smooth(s.faceLo - FACE_PAST, s.faceLo, u) * (1 - smooth(s.faceHi, s.faceHi + FACE_PAST, u));
+        col *= smooth(s.faceLo - FACE_FADE, s.faceLo, u) * (1 - smooth(s.faceHi, s.faceHi + FACE_FADE, u));
         expect(faceShade(s, u, v)).toBeCloseTo(col ** FACE_GAMMA, 6);
       }
     }

@@ -8,7 +8,7 @@ import { poseAt, AXIS_UP } from '../../src/underground/bodyPath';
 import { MAX_OPENINGS } from '../../src/underground/openings';
 import { createBody } from '../../src/worm/body';
 import { SPACING, WORM_SEGMENTS } from '../../src/game/crawl';
-import { cameraProgress, FADE_S } from '../../src/underground/modeMachine';
+import { cameraProgress, dipDarkness, FADE_S } from '../../src/underground/modeMachine';
 import { cutPose, type CutPose } from '../../src/underground/cutCamera';
 import { cameraTarget } from '../../src/surface/followCamera';
 import { CAM_OPTS } from '../../src/game/cameraClearance';
@@ -262,13 +262,19 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     expect(game.openings.count).toBe(0);
   });
 
-  it('the first visit shows the hint card for HINT_S underground, later visits none', () => {
+  it('the first visit shows the hint card for HINT_S underground, from the end of the swing, later visits none', () => {
     const { game } = makeGame();
     run(game, 0.5, UP);
     expect(game.hintShowing).toBe(false);
     press(game);
+    // Not over the surface view or the camera's swing.
+    expect(game.mode.mode).toBe('diggingDown');
+    expect(game.hintShowing).toBe(false);
+    until(game, 'underground');
     expect(game.hintShowing).toBe(true);
-    run(game, HINT_S);
+    run(game, HINT_S - 0.1);
+    expect(game.hintShowing).toBe(true);
+    run(game, 0.2);
     expect(game.hintShowing).toBe(false);
   });
 
@@ -289,6 +295,40 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     expect(moving).toBeGreaterThan(FADE_S - 0.05);
     expect(moving).toBeLessThan(FADE_S + 0.05);
     expect(crawl.motion.head.z).toBeGreaterThan(0.5);
+  });
+
+  it('reduced motion coming up: dark from as the head comes out until the worm is at rest; the camera cuts in the dark', () => {
+    const { game } = makeGame({ reduced: () => true });
+    run(game, 0.5, UP);
+    digDown(game);
+    steerToTop(game);
+    press(game);
+    expect(game.mode.mode).toBe('comingUp');
+    const out = game.mode.outS;
+    const end = game.mode.moveS;
+    expect(out).toBeGreaterThan(0.3);
+    expect(out).toBeLessThan(end - 0.5);
+    let cam = 1;
+    let cuts = 0;
+    let clearBefore = 0;
+    for (let k = 0; k < 60 * 8 && game.mode.mode === 'comingUp'; k++) {
+      const { t } = game.mode;
+      const dark = dipDarkness(game.mode);
+      const c = cameraProgress(game.mode);
+      if (c !== cam) {
+        cuts++;
+        expect(dark).toBe(1);
+        cam = c;
+      }
+      // The rise is seen; from the head coming out until the worm nears rest, all dark.
+      if (t < out - FADE_S / 2) clearBefore = Math.max(clearBefore, dark);
+      if (t >= out && t <= end - FADE_S / 2 - DT) expect(dark).toBe(1);
+      game.step(DT, STILL, false);
+    }
+    expect(game.mode.mode).toBe('surface');
+    expect(cuts).toBe(1);
+    expect(clearBefore).toBe(0);
+    expect(dipDarkness(game.mode)).toBe(0);
   });
 
   it('enterNow puts the speed test straight underground, in its view, and the scripted dig moves', () => {

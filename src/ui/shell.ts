@@ -38,6 +38,9 @@ export function createShell(root: HTMLElement, showFps: boolean, onPause: () => 
       panel.dataset.state = state;
       panel.setAttribute('aria-label', label);
       panel.hidden = false;
+      // A new card starts in its own place (the hint card underground moves: hintPlace.ts).
+      delete panel.dataset.card;
+      delete panel.dataset.at;
       panel.replaceChildren(...children);
     },
     setFps(fps, label, tier) {
