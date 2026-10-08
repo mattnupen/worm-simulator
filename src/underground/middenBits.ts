@@ -20,12 +20,22 @@ const CRUMB = (() => {
   return { pos: m.getAttribute('position').array as Float32Array, index: m.getIndex()!.array };
 })();
 /** The vertices and indices one heap's lumps and leaf bits take. */
-export const BITS_VERTS = LUMPS * (CRUMB.pos.length / 3) + LEAF_BITS * 4;
-export const BITS_INDEX = LUMPS * CRUMB.index.length + LEAF_BITS * 6;
+export const BITS_VERTS = LUMPS * (CRUMB.pos.length / 3) + LEAF_BITS * 8;
+export const BITS_INDEX = LUMPS * CRUMB.index.length + LEAF_BITS * 24;
 /** The lumps a little paler than the heap's castings, as drying crumbs are (sRGB). */
 const LUMP_HEX = ['#3b2f26', '#45372c', '#33291f', '#4d3d2f'];
 /** Leaf bits pulled in: browned, red, orange, tan (sRGB). */
 const LEAF_HEX = ['#6b4a2c', '#a5401f', '#c47c2c', '#a8894f', '#7a5634'];
+/**
+ * A leaf bit's 8 points: [share along it, share of its width across (+ left), shade]. Along -1 is
+ * its widest (the bit's `mid`), 2 the narrowing past it; the midrib (across 0) is a little darker,
+ * and the base darker still (where it was torn or pulled in).
+ */
+const LEAF_OUTLINE: readonly (readonly [number, number, number])[] = [
+  [0, 0, 0.8], [-1, 1, 1], [-1, 0, 0.9], [-1, -1, 1], [2, 0.62, 1], [2, 0, 0.9], [2, -0.62, 1], [1, 0, 1],
+];
+/** Its triangles: base to the widest, the widest to the narrowing, the narrowing to the tip. */
+const LEAF_TRIS = [[0, 1, 2], [0, 2, 3], [2, 1, 4], [2, 4, 5], [2, 5, 6], [2, 6, 3], [5, 4, 7], [5, 7, 6]] as const;
 const col = new THREE.Color();
 const rgba = [0, 0, 0, 0];
 
@@ -110,23 +120,38 @@ export function writeLeafBits(
     const ey = (uy / ul) * len;
     const ez = (uz / ul) * len;
     const mid = 0.4 + rand() * 0.2;
-    // Lying bits curl up at their sides; standing ones fold along the middle.
+    // A leaf's outline (base, widest at `mid`, narrowing, tip), a little lopsided, folded along its
+    // midrib: lying bits curl up at their sides, standing ones fold outward along the middle.
     const lift = standing ? 0 : 0.025;
     const fold = standing ? 0.025 : 0;
-    const v0 = w.vertex(cx, by, cz, 0, 1, 0, [c0 * 0.8, c1 * 0.8, c2 * 0.8, PROP.plant + 0.2]);
-    const v1 = w.vertex(cx + ex * mid + sx * wide + Math.cos(a) * fold, by + ey * mid + lift, cz + ez * mid + sz * wide + Math.sin(a) * fold, 0, 1, 0, [c0, c1, c2, PROP.plant + 0.5]);
-    const v2 = w.vertex(cx + ex, by + ey, cz + ez, 0, 1, 0, [c0, c1, c2, PROP.plant + 0.9]);
-    const v3 = w.vertex(cx + ex * mid - sx * wide + Math.cos(a) * fold, by + ey * mid + lift, cz + ez * mid - sz * wide + Math.sin(a) * fold, 0, 1, 0, [c0, c1, c2, PROP.plant + 0.5]);
-    w.quad(v0, v1, v2, v3);
-    // Faces up (across the bit, toward the sky).
-    const nx = -ey * sz;
-    const ny = ex * sz - ez * sx;
-    const nz = ey * sx;
-    for (const v of [v0, v1, v2, v3]) {
-      const l = Math.hypot(nx, ny, nz) || 1;
-      w.nor[v * 3] = nx / l;
-      w.nor[v * 3 + 1] = ny / l;
-      w.nor[v * 3 + 2] = nz / l;
+    const skew = 0.08 * Math.sin(n * 2.3 + mid * 17);
+    const fx = Math.cos(a) * fold;
+    const fz = Math.sin(a) * fold;
+    // Faces up (across the bit, toward the sky); each side's normal leans with its fold.
+    const nl = Math.hypot(-ey * sz, ex * sz - ez * sx, ey * sx) || 1;
+    const nx = (-ey * sz) / nl;
+    const ny = (ex * sz - ez * sx) / nl;
+    const nz = (ey * sx) / nl;
+    const lean = standing ? 0.25 : 0.35;
+    const first = w.vertexCount;
+    for (let k = 0; k < LEAF_OUTLINE.length; k++) {
+      const [at, across, shade] = LEAF_OUTLINE[k];
+      const g = at < 0 ? mid : at > 1 ? mid + (1 - mid) * 0.55 : at;
+      const side = Math.sign(across);
+      const half = Math.abs(across) * wide * (1 + side * skew);
+      const up = Math.abs(across) * lift;
+      const v = w.vertex(
+        cx + ex * g + sx * side * half + fx * Math.abs(across), by + ey * g + up, cz + ez * g + sz * side * half + fz * Math.abs(across),
+        0, 1, 0, [c0 * shade, c1 * shade, c2 * shade, PROP.plant + 0.2 + 0.7 * g],
+      );
+      const lx = nx - side * sx * lean;
+      const ly = ny;
+      const lz = nz - side * sz * lean;
+      const l = Math.hypot(lx, ly, lz) || 1;
+      w.nor[v * 3] = lx / l;
+      w.nor[v * 3 + 1] = ly / l;
+      w.nor[v * 3 + 2] = lz / l;
     }
+    for (const [i, j, k] of LEAF_TRIS) w.tri(first + i, first + j, first + k);
   }
 }
