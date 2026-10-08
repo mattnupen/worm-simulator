@@ -54,6 +54,11 @@ export const midOf = (k: number) => (s: Slab) => (boundaryAt(s, k, 0) + boundary
  * top creeps along it by less than that, and turns the way the stick turns.
  */
 export const SEEN = 1e-3;
+/**
+ * Turns under this (radians a frame, 0.03 degrees) are too small to see: a head pressed into a stone
+ * with its facing held MAX_NECK_BEND off its neck (burrowMotion.ts) eases to and fro by less.
+ */
+export const TURN_SEEN = 5e-4;
 export function watch(b: Burrower) {
   const st = { pu: 0, pv: 0, lastU: b.u[0], lastV: b.v[0], lastDir: b.dir, turn: 0, flips: [] as number[], k: 0,
     reversals: 0, wobbles: 0, maxStep: 0, maxTurn: 0, maxAccel: 0 };
@@ -68,7 +73,7 @@ export function watch(b: Burrower) {
       st.maxStep = Math.max(st.maxStep, len);
       const turn = b.dir - st.lastDir;
       st.maxTurn = Math.max(st.maxTurn, Math.abs(turn));
-      if (Math.abs(turn) > 1e-4) {
+      if (Math.abs(turn) > TURN_SEEN) {
         if (st.turn !== 0 && Math.sign(turn) !== st.turn) {
           // A flip back within 4 frames of the last flip is a wobble.
           if (st.flips.length && st.k - st.flips[st.flips.length - 1] <= 4) st.wobbles++;
@@ -85,16 +90,16 @@ export function watch(b: Burrower) {
 
 /**
  * How far (u) the point lies outside open tunnel: 0 in an open cell, else its distance to the
- * nearest open cell's edge (looked for within 0.4 u; farther counts as 0.4).
+ * nearest open cell's edge (looked for within 0.6 u; farther counts as 0.6).
  */
 export function strayOf(g: SoilGrid, u: number, v: number): number {
   const c0 = colOf(u);
   const r0 = rowOf(g, v);
   if (c0 >= 0 && c0 < GRID_W && r0 >= 0 && r0 < GRID_H && g.open[r0 * GRID_W + c0]) return 0;
-  let best = 0.4;
-  for (let r = r0 - 4; r <= r0 + 4; r++) {
+  let best = 0.6;
+  for (let r = r0 - 6; r <= r0 + 6; r++) {
     if (r < 0 || r >= GRID_H) continue;
-    for (let c = c0 - 4; c <= c0 + 4; c++) {
+    for (let c = c0 - 6; c <= c0 + 6; c++) {
       if (c < 0 || c >= GRID_W || !g.open[r * GRID_W + c]) continue;
       const du = Math.max(0, Math.abs(cellU(c) - u) - CELL / 2);
       const dv = Math.max(0, Math.abs(cellV(g, r) - v) - CELL / 2);

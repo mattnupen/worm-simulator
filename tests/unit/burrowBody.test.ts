@@ -43,6 +43,9 @@ class BodyWatch {
   accel: number[] = [];
   /** The shortest the body was (sum of its segments) and its shortest segment, over all frames. */
   minLength = Infinity;
+  /** The nearest any point came to the point two along (a fold), and the sharpest bend anywhere, the neck's too. */
+  minFold = Infinity;
+  sharpestAll = 0;
   minSegment = Infinity;
   /** How far each body point (past the head) sat outside open tunnel, every frame. */
   stray: number[] = [];
@@ -55,6 +58,8 @@ class BodyWatch {
     let most = 0;
     let elbow = false;
     this.neck.push(Math.abs(c[0]));
+    for (let j = 0; j < c.length; j++) this.sharpestAll = Math.max(this.sharpestAll, Math.abs(c[j]));
+    for (let i = 2; i < N; i++) this.minFold = Math.min(this.minFold, Math.hypot(b.u[i] - b.u[i - 2], b.v[i] - b.v[i - 2]));
     // From the point after the neck back (the bend at the neck is the head's own turning: the head
     // turns at most MAX_NECK_BEND off its neck, burrowMotion.ts).
     for (let j = 1; j < c.length; j++) {
@@ -85,19 +90,24 @@ class BodyWatch {
 }
 
 /**
- * The body keeps its length in every frame: 15 x SPACING within 5%, no segment under `segment` x
- * SPACING (0.9: a link may go 5% slack before it is pushed out, burrowBack.ts drawLink).
+ * The body keeps its length in every frame (15 x SPACING within 5%, no link under `segment` x
+ * SPACING: a link may go 5% slack before it is pushed out, burrowBack.ts drawLink) and never folds:
+ * no point within `fold` x SPACING of the one two along, no bend sharper than `sharp` (radians).
+ * (Without a bend limit the chain wound into loops tighter than the worm is thick, lay back on
+ * itself and creased: point i+2 within 0.15 u of point i in 29% of frames of slow rotation.)
  */
 const NOMINAL = (N - 1) * SPACING;
-function keepsLength(w: BodyWatch, segment = 0.9): void {
+function keepsLength(w: BodyWatch, segment = 0.9, fold = 1.6, sharp = 0.7): void {
   expect(w.minLength).toBeGreaterThanOrEqual(0.95 * NOMINAL);
   expect(w.minSegment).toBeGreaterThanOrEqual(segment * SPACING);
+  expect(w.minFold).toBeGreaterThanOrEqual(fold * SPACING);
+  expect(w.sharpestAll).toBeLessThanOrEqual(sharp);
 }
 const q = (a: number[], p: number) => { const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; };
 function report(name: string, w: BodyWatch): { sharp99: number; elbowShare: number; ch99: number; acc99: number; stray99: number } {
   const r = { sharp99: q(w.sharpest, 0.99), elbowShare: w.elbows / w.frames, ch99: q(w.change, 0.99), acc99: q(w.accel, 0.99), stray99: q(w.stray, 0.99) };
   if (process.env.BODY_REPORT) {
-    process.stderr.write(`\n${name}: frames ${w.frames}; neck p99 ${q(w.neck, 0.99).toFixed(2)}; sharpest p50 ${q(w.sharpest, 0.5).toFixed(2)} p99 ${r.sharp99.toFixed(2)} max ${q(w.sharpest, 1).toFixed(2)}; isolated elbows ${(100 * r.elbowShare).toFixed(2)}%; change p99 ${r.ch99.toFixed(3)} p999 ${q(w.change, 0.999).toFixed(3)}; second difference p99 ${r.acc99.toFixed(4)} max ${q(w.accel, 1).toFixed(4)}; length min ${w.minLength.toFixed(2)} segment min ${w.minSegment.toFixed(3)}; stray p99 ${q(w.stray, 0.99).toFixed(3)} max ${q(w.stray, 1).toFixed(3)}`);
+    process.stderr.write(`\n${name}: frames ${w.frames}; neck p99 ${q(w.neck, 0.99).toFixed(2)}; sharpest p50 ${q(w.sharpest, 0.5).toFixed(2)} p99 ${r.sharp99.toFixed(2)} max ${q(w.sharpest, 1).toFixed(2)}; isolated elbows ${(100 * r.elbowShare).toFixed(2)}%; change p99 ${r.ch99.toFixed(3)} p999 ${q(w.change, 0.999).toFixed(3)}; second difference p99 ${r.acc99.toFixed(4)} max ${q(w.accel, 1).toFixed(4)}; length min ${w.minLength.toFixed(2)} segment min ${w.minSegment.toFixed(3)}; fold min ${w.minFold.toFixed(3)} sharpest all ${w.sharpestAll.toFixed(2)}; stray p99 ${q(w.stray, 0.99).toFixed(3)} max ${q(w.stray, 1).toFixed(3)}`);
   }
   return r;
 }
@@ -196,9 +206,11 @@ function backing(w: BodyWatch, pops: { worst: number; ends: number }): void {
       run(game, 2 + rand() * 2, { x: Math.cos(a), y: Math.sin(a) * 0.6 + (rand() < 0.4 ? 0.6 : 0) });
       for (let k = 0; k < 8; k++) {
         const way = (k / 8) * Math.PI * 2;
+        // A new watch after the unwatched wandering: no difference across the gap.
+        let gap = true;
         run(game, 1.5, { x: Math.cos(way), y: Math.sin(way) }, () => {
           if (b.backing) after = 60;
-          if (after > 0) { w.frame(b, game.grid, after === 60 && !was); after--; }
+          if (after > 0) { w.frame(b, game.grid, gap || (after === 60 && !was)); gap = false; after--; } else gap = true;
           // The step backing ends: no body point jumps back along the tunnel.
           if (was && !b.backing) {
             pops.ends++;
@@ -235,6 +247,24 @@ function slowRotation(w: BodyWatch): number {
       game.step(DT, { x: Math.cos(a), y: Math.sin(a) }, false);
       w.frame(game.worm, game.grid, first);
       first = false;
+    }
+  }
+  return tested;
+}
+
+/** The arrow keys round a circle, as a player steers in loops: 8 ways held 650 ms each, then 350 ms each. */
+function circleKeys(w: BodyWatch): number {
+  let tested = 0;
+  for (let spot = 0; spot < 4; spot++) {
+    const game = dugAt(spot);
+    if (!game) continue;
+    tested++;
+    let first = true;
+    for (const hold of [0.65, 0.65, 0.35, 0.35, 0.35]) {
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2;
+        run(game, hold, { x: Math.round(Math.cos(a)), y: Math.round(Math.sin(a)) }, () => { w.frame(game.worm, game.grid, first); first = false; });
+      }
     }
   }
   return tested;
@@ -289,12 +319,14 @@ describe('the body frame to frame: smooth, no elbows, its length kept (Matt noti
     const w = new BodyWatch();
     tightTurns(w);
     const r = report('tight turns', w);
-    // 0.48% / 0.025 / 0.0007 / 0.19.
+    // 0.17% / 0.020 / 0.0008 / 0.24 (stray 0.19 without the bend limit). Pressed against stones in
+    // a turn on the spot, a joint is pushed to 1.3 rad and the fold measure to 1.59 x SPACING (eased
+    // back BEND_EASE a step, burrowBack.ts).
     expect(r.elbowShare).toBeLessThan(0.01);
     expect(r.ch99).toBeLessThanOrEqual(0.04);
     expect(r.acc99).toBeLessThanOrEqual(0.002);
-    expect(r.stray99).toBeLessThanOrEqual(0.25);
-    keepsLength(w);
+    expect(r.stray99).toBeLessThanOrEqual(0.3);
+    keepsLength(w, 0.9, 1.5, 1.4);
   });
 
   it('the arrow keys, eight ways, in the game', () => {
@@ -302,7 +334,7 @@ describe('the body frame to frame: smooth, no elbows, its length kept (Matt noti
     keys(w);
     const r = report('keys', w);
     expect(w.frames).toBeGreaterThan(8000);
-    // 0.89 / 0.43% / 0.012 / 0.0006 / 0.19.
+    // 0.60 / 0.15% / 0.012 / 0.0006 / 0.16.
     expect(r.sharp99).toBeLessThanOrEqual(1.0);
     expect(r.elbowShare).toBeLessThan(0.01);
     expect(r.ch99).toBeLessThanOrEqual(0.02);
@@ -320,36 +352,49 @@ describe('the body frame to frame: smooth, no elbows, its length kept (Matt noti
     // As backing ends no point steps much more than the head does (0.0025 u; a tail pop was 0.022).
     expect(pops.ends).toBeGreaterThan(5);
     expect(pops.worst).toBeLessThan(0.005);
-    // 1.05% / 0.056 / 0.0023 / 0.16 (follow-the-leader before 65f4d89: 5.5% / 0.053 / 0.0025).
+    // 0% / 0.017 / 0.0014 / 0.02 (follow-the-leader before 65f4d89: 5.5% / 0.053 / 0.0025).
     expect(r.elbowShare).toBeLessThan(0.02);
     expect(r.ch99).toBeLessThanOrEqual(0.07);
     expect(r.acc99).toBeLessThanOrEqual(0.004);
-    expect(r.stray99).toBeLessThanOrEqual(0.22);
-    // Backed into a dead end, a link the stones or the top push in on may close up to 0.78 x SPACING.
-    keepsLength(w, 0.75);
+    expect(r.stray99).toBeLessThanOrEqual(0.3);
+    keepsLength(w);
   });
 
   it('the stick turned slowly round and round: it keeps its length', () => {
     const w = new BodyWatch();
     expect(slowRotation(w)).toBeGreaterThanOrEqual(3);
     const r = report('slow rotation', w);
-    // 0.13% / 0.047 / 0.0007 / 0.08.
+    // 0% / 0.038 / 0.0011 / 0.17 (stray 0.08 when the chain could curl tighter).
     expect(r.elbowShare).toBeLessThan(0.005);
     expect(r.ch99).toBeLessThanOrEqual(0.06);
-    expect(r.acc99).toBeLessThanOrEqual(0.001);
-    expect(r.stray99).toBeLessThanOrEqual(0.12);
+    expect(r.acc99).toBeLessThanOrEqual(0.0015);
+    expect(r.stray99).toBeLessThanOrEqual(0.3);
     keepsLength(w);
+  });
+
+  it('the arrow keys round a circle (loops): it never winds tighter than it can turn, nor folds', () => {
+    const w = new BodyWatch();
+    expect(circleKeys(w)).toBeGreaterThanOrEqual(3);
+    const r = report('circle keys', w);
+    // 0.09% / 0.041 / 0.0030 / 0.17. One of the four places has a stone inside the loop: the chain,
+    // cutting the loop's inside, is pushed out round it and bends up to 1.8 rad there (eased back
+    // BEND_EASE a step, burrowBack.ts); elsewhere at most MAX_BEND.
+    expect(r.elbowShare).toBeLessThan(0.01);
+    expect(r.ch99).toBeLessThanOrEqual(0.06);
+    expect(r.acc99).toBeLessThanOrEqual(0.004);
+    expect(r.stray99).toBeLessThanOrEqual(0.3);
+    keepsLength(w, 0.9, 1.0, 2.1);
   });
 
   it('an analog stick wandering smoothly, let go now and then: the body keeps its length, at rest too', () => {
     const w = new BodyWatch();
     expect(wandering(w)).toBeGreaterThanOrEqual(4);
     const r = report('wandering stick', w);
-    // 0.80% / 0.024 / 0.0006 / 0.23.
+    // 0.31% / 0.018 / 0.0007 / 0.30.
     expect(r.elbowShare).toBeLessThan(0.01);
     expect(r.ch99).toBeLessThanOrEqual(0.04);
     expect(r.acc99).toBeLessThanOrEqual(0.001);
-    expect(r.stray99).toBeLessThanOrEqual(0.3);
+    expect(r.stray99).toBeLessThanOrEqual(0.35);
     keepsLength(w);
   });
 

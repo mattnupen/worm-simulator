@@ -4,7 +4,7 @@ import { boundaryOf, bound, B_TOP, type Slab } from './slab';
 import type { Solids } from './solids';
 import { pushOutFrom } from './solidPush';
 import { TOP_KEEP, type UV } from './solidShapes';
-import { cellAt, type SoilGrid } from './soilGrid';
+import { cellAt, cellU, cellV, colOf, rowOf, CELL, GRID_H, GRID_W, type SoilGrid } from './soilGrid';
 
 /**
  * Backing up (V2 spec 6: nightcrawlers crawl backward as well as forward, and pull back into their
@@ -66,6 +66,29 @@ export interface BackBody {
   readonly prevV: Float64Array;
 }
 
+const feel: UV = { u: 0.5, v: 0.5 };
+/**
+ * Open tunnel (castings included) within NEAR_OPEN of `p`. The tail, a chain cutting the bends'
+ * insides, may lie beside its tunnel rather than in it (the body digs nothing); backing, it may
+ * then go through the soil beside the tunnel, never away from it.
+ */
+function nearOpen(g: SoilGrid, p: UV): boolean {
+  const c0 = colOf(p.u);
+  const r0 = rowOf(g, p.v);
+  const n = Math.ceil(NEAR_OPEN / CELL);
+  for (let r = r0 - n; r <= r0 + n; r++) {
+    if (r < 0 || r >= GRID_H) continue;
+    const dv = cellV(g, r) - p.v;
+    for (let c = c0 - n; c <= c0 + n; c++) {
+      if (c < 0 || c >= GRID_W || !g.open[r * GRID_W + c]) continue;
+      const du = cellU(c) - p.u;
+      if (du * du + dv * dv <= NEAR_OPEN * NEAR_OPEN) return true;
+    }
+  }
+  return false;
+}
+const NEAR_OPEN = 0.45;
+
 /** backUp's step: how far the tail goes, the playable slab's ends and the bottom it keeps above. */
 export interface BackLimits { step: number; lo: number; hi: number; bottom: number }
 
@@ -83,38 +106,89 @@ export function backUp(s: Slab, o: Solids, g: SoilGrid, b: BackBody, lim: BackLi
   const eu = u[t] - u[t - 1];
   const ev = v[t] - v[t - 1];
   const along = Math.atan2(ev, eu);
+  const it = cellAt(g, u[t], v[t]);
+  const inTunnel = it >= 0 && g.open[it] === 1;
   for (let k = 0; k < TAIL_TURNS.length; k++) {
     const a = along + TAIL_TURNS[k];
     const cu = Math.cos(a);
     const cv = Math.sin(a);
-    const i = cellAt(g, u[t] + cu * (step + FEEL_BACK), v[t] + cv * (step + FEEL_BACK));
-    if (i < 0 || !g.open[i]) continue;
+    feel.u = u[t] + cu * (step + FEEL_BACK);
+    feel.v = v[t] + cv * (step + FEEL_BACK);
+    const i = cellAt(g, feel.u, feel.v);
+    if (i < 0) continue;
+    // Into open tunnel; or, from a tail lying beside its tunnel, into soil beside it.
+    if (!g.open[i] && (inTunnel || !nearOpen(g, feel))) continue;
     u[t] = Math.max(lo, Math.min(hi, u[t] + cu * step));
     v[t] = Math.max(bottom, v[t] + cv * step);
     break;
   }
   keepOut(s, o, u, v, prevU, prevV, t);
   // The rest follows the tail, each point drawn after the one behind it (drawLink).
-  for (let i = t - 1; i >= 0; i--) {
-    drawLink(u, v, i, i + 1);
-    if (u[i] !== prevU[i] || v[i] !== prevV[i]) keepOut(s, o, u, v, prevU, prevV, i);
-  }
+  for (let i = t - 1; i >= 0; i--) linkOut(b, s, o, i, i + 1, i + 2 <= t ? i + 2 : -1);
 }
 
 /**
- * Point i drawn after point `lead`, the way it lay: pulled to SPACING from it when farther, pushed
- * out to SLACK x SPACING when nearer (a rope alone let the links close up where the leader came
- * back toward it, and the worm shrank; a little slack keeps the chain from jolting). Follow the
- * leader, as the crawl's body: it keeps its length and bends smoothly, cutting a tight bend's inside.
+ * Point i drawn after point `lead` (follow the leader, as the crawl's body): the way it lay, pulled
+ * to SPACING from the lead when farther, pushed out to SLACK x SPACING when nearer (a rope alone let
+ * the links close up where the leader came back toward it, and the worm shrank; a little slack
+ * keeps the chain from jolting), and turned no more than MAX_BEND off the lead's own link (from
+ * point `before`; -1: none), so the chain never curls tighter than the worm is thick or folds back
+ * on itself. Allocates nothing.
  */
-export function drawLink(u: Float64Array, v: Float64Array, i: number, lead: number): void {
-  const du = u[i] - u[lead];
-  const dv = v[i] - v[lead];
+/** Point i drawn after `lead` (drawLink), then kept out of the top and the solids (keepOut). */
+export function linkOut(b: BackBody, s: Slab, o: Solids, i: number, lead: number, before: number): void {
+  drawLink(b, i, lead, before);
+  keepOut(s, o, b.u, b.v, b.prevU, b.prevV, i);
+}
+
+export function drawLink(b: BackBody, i: number, lead: number, before: number): void {
+  const { u, v } = b;
+  let du = u[i] - u[lead];
+  let dv = v[i] - v[lead];
   const d = hypot2(du, dv);
-  if (!(d > 1e-9) || (d <= SPACING && d >= SLACK * SPACING)) return;
-  const k = (d > SPACING ? SPACING : SLACK * SPACING) / d;
-  u[i] = u[lead] + du * k;
-  v[i] = v[lead] + dv * k;
+  if (!(d > 1e-9)) return;
+  const len = d > SPACING ? SPACING : d < SLACK * SPACING ? SLACK * SPACING : d;
+  du /= d;
+  dv /= d;
+  let turned = false;
+  if (before >= 0) {
+    // The lead's link carried on straight, and how far this one turns off it.
+    const pu = u[lead] - u[before];
+    const pv = v[lead] - v[before];
+    const pl = hypot2(pu, pv);
+    if (pl > 1e-9) {
+      const bend = Math.atan2((pu * dv - pv * du) / pl, (pu * du + pv * dv) / pl);
+      // A joint a stone or the top pressed past MAX_BEND is eased back BEND_EASE a step, not at once.
+      lastBend(b, i, lead, before);
+      const most = Math.max(MAX_BEND, Math.abs(lb.a) - BEND_EASE);
+      if (Math.abs(bend) > most) {
+        // Turned well back, which side is unsure (round past straight back it flips): the side
+        // this joint bent at the last step.
+        const side = Math.abs(bend) > Math.PI / 2 ? lb.a : bend;
+        const c = Math.cos(most);
+        const sn = side > 0 ? Math.sin(most) : -Math.sin(most);
+        du = (pu * c - pv * sn) / pl;
+        dv = (pu * sn + pv * c) / pl;
+        turned = true;
+      }
+    }
+  }
+  if (!turned && len === d) return;
+  u[i] = u[lead] + du * len;
+  v[i] = v[lead] + dv * len;
+}
+/** The bend at the joint at `lead` at the last step (from prevU, prevV), into lb.a. */
+const lb = { a: 0.5 };
+function lastBend(b: BackBody, i: number, lead: number, before: number): void {
+  const { prevU, prevV } = b;
+  const pu = prevU[lead] - prevU[before];
+  const pv = prevV[lead] - prevV[before];
+  const cu = prevU[i] - prevU[lead];
+  const cv = prevV[i] - prevV[lead];
+  lb.a = Math.atan2(pu * cv - pv * cu, pu * cu + pv * cv);
 }
 /** A link may go this slack (share of SPACING) before it is pushed out. */
 const SLACK = 0.95;
+/** The most a link turns off the one before it (radians): a radius of about 0.37 u, near MIN_TURN_R. */
+export const MAX_BEND = 0.6;
+const BEND_EASE = 0.05;

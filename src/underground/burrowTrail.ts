@@ -1,5 +1,5 @@
 import { hypot2 } from '../core/vec';
-import { drawLink, keepOut } from './burrowBack';
+import { linkOut } from './burrowBack';
 import { digDiscAt, type Eaten, type SoilGrid } from './soilGrid';
 import { castBlobAt, type CastSpot } from './castings';
 import type { Burrower } from './burrower';
@@ -46,16 +46,13 @@ export function digTunnel(b: Burrower, s: Slab, g: SoilGrid, o: Solids): void {
 }
 
 /**
- * Follow the leader: each point drawn after the one ahead (burrowBack.ts drawLink) and kept out of
- * the top and the solids (a body laid down through a stone comes out of it at once, at rest too). The chain keeps its length and bends smoothly; on the
+ * Follow the leader: each point drawn after the one ahead and kept out of the top and the solids
+ * (burrowBack.ts linkOut; a body laid down through a stone comes out of it at once, at rest too). The chain keeps its length and bends smoothly; on the
  * inside of a tight bend a point may sit over undug soil (the chain cuts the corner: the head's
  * turning radius, MIN_TURN_R in burrowMotion.ts, keeps that small). The body digs nothing.
  */
 function trailBody(b: Burrower, s: Slab, o: Solids): void {
-  for (let i = 1; i < b.u.length; i++) {
-    drawLink(b.u, b.v, i, i - 1);
-    keepOut(s, o, b.u, b.v, b.prevU, b.prevV, i);
-  }
+  for (let i = 1; i < b.u.length; i++) linkOut(b, s, o, i, i - 1, i - 2);
 }
 
 /**

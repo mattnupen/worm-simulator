@@ -7,11 +7,11 @@ import { B_A } from '../../src/underground/slab';
 import { cellAt } from '../../src/underground/soilGrid';
 import { STUCK_S, STUCK_TRIED } from '../../src/underground/burrowBack';
 import { makeGame, press, run, until } from './burrowPlay';
-import { midOf, run as runWorm, setup, tunnel } from './burrowWorld';
+import { midOf, run as runWorm, setup, tunnel, strayOf } from './burrowWorld';
 
 /**
- * Steps it backed up in, those with the tail in soil never dug (canGetOut), and the most times
- * backing started or stopped while one way was held.
+ * Steps it backed up in, those with the tail farther than backing allows from its tunnel
+ * (canGetOut), and the most times backing started or stopped while one way was held.
  */
 let backed = 0;
 let undug = 0;
@@ -32,7 +32,8 @@ function canGetOut(game: ReturnType<typeof makeGame>['game']): boolean {
       was = w.backing;
       if (!w.backing) return;
       backed++;
-      if (!g.open[cellAt(g, w.u[15], w.v[15])]) undug++;
+      // The tail beside its tunnel by more than backing allows (burrowBack.ts NEAR_OPEN).
+      if (strayOf(g, w.u[15], w.v[15]) > 0.45) undug++;
     });
     mostFlips = Math.max(mostFlips, flips);
     if (Math.hypot(w.u[0] - u0, w.v[0] - v0) > 0.25) return true;
@@ -70,9 +71,9 @@ describe('the worm is never trapped underground (it backs up out of dead ends)',
     expect(checks).toBe(288);
     // Some ways out were backing up (a dead end the head could not turn round in)...
     expect(backed).toBeGreaterThan(0);
-    // ...back through its own tunnel (the tail, a chain cutting the bends' insides, now and then a
-    // little beside it: 3.5% of backing steps; 6-11% for up to 1.5 s when the trail was wrong)...
-    expect(undug / backed).toBeLessThan(0.05);
+    // ...back through its own tunnel or the soil just beside it (the tail, a chain cutting the
+    // bends' insides, may lie up to about 0.4 u beside it), never off away from it...
+    expect(undug / backed).toBeLessThan(0.01);
     // ...and backing settles: on once and off once while a way is held, never flicking on and off.
     expect(mostFlips).toBeLessThanOrEqual(2);
   });

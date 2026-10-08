@@ -54,7 +54,8 @@ const WALL_BAND = 0.35;
 /** The head's limits: this far inside the playable slab's ends, and above the slab's bottom. */
 const END_KEEP = 0.2;
 const BOTTOM_KEEP = 0.3;
-const MAX_NECK_BEND = 1.3;
+/** Head within this of its neck's way (as the body's MAX_BEND, burrowBack.ts): farther, it wound the body into loops. */
+const MAX_NECK_BEND = 0.6;
 /**
  * Past that limit the head is eased back (this share a step, but never left more than BEND_LAG past
  * it), not snapped: it follows the neck's small sway without a turn that flicks back for a frame.
