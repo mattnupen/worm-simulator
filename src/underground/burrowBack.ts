@@ -1,10 +1,10 @@
-import { BODY_RADIUS, SPACING } from '../game/crawl';
+import { BODY_RADIUS } from '../game/crawl';
 import { boundaryOf, bound, B_TOP, type Slab } from './slab';
 import type { Solids } from './solids';
 import { pushOutFrom } from './solidPush';
 import { TOP_KEEP, type UV } from './solidShapes';
-import { hypot2 } from '../core/vec';
 import { cellAt, type SoilGrid } from './soilGrid';
+import { followTail, type BodyTrail } from './bodyTrail';
 
 /**
  * Backing up (V2 spec 6: nightcrawlers crawl backward as well as forward, and pull back into their
@@ -64,6 +64,7 @@ export interface BackBody {
   readonly v: Float64Array;
   readonly prevU: Float64Array;
   readonly prevV: Float64Array;
+  readonly trail: BodyTrail;
 }
 
 /** backUp's step: how far the tail goes, the playable slab's ends and the bottom it keeps above. */
@@ -80,6 +81,8 @@ export function backUp(s: Slab, o: Solids, g: SoilGrid, b: BackBody, lim: BackLi
   const { u, v, prevU, prevV } = b;
   const { step, lo, hi, bottom } = lim;
   const t = u.length - 1;
+  b.trail.fromU = u[t];
+  b.trail.fromV = v[t];
   const eu = u[t] - u[t - 1];
   const ev = v[t] - v[t - 1];
   const along = Math.atan2(ev, eu);
@@ -94,15 +97,8 @@ export function backUp(s: Slab, o: Solids, g: SoilGrid, b: BackBody, lim: BackLi
     break;
   }
   keepOut(s, o, u, v, prevU, prevV, t);
-  // The rest follows the tail, each point at most SPACING behind the one after it.
-  for (let i = t - 1; i >= 0; i--) {
-    const du = u[i] - u[i + 1];
-    const dv = v[i] - v[i + 1];
-    const d = hypot2(du, dv);
-    if (d > SPACING) {
-      u[i] = u[i + 1] + (du * SPACING) / d;
-      v[i] = v[i + 1] + (dv * SPACING) / d;
-      keepOut(s, o, u, v, prevU, prevV, i);
-    }
-  }
+  // The rest follows the tail back along the way the head came (bodyTrail.ts), each point at most
+  // SPACING ahead of the one behind it.
+  followTail(b);
+  for (let i = t - 1; i >= 0; i--) if (u[i] !== prevU[i] || v[i] !== prevV[i]) keepOut(s, o, u, v, prevU, prevV, i);
 }

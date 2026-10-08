@@ -1,6 +1,6 @@
 import { hypot2 } from '../core/vec';
-import { SPACING } from '../game/crawl';
 import { keepOut } from './burrowBack';
+import { followHead } from './bodyTrail';
 import { digDiscAt, type Eaten, type SoilGrid } from './soilGrid';
 import { castBlobAt, type CastSpot } from './castings';
 import type { Burrower } from './burrower';
@@ -17,13 +17,11 @@ export const TUNNEL_R = 0.14;
 /** A casting every this far (about 1.3 body lengths). */
 export const CAST_EVERY = 4.5;
 const CAST_R = 0.15;
-/** The body's points dig this wide (the body cuts corners, so every point keeps a tunnel). */
-const BODY_DIG = TUNNEL_R * 0.85;
 /**
- * A casting is left this far behind the tail: just out of the tail's own dig, so the body never
- * eats it (at the tail itself the next step's dig ate about 44% of each one).
+ * A casting is left this far behind the tail: just out of the tail's own keeping-open (TUNNEL_R),
+ * so the body never eats it (at the tail itself the next step's dig ate about 44% of each one).
  */
-const CAST_BACK = BODY_DIG + CAST_R + 0.02;
+const CAST_BACK = TUNNEL_R + CAST_R + 0.02;
 /**
  * Where a casting finds no open tunnel to settle in (the tail swinging round a sharp turn, or an
  * earlier casting already there), it is tried again as the tail moves on, for up to this far,
@@ -35,7 +33,11 @@ const ate: Eaten = { cells: 0, organic: 0 };
 const pt = { u: 0, v: 0 };
 const cast: CastSpot = { u: 0, v: 0, shade: 0, dirU: 0, dirV: 0 };
 
-/** The head's tunnel (eating fresh soil feeds the gut: darker castings), then the body after it. */
+/**
+ * The head's tunnel (eating fresh soil feeds the gut: darker castings), then the body after it.
+ * Only the head eats fresh soil: the body follows inside its tunnel (bodyTrail.ts) and only keeps
+ * it open, at the same radius, so the tunnel is the body's own width (V2: a round tube).
+ */
 export function digTunnel(b: Burrower, s: Slab, g: SoilGrid, o: Solids): void {
   pt.u = b.u[0];
   pt.v = b.v[0];
@@ -44,20 +46,14 @@ export function digTunnel(b: Burrower, s: Slab, g: SoilGrid, o: Solids): void {
   trailBody(b, s, g, o);
 }
 
-/** Follow the leader, then keep every body point in an open tunnel (the body cuts corners). */
+/** The body along the head's path (each point that moved kept out of the top and the solids), keeping its tunnel open. */
 function trailBody(b: Burrower, s: Slab, g: SoilGrid, o: Solids): void {
+  followHead(b);
   for (let i = 1; i < b.u.length; i++) {
-    const eu = b.u[i] - b.u[i - 1];
-    const ev = b.v[i] - b.v[i - 1];
-    const d = hypot2(eu, ev);
-    if (d > SPACING) {
-      b.u[i] = b.u[i - 1] + (eu * SPACING) / d;
-      b.v[i] = b.v[i - 1] + (ev * SPACING) / d;
-      keepOut(s, o, b.u, b.v, b.prevU, b.prevV, i);
-    }
+    if (b.u[i] !== b.prevU[i] || b.v[i] !== b.prevV[i]) keepOut(s, o, b.u, b.v, b.prevU, b.prevV, i);
     pt.u = b.u[i];
     pt.v = b.v[i];
-    digDiscAt(g, pt, BODY_DIG, ate);
+    digDiscAt(g, pt, TUNNEL_R, ate);
   }
 }
 

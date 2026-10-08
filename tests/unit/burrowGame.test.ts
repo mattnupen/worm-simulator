@@ -229,8 +229,8 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     steerToTop(game);
     press(game);
     until(game, 'surface');
-    run(game, 0.6, UP);
-    if (game.prompt !== 'digDown') run(game, 1, UP);
+    // Crawl on until Dig down shows (where it comes up depends on how its body lay below).
+    for (let k = 0; k < 30 && game.prompt !== 'digDown'; k++) run(game, 0.1, UP);
     digDown(game);
     expect(game.slabVersion).toBe(2);
     let open = 0;
