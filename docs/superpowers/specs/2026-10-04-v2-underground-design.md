@@ -434,3 +434,196 @@ Also decided: **real (True) size for all future work, and V2 removes World scale
   - slides with the screenshots;
   - the Canvas post.
 - If V1's form results are in, the first slide is "You said, we did".
+
+## 14. V2 as built (2026-10-08)
+
+Plans: `docs/superpowers/plans/2026-10-06-v2-underground-part-a.md` (Plan A: foundations and deep
+litter) and `docs/superpowers/plans/2026-10-06-v2-underground-part-b.md` (Plan B: underground).
+Plan B was written against stubs of Plan A, so where they differ this record follows the code.
+Commits `2f38219..36a533d` on `v2-underground`. Plan A ended at 79 unit files / 660 tests and
+38 e2e passed (1 skipped); Plan B's final counts go in at the release check.
+
+### 14.1 What was built
+
+**Plan A (sections 2b, 8.2, 10 "World scale").**
+- **Real size only.** The World scale button, screen, `?scale=`, the saved scale and forest
+  switching are gone; `src/surface/realScale.ts` replaces the scale table. A V1 save's `scale` is
+  kept on write and ignored. Classic's hash tests retired with Classic; real-size camera and
+  layout guards replace the ones still worth having.
+- **Content system.** `src/content/sources.ts` (9 sources from the research notes) and
+  `src/content/text.ts` (`ui`, `fact`, `gameChoice`). The types and `lineProblems()` (unit test)
+  fail the build on an unsourced or unverified fact. The burrow line is split in two: a sourced
+  fact ("Real nightcrawlers dig one burrow that goes straight down, as deep as 2 meters", Worm
+  Watch, *Earthworm Ecological Groups*) and a game choice ("In the game you can dig any way you
+  like").
+- **Action prompt and touch Action button.** One real button, bottom right, icon plus word (Dig
+  down, Come up, Wide view, Close view), with a "Space" key chip on keyboard devices and the whole
+  64 px+ button as the press on touch. It takes no focus and never flashes. Quick taps of Space or
+  the button are latched until a game step sees them; a press with no pointer (Switch Access)
+  counts; Space on a focused menu button is never also an Action press; it fits at 320 px.
+- **Deep litter, worm buried in it.** The L layer is 0.45–1.2 u (2–5 cm): about 2.4 cm in the
+  open, deeper in hollows, drifted against trunks and the log on the downwind side, five windblown
+  piles, and banked against rocks so more than half of every rock shows (down to 0.2 u beside a
+  small one). The worm travels on the F floor inside it. Over the worm the top opens in a funnel
+  (V1's occlusion fade, extended) onto the F floor and a pocket of older, darker, partly bleached
+  leaves. A hero leaf heaved through the top brightens to a top leaf, eased. The camera follows a
+  point 0.1 u over the litter top above the head.
+- **Draw budget.** All far-LOD litter is one draw; worst views dropped from 45–53 draws to 19–27.
+  A headless test counts draws at the spawn, round every rock and from the corners, on every
+  preset (≤ 40).
+
+**Plan B (sections 4–7, 10 underground, 12).** All in `src/underground/` unless noted.
+- **Slab.** 16 u wide (±8 u) by 12 u deep, clipped to the world, centred on the entry. The face
+  draws 6 u past each end and fades over 4 u more, and draws 2.8 u below the bottom, fading to
+  deep soil, so no swing or frame shows a void. The playable range stays clear of the face's ends
+  so the names have room.
+- **Layers.** L is the surface litter depth at each point (8.2 coherence holds); F 4–5 cm, H 1–2 cm,
+  A 3–5 cm, E 2–4 cm, B the rest. Boundaries are irregular, seeded per spot. Patterns are baked
+  once into painted tiles (litter fragments, matted old leaves with hyphae, H crumbs and fine roots,
+  mineral grain), read 6 times per pixel.
+- **Soil grid.** 160 × 136 cells of 0.1 u, reaching 1.6 u above the entry's litter top; layer,
+  dug flag, castings, stone or root, damp. Uploaded to a data texture by changed rows.
+- **Solids and life hints.** Stones in A and B; big roots from the nearest trunk that dive, wind,
+  branch and taper, with thick ends running on into the wall; rock and log sections cut from the
+  drawn meshes. A snail shell, a beetle (both block like stones), a spider at the litter surface,
+  a puffball, and moss with red-stalked spore capsules at the surface line. Static only.
+- **Digging.** Point steering, turning at up to 2.6 rad/s. Speeds (u/s): own tunnel 1.4, L 1.0,
+  F 0.9, H 0.85, A 0.6, E 0.45, B 0.42, castings 0.9. Collide-and-slide on solids; soft stops ease
+  the worm to the slab's ends, bottom and top. Steering into the top keeps the worm in the leaves.
+- **Tunnels and castings.** Only the head digs fresh soil; the body follows the head's own path,
+  so tunnels are worm wide (radius 0.14 u, cross-section about 0.29 u on curves too). A casting
+  every 4.5 u of travel, retried over 0.8 u until it lands. Castings settle on the downhill wall
+  (about 46% fill) and never seal a tunnel. Where F or H is eaten the wall gets a thin rim of H
+  crumbs (the first hint of mull).
+- **Backing out.** Pointed back along the body while stuck, the worm backs up tail first along its
+  own tunnel and stops at the tunnel's end (a tail does not dig). It keeps backing while the stick
+  stays within about 60° of straight back. A trap test finds no stuck spot (288 checks).
+- **One Action button** (`modeMachine.ts`, `promptKind`): surface → Dig down (where allowed);
+  underground near the top → Come up (where allowed); otherwise the view it will switch to.
+  Presses during a move are dropped.
+- **Where digging is allowed.** Open ground 0.5 u off every trunk, rock and log footprint (rocks:
+  off their below-ground reach), 2.5 u inside the play edge, a body curled less than 170°, a cut
+  long enough each side, and a clear side for the camera.
+- **Moves.** Down: the head sinks for at least 1.0 s, then a 1.5 s camera swing. Up: the head rises
+  (≥ 1.0 s, on the plan that turns and dips least), then the worm slides up its own tunnel and
+  crawls out (≥ 1.1 s) while the camera swings back; at most 5.8 s. With reduced motion either
+  way is a 0.7 s dip: dark over 0.3 s, the worm and camera cut to the end in the dark, clear over
+  0.35 s.
+- **Openings and middens.** Coming up leaves an opening with a midden: castings and leaf-shaped
+  bits folded on the midrib, round a dark shaft. Up to 8 per session (oldest dropped; within
+  1.25 u they merge); not saved. Middens hide underground and fade over the buried worm.
+- **Camera views** (`cutFrame.ts`, `cutCamera.ts`). Wide: from 1.4 u above the highest litter,
+  8.5 u tall (into B); at least 7 u wide on phones; capped at the 16:9 width on wider screens; on
+  portrait screens the litter top sits about 19% down, clear of Pause. Close: about 1.7 worm
+  lengths, whole worm in frame, head never low on screen. A switch is a 1 s eased hand-over. The
+  frame depends only on the worm and the screen. Default Wide; stored only when the player
+  switches (the V1 save rule; `Settings.undergroundView`).
+- **Layer names** (`labelLayout.ts`, `layerLabels.ts`). Real DOM. The end nearer the head shows all
+  five names with tick lines: on the real end while it is on screen, docked at the screen's edge
+  (each beside its layer) when it is not. Ends swap 0.5 u past the slab's middle. Names fit the
+  screen's height and slide clear of the joystick, Action button and Pause. Screen readers hear
+  the near end's list ("Soil layers").
+- **Hint card** (`src/ui/undergroundHint.ts`). The session's first visit only, for 12 s, starting
+  once the camera reaches the cut. It sits at the top or the bottom, away from the head, and hides
+  while the head would be under it. Keyboard devices get the keyboard line, touch screens a touch
+  line (`undergroundHintTouch`). Then the burrow fact, then the "Game choice:" line.
+- **The surface while underground.** No hole over the worm: fade off, top and floor patches and
+  pocket emptied, every litter chunk plain, rim light off. Their per-frame lists, the leaf
+  disturbance upload and hero-leaf physics are skipped. Everything is restored coming up. No
+  shader compiles entering or leaving (e2e).
+- **Speed test and gates.** `?dig=1` digs a scripted run; the report says where the game really
+  is, so a run that never went down fails. The gates run surface and underground.
+- **Allocation.** No per-step garbage in the dig, the dig spot or the crawl's pushers (heap growth
+  per step: underground 80 B, `canDigAt` 48 B; guarded by `stepAllocation.test.ts`).
+
+**Should items (8.1) built:** the burrow opening with a midden. The rest are deferred (14.5).
+
+### 14.2 Decisions and deviations made while building
+
+| Item | Spec said | As built, and why |
+|---|---|---|
+| Cut direction | Along the worm's heading | The cut nearest the heading that keeps 0.3 u off every trunk (no trunk section exists). 43% of digs turn: median 20°, up to 80°. The worm turns to lie along the cut while its head sinks |
+| Coming up | Action near the top | Only where the whole body can then lie on the floor along the cut, clear of footprints and inside the play area (`emergeMap.ts`); elsewhere near the top Action stays the view switch. Near-top has hysteresis (in at 0.2 u, out at 0.35 u) |
+| Castings | A blob that partly refills the tunnel | Settles on the downhill wall, about 46% fill, with a guaranteed open band: never seals a tunnel at any angle |
+| Tunnel width | About the body's width | Was up to twice that on curves (every body point dug); now only the head digs and the body follows its trail |
+| Tunnel look | Dark voids | The layer's own soil, browner, darker than the wall but never black; crisp edge, a thin pressed-wall line, castings as lit granular lumps |
+| Close view | 4–5 worm lengths, more room ahead | About 1.7 worm lengths (4–5 would be as wide as Wide), and it keeps the whole worm in frame, so digging down it has about 2.2 u ahead and 3.8 u behind |
+| Wide view | Surface to about B, follows gently | As spec, plus: capped at the 16:9 width on wider screens, at least 7 u wide on phones, portrait litter top 19% down (clear of Pause) |
+| Layer names | At both far ends | The nearer end only, docked at the screen's edge when the end is off screen (Wide is capped at 16:9, so both ends rarely fit) |
+| Hint card | Not specified | First visit only, 12 s from arrival at the cut, placed away from the head; a touch line on touch screens |
+| Reduced motion | A short cross-fade | A 0.7 s dip through dark soil (a true cross-fade needs a render target) |
+| Getting stuck | Not specified | Backing out tail first along the tunnel (never trapped) |
+| Camera swing | Behind the worm to side-on | An orbit round the point it looks at, square to the cut over the leaves by 60% of the swing; the ground in front cut away (45–70%) by an oblique near plane along the cut (projection only: no shader, no compile), then down beside the cut |
+| Forest in front of the cut | Not specified | Clipped by that oblique plane; nothing more than 0.3 u in front of the cut is drawn |
+| Middens | Castings mixed with leaf bits | As spec; leaf bits are 8-point leaves folded on the midrib, round a dark shaft; middens hide underground |
+| Soil grid | About 160 × 120 | 160 × 136: it reaches 1.6 u above the entry's litter top |
+| E band | Grey-white E | 2–4 cm: a planning choice; the research notes give no number |
+| Layer patterns | Procedural or textured | Baked once into tiles (per-pixel patterns halved the frame rate in software GL) |
+| Quick taps | Plan B Task 10 `settle()` | Already done by Plan A's `endStep()` latches; not added twice |
+
+### 14.3 Performance
+
+Gates are relative to a Step 0 build run side by side (`node scripts/perf-gates.mjs 4`).
+
+| Place | Preset | Gate | Plan A (893dd9f) | Final median (93debbc, 2026-10-08) | Max draws | Result |
+|---|---|---|---|---|---|---|
+| Surface | Low | 1.089 | 1.386 | 1.384 | 18 | Pass |
+| Surface | Medium | 0.871 | 1.137 | 1.129 | 26 | Pass |
+| Surface | High | 0.741 | 0.834 | 0.806 | 25 | Pass |
+| Surface | Ultra | 0.610 | 0.656 | 0.614 (re-run 0.613) | 25 | Pass, thin margin |
+| Underground | Low | 1.089 | n/a | 1.412 | 14 | Pass |
+| Underground | Medium | 0.871 | n/a | 1.059 | 19 | Pass |
+| Underground | High | 0.741 | n/a | 0.793 | 20 | Pass |
+| Underground | Ultra | 0.610 | n/a | 0.671 | 20 | Pass |
+
+- **Cuts (Plan A, `893dd9f`):** High render scale 1 → 0.9; Ultra top detail leaves 1600 → 1250.
+  The pocket's count is pinned to a 1600 reference, so High and Medium keep theirs and Ultra's is
+  about 0.88×. Plan B made no cuts.
+- Perf work with no visual change: the terrain draws without the fade except a top patch over the
+  worm; the fade searches per screen tile; the floor patch and pocket are listed on the CPU; far
+  litter is one draw.
+- Later visual fixes (tunnel shading `eff9ea7`, phone framing, worm-wide tunnels `65f4d89`) were
+  rough-benched within noise, not re-gated.
+
+### 14.4 Known limits
+- One slab at a time: digging down elsewhere starts a fresh one; tunnels are not saved.
+- Life in the cut is static hints; the vote decides what comes alive in V3.
+- Pocket leaves jitter a little more than V1's bound (p99.9 bound 4 → 4.5 px, seed variance;
+  pinned by a test). The pocket is sparser than the photos along the body's sides (10–20% cover);
+  more costs fps on High.
+- On phones Close is only about 14% closer than Wide, so the two views barely differ there.
+- In about 0.5% of digs (measured at phone camera reach) neither side of the cut had a clear swing;
+  measured before the swing became an orbit with the oblique clip, so recheck.
+- About 1% of slabs near a trunk get 1 big root instead of 2; in about 21% the "2 roots" are one
+  chain running both ways from the trunk.
+- `buildEmerge` can take about 20 ms on a Chromebook as Come up is pressed (one frame).
+- The camera pulls in fast past the big rock at (−9.5, −10) while turning hard (since V1).
+- Midden leaf bits read well only at play distance.
+
+### 14.5 Deferred (to V3 or Plan C)
+- Spec 8.1 Should items not built: twigs and sticks; conifer needles; still-green and bleached
+  leaves in the surface mix (only the pocket has older, bleached leaves); moss carpets on the
+  surface; moss mounds and moss collars at trunk bases; lichen-blotched bark; mossy logs and
+  stones with puffballs, shelf and crust fungi; seedlings.
+- Could: the conifer patch (mor).
+- The life vote's winner (V3), Moisture underground (V3), the mole, frost.
+
+### 14.6 Open questions for Matt
+1. **Close view:** about 1.7 worm lengths, with more room behind than ahead when digging down. On
+   phones it is barely closer than Wide. Keep it, or make Close closer before students vote on it?
+2. **Camera vote and saved picks:** Space switches the view, so most students who try both will
+   have a stored pick, and a new default would not reach them. Before applying the vote, decide
+   how (for example, store the default in effect with each pick and ignore picks made under an
+   old default).
+3. **Cut turns:** 43% of digs turn the cut (up to 80°) to avoid trunks. OK as is?
+4. **Hint card:** 12 s on the session's first visit only. Long enough?
+5. **E band 2–4 cm:** unsourced; it is described as "in the game" on slides. Find a source, or
+   keep it as a game choice?
+6. **Reduced motion:** a dip through dark soil, not a true cross-fade. OK?
+7. **Surface Ultra** passes by 0.004. Accept, or trim Ultra further before release?
+8. **Fungi:** the parent spec (section 5) says any fungus shown carries "Look, don't eat." V2
+   shows a puffball in the cut (and V1's mushrooms on the surface) with no such line. Add a `ui`
+   line in V3, and say it on the slides now?
+9. **The mole** needs a source for its Minnesota diet and range before it can go on the V4 topic
+   ballot, so V2's topic vote has two options (version doc).
+10. **Pocket density and jitter** (14.4): tune in Plan C, or leave?

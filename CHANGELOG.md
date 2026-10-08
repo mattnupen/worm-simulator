@@ -23,10 +23,39 @@ How to write an entry (for Matt and Claude):
 - **Your worm travels inside the leaves**, not on top of them. The leaves above it fade so you can
   still see it, down in the dark, damp old leaves where it crawls.
 - **The Action button.** When your worm can do something special, a big button shows up in the
-  bottom right corner with a picture and a word. Press Space, or tap the button on a touch screen.
+  bottom right corner with a picture and a word. The word tells you what Space will do. Press
+  Space, or tap the button on a touch screen.
 - **Real size for good.** After V1, your teacher chose to keep True size, so the World scale
   button is gone. Every leaf, rock and tree is as big as it really is next to your worm. (V1 still
   has the button.)
+- **Dig down!** On open ground the button says **Dig down**. Press Space (or tap the button) and
+  your worm noses down into the ground. The camera swings round to the side, and you see a slice
+  of the forest floor, like a cake cut open.
+- **The layers of the forest floor.** From the top: **Leaf litter** (this fall's bright leaves),
+  **Old leaves** (dark, broken leaves with white fungus threads and tiny roots), **Humus** (black
+  and crumbly), **Topsoil**, and **Subsoil** (a pale grey band, then rusty brown, with stones).
+  The names are at the end of the slice nearest your worm. If that end is off the screen, the
+  names wait at the edge of the screen.
+- **Point to dig.** Push the arrow keys, W A S D or the joystick the way you want your worm's head
+  to go. Your own tunnel is the fastest way to travel. New soil is slower, and the deep layers are
+  the slowest. Stones and big roots block you, so slide along them.
+- **Castings.** As your worm digs, it leaves castings (worm poop) in its tunnel. Where it eats
+  through old leaves and humus, the tunnel wall gets a rim of dark crumbs.
+- **Look closely** for a snail shell, a beetle, a spider, a puffball and moss with red stalks. They
+  don't move yet. Your vote decides which forest-floor life we add next.
+- **Two views underground.** **Wide** shows the whole slice. **Close** follows your worm. Press
+  Space to switch: the button shows the view you will switch to. The game remembers your pick on
+  this computer.
+- **Come up.** When your worm's head is near the top of the leaves, and there's room up there to
+  crawl out, the button says **Come up**. Press Space and your worm crawls back out onto the
+  forest floor. It leaves a burrow opening with a little pile of castings and leaf bits around it,
+  called a midden, like a real nightcrawler. Up to 8 openings stay until you close the game.
+- **Stuck?** Point back along your worm's body, and it backs up, tail first, through its own
+  tunnel.
+- The first time you go underground, a card shows the digging controls and a true fact about
+  nightcrawlers.
+- If your computer is set to reduce motion, going down and coming up is a quick fade through dark
+  soil instead of a camera swing.
 
 ## V1 · True Size (2026-10-06)
 
