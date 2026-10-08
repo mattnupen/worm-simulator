@@ -22,14 +22,17 @@ export function showStart(shell: Shell, a: StartActions, fromGraphics = false): 
   (fromGraphics ? graphics : crawl).el.focus();
 }
 
-/** Crawl: a small hint card; focus rests on it so Space and arrows press no button. */
+/**
+ * Crawl: a small hint card, the controls then "look, don't eat" (the surface has mushrooms and
+ * puffballs; parent spec 5). Focus rests on it so Space and arrows press no button.
+ */
 export function showCrawl(shell: Shell): void {
   const hint = el('p', '', 'hint');
   hint.append(
     icon('drive', 'hint-icon'),
     el('span', shown(TEXT.crawlHint)),
   );
-  shell.show('crawl', 'Crawling', [hint]);
+  shell.show('crawl', 'Crawling', [hint, el('p', shown(TEXT.lookDontEat), 'hint-safety')]);
   shell.panel.focus({ preventScroll: true });
 }
 

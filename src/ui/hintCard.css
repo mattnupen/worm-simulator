@@ -1,17 +1,24 @@
 /* The first visit's hint card underground (undergroundHint.ts): compact, so it never fills a phone,
    and placed at the top or the bottom, whichever is away from the worm's head (hintPlace.ts). The
-   main line stays 18px bold; the fact and the Game choice line are 18px too (underground.css). */
+   main line stays 18px bold; the fact, the Game choice line and "look, don't eat" are 18px too
+   (underground.css, parchment.css). */
 .panel[data-card="hint"] { padding: 12px 18px 14px; line-height: 1.3; }
 .panel[data-card="hint"] .hint { font-size: 18px; gap: 10px; }
 .panel[data-card="hint"] .hint-icon { width: 28px; height: 28px; }
 .panel[data-card="hint"] .hint-fact { margin-top: 6px; }
 .panel[data-card="hint"] .hint-note { margin-top: 4px; }
+.panel[data-card="hint"] .hint-safety { margin-top: 4px; }
 /* At the bottom: above the joystick and the Action prompt (24px from the bottom, 140px tall). */
 .panel[data-card="hint"][data-at="bottom"] { top: auto; bottom: 176px; }
 /* Over the head wherever it went: hidden until the head moves off. */
 .panel[data-card="hint"][data-at="off"] { visibility: hidden; }
 @media (max-width: 560px) {
-  .panel[data-card="hint"] { padding: 10px 14px 12px; }
+  /* Tighter on a phone so the four lines stay within about 35% of a 360 x 640 screen at 18px: less
+     space between lines and above and below them, and the inner hairline nearer the edge. */
+  .panel[data-card="hint"] { padding: 8px 14px 8px; line-height: 1.2; }
+  .panel[data-card="hint"]::before { inset: 4px; }
+  .panel[data-card="hint"] .hint-fact { margin-top: 3px; }
+  .panel[data-card="hint"] .hint-note, .panel[data-card="hint"] .hint-safety { margin-top: 2px; }
   .panel[data-card="hint"] .hint-icon { display: none; }
   /* Narrow screens: the Action prompt stacks, about 92px tall, 16px up; the joystick 164px. */
   .panel[data-card="hint"][data-at="bottom"] { bottom: 172px; }

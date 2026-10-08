@@ -54,6 +54,7 @@ How to write an entry (for Matt and Claude):
   tunnel.
 - The first time you go underground, a card shows the digging controls and a true fact about
   nightcrawlers.
+- Mushrooms and puffballs are for looking at, not eating: the hint cards now say so.
 - If your computer is set to reduce motion, going down and coming up is a quick fade through dark
   soil instead of a camera swing.
 

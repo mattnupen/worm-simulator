@@ -74,8 +74,9 @@ describe('content: science honesty', () => {
       layerTopsoil: 'Topsoil',
       layerSubsoil: 'Subsoil',
       undergroundHint: 'Point the way to dig with the arrow keys, W A S D, or the joystick. Space: switch view, or come up near the top. Esc or P: pause.',
+      lookDontEat: "Mushrooms and puffballs: look, don't eat.",
     });
-    for (const k of ['digDown', 'comeUp', 'viewWide', 'viewClose', 'layerLitter', 'layerOld', 'layerHumus', 'layerTopsoil', 'layerSubsoil', 'undergroundHint'] as const) {
+    for (const k of ['digDown', 'comeUp', 'viewWide', 'viewClose', 'layerLitter', 'layerOld', 'layerHumus', 'layerTopsoil', 'layerSubsoil', 'undergroundHint', 'lookDontEat'] as const) {
       expect(TEXT[k].kind).toBe('ui');
     }
     expect(TEXT.burrowChoice.kind).toBe('gameChoice');

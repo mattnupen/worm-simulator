@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { TEXT, shown } from '../../src/content/text';
 
 const PAGE = pathToFileURL(path.resolve('dist/index.html')).href;
 /** The speed test with 1.5 s phases, for tests that only need it to run. */
@@ -32,6 +33,8 @@ test('keyboard only: crawl, pause with Esc, resume, reach Graphics and back to s
   await expect(button(page, 'Crawl')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(crawling(page)).toBeVisible();
+  // The crawl card: the controls, then "look, don't eat" last (the surface has mushrooms; parent spec 5).
+  await expect(crawling(page).locator('p').last()).toHaveText(shown(TEXT.lookDontEat));
   await expect(button(page, 'Pause')).toBeVisible();
   await page.keyboard.down('ArrowUp');
   await page.waitForTimeout(400);

@@ -214,6 +214,16 @@ test('touch: the Action button digs down, switches the view and comes up; the jo
   };
   await action('Dig down');
   await place(page, 'underground');
+  // The first visit's hint card, touch version: the touch controls first, "look, don't eat" last,
+  // and compact (at most about 35% of the screen). It may be placed "off" (hidden over the head in
+  // the middle of a short screen: hintPlace.ts), so this reads its layout box, not what is seen.
+  const card = page.locator('.panel[data-card="hint"]');
+  await expect(card).toHaveCount(1, { timeout: SLOW });
+  const lines = await card.locator('p').allTextContents();
+  expect(lines[0].trim()).toBe(shown(TEXT.undergroundHintTouch));
+  expect(lines[lines.length - 1]).toBe(shown(TEXT.lookDontEat));
+  const area = await card.evaluate((e) => { const r = e.getBoundingClientRect(); return r.width * r.height; });
+  expect(area).toBeLessThanOrEqual(0.35 * 360 * 640);
   await action('Close view');
   await expect(prompt(page, 'Wide view')).toBeVisible({ timeout: SLOW });
   // The joystick points the way: up into the litter, where Action comes up.
@@ -333,6 +343,8 @@ test.describe('at 1366 x 768', () => {
     expect(fact).toBeGreaterThanOrEqual(0);
     expect(lines[fact + 1]).toBe(shown(TEXT.burrowChoice));
     expect(shown(TEXT.burrowChoice)).toMatch(/^Game choice: /);
+    // Then "look, don't eat", last (the puffball in the cut; parent spec 5).
+    expect(lines[lines.length - 1]).toBe(shown(TEXT.lookDontEat));
     // Off the worm's head: hintPlace.ts keeps it at the top or the bottom edge, away from the head
     // (the head's screen position has no page hook, so this checks where it was put).
     await expect(card).toHaveAttribute('data-at', /^(top|bottom)$/);

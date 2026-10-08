@@ -44,6 +44,8 @@ export const TEXT = {
     verified: true,
   },
   burrowChoice: { kind: 'gameChoice', text: 'In the game you can dig any way you like.' },
+  /** Parent spec 5: any fungus shown carries "Look, don't eat." (last line of both hint cards). */
+  lookDontEat: { kind: 'ui', text: "Mushrooms and puffballs: look, don't eat." },
 } as const satisfies Record<string, Line>;
 
 export type TextKey = keyof typeof TEXT;
