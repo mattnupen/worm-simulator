@@ -1,11 +1,12 @@
-import type { Vec3 } from '../core/vec';
+import { hypot2, type Vec3 } from '../core/vec';
 import { footprints, obstacleDepth, type ObstacleHit } from '../surface/obstacles';
 import { rocks } from '../surface/propPlacement';
 import { PLAY_HALF, WORLD_HALF } from '../surface/terrain';
 import { rockReach } from './sections';
-import { canEmergeNearEntry } from './emergeMap';
-import { bodyFan, sweepClear } from './sinkSweep';
-import { cutSpans } from './slab';
+import type { WormMotion } from '../worm/locomotion';
+import { canEmergeNearEntryOf } from './emergeMap';
+import { bodyFanOf, sweepClearOf } from './sinkSweep';
+import { cutSpansOf, type CutLine } from './slab';
 
 /**
  * Where the worm may dig down, the direction of the cut, and which side of it the camera looks
@@ -48,39 +49,51 @@ const CAM_PAD = 0.3;
 const hit: ObstacleHit = { nx: 0, nz: 0 };
 const span: [number, number] = [0, 0];
 const spans: [number, number, number, number] = [0, 0, 0, 0];
-/** Whether the cut through (x, z) along (tx, tz), over u in `span`, keeps CUT_MARGIN off every trunk. */
-function spanClear(x: number, z: number, tx: number, tz: number): boolean {
+/**
+ * The spot asked about (x, z, the worm's heading), and the cut being tried through it (`h`, its
+ * direction tx, tz). The search passes them in these objects, never as loose numbers: a number
+ * passed to a call V8 does not inline is boxed on the heap, and canDigAt runs every few steps.
+ */
+const at = { x: 0, z: 0, heading: 0 };
+const cut: CutLine = { x: 0, z: 0, h: 0, tx: 0, tz: 1 };
+
+/** Whether the cut in `cut`, over u in `span`, keeps CUT_MARGIN off every trunk. */
+function spanClear(): boolean {
   const { round } = footprints();
+  const x = cut.x;
+  const z = cut.z;
+  const tx = cut.tx;
+  const tz = cut.tz;
   const lo = span[0];
   const hi = span[1];
   for (let k = 0; k < round.length; k += 4) {
     if (round[k + 3] !== Infinity) continue;
     const u = Math.max(lo, Math.min(hi, (round[k] - x) * tx + (round[k + 1] - z) * tz));
-    if (Math.hypot(round[k] - x - tx * u, round[k + 1] - z - tz * u) < round[k + 2] + CUT_MARGIN) return false;
+    if (hypot2(round[k] - x - tx * u, round[k + 1] - z - tz * u) < round[k + 2] + CUT_MARGIN) return false;
   }
   return true;
 }
 
 /**
- * Whether the cut along `heading` has ENTRY_ROOM of playable slab each side of the entry and keeps
- * off the trunks over its whole drawn face (as createSlab makes them: cutSpans).
+ * Whether the cut in `cut` (along cut.h) has ENTRY_ROOM of playable slab each side of the entry
+ * and keeps off the trunks over its whole drawn face (as createSlab makes them: cutSpans).
  */
-function cutClear(x: number, z: number, heading: number): boolean {
-  const tx = Math.sin(heading);
-  const tz = Math.cos(heading);
-  cutSpans(x, z, tx, tz, spans);
+function cutClear(): boolean {
+  cut.tx = Math.sin(cut.h);
+  cut.tz = Math.cos(cut.h);
+  cutSpansOf(cut, spans);
   if (spans[0] > -ENTRY_ROOM || spans[1] < ENTRY_ROOM) return false;
   span[0] = spans[2];
   span[1] = spans[3];
-  return spanClear(x, z, tx, tz);
+  return spanClear();
 }
 
 /**
  * A cut cutHeading may offer: room each side of the entry, clear of trunks, the body's turn into it
  * clear, and a way back up near the entry.
  */
-function cutOk(x: number, z: number, heading: number): boolean {
-  return cutClear(x, z, heading) && sweepClear(x, z, heading) && canEmergeNearEntry(x, z, heading);
+function cutOk(): boolean {
+  return cutClear() && sweepClearOf(cut) && canEmergeNearEntryOf(cut);
 }
 
 /**
@@ -92,19 +105,32 @@ function cutOk(x: number, z: number, heading: number): boolean {
  * straight body behind the head) must also turn into that cut clear of every footprint
  * (`sweepClear`), and the worm must be able to come back up near the entry (`canEmergeNearEntry`),
  * so no dig leaves it with nowhere to come up. It returns `wormHeading` itself when that works.
- * Called once per dig; canDigAt calls it every step for the prompt, with nothing allocated.
+ * Called once per dig; canDigAt runs the same search every few steps for the prompt, with nothing allocated.
  */
 export function cutHeading(x: number, z: number, wormHeading: number, body?: ArrayLike<Vec3>): number | null {
   if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(wormHeading)) return null;
-  bodyFan(wormHeading, body);
+  at.x = x;
+  at.z = z;
+  at.heading = wormHeading;
+  return findCut(body) ? cut.h : null;
+}
+
+/** cutHeading's search for the spot in `at`: true when a cut works, its heading left in `cut.h`. */
+function findCut(body?: ArrayLike<Vec3>): boolean {
+  const wormHeading = at.heading;
+  cut.x = at.x;
+  cut.z = at.z;
+  bodyFanOf(at, body);
   for (let i = 0; i <= 45; i++) {
     const turn = i * TURN_STEP;
-    const a = wormHeading + turn;
-    if (cutOk(x, z, a)) return a;
-    const b = wormHeading - turn;
-    if (i > 0 && i < 45 && cutOk(x, z, b)) return b;
+    cut.h = wormHeading + turn;
+    if (cutOk()) return true;
+    if (i > 0 && i < 45) {
+      cut.h = wormHeading - turn;
+      if (cutOk()) return true;
+    }
   }
-  return null;
+  return false;
 }
 
 /**
@@ -119,21 +145,40 @@ export function cutHeading(x: number, z: number, wormHeading: number, body?: Arr
  * moves near a footprint, which is the point: the prompt then shows only where the dig is clean.
  */
 export function canDigAt(x: number, z: number, heading: number, body?: ArrayLike<Vec3>): boolean {
+  at.x = x;
+  at.z = z;
+  at.heading = heading;
+  return canDigAsked(body);
+}
+
+/** canDigAt for the worm's head and heading (`m`, as Crawl.motion): the per-step form, boxing no numbers. */
+export function canDigHere(m: WormMotion, body?: ArrayLike<Vec3>): boolean {
+  at.x = m.head.x;
+  at.z = m.head.z;
+  at.heading = m.heading;
+  return canDigAsked(body);
+}
+
+/** canDigAt for the spot in `at`. */
+function canDigAsked(body?: ArrayLike<Vec3>): boolean {
+  const x = at.x;
+  const z = at.z;
+  const heading = at.heading;
   if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(heading)) return false;
   if (Math.abs(x) > PLAY_HALF - DIG_EDGE || Math.abs(z) > PLAY_HALF - DIG_EDGE) return false;
   if (obstacleDepth(x, z, DIG_PAD, hit) > 0) return false;
   const rs = rocks();
   for (let i = 0; i < rs.length; i++) {
-    if (Math.hypot(x - rs[i].x, z - rs[i].z) < rockReach(i) + DIG_PAD) return false;
+    if (hypot2(x - rs[i].x, z - rs[i].z) < rockReach(i) + DIG_PAD) return false;
   }
-  return cutHeading(x, z, heading, body) !== null;
+  return findCut(body);
 }
 
 /** How much of footprint (u, s, r) lies in the region in front of the cut on the s > 0 side (0: none). */
 function inFront(u: number, s: number, r: number): number {
   const du = Math.max(0, Math.abs(u) - FRONT_HALF);
   const ds = s < FRONT_NEAR ? FRONT_NEAR - s : s > FRONT_FAR ? s - FRONT_FAR : 0;
-  const d = Math.hypot(du, ds);
+  const d = hypot2(du, ds);
   return d < r ? (r - d) * r : 0;
 }
 
@@ -142,7 +187,7 @@ function segInside(ax: number, az: number, bx: number, bz: number, px: number, p
   const dx = bx - ax;
   const dz = bz - az;
   const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / (dx * dx + dz * dz)));
-  return r - Math.hypot(px - ax - dx * t, pz - az - dz * t);
+  return r - hypot2(px - ax - dx * t, pz - az - dz * t);
 }
 
 /**

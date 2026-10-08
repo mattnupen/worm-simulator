@@ -1,12 +1,15 @@
-import { advanceWave, type WaveState } from '../worm/wormShape';
+import { advanceWave } from '../worm/wormShape';
 import { WAVES, wormLength } from '../worm/wormMesh';
 import { WORM_SEGMENTS, SPACING } from '../game/crawl';
-import { boundaryAt, B_F, B_TOP, type Slab } from './slab';
-import { cellAt, digDisc, castBlob, AIR, type Eaten, type SoilGrid } from './soilGrid';
+import { boundaryOf, bound, B_F, B_TOP, type Slab } from './slab';
+import { cellAt, AIR, type SoilGrid } from './soilGrid';
+import { castTail, digTunnel, CAST_EVERY, CAST_WINDOW, TUNNEL_R } from './burrowTrail';
+import type { Burrower } from './burrower';
 import type { Solids } from './solids';
 import { TOP_KEEP } from './solidShapes';
-import { backUp, keepOut, BACK_ANGLE, BACK_SPEED, STUCK_REACH, STUCK_S, STUCK_SHARE, STUCK_TRIED } from './burrowBack';
+import { backUp, keepOut, type BackLimits, BACK_ANGLE, BACK_SPEED, STUCK_REACH, STUCK_S, STUCK_SHARE, STUCK_TRIED } from './burrowBack';
 import { CAST_SPEED, EAT_SPEED, TUNNEL_SPEED, type LayerId } from './layers';
+import { hypot2 } from '../core/vec';
 
 /**
  * The worm digging in the cut's plane (V2 spec 6): the same 16-point body as on the surface,
@@ -15,8 +18,10 @@ import { CAST_SPEED, EAT_SPEED, TUNNEL_SPEED, type LayerId } from './layers';
  * stones and big roots stop it and it slides along them. It leaves an open tunnel and, every few
  * body lengths, a casting. Pure; allocates nothing per step.
  */
-/** Open tunnel radius: about the body's half-width. */
-export const TUNNEL_R = 0.14;
+/** Open tunnel radius, and a casting every this far (burrowTrail.ts). */
+export { TUNNEL_R, CAST_EVERY };
+/** The worm in the cut, made and placed (burrower.ts). */
+export { createBurrower, placeBurrower, type Burrower } from './burrower';
 /** Most the head turns per second toward the way pointed. */
 export const DIG_TURN = 2.6;
 /** The head never comes nearer than this to the litter's top (solidShapes.ts). */
@@ -25,23 +30,6 @@ export { TOP_KEEP };
 export const NEAR_TOP_IN = 0.2;
 /** ...and stops being near it below this (hysteresis: the prompt does not flicker at the line). */
 export const NEAR_TOP_OUT = 0.35;
-/** A casting every this far (about 1.3 body lengths). */
-export const CAST_EVERY = 4.5;
-const CAST_R = 0.15;
-/** The body's points dig this wide (the body cuts corners, so every point keeps a tunnel). */
-const BODY_DIG = TUNNEL_R * 0.85;
-/**
- * A casting is left this far behind the tail: just out of the tail's own dig, so the body never
- * eats it (at the tail itself the next step's dig ate about 44% of each one).
- */
-const CAST_BACK = BODY_DIG + CAST_R + 0.02;
-/**
- * Where a casting finds no open tunnel to settle in (the tail swinging round a sharp turn, or an
- * earlier casting already there), it is tried again as the tail moves on, for up to this far,
- * until at least CAST_MIN cells fill.
- */
-const CAST_WINDOW = 0.8;
-const CAST_MIN = 2;
 /**
  * The head eases to a stop within this of the slab's ends, its bottom and the line TOP_KEEP under
  * the leaves' top: only its motion toward that limit slows (smoothly, from nothing at the band's
@@ -59,8 +47,9 @@ const MAX_NECK_BEND = 1.3;
 const BEND_EASE = 0.15;
 const BEND_LAG = 0.05;
 
-/** Keeps the head's facing within MAX_NECK_BEND of its neck's way (`neck`), eased back as above. */
-function holdBend(b: Burrower, neck: number): void {
+/** Keeps the head's facing within MAX_NECK_BEND of its neck's way, eased back as above. */
+function holdBend(b: Burrower): void {
+  const neck = Math.atan2(b.v[0] - b.v[1], b.u[0] - b.u[1]);
   const bend = wrap(b.dir - neck);
   const over = Math.abs(bend) - MAX_NECK_BEND;
   if (over > 0) b.dir -= Math.sign(bend) * Math.max(over * BEND_EASE, over - BEND_LAG);
@@ -84,86 +73,26 @@ const WANT_RATE = 12;
 const SPEED_RATE = 8;
 const EAT_RATE = 10;
 
-export interface Burrower {
-  /** Body points head first: u along the cut, v world height. */
-  readonly u: Float64Array;
-  readonly v: Float64Array;
-  readonly prevU: Float64Array;
-  readonly prevV: Float64Array;
-  /** The way the head faces, as an angle in the plane (0 = +u, pi / 2 = up). Unwrapped. */
-  dir: number;
-  prevDir: number;
-  /** Current speed (eased toward `want`, itself eased toward what the soil and the stick allow). */
-  speed: number;
-  want: number;
-  readonly wave: WaveState;
-  readonly prevWave: WaveState;
-  /** It is eating its way into fresh soil (not moving along an open tunnel). */
-  eating: boolean;
-  /** How much of the soil just ahead is fresh, eased (0..1): the peristalsis speeds up with it. */
-  eat: number;
-  /** Distance moved since the last casting. */
-  sinceCast: number;
-  /** How much farther the latest casting may still be tried (0: it landed, or none is due). */
-  castLeft: number;
-  /** How much of what it ate lately was leaves (0..1): darker castings. */
-  gut: number;
-  /** The head is near the litter (Action = Come up). */
-  nearTop: boolean;
-  /**
-   * Seconds the head has tried to move (`tried`: how far its speed would have taken it) and stayed
-   * near `stuckU`, `stuckV`, getting nowhere; and whether it is backing up (burrowBack.ts).
-   */
-  stuck: number;
-  tried: number;
-  stuckU: number;
-  stuckV: number;
-  backing: boolean;
-}
-
-export function createBurrower(): Burrower {
-  const n = WORM_SEGMENTS;
-  return {
-    u: new Float64Array(n), v: new Float64Array(n), prevU: new Float64Array(n), prevV: new Float64Array(n),
-    dir: -Math.PI / 2, prevDir: -Math.PI / 2, speed: 0, want: 0,
-    wave: { phase: 0, activity: 0 }, prevWave: { phase: 0, activity: 0 },
-    eating: false, eat: 0, sinceCast: 0, castLeft: 0, gut: 0.5, nearTop: false, stuck: 0, tried: 0, stuckU: 0, stuckV: 0, backing: false,
-  };
-}
-
-/** Puts the body at the given points (head first), facing `dir`, still, with nothing to interpolate. */
-export function placeBurrower(b: Burrower, us: ArrayLike<number>, vs: ArrayLike<number>, dir: number, wave: WaveState): void {
-  for (let i = 0; i < b.u.length; i++) {
-    b.u[i] = b.prevU[i] = us[i];
-    b.v[i] = b.prevV[i] = vs[i];
-  }
-  b.dir = b.prevDir = dir;
-  b.speed = b.want = 0;
-  b.wave.phase = b.prevWave.phase = wave.phase;
-  b.wave.activity = b.prevWave.activity = wave.activity;
-  b.eating = false;
-  b.eat = 0;
-  b.sinceCast = 0;
-  b.castLeft = 0;
-  b.nearTop = false;
-  b.stuck = b.tried = 0;
-  b.stuckU = us[0];
-  b.stuckV = vs[0];
-  b.backing = false;
-}
-
 const wrap = (a: number): number => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
 /** How much of a move toward a limit `room` away is kept: 1 from WALL_BAND out, easing to 0 at it. */
 function roomFor(room: number): number {
   const t = Math.min(1, Math.max(0, room / WALL_BAND));
   return t * t * (3 - 2 * t);
 }
-const ate: Eaten = { cells: 0, organic: 0 };
 /** What soilAhead felt: the speed it allows, and the share of it that is fresh soil. */
 const ahead = { speed: 0, fresh: 0 };
+/**
+ * Scratch for the calls below: points and limits go in objects, never as loose numbers (a number
+ * passed to a call V8 does not inline is boxed on the heap: solidShapes.ts).
+ */
+const pt = { u: 0, v: 0 };
+const lim: BackLimits = { step: 0, lo: 0, hi: 0, bottom: 0 };
 
 /** The speed the soil just ahead of the head allows (into `ahead`), averaged over the FEEL points. */
-function soilAhead(g: SoilGrid, u: number, v: number, dir: number): void {
+function soilAhead(g: SoilGrid, b: Burrower): void {
+  const u = b.u[0];
+  const v = b.v[0];
+  const dir = b.dir;
   const cu = Math.cos(dir);
   const cv = Math.sin(dir);
   let sum = 0;
@@ -187,19 +116,39 @@ function soilAhead(g: SoilGrid, u: number, v: number, dir: number): void {
 }
 
 /**
+ * This step's way pointed (du, dv), its strength, and the speed the soil and the stick allow
+ * (`target`): shared by the parts of a step below, which each take only objects (a number passed
+ * to or returned from a call V8 does not inline is boxed on the heap: solidShapes.ts).
+ */
+const way = { du: 0, dv: 0, mag: 0, target: 0 };
+
+/**
  * One fixed step. (du, dv): the way pointed, in the plane (u right along the cut, v up), each
  * -1..1; the caller maps screen directions to these. No input: the worm stops and breathes.
  */
 export function stepBurrower(b: Burrower, s: Slab, g: SoilGrid, o: Solids, du: number, dv: number, dt: number): void {
-  const n = b.u.length;
+  pointed.du = du;
+  pointed.dv = dv;
+  stepBurrowing(b, s, g, o, pointed, dt);
+}
+
+/** The way pointed, (du, dv), as stepBurrowing takes it. */
+export interface Pointing { du: number; dv: number }
+const pointed: Pointing = { du: 0, dv: 0 };
+
+/** stepBurrower with the way pointed in `p`: the per-step form (BurrowGame's), boxing no numbers. */
+export function stepBurrowing(b: Burrower, s: Slab, g: SoilGrid, o: Solids, p: Pointing, dt: number): void {
+  const du = p.du;
+  const dv = p.dv;
   b.prevU.set(b.u);
   b.prevV.set(b.v);
   b.prevDir = b.dir;
   b.prevWave.phase = b.wave.phase;
   b.prevWave.activity = b.wave.activity;
-  const mag = Math.min(1, Math.hypot(du, dv));
-  const lo = s.playLo + END_KEEP;
-  const hi = s.playHi - END_KEEP;
+  const mag = Math.min(1, hypot2(du, dv));
+  way.du = du;
+  way.dv = dv;
+  way.mag = mag;
   // Pointing back against the body while stuck: back up (and on while it points back).
   // (Back is measured from the neck: the head itself never turns more than MAX_NECK_BEND off it.)
   const back = Math.abs(wrap(Math.atan2(dv, du) - Math.atan2(b.v[0] - b.v[1], b.u[0] - b.u[1]))) > BACK_ANGLE;
@@ -208,88 +157,101 @@ export function stepBurrower(b: Burrower, s: Slab, g: SoilGrid, o: Solids, du: n
   // Each way starts from rest (the head never flips from one way to the other at speed).
   if (b.backing !== was) b.want = b.speed = 0;
   if (b.backing) {
-    b.want += (BACK_SPEED * mag - b.want) * (1 - Math.exp(-WANT_RATE * dt));
-    b.speed += (b.want - b.speed) * (1 - Math.exp(-SPEED_RATE * dt));
-    b.eat = 0;
-    b.eating = false;
-    const moved = backUp(s, o, b.u, b.v, b.prevU, b.prevV, b.speed * dt, lo, hi, s.bottom + BOTTOM_KEEP);
-    // The head keeps its facing, within its bend off the neck as the body moves under it.
-    holdBend(b, Math.atan2(b.v[0] - b.v[1], b.u[0] - b.u[1]));
-    // The tail blocked too: stop backing (pointing back again tries again once stuck).
-    if (b.speed > 0.5 * BACK_SPEED * mag && moved < STUCK_SHARE * b.speed * dt) {
-      b.backing = false;
-      b.want = b.speed = 0;
-    }
-    advanceWave(b.wave, moved, dt, 0.3, WAVES_PER_UNIT, BREATH_HZ);
-    b.nearTop = b.v[0] >= boundaryAt(s, B_F, b.u[0]) - (b.nearTop ? NEAR_TOP_OUT : NEAR_TOP_IN);
+    backStep(b, s, o, dt);
     return;
   }
+  steer(b, g, dt);
+  moveHead(b, s, o, dt);
+  digOn(b, s, g, o, dt);
+}
+
+/** Backing up (burrowBack.ts): the tail leads back along the body's own line. */
+function backStep(b: Burrower, s: Slab, o: Solids, dt: number): void {
+  const n = b.u.length;
+  const mag = way.mag;
+  b.want += (BACK_SPEED * mag - b.want) * (1 - Math.exp(-WANT_RATE * dt));
+  b.speed += (b.want - b.speed) * (1 - Math.exp(-SPEED_RATE * dt));
+  b.eat = 0;
+  b.eating = false;
+  lim.step = b.speed * dt;
+  lim.lo = s.playLo + END_KEEP;
+  lim.hi = s.playHi - END_KEEP;
+  lim.bottom = s.bottom + BOTTOM_KEEP;
+  backUp(s, o, b, lim);
+  const moved = hypot2(b.u[n - 1] - b.prevU[n - 1], b.v[n - 1] - b.prevV[n - 1]);
+  // The head keeps its facing, within its bend off the neck as the body moves under it.
+  holdBend(b);
+  // The tail blocked too: stop backing (pointing back again tries again once stuck).
+  if (b.speed > 0.5 * BACK_SPEED * mag && moved < STUCK_SHARE * b.speed * dt) {
+    b.backing = false;
+    b.want = b.speed = 0;
+  }
+  advanceWave(b.wave, moved, dt, 0.3, WAVES_PER_UNIT, BREATH_HZ);
+  pt.u = b.u[0];
+  boundaryOf(s, B_F, pt);
+  b.nearTop = b.v[0] >= bound.v - (b.nearTop ? NEAR_TOP_OUT : NEAR_TOP_IN);
+}
+
+/** Turns the head toward the way pointed, and eases the speed toward what the soil ahead allows. */
+function steer(b: Burrower, g: SoilGrid, dt: number): void {
   let target = 0;
   let fresh = 0;
-  if (mag > DEAD) {
-    const err = wrap(Math.atan2(dv, du) - b.dir);
+  if (way.mag > DEAD) {
+    const err = wrap(Math.atan2(way.dv, way.du) - b.dir);
     b.dir += Math.max(-DIG_TURN * dt, Math.min(DIG_TURN * dt, err));
-    soilAhead(g, b.u[0], b.v[0], b.dir);
+    soilAhead(g, b);
     fresh = ahead.fresh;
     // Slower in a sharp turn, never coiling back into the neck.
-    target = ahead.speed * mag * Math.max(0.35, 0.5 + 0.5 * Math.cos(err));
+    target = ahead.speed * way.mag * Math.max(0.35, 0.5 + 0.5 * Math.cos(err));
   }
-  const neck = Math.atan2(b.v[0] - b.v[1], b.u[0] - b.u[1]);
-  holdBend(b, neck);
+  way.target = target;
+  holdBend(b);
   b.want += (target - b.want) * (1 - Math.exp(-WANT_RATE * dt));
   b.speed += (b.want - b.speed) * (1 - Math.exp(-SPEED_RATE * dt));
   b.eat += (fresh - b.eat) * (1 - Math.exp(-EAT_RATE * dt));
   b.eating = b.eat > 0.5;
-  // Inside the slab and under the leaves' top, easing to a stop at them; out of stones and roots.
+}
+
+/** Moves the head inside the slab and under the leaves' top, easing to a stop at them; out of stones and roots. */
+function moveHead(b: Burrower, s: Slab, o: Solids, dt: number): void {
+  const lo = s.playLo + END_KEEP;
+  const hi = s.playHi - END_KEEP;
   const h0 = b.u[0];
   const v0 = b.v[0];
   let mu = Math.cos(b.dir) * b.speed * dt;
   let mv = Math.sin(b.dir) * b.speed * dt;
   mu *= roomFor(mu > 0 ? hi - h0 : h0 - lo);
-  mv *= roomFor(mv > 0 ? boundaryAt(s, B_TOP, h0) - TOP_KEEP - v0 : v0 - s.bottom - BOTTOM_KEEP);
+  if (mv > 0) {
+    pt.u = h0;
+    boundaryOf(s, B_TOP, pt);
+  }
+  mv *= roomFor(mv > 0 ? bound.v - TOP_KEEP - v0 : v0 - s.bottom - BOTTOM_KEEP);
   b.u[0] = Math.max(lo, Math.min(hi, h0 + mu));
   b.v[0] = Math.max(s.bottom + BOTTOM_KEEP, v0 + mv);
   keepOut(s, o, b.u, b.v, b.prevU, b.prevV, 0);
-  const moved = Math.hypot(b.u[0] - b.prevU[0], b.v[0] - b.prevV[0]);
+}
+
+/** After the head moves: stuck or not, the tunnel dug, the body after it, a casting, the wave. */
+function digOn(b: Burrower, s: Slab, g: SoilGrid, o: Solids, dt: number): void {
+  const moved = hypot2(b.u[0] - b.prevU[0], b.v[0] - b.prevV[0]);
   // Trying to move and getting nowhere: stuck (pointing back then backs up).
   b.tried += b.speed * dt;
-  if (mag > DEAD && Math.hypot(b.u[0] - b.stuckU, b.v[0] - b.stuckV) < Math.max(STUCK_REACH, STUCK_SHARE * b.tried)) b.stuck += dt;
+  if (way.mag > DEAD && hypot2(b.u[0] - b.stuckU, b.v[0] - b.stuckV) < Math.max(STUCK_REACH, STUCK_SHARE * b.tried)) b.stuck += dt;
   else {
     b.stuck = b.tried = 0;
     b.stuckU = b.u[0];
     b.stuckV = b.v[0];
   }
-  digDisc(g, b.u[0], b.v[0], TUNNEL_R, ate);
-  if (ate.cells > 0) b.gut += (ate.organic / ate.cells - b.gut) * 0.15;
-  // Follow the leader, then keep every body point in an open tunnel (the body cuts corners).
-  for (let i = 1; i < n; i++) {
-    const eu = b.u[i] - b.u[i - 1];
-    const ev = b.v[i] - b.v[i - 1];
-    const d = Math.hypot(eu, ev);
-    if (d > SPACING) {
-      b.u[i] = b.u[i - 1] + (eu * SPACING) / d;
-      b.v[i] = b.v[i - 1] + (ev * SPACING) / d;
-      keepOut(s, o, b.u, b.v, b.prevU, b.prevV, i);
-    }
-    digDisc(g, b.u[i], b.v[i], BODY_DIG, ate);
-  }
+  digTunnel(b, s, g, o);
   b.sinceCast += moved;
   if (b.sinceCast >= CAST_EVERY) {
     b.sinceCast = 0;
     b.castLeft = CAST_WINDOW;
-  } else if (b.castLeft > 0) {
-    // The window is measured by the tail: a head turning back moves without pulling it along.
-    b.castLeft = Math.max(0, b.castLeft - Math.hypot(b.u[n - 1] - b.prevU[n - 1], b.v[n - 1] - b.prevV[n - 1]));
-  }
-  if (b.castLeft > 0) {
-    const tu = b.u[n - 1] - b.u[n - 2];
-    const tv = b.v[n - 1] - b.v[n - 2];
-    const tl = Math.hypot(tu, tv) || 1;
-    const filled = castBlob(g, b.u[n - 1] + (tu / tl) * CAST_BACK, b.v[n - 1] + (tv / tl) * CAST_BACK, CAST_R, 90 + 160 * b.gut, tu, tv);
-    if (filled >= CAST_MIN) b.castLeft = 0;
-  }
-  const full = Math.max(0.3, target);
+    castTail(b, g, false);
+  } else if (b.castLeft > 0) castTail(b, g, true);
+  const full = Math.max(0.3, way.target);
   advanceWave(b.wave, moved * (1 + (EAT_WAVES - 1) * b.eat), dt, full, WAVES_PER_UNIT, BREATH_HZ);
-  const floor = boundaryAt(s, B_F, b.u[0]);
-  b.nearTop = b.v[0] >= floor - (b.nearTop ? NEAR_TOP_OUT : NEAR_TOP_IN);
+  pt.u = b.u[0];
+  boundaryOf(s, B_F, pt);
+  b.nearTop = b.v[0] >= bound.v - (b.nearTop ? NEAR_TOP_OUT : NEAR_TOP_IN);
 }

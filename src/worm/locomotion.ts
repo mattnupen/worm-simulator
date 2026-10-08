@@ -1,4 +1,4 @@
-import type { Vec2, Vec3 } from '../core/vec';
+import { hypot2, type Vec2, type Vec3 } from '../core/vec';
 
 export interface WormMotion { head: Vec3; heading: number }
 export interface LocomotionOptions { speed: number; turnRate: number; halfSize: number; minTurnRadius?: number; pivotZone?: number }
@@ -13,6 +13,13 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
  * move.y = forward/back, move.x = turn right/left. Returns a new motion.
  */
 export function stepWorm(m: WormMotion, move: Vec2, dt: number, o: LocomotionOptions): WormMotion {
+  const next = { head: { x: m.head.x, y: m.head.y, z: m.head.z }, heading: m.heading };
+  stepWormInto(next, move, dt, o);
+  return next;
+}
+
+/** stepWorm in place (the crawl's step): allocates nothing. */
+export function stepWormInto(m: WormMotion, move: Vec2, dt: number, o: LocomotionOptions): void {
   let forward = move.y >= 0 ? move.y : move.y * 0.5;
 
   // Pivot zone: if |move.y| < pivotZone, treat forward as 0 for this step
@@ -30,14 +37,9 @@ export function stepWorm(m: WormMotion, move: Vec2, dt: number, o: LocomotionOpt
   }
 
   const heading = m.heading + deltaHeading;
-  return {
-    heading,
-    head: {
-      x: clamp(m.head.x + Math.sin(heading) * dist, -o.halfSize, o.halfSize),
-      y: m.head.y,
-      z: clamp(m.head.z + Math.cos(heading) * dist, -o.halfSize, o.halfSize),
-    },
-  };
+  m.heading = heading;
+  m.head.x = clamp(m.head.x + Math.sin(heading) * dist, -o.halfSize, o.halfSize);
+  m.head.z = clamp(m.head.z + Math.cos(heading) * dist, -o.halfSize, o.halfSize);
 }
 
 /**
@@ -48,7 +50,7 @@ export function stepWorm(m: WormMotion, move: Vec2, dt: number, o: LocomotionOpt
 export function clampToNeck(heading: number, head: Vec3, neck: Vec3, maxBend: number): number {
   const dx = head.x - neck.x;
   const dz = head.z - neck.z;
-  const dist = Math.hypot(dx, dz);
+  const dist = hypot2(dx, dz);
 
   // If head and neck coincide, return unchanged
   if (dist < 1e-6) return heading;

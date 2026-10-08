@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  createSoilGrid, fillSoilGrid, digDisc, castBlob, takeDirty, cellAt, cellU, cellV, rowOf, colOf,
+  createSoilGrid, fillSoilGrid, digDisc, takeDirty, cellAt, cellU, cellV, rowOf, colOf,
   AIR, GRID_W, GRID_H, CELL, MIX_RING, SOLID_STONE, type Eaten, type SoilGrid,
 } from '../../src/underground/soilGrid';
 import { markSolid, packRows, dampen } from '../../src/underground/soilGridEdit';
+import { castBlob } from '../../src/underground/castings';
 import { mulberry32 } from '../../src/core/random';
 import { PLAY_HALF } from '../../src/surface/terrain';
 import { createSlab, boundaryAt, layerAt, B_TOP, B_F, B_H, B_A, SLAB_DEPTH, type Slab } from '../../src/underground/slab';

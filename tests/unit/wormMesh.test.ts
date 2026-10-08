@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
-  HeroWorm, WORM_HALF_WIDTH, bodyCoordAt, peristalsisAmplitude, swellRange, wormExtent,
+  HeroWorm, WORM_HALF_WIDTH, bodyCoordAt, peristalsisAmplitude, wormExtent,
   type WormExtent, type WormPose,
 } from '../../src/worm/wormMesh';
+import { swellRange } from '../../src/worm/swell';
 import { probeReach } from '../../src/worm/wormShape';
 
 const N = 16;

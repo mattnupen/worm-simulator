@@ -1,4 +1,5 @@
 import { restAt, wrap, type BodyPath } from './bodyPath';
+import { hypot2 } from '../core/vec';
 
 /** Arc geometry for coming up (emergePath.ts): turns in the cut's plane, the body's front bent round, nearest places on the path. Pure. */
 
@@ -53,7 +54,7 @@ export function nearestAlong(p: BodyPath, u: number, v: number, from: number, up
     const dv = p.v[j + 1] - p.v[j];
     const l = du * du + dv * dv;
     const f = l > 0 ? Math.max(0, Math.min(1, ((u - p.u[j]) * du + (v - p.v[j]) * dv) / l)) : 0;
-    const d = Math.hypot(u - p.u[j] - du * f, v - p.v[j] - dv * f);
+    const d = hypot2(u - p.u[j] - du * f, v - p.v[j] - dv * f);
     if (d < best) {
       best = d;
       at = p.s[j] + f * (p.s[j + 1] - p.s[j]);
@@ -82,5 +83,5 @@ export function landOnFloor(p: BodyPath, headAt: number, dx: number): void {
     p.v[i] += miss * f * f * (3 - 2 * f) + turn * span * f * f * (f - 1);
   }
   // The arc lengths along the corrected rise.
-  for (let i = headAt + 1; i < p.count; i++) p.s[i] = p.s[i - 1] + Math.hypot(p.u[i] - p.u[i - 1], p.v[i] - p.v[i - 1]);
+  for (let i = headAt + 1; i < p.count; i++) p.s[i] = p.s[i - 1] + hypot2(p.u[i] - p.u[i - 1], p.v[i] - p.v[i - 1]);
 }

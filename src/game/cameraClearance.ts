@@ -1,6 +1,6 @@
 import type { Vec3 } from '../core/vec';
 import {
-  createFollowCam, smoothDampInto, type FollowCamOptions, type FollowCamState, type Spring,
+  createFollowCam, smoothDampInto, Spring, type FollowCamOptions, type FollowCamState,
 } from '../surface/followCamera';
 import { pushOutTall, sightReach } from '../surface/obstacles';
 import { groundHeight, litterTopHeight } from '../surface/litterDepth';
@@ -80,13 +80,13 @@ const CAM_OUT_TIME = 1;
  */
 export class CameraClearance {
   /** How much of its full distance the camera keeps (1 clear; less when a prop is in its way), and how fast that changes. */
-  private readonly spring: Spring = { value: 1, velocity: 0 };
+  private readonly spring = new Spring(1, 0);
   /** CAM_OPTS with the distance cut to the reach and the height craned: what the follow camera steps with. */
   readonly opts: FollowCamOptions = { ...CAM_OPTS };
   /** The point the camera follows (follow): over the head, near the top of the litter the worm is buried in. */
   readonly view: Vec3 = { x: 0, y: 0, z: 0 };
   /** The follow point's eased height, and how fast it changes. */
-  private readonly lift: Spring = { value: 0, velocity: 0 };
+  private readonly lift = new Spring(0, 0);
 
   get reach(): number {
     return this.spring.value;

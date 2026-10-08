@@ -1,4 +1,4 @@
-import { boundaryAt, B_TOP, type Slab } from './slab';
+import type { Slab, UV } from './slab';
 import { createSection, type LogCut, type Section } from './sections';
 import type { Hints } from './solidHints';
 
@@ -7,8 +7,16 @@ import type { Hints } from './solidHints';
  * and slides with: tapering capsules (stones, big roots, root discs and the hints) and convex outlines (rocks and the log
  * in section). The depth functions return how far (u, v) lies inside a shape grown by `pad`
  * (0 or less: clear) and write the way straight out. Nothing here allocates.
+ *
+ * The per-step paths (solidPush.ts) call the `...Into` forms: they take the point as an object and
+ * leave the depth in `found`. A number passed to, or returned from, a call V8 does not inline is
+ * boxed on the heap, so loose-number calls dozens of times a step are per-step garbage.
  */
 export interface SolidHit { nu: number; nv: number }
+export type { UV };
+/** The depth the last `...Into` call found. */
+export const found = { into: 0 };
+const at: UV = { u: 0, v: 0 };
 
 export const MAX_STONES = 16;
 /** Floats per stone: u, v, radius, x scale, y scale, rotation, shade 0..1. The stone is the ellipse
@@ -82,6 +90,16 @@ export function addCap(o: Solids, kind: number, u0: number, v0: number, r0: numb
 
 /** The capsule at `k` in `caps` (u0, v0, r0, u1, v1, r1): its radius tapers along it. */
 export function capDepth(caps: Float32Array, k: number, u: number, v: number, pad: number, out: SolidHit): number {
+  at.u = u;
+  at.v = v;
+  capInto(caps, k, at, pad, out);
+  return found.into;
+}
+
+/** capDepth of the point `p`, into `found`. */
+function capInto(caps: Float32Array, k: number, p: UV, pad: number, out: SolidHit): void {
+  const u = p.u;
+  const v = p.v;
   const au = caps[k];
   const av = caps[k + 1];
   const eu = caps[k + 3] - au;
@@ -102,7 +120,7 @@ export function capDepth(caps: Float32Array, k: number, u: number, v: number, pa
     out.nu = 0;
     out.nv = 1;
   }
-  return caps[k + 2] + (caps[k + 5] - caps[k + 2]) * t + pad - d;
+  found.into = caps[k + 2] + (caps[k + 5] - caps[k + 2]) * t + pad - d;
 }
 
 /**
@@ -110,7 +128,20 @@ export function capDepth(caps: Float32Array, k: number, u: number, v: number, pa
  * it is the nearest edge's outward normal. Far outside its box grown by `pad`: -Infinity.
  */
 export function sectionDepth(sec: Section, u: number, v: number, pad: number, out: SolidHit): number {
-  if (u < sec.uLo - pad || u > sec.uHi + pad || v < sec.vLo - pad || v > sec.vHi + pad) return -Infinity;
+  at.u = u;
+  at.v = v;
+  sectionInto(sec, at, pad, out);
+  return found.into;
+}
+
+/** sectionDepth of the point `q`, into `found`. */
+function sectionInto(sec: Section, q: UV, pad: number, out: SolidHit): void {
+  const u = q.u;
+  const v = q.v;
+  if (u < sec.uLo - pad || u > sec.uHi + pad || v < sec.vLo - pad || v > sec.vHi + pad) {
+    found.into = -Infinity;
+    return;
+  }
   const p = sec.pts;
   const n = sec.count;
   // The largest signed distance to an edge's line (outward +): at most 0 means inside.
@@ -132,7 +163,8 @@ export function sectionDepth(sec: Section, u: number, v: number, pad: number, ou
     const l = Math.sqrt(eu * eu + ev * ev);
     out.nu = ev / l;
     out.nv = -eu / l;
-    return pad - most;
+    found.into = pad - most;
+    return;
   }
   // Outside: the nearest point on the outline.
   let best = Infinity;
@@ -156,12 +188,12 @@ export function sectionDepth(sec: Section, u: number, v: number, pad: number, ou
   const d = Math.sqrt(best);
   out.nu /= d;
   out.nv /= d;
-  return pad - d;
+  found.into = pad - d;
 }
 
 const deep: SolidHit = { nu: 0, nv: 0 };
 /** The runner-up of the last blockerDepth call: how deep in the second deepest blocker, and its way out. */
-const second = { into: -Infinity, nu: 0, nv: 0 };
+export const second = { into: -Infinity, nu: 0, nv: 0 };
 
 /** Keeps the deepest (into `out`) and the runner-up (into `second`) as blockerDepth goes through `deep`. */
 function keep(into: number, best: number, out: SolidHit): number {
@@ -183,11 +215,25 @@ function keep(into: number, best: number, out: SolidHit): number {
 
 /** As solidDepth, counting only the first `capEnd` capsules (a growing root skips its own). */
 export function blockerDepth(o: Solids, u: number, v: number, pad: number, capEnd: number, out: SolidHit): number {
+  at.u = u;
+  at.v = v;
+  blockerInto(o, at, pad, capEnd, out);
+  return found.into;
+}
+
+/** blockerDepth of the point `p`, into `found` (solidDepth: `capEnd` = o.capCount). */
+export function blockerInto(o: Solids, p: UV, pad: number, capEnd: number, out: SolidHit): void {
   let best = -Infinity;
   second.into = -Infinity;
-  for (let i = 0; i < capEnd; i++) best = keep(capDepth(o.caps, i * CAP_STRIDE, u, v, pad, deep), best, out);
-  for (let i = 0; i < o.sectionCount; i++) best = keep(sectionDepth(o.sections[i], u, v, pad, deep), best, out);
-  return best;
+  for (let i = 0; i < capEnd; i++) {
+    capInto(o.caps, i * CAP_STRIDE, p, pad, deep);
+    best = keep(found.into, best, out);
+  }
+  for (let i = 0; i < o.sectionCount; i++) {
+    sectionInto(o.sections[i], p, pad, deep);
+    best = keep(found.into, best, out);
+  }
+  found.into = best;
 }
 
 /**
@@ -196,79 +242,4 @@ export function blockerDepth(o: Solids, u: number, v: number, pad: number, capEn
  */
 export function solidDepth(o: Solids, u: number, v: number, pad: number, out: SolidHit): number {
   return blockerDepth(o, u, v, pad, o.capCount, out);
-}
-
-const hit: SolidHit = { nu: 0, nv: 0 };
-
-/**
- * Moves (u, v) out of every blocker grown by `radius` by the shortest way, a few times over for
- * curved edges: a head pushed into a stone slides along it. Inside two at once where they meet at
- * a wide angle (the crease under a root's joint), it moves out of both together, to the crease
- * itself: pushing out of one and then the other would leave it beside the crease, on a different
- * side each frame (a jitter). With `topKeep`, (u, v) also stays that far under the leaves' top,
- * kept the same way. In a tight corner (where the leaves' top meets a rock's or the log's flank)
- * the pushes may not settle: then, given the point it came from (`fromU`, `fromV`, itself clear),
- * it goes back there, stopping short of the corner rather than ending inside the rock; it stops
- * there too rather than be thrown back against the way it moved. Returns the distance moved.
- * Allocates nothing.
- */
-export function pushOutSolids(
-  o: Solids, p: { u: number; v: number }, radius: number, topKeep = NaN, fromU = NaN, fromV = NaN,
-): number {
-  const u0 = p.u;
-  const v0 = p.v;
-  const from = fromU === fromU && fromV === fromV;
-  let settled = false;
-  for (let k = 0; k < 8 && !settled; k++) settled = !(pushOnce(o, p, radius, topKeep) > 0);
-  // Thrown back (in a root's crotch with its branch, back one frame and forward the next: a jitter).
-  const back = from && (p.u - fromU) * (u0 - fromU) + (p.v - fromV) * (v0 - fromV) < 0;
-  if ((back || (from && !settled && inside(o, p.u, p.v, radius, topKeep))) && !inside(o, fromU, fromV, radius, topKeep)) {
-    p.u = fromU;
-    p.v = fromV;
-  }
-  return Math.hypot(p.u - u0, p.v - v0);
-}
-
-/** How far (u, v) is above the height `topKeep` under the leaves' top (-Infinity without one). */
-function overTop(o: Solids, u: number, v: number, topKeep: number): number {
-  return o.slab && topKeep === topKeep ? v - (boundaryAt(o.slab, B_TOP, u) - topKeep) : -Infinity;
-}
-
-/** True when (u, v) is inside a blocker grown by `radius`, or over the top. */
-function inside(o: Solids, u: number, v: number, radius: number, topKeep: number): boolean {
-  return overTop(o, u, v, topKeep) > 1e-6 || solidDepth(o, u, v, radius, hit) > 1e-6;
-}
-
-/** One push out of the deepest blocker (or the top), or out of the two deepest together. Returns how deep it was. */
-function pushOnce(o: Solids, p: { u: number; v: number }, radius: number, topKeep: number): number {
-  let a = solidDepth(o, p.u, p.v, radius, hit);
-  let au = hit.nu;
-  let av = hit.nv;
-  let b = second.into;
-  let bu = second.nu;
-  let bv = second.nv;
-  const over = overTop(o, p.u, p.v, topKeep);
-  if (over > a) {
-    b = a; bu = au; bv = av;
-    a = over; au = 0; av = -1;
-  } else if (over > b) {
-    b = over; bu = 0; bv = -1;
-  }
-  if (!(a > 0)) return a;
-  let du = au * a;
-  let dv = av * a;
-  // The shortest move out of both half-planes n1 . d >= a, n2 . d >= b: out of the deepest alone if
-  // that also clears the other, else onto their corner. Only for a wide corner (normals less than
-  // 90 degrees apart): solving a tight one from straight edges overshoots on curved ones.
-  const c = au * bu + av * bv;
-  if (b > 0 && b - a * c > 0 && c > 0 && c < 1 - 1e-9) {
-    const det = 1 - c * c;
-    const s1 = (a - c * b) / det;
-    const s2 = (b - c * a) / det;
-    du = au * s1 + bu * s2;
-    dv = av * s1 + bv * s2;
-  }
-  p.u += du;
-  p.v += dv;
-  return a;
 }

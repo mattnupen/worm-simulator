@@ -1,5 +1,5 @@
 import { valueNoise2 } from '../core/noise';
-import type { Vec3 } from '../core/vec';
+import { hypot2, hypot3, type Vec3 } from '../core/vec';
 import { terrainHeight } from './terrain';
 import { treeSites, trunkRadiusOf } from './treeSites';
 import { heroLog, rocks } from './propPlacement';
@@ -122,14 +122,14 @@ export function driftDepth(x: number, z: number): number {
   for (const o of round) {
     const dx = x - o.x;
     const dz = z - o.z;
-    const d = Math.hypot(dx, dz);
+    const d = hypot2(dx, dz);
     if (d > o.r + 1.2) continue;
     best = Math.max(best, drift(d - o.r, dx, dz, d, o.r, o.peak));
   }
   const t = Math.max(-log.length / 2, Math.min(log.length / 2, (x - log.x) * LOG_DX + (z - log.z) * LOG_DZ));
   const lx = x - (log.x + LOG_DX * t);
   const lz = z - (log.z + LOG_DZ * t);
-  const ld = Math.hypot(lx, lz);
+  const ld = hypot2(lx, lz);
   if (ld < log.radius + 1.2) {
     best = Math.max(best, drift(ld - log.radius, lx, lz, ld, log.radius, 0.2));
   }
@@ -144,7 +144,7 @@ export function pileDepth(x: number, z: number): number {
     const dz = z - p.z;
     const along = (dx * WIND.x + dz * WIND.z) / 1.35;
     const across = dx * WIND.z - dz * WIND.x;
-    const d = Math.hypot(along, across);
+    const d = hypot2(along, across);
     best = Math.max(best, p.depth * (1 - smoothstep(p.r * 0.25, p.r, d)));
   }
   return best;
@@ -175,7 +175,7 @@ function bankAgainstRocks(x: number, z: number, d: number): number {
   let out = d;
   let floor = NaN;
   for (const b of driftSources().banks) {
-    const gap = Math.hypot(x - b.x, z - b.z) - b.r;
+    const gap = hypot2(x - b.x, z - b.z) - b.r;
     if (gap >= BANK_TO) continue;
     if (Number.isNaN(floor)) floor = terrainHeight(x, z);
     const bank = Math.min(LITTER_MAX, Math.max(ROCK_BANK_MIN, b.level - floor));
@@ -234,6 +234,6 @@ const N_EPS = 0.05;
 export function groundNormal(x: number, z: number): Vec3 {
   const dx = (groundHeight(x + N_EPS, z) - groundHeight(x - N_EPS, z)) / (2 * N_EPS);
   const dz = (groundHeight(x, z + N_EPS) - groundHeight(x, z - N_EPS)) / (2 * N_EPS);
-  const len = Math.hypot(dx, 1, dz);
+  const len = hypot3(dx, 1, dz);
   return { x: -dx / len, y: 1 / len, z: -dz / len };
 }

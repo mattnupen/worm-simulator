@@ -3,6 +3,7 @@ import { OCC_AXIS_UP } from '../render/occlusion';
 import { bellyHeight, wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import { cruise, smootherstep } from './easing';
 import type { Slab } from './slab';
+import { hypot2, hypot3 } from '../core/vec';
 
 /**
  * The worm's own moves in and out of the cut (V2 spec 4.1, 4.2). Poses are written in the slab's
@@ -113,7 +114,7 @@ export function push(p: BodyPath, u: number, v: number): void {
   const i = p.count++;
   p.u[i] = u;
   p.v[i] = v;
-  p.s[i] = i === 0 ? 0 : p.s[i - 1] + Math.hypot(u - p.u[i - 1], v - p.v[i - 1]);
+  p.s[i] = i === 0 ? 0 : p.s[i - 1] + hypot2(u - p.u[i - 1], v - p.v[i - 1]);
 }
 
 /** Appends the arc of radius `r` from the path's end, facing a0, turning `rho` through `sweep`, finely enough to look round. */
@@ -209,7 +210,7 @@ function fitOnce(p: BodyPath, least: number, headSpeed: number, steps: number): 
       const ay = pt.y;
       const az = pt.z;
       worldOf(p, n, i);
-      const d = Math.hypot(pt.x - ax, pt.y - ay, pt.z - az) * steps;
+      const d = hypot3(pt.x - ax, pt.y - ay, pt.z - az) * steps;
       speed = Math.max(speed, d / (i === 0 ? Math.min(headSpeed, POINT_SPEED) : POINT_SPEED));
       if (i > 0) {
         // The segment from point i - 1 to i, before and after: how far it turned.
@@ -219,8 +220,8 @@ function fitOnce(p: BodyPath, least: number, headSpeed: number, steps: number): 
         const vx = pt.x - qx;
         const vy = pt.y - qy;
         const vz = pt.z - qz;
-        const lu = Math.hypot(ux, uy, uz);
-        const lv = Math.hypot(vx, vy, vz);
+        const lu = hypot3(ux, uy, uz);
+        const lv = hypot3(vx, vy, vz);
         // A segment bunched up shorter than SHORT turns within the tube's own width: it does not show.
         if (lu > SHORT && lv > SHORT) {
           const c = Math.max(-1, Math.min(1, (ux * vx + uy * vy + uz * vz) / (lu * lv)));

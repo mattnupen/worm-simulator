@@ -97,9 +97,13 @@ function drive(seed: number, seconds: number): Track {
         const e = err - 2 * Math.PI * Math.round(err / (2 * Math.PI));
         move.x = Math.max(-1, Math.min(1, -e * 2));
       }
+      // The crawl moves its head in place: keep where it was.
+      const hx = h.x;
+      const hy = h.y;
+      const hz = h.z;
       crawl.step(1 / 60, move);
-      t.path += Math.hypot(crawl.motion.head.x - h.x, crawl.motion.head.z - h.z);
-      t.steps.push(h.y);
+      t.path += Math.hypot(crawl.motion.head.x - hx, crawl.motion.head.z - hz);
+      t.steps.push(hy);
     }
     if (!r.render || wall < 1500) continue;
     crawl.interpolate(r.alpha, wall / 1000, pose, camera);

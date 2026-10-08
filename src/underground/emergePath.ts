@@ -6,6 +6,7 @@ import { emergeSides, LAND_MAX, LAND_MIN, OUT_LENGTH, type EmergeMap } from './e
 import { arcRun, bendFront, front, landOnFloor, nearestAlong, sweepOf } from './riseArcs';
 import { frontUnderTop, goal, plan, planRise, RADII, TIGHT_RADIUS } from './risePlan';
 import type { Slab } from './slab';
+import { hypot2 } from '../core/vec';
 
 /**
  * Coming up out of the cut (V2 spec 4.2): the path the body slides along. Coming up should look like
@@ -136,7 +137,7 @@ export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<nu
   front.bv = vs[ROUND];
   front.from = Math.atan2(vs[ROUND] - vs[ROUND + 1], us[ROUND] - us[ROUND + 1]);
   front.len = 0;
-  for (let i = 0; i < ROUND; i++) front.len += Math.hypot(us[i + 1] - us[i], vs[i + 1] - vs[i]);
+  for (let i = 0; i < ROUND; i++) front.len += hypot2(us[i + 1] - us[i], vs[i + 1] - vs[i]);
   const neck = Math.atan2(vs[0] - vs[1], us[0] - us[1]);
   // From the head as it lies, either way out the map allows (one that stays in the playable slab if
   // there is one): the plan that turns the head least and dips least.
@@ -190,7 +191,7 @@ export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<nu
     const near = nearestAlong(p, us[i], vs[i], roundAt, riseFrom + 1.5) + LEAD;
     // Never closer than half its segment to the next back, nor further than a hair over SPACING
     // (under the 4% stretch the tests allow; any closer and easing on could pull it backward).
-    ahead = Math.min(ahead + SPACING * 1.03, Math.max(near, ahead + 0.5 * Math.hypot(us[i + 1] - us[i], vs[i + 1] - vs[i])));
+    ahead = Math.min(ahead + SPACING * 1.03, Math.max(near, ahead + 0.5 * hypot2(us[i + 1] - us[i], vs[i + 1] - vs[i])));
     p.back[i] = ahead; // its place for now; made relative to the head's below
   }
   p.headFrom = front.lie ? p.s[headAt] : p.back[0];
@@ -201,7 +202,7 @@ export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<nu
     sampleAt(p, p.headFrom - p.back[i], p.offU, p.offV, i);
     p.offU[i] = us[i] - p.offU[i];
     p.offV[i] = vs[i] - p.offV[i];
-    most = Math.max(most, Math.hypot(p.offU[i], p.offV[i]));
+    most = Math.max(most, hypot2(p.offU[i], p.offV[i]));
   }
   // The front bent round to start the rise (or lay well off the arc): it bends onto it before sliding.
   p.turnFirst = !front.lie && (Math.abs(wrap(plan.a0 - neck)) > 1e-6 || most > 0.03);

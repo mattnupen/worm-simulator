@@ -29,7 +29,7 @@ export function wormLength(points: number, spacing: number): number {
 }
 
 /** Peristalsis slides a ring along the body by at most this (in body coordinate). */
-const RING_SLIDE = 0.02;
+export const RING_SLIDE = 0.02;
 /** Peristalsis amplitude at `activity` (0 resting .. 1 crawling at full speed). */
 export function peristalsisAmplitude(activity: number): number {
   return 0.08 + 0.18 * Math.min(1, Math.max(0, activity));
@@ -57,43 +57,6 @@ function maxHalfWidth(): number {
   return most;
 }
 
-/** A ring's stretch is the mean over its neighbours, which lie at most this far (body coordinate). */
-const RING_GAP = 0.04;
-/** Stretch samples across a span, and the most the stretch can stray between them (x amplitude). */
-const SWELL_SAMPLES = 9;
-const SWELL_SLACK = 0.12;
-
-/**
- * The least and most peristalsis scales the radius of any ring whose rest body coordinate lies
- * within `reach` of m (wherever it slides), at any phase and amplitude between (phase0, amp0)
- * and (phase1, amp1): the worm is drawn between two steps. The stretch is linear in the
- * amplitude, and the phase moves a hair per step (bounded by its slope). Allocates nothing.
- */
-export function swellRange(
-  m: number, reach: number, phase0: number, phase1: number, amp0: number, amp1: number,
-  out: { min: number; max: number },
-): { min: number; max: number } {
-  const r = reach + RING_SLIDE + RING_GAP;
-  const ampLo = Math.min(amp0, amp1);
-  const ampHi = Math.max(amp0, amp1);
-  let lo = Infinity;
-  let hi = -Infinity;
-  for (let k = 0; k < SWELL_SAMPLES; k++) {
-    const mi = Math.min(1, Math.max(0, m - r + (2 * r * k) / (SWELL_SAMPLES - 1)));
-    // The stretch is 1 + amplitude x wave: its extremes over the amplitudes are at the ends.
-    const wave = peristalsisStretch(mi, phase1, 1, WAVES) - 1;
-    const least = 1 + wave * (wave > 0 ? ampLo : ampHi);
-    const most = 1 + wave * (wave > 0 ? ampHi : ampLo);
-    if (least < lo) lo = least;
-    if (most > hi) hi = most;
-  }
-  // Between samples, and back to phase0 (the wave moves at most 2 pi x 1.1 per unit of phase).
-  const slack = ampHi * (SWELL_SLACK + 2 * Math.PI * 1.1 * Math.abs(phase1 - phase0));
-  out.max = swellOf(lo - slack);
-  out.min = swellOf(hi + slack);
-  return out;
-}
-
 /** Body coordinate (0 head tip .. 1 tail tip) of the spine point `arc` behind the first one. */
 export function bodyCoordAt(arc: number, points: number, spacing: number): number {
   return (HEAD_EXT + arc) / wormLength(points, spacing);
@@ -114,7 +77,7 @@ export interface WormExtent {
 /**
  * Bounds of the rendered body over every ring whose rest body coordinate lies within `reach`
  * of m, wherever peristalsis slides it, at rest thickness: scale `top`, `half` and `fall` by
- * swellRange (max, max, min) and add probeReach (lift, sway) x `probe` for the body as drawn.
+ * swellRange (swell.ts: max, max, min) and add probeReach (lift, sway) x `probe` for the body as drawn.
  * Writes into `out` (allocates nothing).
  */
 export function wormExtent(m: number, reach: number, out: WormExtent): WormExtent {

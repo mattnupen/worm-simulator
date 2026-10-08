@@ -148,6 +148,28 @@ export function frameTarget(
   view: UndergroundView, s: Slab, hu: number, hv: number, au: number, av: number, aspect: number,
   out: CutFrame, body?: BodyPoints,
 ): CutFrame {
+  ask.hu = hu;
+  ask.hv = hv;
+  ask.au = au;
+  ask.av = av;
+  ask.aspect = aspect;
+  return frameAsked(view, s, ask, out, body);
+}
+
+/**
+ * frameTarget's numbers in one object: the per-step form (frameAsked) takes them so, as a number
+ * passed to a call V8 does not inline is boxed on the heap (garbage every step).
+ */
+export interface FrameAsk { hu: number; hv: number; au: number; av: number; aspect: number }
+const ask: FrameAsk = { hu: 0, hv: 0, au: 0, av: 0, aspect: 0 };
+
+/** frameTarget, asked with `q`. */
+export function frameAsked(view: UndergroundView, s: Slab, q: FrameAsk, out: CutFrame, body?: BodyPoints): CutFrame {
+  const hu = q.hu;
+  const hv = q.hv;
+  const au = q.au;
+  const av = q.av;
+  const aspect = q.aspect;
   // A screen with no height (or no width) yet: frame as for 16:9.
   const a = Number.isFinite(aspect) && aspect > 0 ? Math.min(4, Math.max(0.25, aspect)) : 16 / 9;
   const pitch = PITCH[view];

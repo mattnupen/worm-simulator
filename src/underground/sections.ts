@@ -95,18 +95,22 @@ const reach: number[] = [];
  * rock's section could stand in the way down (Task 4's canDigAt).
  */
 export function rockReach(i: number): number {
-  if (reach[i] === undefined) {
-    const k = rocks()[i];
-    const seed = rockSeed(i);
-    const { pos } = icosphere();
-    let most = 0;
-    for (let p = 0; p < pos.length; p += 3) {
-      const lump = rockLump(pos[p], pos[p + 1], pos[p + 2], seed);
-      most = Math.max(most, Math.hypot(pos[p] * k.size * lump * 1.15, pos[p + 2] * k.size * lump * 0.9));
-    }
-    reach[i] = most;
-  }
+  // Measured once (measureRock); small, so V8 inlines it (canDigAt asks every few steps).
+  if (reach[i] === undefined) measureRock(i);
   return reach[i];
+}
+
+/** Measures rock `i`'s reach into the cache. */
+function measureRock(i: number): void {
+  const k = rocks()[i];
+  const seed = rockSeed(i);
+  const { pos } = icosphere();
+  let most = 0;
+  for (let p = 0; p < pos.length; p += 3) {
+    const lump = rockLump(pos[p], pos[p + 1], pos[p + 2], seed);
+    most = Math.max(most, Math.hypot(pos[p] * k.size * lump * 1.15, pos[p + 2] * k.size * lump * 0.9));
+  }
+  reach[i] = most;
 }
 
 /** Where the plane slices the triangles of a mesh (world positions `pos`): every edge crossing into (cu, cv). */

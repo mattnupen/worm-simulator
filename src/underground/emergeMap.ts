@@ -1,7 +1,8 @@
 import { BODY_RADIUS } from '../game/crawl';
 import { footprints } from '../surface/obstacles';
 import { PLAY_HALF } from '../surface/terrain';
-import { SLAB_HALF, type Slab } from './slab';
+import { SLAB_HALF, type CutLine, type Slab } from './slab';
+import { hypot2 } from '../core/vec';
 
 /**
  * Where the worm can come up out of a slab (V2 spec 4.2): only where its whole body can then lie
@@ -33,26 +34,36 @@ export function createEmergeMap(): EmergeMap {
   return { first: 0, count: 0, sides: new Uint8Array(MAP_MAX) };
 }
 
-/** Distance from (px, pz) to the segment a..b. */
-function pointSeg(px: number, pz: number, ax: number, az: number, bx: number, bz: number): number {
+/**
+ * A point (px, pz) and a segment a..b, and their distance `d` (pointSeg): passed as an object, as a
+ * number passed to or returned from a call V8 does not inline is boxed on the heap.
+ */
+const ps = { px: 0, pz: 0, ax: 0, az: 0, bx: 0, bz: 0, d: 0 };
+
+/** Distance from (px, pz) to the segment a..b, into `q.d`. */
+function pointSeg(q: typeof ps): void {
+  const { px, pz, ax, az, bx, bz } = q;
   const dx = bx - ax;
   const dz = bz - az;
   const l = dx * dx + dz * dz;
   const f = l > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / l)) : 0;
-  return Math.hypot(px - ax - dx * f, pz - az - dz * f);
-}
-
-/** Which side of the line p..q the point s lies on (the sign), and how far times |q - p|. */
-function cross(px: number, pz: number, qx: number, qz: number, sx: number, sz: number): number {
-  return (qx - px) * (sz - pz) - (qz - pz) * (sx - px);
+  q.d = hypot2(px - ax - dx * f, pz - az - dz * f);
 }
 
 /**
- * Whether the stretch of the cut through (ox, oz) along (tx, tz) from u = a to u = b keeps the body
- * (BODY_RADIUS) off every footprint and inside the play area. Exact (segments, not samples), so the
- * map and canEmergeNearEntry agree, and cheap enough for every step.
+ * A stretch of a cut: through (ox, oz) along (tx, tz), from u = a to u = b. The per-step forms take
+ * their numbers in objects (a number passed to a call V8 does not inline is boxed on the heap).
  */
-function stretchClear(ox: number, oz: number, tx: number, tz: number, a: number, b: number): boolean {
+const run = { ox: 0, oz: 0, tx: 0, tz: 0, a: 0, b: 0 };
+const cut: Pick<CutLine, 'x' | 'z' | 'h'> = { x: 0, z: 0, h: 0 };
+
+/**
+ * Whether the stretch in `run` keeps the body (BODY_RADIUS) off every footprint and inside the play
+ * area. Exact (segments, not samples), so the map and canEmergeNearEntry agree, and cheap enough
+ * for every step.
+ */
+function stretchClear(): boolean {
+  const { ox, oz, tx, tz, a, b } = run;
   const ax = ox + tx * a;
   const az = oz + tz * a;
   const bx = ox + tx * b;
@@ -60,8 +71,15 @@ function stretchClear(ox: number, oz: number, tx: number, tz: number, a: number,
   const lim = PLAY_HALF - PLAY_KEEP;
   if (Math.max(Math.abs(ax), Math.abs(az), Math.abs(bx), Math.abs(bz)) > lim) return false;
   const { round, log } = footprints();
+  ps.ax = ax;
+  ps.az = az;
+  ps.bx = bx;
+  ps.bz = bz;
   for (let k = 0; k < round.length; k += 4) {
-    if (pointSeg(round[k], round[k + 1], ax, az, bx, bz) < round[k + 2] + BODY_RADIUS) return false;
+    ps.px = round[k];
+    ps.pz = round[k + 1];
+    pointSeg(ps);
+    if (ps.d < round[k + 2] + BODY_RADIUS) return false;
   }
   // The log's footprint is a capsule: two segments closer than its radius (they cross, or an end is near).
   const lx = log.x - log.dx * log.half;
@@ -69,18 +87,45 @@ function stretchClear(ox: number, oz: number, tx: number, tz: number, a: number,
   const mx = log.x + log.dx * log.half;
   const mz = log.z + log.dz * log.half;
   const r = log.r + BODY_RADIUS;
-  const d1 = cross(ax, az, bx, bz, lx, lz);
-  const d2 = cross(ax, az, bx, bz, mx, mz);
-  const d3 = cross(lx, lz, mx, mz, ax, az);
-  const d4 = cross(lx, lz, mx, mz, bx, bz);
+  // Which side of each segment's line the other's ends lie on (the sign of the cross products).
+  const d1 = (bx - ax) * (lz - az) - (bz - az) * (lx - ax);
+  const d2 = (bx - ax) * (mz - az) - (bz - az) * (mx - ax);
+  const d3 = (mx - lx) * (az - lz) - (mz - lz) * (ax - lx);
+  const d4 = (mx - lx) * (bz - lz) - (mz - lz) * (bx - lx);
   if (d1 * d2 < 0 && d3 * d4 < 0) return false;
-  return Math.min(pointSeg(lx, lz, ax, az, bx, bz), pointSeg(mx, mz, ax, az, bx, bz),
-    pointSeg(ax, az, lx, lz, mx, mz), pointSeg(bx, bz, lx, lz, mx, mz)) >= r;
+  // The least of the four end-to-segment distances (ps still holds the stretch a..b).
+  ps.px = lx;
+  ps.pz = lz;
+  pointSeg(ps);
+  let least = ps.d;
+  ps.px = mx;
+  ps.pz = mz;
+  pointSeg(ps);
+  least = Math.min(least, ps.d);
+  ps.ax = lx;
+  ps.az = lz;
+  ps.bx = mx;
+  ps.bz = mz;
+  ps.px = ax;
+  ps.pz = az;
+  pointSeg(ps);
+  least = Math.min(least, ps.d);
+  ps.px = bx;
+  ps.pz = bz;
+  pointSeg(ps);
+  return Math.min(least, ps.d) >= r;
 }
 
 /** The run out from a head at u, the way `sign`, wherever the rise lands (LAND_MIN..LAND_MAX). */
-const runClear = (ox: number, oz: number, tx: number, tz: number, u: number, sign: number): boolean =>
-  stretchClear(ox, oz, tx, tz, u + sign * LAND_MIN, u + sign * (LAND_MAX + OUT_LENGTH));
+function runClear(ox: number, oz: number, tx: number, tz: number, u: number, sign: number): boolean {
+  run.ox = ox;
+  run.oz = oz;
+  run.tx = tx;
+  run.tz = tz;
+  run.a = u + sign * LAND_MIN;
+  run.b = u + sign * (LAND_MAX + OUT_LENGTH);
+  return stretchClear();
+}
 
 /** Fills the map for slab `s`: once per dig (about 330 samples, nothing allocated). */
 export function mapEmerge(m: EmergeMap, s: Slab): void {
@@ -100,11 +145,23 @@ export function mapEmerge(m: EmergeMap, s: Slab): void {
  * leaves it with nowhere to come up. digSpot.ts requires it of every cut it offers.
  */
 export function canEmergeNearEntry(x: number, z: number, heading: number): boolean {
-  const tx = Math.sin(heading);
-  const tz = Math.cos(heading);
+  cut.x = x;
+  cut.z = z;
+  cut.h = heading;
+  return canEmergeNearEntryOf(cut);
+}
+
+/** canEmergeNearEntry for the cut `c` (through c.x, c.z along c.h). */
+export function canEmergeNearEntryOf(c: Pick<CutLine, 'x' | 'z' | 'h'>): boolean {
+  run.ox = c.x;
+  run.oz = c.z;
+  run.tx = Math.sin(c.h);
+  run.tz = Math.cos(c.h);
   // The runs from the samples at -MAP_STEP, 0 and MAP_STEP, the same way out, cover this one stretch.
   for (let sign = -1; sign <= 1; sign += 2) {
-    if (stretchClear(x, z, tx, tz, sign * (LAND_MIN - MAP_STEP), sign * (LAND_MAX + OUT_LENGTH + MAP_STEP))) return true;
+    run.a = sign * (LAND_MIN - MAP_STEP);
+    run.b = sign * (LAND_MAX + OUT_LENGTH + MAP_STEP);
+    if (stretchClear()) return true;
   }
   return false;
 }

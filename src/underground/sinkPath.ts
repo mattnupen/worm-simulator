@@ -1,4 +1,4 @@
-import type { Vec3 } from '../core/vec';
+import { hypot2, type Vec3 } from '../core/vec';
 import { WORM_SEGMENTS } from '../game/crawl';
 import {
   arc, cruise, fitSeconds, frame, push, restAt, restAxis, sampleAt, wrap, AXIS_UP, type BodyPath,
@@ -54,11 +54,11 @@ export function buildSink(p: BodyPath, s: Slab, body: ArrayLike<Vec3>): void {
   for (let i = 1; i < N; i++) {
     const du = p.bu[i] - p.bu[0];
     const dw = p.bw[i] - p.bw[0];
-    p.rad[i] = Math.hypot(du, dw);
+    p.rad[i] = hypot2(du, dw);
     const prev = p.ang[i - 1];
     const a = p.rad[i] > 1e-9 ? Math.atan2(dw, -du) : prev;
     p.ang[i] = i > 1 ? prev + wrap(a - prev) : a;
-    p.back[i] = p.back[i - 1] + Math.hypot(p.bu[i] - p.bu[i - 1], p.bw[i] - p.bw[i - 1]);
+    p.back[i] = p.back[i - 1] + hypot2(p.bu[i] - p.bu[i - 1], p.bw[i] - p.bw[i - 1]);
   }
   p.count = 0;
   const u0 = p.bu[0];

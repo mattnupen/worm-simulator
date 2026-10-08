@@ -1,10 +1,10 @@
-import type { Spring } from '../surface/followCamera';
+import { Spring } from '../surface/followCamera';
 import type { Slab } from './slab';
 import type { UndergroundView } from './modeMachine';
 import { settle } from './easing';
-import { FOV_DEG, type CutFrame } from './cutFrame';
+import { FOV_DEG, frameAsked, type BodyPoints, type CutFrame, type FrameAsk } from './cutFrame';
 
-export { frameTarget, FACE_BELOW, FACE_PAST, FOV_DEG, LABEL_ROOM, type BodyPoints, type CutFrame } from './cutFrame';
+export { frameAsked, frameTarget, FACE_BELOW, FACE_PAST, FOV_DEG, LABEL_ROOM, type BodyPoints, type CutFrame, type FrameAsk } from './cutFrame';
 
 /**
  * The camera facing the cut (V2 spec 7). It stands square to the cut on the slab's camera side,
@@ -67,7 +67,7 @@ export interface CutPose {
 }
 
 export function createCutCam(): CutCam {
-  const spring = (value: number): Spring => ({ value, velocity: 0 });
+  const spring = (value: number): Spring => new Spring(value, 0);
   const shown = [spring(0), spring(0), spring(10), spring(0.2)];
   return {
     cu: shown[0], cv: shown[1], h: shown[2], pitch: shown[3], au: spring(0), av: spring(-1),
@@ -119,6 +119,24 @@ export function stepCutFacing(c: CutCam, dir: number, dt: number): void {
   springTo(c.av, Math.sin(dir), AHEAD_SMOOTH, dt);
 }
 
+/**
+ * One step of the camera following the worm `w` (head first, facing `w.dir`) in `view`:
+ * stepCutFacing, then frameAsked (into `frame`, with `q.aspect`; it fills the rest of `q`), then
+ * stepCutCam. The per-step form: it takes no loose numbers (cutFrame.ts FrameAsk).
+ */
+export function followCut(
+  c: CutCam, view: UndergroundView, s: Slab, w: BodyPoints & { readonly dir: number }, q: FrameAsk, frame: CutFrame, dt: number,
+): void {
+  springTo(c.au, Math.cos(w.dir), AHEAD_SMOOTH, dt);
+  springTo(c.av, Math.sin(w.dir), AHEAD_SMOOTH, dt);
+  q.hu = w.u[0];
+  q.hv = w.v[0];
+  q.au = c.au.value;
+  q.av = c.av.value;
+  frameAsked(view, s, q, frame, w);
+  stepCutCam(c, frame, view, dt);
+}
+
 /** Seconds channel `i` (cu, cv, h, pitch) of `view`'s followed frame takes to settle. */
 function smoothOf(view: UndergroundView, i: number): number {
   // The zoom and pitch change only with the view (handed over) or the screen's shape.
@@ -157,16 +175,21 @@ export function stepCutCam(c: CutCam, f: CutFrame, view: UndergroundView, dt: nu
   }
   if (!(dt > 0)) return;
   c.switchT = Math.min(SWITCH_S, c.switchT + dt);
+  for (let i = 0; i < 4; i++) stepChannel(c, f, view, i, dt);
+}
+
+/** stepCutCam's step of channel `i` (a function of its own, small enough for V8 to inline its spring and easing). */
+function stepChannel(c: CutCam, f: CutFrame, view: UndergroundView, i: number, dt: number): void {
   const s = c.switchT / SWITCH_S;
-  for (let i = 0; i < 4; i++) {
-    const k = c.follow[i];
-    const target = frameAt(f, i);
-    springTo(k, target, smoothOf(view, i), dt);
-    if (Number.isFinite(target)) c.aim[i] = target;
-    const sh = c.shown[i];
-    sh.value = k.value + settle(c.off[i], c.off[4 + i], c.off[8 + i], s, 0);
-    sh.velocity = k.velocity + settle(c.off[i], c.off[4 + i], c.off[8 + i], s, 1) / SWITCH_S;
-  }
+  const k = c.follow[i];
+  const target = frameAt(f, i);
+  springTo(k, target, smoothOf(view, i), dt);
+  if (Number.isFinite(target)) c.aim[i] = target;
+  const sh = c.shown[i];
+  // The hand-over is over (settle is 0 from s = 1): no call then, so no numbers passed to box.
+  const handing = !(s >= 1);
+  sh.value = k.value + (handing ? settle(c.off[i], c.off[4 + i], c.off[8 + i], s, 0) : 0);
+  sh.velocity = k.velocity + (handing ? settle(c.off[i], c.off[4 + i], c.off[8 + i], s, 1) : 0) / SWITCH_S;
 }
 
 /**

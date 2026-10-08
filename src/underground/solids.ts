@@ -20,8 +20,9 @@ import {
  * (solidShapes.ts), as V1's props. Pure, deterministic per slab seed; fills preallocated arrays.
  * Placing and marking run once per dig.
  */
+export { pushOutSolids } from './solidPush';
 export {
-  createSolids, pushOutSolids, solidDepth, BLOCKER_GAP, DOT_STRIDE, MAX_ROOT_DOTS, MAX_ROOT_SEGS, MAX_SECTIONS, MAX_STONES,
+  createSolids, solidDepth, BLOCKER_GAP, DOT_STRIDE, MAX_ROOT_DOTS, MAX_ROOT_SEGS, MAX_SECTIONS, MAX_STONES,
   ROOT_STRIDE, STONE_STRIDE, type SolidHit, type Solids,
 } from './solidShapes';
 export { ENTRY_DEPTH, ENTRY_HI, ENTRY_LO, ROOT_REACH, ROOT_TIP } from './solidRoots';

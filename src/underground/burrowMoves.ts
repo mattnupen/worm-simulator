@@ -1,8 +1,8 @@
-import { vec3s } from '../core/vec';
+import { hypot3, hypot2, vec3s } from '../core/vec';
 import { WORM_SEGMENTS, type Crawl } from '../game/crawl';
 import { advanceWave } from '../worm/wormShape';
 import { createSlab, slabSeed, slabX, slabZ, type Slab } from './slab';
-import { digDisc, fillSoilGrid, type Eaten, type SoilGrid } from './soilGrid';
+import { digDiscAt, fillSoilGrid, type Eaten, type SoilGrid } from './soilGrid';
 import { markSolids, placeSolids, type Solids } from './solids';
 import { chooseSide, cutHeading } from './digSpot';
 import { placeBurrower, BREATH_HZ, TUNNEL_R, WAVES_PER_UNIT, type Burrower } from './burrowMotion';
@@ -61,12 +61,19 @@ const vs = new Float64Array(N);
 const ws = new Float64Array(N);
 const endBody = vec3s(N);
 const ate: Eaten = { cells: 0, organic: 0 };
+const pt = { u: 0, v: 0 };
+/** Opens the tunnel at body point `i` (its point goes in an object: no number crosses the call to box). */
+function digPoint(grid: SoilGrid, w: Burrower, i: number): void {
+  pt.u = w.u[i];
+  pt.v = w.v[i];
+  digDiscAt(grid, pt, TUNNEL_R, ate);
+}
 
 /** The head's way in the plane from the neck (unwrapped from `was`), or `was` where the neck lies across the cut. */
 function neckDir(w: Burrower, was: number): number {
   const du = w.u[0] - w.u[1];
   const dv = w.v[0] - w.v[1];
-  return Math.hypot(du, dv) > NECK_SEEN ? was + wrap(Math.atan2(dv, du) - was) : was;
+  return hypot2(du, dv) > NECK_SEEN ? was + wrap(Math.atan2(dv, du) - was) : was;
 }
 
 /** The cut camera at once on its frame for the worm as it lies (and the last step's frame the same). */
@@ -164,9 +171,9 @@ export function stepMove(g: MoveState, dt: number, action: boolean, reduced: boo
   poseAt(g.path, t, w.u, w.v, g.offW);
   w.dir = neckDir(w, w.dir);
   if (down) {
-    advanceWave(w.wave, Math.hypot(w.u[0] - hu, w.v[0] - hv, g.offW[0] - hw), dt, 1, WAVES_PER_UNIT, BREATH_HZ);
+    advanceWave(w.wave, hypot3(w.u[0] - hu, w.v[0] - hv, g.offW[0] - hw), dt, 1, WAVES_PER_UNIT, BREATH_HZ);
     if (!g.stage) {
-      for (let i = 0; i < N; i++) if (Math.abs(g.offW[i]) < IN_PLANE) digDisc(g.grid, w.u[i], w.v[i], TUNNEL_R, ate);
+      for (let i = 0; i < N; i++) if (Math.abs(g.offW[i]) < IN_PLANE) digPoint(g.grid, w, i);
     }
     if (ev === 'arrive') arriveBelow(g, false);
     return;
@@ -175,7 +182,7 @@ export function stepMove(g: MoveState, dt: number, action: boolean, reduced: boo
   const e = smootherstep(t);
   w.wave.phase = out.from + out.span * e;
   w.wave.activity = out.act * (1 - e) + OUT_ACTIVITY * Math.sin(Math.PI * t) ** 2;
-  for (let i = 0; i < 4; i++) digDisc(g.grid, w.u[i], w.v[i], TUNNEL_R, ate);
+  for (let i = 0; i < 4; i++) digPoint(g.grid, w, i);
   if (ev === 'emerge') addOpening(g.openings, g.path, g.slab!);
 }
 
@@ -193,7 +200,7 @@ export function arriveBelow(g: MoveState, snap: boolean): void {
   const act = w.prevWave.activity;
   placeBurrower(w, w.u, w.v, -Math.PI / 2, w.wave);
   g.offW.fill(0);
-  for (let i = 0; i < N; i++) digDisc(g.grid, w.u[i], w.v[i], TUNNEL_R, ate);
+  for (let i = 0; i < N; i++) digPoint(g.grid, w, i);
   if (snap) {
     g.prevW.fill(0);
     snapCam(g);

@@ -120,8 +120,27 @@ function smoothSlope(a: number, b: number, v: number): number {
  * as the mean of this between its neighbours.
  */
 export function peristalsisStretch(m: number, phase: number, amplitude: number, waves: number): number {
+  asked.m = m;
+  asked.phase = phase;
+  asked.amplitude = amplitude;
+  asked.waves = waves;
+  stretchInto(asked);
+  return asked.stretch;
+}
+
+/**
+ * peristalsisStretch's numbers and its result in one object: the per-step form (the crawl's
+ * pushers sample it hundreds of times a step) takes them so, as a number passed to or returned from
+ * a call V8 does not inline is boxed on the heap.
+ */
+export interface StretchAsk { m: number; phase: number; amplitude: number; waves: number; stretch: number }
+const asked: StretchAsk = { m: 0, phase: 0, amplitude: 0, waves: 0, stretch: 0 };
+
+/** peristalsisStretch of `q`, into `q.stretch`. */
+export function stretchInto(q: StretchAsk): void {
+  const { m, phase, amplitude, waves } = q;
   const a = 2 * Math.PI * (waves * m - phase);
-  return 1 + amplitude * (envelope(m) * Math.cos(a) + (envelopeSlope(m) * Math.sin(a)) / (2 * Math.PI * waves));
+  q.stretch = 1 + amplitude * (envelope(m) * Math.cos(a) + (envelopeSlope(m) * Math.sin(a)) / (2 * Math.PI * waves));
 }
 
 /** A ring's radius scale for a stretch (peristalsis keeps volume, within its clamp). */

@@ -36,6 +36,9 @@ export const B_A = 3;
 export const B_E = 4;
 export const B_B = 5;
 
+/** A point in the cut's plane: u along it, v height. */
+export interface UV { u: number; v: number }
+
 export interface Slab {
   readonly seed: number;
   /** The entry point on the ground (world x, z). */
@@ -110,6 +113,27 @@ export function clipLine(ox: number, oz: number, tx: number, tz: number, half: n
  * same ends); the playable range to the play area and FACE_END_ROOM inside the face. Allocates nothing (digSpot.ts calls it every step).
  */
 export function cutSpans(x: number, z: number, tx: number, tz: number, out: [number, number, number, number]): void {
+  asked.x = x;
+  asked.z = z;
+  asked.tx = tx;
+  asked.tz = tz;
+  cutSpansOf(asked, out);
+}
+
+/**
+ * A cut being tried: through (x, z) along the heading `h`, whose direction is (tx, tz) = (sin h,
+ * cos h). The per-step forms (cutSpansOf, digSpot.ts) take cuts so, as an object: a number passed
+ * to a call V8 does not inline is boxed on the heap (garbage every step).
+ */
+export interface CutLine { x: number; z: number; h: number; tx: number; tz: number }
+const asked: CutLine = { x: 0, z: 0, h: 0, tx: 0, tz: 1 };
+
+/** cutSpans of the cut `c` (its x, z, tx and tz). */
+export function cutSpansOf(c: CutLine, out: [number, number, number, number]): void {
+  const x = c.x;
+  const z = c.z;
+  const tx = c.tx;
+  const tz = c.tz;
   const span = clipSpan;
   clipLine(x, z, tx, tz, WORLD_HALF - 0.05, span);
   const faceLo = Math.ceil(Math.max(-SLAB_HALF - FACE_EXTRA, span[0]) / COLUMN_STEP) * COLUMN_STEP;
@@ -170,12 +194,27 @@ export function createSlab(x: number, z: number, heading: number, side: 1 | -1, 
 
 /** Boundary `k` (B_TOP .. B_B) at u, linear between columns (as the face draws it). */
 export function boundaryAt(s: Slab, k: number, u: number): number {
-  const f = Math.min(s.cols - 1, Math.max(0, (u - s.faceLo) / COLUMN_STEP));
+  along.u = u;
+  boundaryOf(s, k, along);
+  return bound.v;
+}
+const along = { u: 0, v: 0 };
+
+/** What boundaryOf found: the boundary's height. */
+export const bound = { v: 0 };
+
+/**
+ * boundaryAt at `p.u`, into `bound.v`: the per-step form. It takes its point in an object and
+ * calls nothing, so no number crosses a call (a number passed to or returned from a call V8 does
+ * not inline is boxed on the heap: garbage every step).
+ */
+export function boundaryOf(s: Slab, k: number, p: Readonly<UV>): void {
+  const f = Math.min(s.cols - 1, Math.max(0, (p.u - s.faceLo) / COLUMN_STEP));
   const c = Math.min(s.cols - 2, Math.floor(f));
   const t = f - c;
   const a = s.bounds[c * BOUNDS + k];
   const b = s.bounds[(c + 1) * BOUNDS + k];
-  return a + (b - a) * t;
+  bound.v = a + (b - a) * t;
 }
 
 /** The layer at (u, v), or -1 above the litter top. */

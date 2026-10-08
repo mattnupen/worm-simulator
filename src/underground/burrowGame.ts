@@ -1,15 +1,15 @@
-import type { Vec2 } from '../core/vec';
+import { hypot2, type Vec2 } from '../core/vec';
 import type { Crawl } from '../game/crawl';
 import type { ActionKind } from '../ui/actionPrompt';
 import type { Slab } from './slab';
 import { createSoilGrid } from './soilGrid';
 import { createSolids } from './solids';
-import { canDigAt } from './digSpot';
-import { createBurrower, stepBurrower } from './burrowMotion';
+import { canDigHere } from './digSpot';
+import { createBurrower, stepBurrowing, type Pointing } from './burrowMotion';
 import { canEmergeAt, createEmergeMap } from './emergeMap';
 import { createBodyPath } from './bodyPath';
 import { createModeMachine, cameraProgress, promptKind, type Mode, type UndergroundView } from './modeMachine';
-import { createCutCam, frameTarget, stepCutCam, stepCutFacing, type CutFrame } from './cutCamera';
+import { createCutCam, followCut, type CutFrame, type FrameAsk } from './cutCamera';
 import { clearOpenings, createOpenings } from './openings';
 import { arriveBelow, buildStage, startDig, startUp, stepMove, type MoveState } from './burrowMoves';
 
@@ -76,6 +76,8 @@ export class BurrowGame implements MoveState {
   /** The cut camera's frame at the last step (the renderer interpolates from it to `cam`). */
   readonly camPrev: CutFrame = { cu: 0, cv: 0, h: 10, pitch: 0.2 };
   readonly frame: CutFrame = { cu: 0, cv: 0, h: 10, pitch: 0.2 };
+  /** What the cut camera frames for (followCut fills it; `aspect` is the screen's). */
+  private readonly ask: FrameAsk = { hu: 0, hv: 0, au: 0, av: 1, aspect: 16 / 9 };
   readonly openings = createOpenings();
   /** The move in progress: the sink or the way up and out (bodyPath.ts). */
   readonly path = createBodyPath();
@@ -98,6 +100,8 @@ export class BurrowGame implements MoveState {
   private firstVisitT = 0;
   /** The speed test's own clock for its scripted pointing. */
   private autoT = 0;
+  /** The way pointed underground, as stepBurrowing takes it. */
+  private readonly way: Pointing = { du: 0, dv: 0 };
 
   constructor(readonly crawl: Crawl, private readonly host: BurrowHost, view: UndergroundView) {
     this.view = view;
@@ -165,8 +169,8 @@ export class BurrowGame implements MoveState {
     const c = this.crawl;
     const h = c.motion.head;
     const a = c.motion.heading;
-    if (force || !(Math.hypot(h.x - this.digX, h.z - this.digZ) <= DIG_RECHECK) || Math.abs(wrap(a - this.digH)) > DIG_RETURN) {
-      this.canDig = canDigAt(h.x, h.z, a, c.body);
+    if (force || !(hypot2(h.x - this.digX, h.z - this.digZ) <= DIG_RECHECK) || Math.abs(wrap(a - this.digH)) > DIG_RETURN) {
+      this.canDig = canDigHere(c.motion, c.body);
       this.digX = h.x;
       this.digZ = h.z;
       this.digH = a;
@@ -184,15 +188,16 @@ export class BurrowGame implements MoveState {
       this.view = this.view === 'wide' ? 'close' : 'wide';
       this.host.saveView(this.view);
     }
-    let du = move.x * this.rightSign;
-    let dv = move.y;
+    const way = this.way;
+    way.du = move.x * this.rightSign;
+    way.dv = move.y;
     if (auto) {
       this.autoT += dt;
-      du = Math.cos(0.37 * this.autoT + 0.5);
-      dv = Math.sin(0.61 * this.autoT) - 0.15;
+      way.du = Math.cos(0.37 * this.autoT + 0.5);
+      way.dv = Math.sin(0.61 * this.autoT) - 0.15;
     }
     const w = this.worm;
-    stepBurrower(w, this.slab!, this.grid, this.solids, du, dv, dt);
+    stepBurrowing(w, this.slab!, this.grid, this.solids, way, dt);
     this.prevW.set(this.offW);
     this.nearTop = w.nearTop && canEmergeAt(this.emerge, w.u[0]);
   }
@@ -203,9 +208,8 @@ export class BurrowGame implements MoveState {
     const p = this.camPrev;
     const w = this.worm;
     p.cu = c.cu.value; p.cv = c.cv.value; p.h = c.h.value; p.pitch = c.pitch.value;
-    stepCutFacing(c, w.dir, dt);
-    frameTarget(this.view, this.slab!, w.u[0], w.v[0], c.au.value, c.av.value, this.aspect, this.frame, w);
-    stepCutCam(c, this.frame, this.view, dt);
+    this.ask.aspect = this.aspect;
+    followCut(c, this.view, this.slab!, w, this.ask, this.frame, dt);
   }
 
   /** Underground at once where the worm is, in the current view: the speed test's dig run. */

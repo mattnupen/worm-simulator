@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import type * as THREE from 'three';
 import { createCutFace } from '../../src/underground/cutFace';
 import { createSlab, slabU } from '../../src/underground/slab';
-import { createSoilGrid, fillSoilGrid, digDisc, castBlob, cellU, cellV, colOf, rowOf, GRID_W } from '../../src/underground/soilGrid';
+import { createSoilGrid, fillSoilGrid, digDisc, cellU, cellV, colOf, rowOf, GRID_W } from '../../src/underground/soilGrid';
+import { castBlob } from '../../src/underground/castings';
 import { FACE_BELOW, FACE_PAST } from '../../src/underground/cutFrame';
 
 const eaten = { cells: 0, organic: 0 };

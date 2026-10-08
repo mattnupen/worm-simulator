@@ -3,6 +3,7 @@ import {
   pt, restAt, sampleAt, worldOf, POINT_SPEED, SHORT, TURN_RATE, WARP_STEPS, type BodyPath,
 } from './bodyPath';
 import { cruise, smootherstep } from './easing';
+import { hypot3 } from '../core/vec';
 
 /**
  * Coming up out of the cut (V2 spec 4.2), posed: every body point slides along the path emergePath.ts
@@ -137,14 +138,14 @@ export function fitSlide(p: BodyPath, least: number, headSpeed: number, longest:
       worldOf(p, o, i);
       const ax = pt.x; const ay = pt.y; const az = pt.z;
       worldOf(p, n, i);
-      const d = Math.hypot(pt.x - ax, pt.y - ay, pt.z - az);
+      const d = hypot3(pt.x - ax, pt.y - ay, pt.z - az);
       move = Math.max(move, d);
       need = Math.max(need, d / (i === 0 ? Math.min(headSpeed, POINT_SPEED) : POINT_SPEED));
       if (i > 0) {
         const ux = ax - px; const uy = ay - py; const uz = az - pz;
         const vx = pt.x - qx; const vy = pt.y - qy; const vz = pt.z - qz;
-        const lu = Math.hypot(ux, uy, uz);
-        const lv = Math.hypot(vx, vy, vz);
+        const lu = hypot3(ux, uy, uz);
+        const lv = hypot3(vx, vy, vz);
         if (lu > SHORT && lv > SHORT) {
           const c = Math.max(-1, Math.min(1, (ux * vx + uy * vy + uz * vz) / (lu * lv)));
           turn = Math.max(turn, Math.acos(c) / TURN_RATE);

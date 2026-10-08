@@ -1,6 +1,7 @@
-import type { Vec3 } from '../core/vec';
+import { hypot2, type Vec3 } from '../core/vec';
 import { BODY_RADIUS, SPACING, WORM_SEGMENTS } from '../game/crawl';
 import { footprints } from '../surface/obstacles';
+import type { CutLine } from './slab';
 
 /**
  * Digging down, the body on the surface turns to lie along the cut (sinkPath.ts buildSink). This is
@@ -44,6 +45,20 @@ export function fanWidth(heading: number): number {
 
 /** The body's fan (no body: lying straight behind the head, as a settled crawl does). */
 export function bodyFan(heading: number, body?: ArrayLike<Vec3>): void {
+  asked.heading = heading;
+  bodyFanOf(asked, body);
+}
+
+/**
+ * The per-step forms take their numbers in objects (a number passed to a call V8 does not inline
+ * is boxed on the heap: garbage every step).
+ */
+const asked = { heading: 0 };
+const cut: Pick<CutLine, 'x' | 'z' | 'h'> = { x: 0, z: 0, h: 0 };
+
+/** bodyFan for the worm heading `m.heading`. */
+export function bodyFanOf(m: { readonly heading: number }, body?: ArrayLike<Vec3>): void {
+  const heading = m.heading;
   if (!body) {
     fan.lo = fan.hi = fan.first = heading + Math.PI;
     fan.reach = (WORM_SEGMENTS - 1) * SPACING;
@@ -54,7 +69,7 @@ export function bodyFan(heading: number, body?: ArrayLike<Vec3>): void {
   for (let k = 0; k < body.length - 1; k++) {
     const dx = body[k + 1].x - body[k].x;
     const dz = body[k + 1].z - body[k].z;
-    const l = Math.hypot(dx, dz);
+    const l = hypot2(dx, dz);
     fan.reach += l;
     if (l < 1e-9) continue;
     const a = Number.isNaN(prev) ? angleOf(dx, dz) : prev + wrapPi(angleOf(dx, dz) - prev);
@@ -66,11 +81,44 @@ export function bodyFan(heading: number, body?: ArrayLike<Vec3>): void {
   if (Number.isNaN(prev)) fan.lo = fan.hi = fan.first = heading + Math.PI;
 }
 
-/** Whether the circle (px, pz, r) touches the fan from (x, z) over angles lo .. lo + width, radius `reach`. */
-function circleInFan(x: number, z: number, lo: number, width: number, reach: number, px: number, pz: number, r: number): boolean {
+/** The fan sweepClearOf tests against: from (x, z) over angles lo .. lo + width, radius `reach`. */
+const sweep = { x: 0, z: 0, lo: 0, width: 0, reach: 0 };
+
+/**
+ * The circles sweepClearOf tests, CIRCLE floats each (x, z, radius): every footprint grown by
+ * SWEEP_PAD (filled once: the props never move), then room for the log's row of circles.
+ */
+const CIRCLE = 3;
+const LOG_ROW = 64;
+let circles: Float64Array | null = null;
+let fixedEnd = 0;
+function footCircles(): Float64Array {
+  if (circles) return circles;
+  const { round } = footprints();
+  fixedEnd = (round.length / 4) * CIRCLE;
+  const c = new Float64Array(fixedEnd + LOG_ROW * CIRCLE);
+  for (let k = 0, j = 0; k < round.length; k += 4, j += CIRCLE) {
+    c[j] = round[k];
+    c[j + 1] = round[k + 1];
+    c[j + 2] = round[k + 2] + SWEEP_PAD;
+  }
+  circles = c;
+  return c;
+}
+
+/** Whether circle `j` of `cs` (x, z, radius) touches the fan in `sweep`. */
+function circleInFan(cs: Float64Array, j: number): boolean {
+  const px = cs[j];
+  const pz = cs[j + 1];
+  const r = cs[j + 2];
+  const x = sweep.x;
+  const z = sweep.z;
+  const lo = sweep.lo;
+  const width = sweep.width;
+  const reach = sweep.reach;
   const dx = px - x;
   const dz = pz - z;
-  const d = Math.hypot(dx, dz);
+  const d = hypot2(dx, dz);
   if (d > reach + r) return false;
   // A fan of half a turn or more is no longer a convex wedge (its points need not stay inside it):
   // treat it as the whole disc, so the test stays safe by construction.
@@ -80,7 +128,7 @@ function circleInFan(x: number, z: number, lo: number, width: number, reach: num
   for (let e = 0; e < 2; e++) {
     const a = lo + e * width;
     const t = Math.max(0, Math.min(reach, dx * Math.sin(a) + dz * Math.cos(a)));
-    if (Math.hypot(dx - Math.sin(a) * t, dz - Math.cos(a) * t) <= r) return true;
+    if (hypot2(dx - Math.sin(a) * t, dz - Math.cos(a) * t) <= r) return true;
   }
   return false;
 }
@@ -91,26 +139,49 @@ function circleInFan(x: number, z: number, lo: number, width: number, reach: num
  * False for a fan wider than MAX_FAN.
  */
 export function sweepClear(x: number, z: number, heading: number): boolean {
+  cut.x = x;
+  cut.z = z;
+  cut.h = heading;
+  return sweepClearOf(cut);
+}
+
+/** sweepClear for the cut `q` (through q.x, q.z along q.h). */
+export function sweepClearOf(q: Pick<CutLine, 'x' | 'z' | 'h'>): boolean {
+  const x = q.x;
+  const z = q.z;
+  const heading = q.h;
   const back = fan.first + wrapPi(heading + Math.PI - fan.first);
   const lo = Math.min(fan.lo, back);
   const width = Math.max(fan.hi, back) - lo;
   if (width > MAX_FAN) return false;
   const reach = fan.reach;
-  const { round, log } = footprints();
-  for (let k = 0; k < round.length; k += 4) {
-    if (circleInFan(x, z, lo, width, reach, round[k], round[k + 1], round[k + 2] + SWEEP_PAD)) return false;
-  }
+  sweep.x = x;
+  sweep.z = z;
+  sweep.lo = lo;
+  sweep.width = width;
+  sweep.reach = reach;
+  const cs = footCircles();
+  let end = fixedEnd;
   // The log as a row of circles 0.5 apart (grown by the most a row can miss), near enough only.
+  const { log } = footprints();
   const r = log.r + SWEEP_PAD + 0.04;
   const across = (z - log.z) * log.dx - (x - log.x) * log.dz;
-  if (Math.abs(across) >= reach + r) return true;
-  const along = (x - log.x) * log.dx + (z - log.z) * log.dz;
-  const near = Math.sqrt((reach + r) ** 2 - across * across);
-  const from = Math.max(-log.half, along - near);
-  const to = Math.min(log.half, along + near);
-  for (let a = from; a <= to + 0.25; a += 0.5) {
-    const c = Math.min(a, to);
-    if (circleInFan(x, z, lo, width, reach, log.x + log.dx * c, log.z + log.dz * c, r)) return false;
+  if (Math.abs(across) < reach + r) {
+    const along = (x - log.x) * log.dx + (z - log.z) * log.dz;
+    const near = Math.sqrt((reach + r) ** 2 - across * across);
+    const from = Math.max(-log.half, along - near);
+    const to = Math.min(log.half, along + near);
+    for (let a = from; a <= to + 0.25 && end < cs.length; a += 0.5) {
+      const c = Math.min(a, to);
+      cs[end] = log.x + log.dx * c;
+      cs[end + 1] = log.z + log.dz * c;
+      cs[end + 2] = r;
+      end += CIRCLE;
+    }
+  }
+  // Clear only if no circle touches the fan (one call site: V8 inlines it with its hypot2s).
+  for (let j = 0; j < end; j += CIRCLE) {
+    if (circleInFan(cs, j)) return false;
   }
   return true;
 }

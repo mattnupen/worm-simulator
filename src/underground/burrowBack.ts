@@ -1,7 +1,9 @@
 import { BODY_RADIUS, SPACING } from '../game/crawl';
-import { boundaryAt, B_TOP, type Slab } from './slab';
-import { pushOutSolids, type Solids } from './solids';
-import { TOP_KEEP } from './solidShapes';
+import { boundaryOf, bound, B_TOP, type Slab } from './slab';
+import type { Solids } from './solids';
+import { pushOutFrom } from './solidPush';
+import { TOP_KEEP, type UV } from './solidShapes';
+import { hypot2 } from '../core/vec';
 
 /**
  * Backing up (V2 spec 6: nightcrawlers crawl backward as well as forward, and pull back into their
@@ -27,30 +29,45 @@ export const BACK_ANGLE = 2.5;
 /** Backing up is slow and steady: about half a crawl through its own tunnel. */
 export const BACK_SPEED = 0.7;
 
-const p = { u: 0, v: 0 };
+const p: UV = { u: 0, v: 0 };
+const from: UV = { u: 0, v: 0 };
 
 /** Keeps a body point under the leaves' top and out of stones and roots, from where it was. */
 export function keepOut(s: Slab, o: Solids, u: Float64Array, v: Float64Array, prevU: Float64Array, prevV: Float64Array, i: number): void {
   p.u = u[i];
-  p.v = Math.min(boundaryAt(s, B_TOP, u[i]) - TOP_KEEP, v[i]);
-  pushOutSolids(o, p, BODY_RADIUS, TOP_KEEP, prevU[i], prevV[i]);
+  boundaryOf(s, B_TOP, p);
+  p.v = Math.min(bound.v - TOP_KEEP, v[i]);
+  from.u = prevU[i];
+  from.v = prevV[i];
+  pushOutFrom(o, p, BODY_RADIUS, TOP_KEEP, from);
   u[i] = p.u;
   v[i] = p.v;
 }
 
+/** The body backUp moves: its points now and at the last step (a Burrower). */
+export interface BackBody {
+  readonly u: Float64Array;
+  readonly v: Float64Array;
+  readonly prevU: Float64Array;
+  readonly prevV: Float64Array;
+}
+
+/** backUp's step: how far the tail goes, the playable slab's ends and the bottom it keeps above. */
+export interface BackLimits { step: number; lo: number; hi: number; bottom: number }
+
 /**
- * One step backing up `step` along the body's own line, inside the playable slab (`lo`..`hi`, above
- * `bottom`). It digs nothing: the body goes back through the tunnel it came along (and leaves its
- * castings there). Returns how far the tail moved.
+ * One step backing up `lim.step` along the body's own line, inside the playable slab (`lim.lo`..
+ * `lim.hi`, above `lim.bottom`). It digs nothing: the body goes back through the tunnel it came
+ * along (and leaves its castings there). The caller measures how far the tail moved (from prevU,
+ * prevV): nothing here boxes a number (solidShapes.ts).
  */
-export function backUp(
-  s: Slab, o: Solids, u: Float64Array, v: Float64Array, prevU: Float64Array, prevV: Float64Array,
-  step: number, lo: number, hi: number, bottom: number,
-): number {
+export function backUp(s: Slab, o: Solids, b: BackBody, lim: BackLimits): void {
+  const { u, v, prevU, prevV } = b;
+  const { step, lo, hi, bottom } = lim;
   const t = u.length - 1;
   let eu = u[t] - u[t - 1];
   let ev = v[t] - v[t - 1];
-  const el = Math.hypot(eu, ev) || 1;
+  const el = hypot2(eu, ev) || 1;
   eu /= el;
   ev /= el;
   u[t] = Math.max(lo, Math.min(hi, u[t] + eu * step));
@@ -60,12 +77,11 @@ export function backUp(
   for (let i = t - 1; i >= 0; i--) {
     const du = u[i] - u[i + 1];
     const dv = v[i] - v[i + 1];
-    const d = Math.hypot(du, dv);
+    const d = hypot2(du, dv);
     if (d > SPACING) {
       u[i] = u[i + 1] + (du * SPACING) / d;
       v[i] = v[i + 1] + (dv * SPACING) / d;
       keepOut(s, o, u, v, prevU, prevV, i);
     }
   }
-  return Math.hypot(u[t] - prevU[t], v[t] - prevV[t]);
 }

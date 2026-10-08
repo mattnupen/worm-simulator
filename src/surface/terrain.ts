@@ -1,4 +1,4 @@
-import type { Vec3 } from '../core/vec';
+import { hypot2, hypot3, type Vec3 } from '../core/vec';
 
 /** Half-width of the square forest-floor world (world units, ~metres at worm scale). */
 export const WORLD_HALF = 20;
@@ -31,7 +31,7 @@ function undulation(x: number, z: number): number {
  *   distant tree ring. A rounded-square (L4) radius keeps the berm out of the play corners.
  */
 export function terrainHeight(x: number, z: number): number {
-  const r = Math.hypot(x, z);
+  const r = hypot2(x, z);
   const spawnMask = smoothstep(1.5, 7, r);
   const sq = Math.sqrt(Math.sqrt(x ** 4 + z ** 4));
   const berm = smoothstep(WORLD_HALF + 1, WORLD_HALF + 14, sq) * 2.2;
@@ -44,7 +44,7 @@ const EPS = 0.01;
 export function terrainNormal(x: number, z: number): Vec3 {
   const dx = (terrainHeight(x + EPS, z) - terrainHeight(x - EPS, z)) / (2 * EPS);
   const dz = (terrainHeight(x, z + EPS) - terrainHeight(x, z - EPS)) / (2 * EPS);
-  const len = Math.hypot(dx, 1, dz);
+  const len = hypot3(dx, 1, dz);
   return { x: -dx / len, y: 1 / len, z: -dz / len };
 }
 

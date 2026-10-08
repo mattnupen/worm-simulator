@@ -20,10 +20,19 @@ export function smoothToward(current: Vec3, target: Vec3, rate: number, dtSec: n
   };
 }
 
-/** A value and its velocity, moved by smoothDampInto. */
-export interface Spring {
-  value: number;
-  velocity: number;
+/**
+ * A value and its velocity, moved by smoothDampInto. A class, not an object literal: three.js's
+ * uniforms are `{ value }` literals holding objects, and every `{ value, ... }` literal shares their
+ * hidden class, whose `value` then holds any kind of value; storing a number in such a field boxes
+ * it on the heap, every step. A class has its own, which keeps `value` a plain number field.
+ */
+export class Spring {
+  declare value: number;
+  declare velocity: number;
+  constructor(value = 0, velocity = 0) {
+    this.value = value;
+    this.velocity = velocity;
+  }
 }
 
 /**
@@ -69,7 +78,7 @@ export function smoothDamp(
   dtSec: number,
   maxSpeed = Infinity,
 ): { value: number; velocity: number } {
-  const s = { value: current, velocity };
+  const s = new Spring(current, velocity);
   smoothDampInto(s, target, smoothTimeSec, dtSec, maxSpeed);
   return s;
 }
@@ -104,7 +113,35 @@ export function stepFollowCam(
   o: FollowCamOptions,
 ): FollowCamState {
   if (!(dtSec > 0)) return s;
-  const y = smoothDamp(s.yaw, heading, s.yawVel, o.yawSmoothTime, dtSec, o.maxYawSpeed);
-  const target = cameraTarget(head, y.value, o.distance, o.height);
-  return { yaw: y.value, yawVel: y.velocity, pos: smoothToward(s.pos, target, o.posRate, dtSec) };
+  const next = { yaw: s.yaw, yawVel: s.yawVel, pos: { ...s.pos } };
+  stepFollowCamInto(next, head, heading, dtSec, o);
+  return next;
+}
+
+const yawSpring = new Spring();
+
+/** stepFollowCam in place (the crawl's step), the same arithmetic: allocates nothing. */
+export function stepFollowCamInto(
+  s: FollowCamState,
+  head: Vec3,
+  heading: number,
+  dtSec: number,
+  o: FollowCamOptions,
+): void {
+  if (!(dtSec > 0)) return;
+  const y = yawSpring;
+  y.value = s.yaw;
+  y.velocity = s.yawVel;
+  smoothDampInto(y, heading, o.yawSmoothTime, dtSec, o.maxYawSpeed);
+  // cameraTarget, then smoothToward, written out in place.
+  const tx = head.x - Math.sin(y.value) * o.distance;
+  const ty = head.y + o.height;
+  const tz = head.z - Math.cos(y.value) * o.distance;
+  const a = 1 - Math.exp(-o.posRate * dtSec);
+  const p = s.pos;
+  p.x = p.x + (tx - p.x) * a;
+  p.y = p.y + (ty - p.y) * a;
+  p.z = p.z + (tz - p.z) * a;
+  s.yaw = y.value;
+  s.yawVel = y.velocity;
 }

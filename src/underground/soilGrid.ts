@@ -1,5 +1,5 @@
 import { LAYER, isOrganic, type LayerId } from './layers';
-import { layerAt, SLAB_HALF, type Slab } from './slab';
+import { layerAt, SLAB_HALF, type Slab, type UV } from './slab';
 
 /**
  * The soil of one slab as a grid of 0.1 u cells (V2 spec 10): 160 across the playable 16 u and
@@ -7,8 +7,6 @@ import { layerAt, SLAB_HALF, type Slab } from './slab';
  * Rows that change are tracked so the renderer uploads only those (cutFace.ts).
  */
 export const CELL = 0.1;
-/** Castings use this shade when asked for a non-finite one. */
-const DEFAULT_SHADE = 128;
 export const GRID_W = Math.round((2 * SLAB_HALF) / CELL);
 /**
  * 136 rows = 13.6 u: the slab's 12 u below the litter top at the entry, plus 1.6 u above it, for
@@ -25,12 +23,6 @@ export const SOLID_ROOT = 2;
 const DAMP: Readonly<Record<LayerId, number>> = { 0: 90, 1: 210, 2: 180, 3: 130, 4: 100, 5: 90 };
 /** Walls this far beyond an eaten F or H cell turn darker and crumbly (spec 6, mixing). */
 export const MIX_RING = 0.12;
-/** Share of the fringe cells of a casting that fill (spec 6: "partly refills"). */
-const CAST_FILL = 0.85;
-/** Cells this far (u) below the open band's edge fill at random instead of solid (the grain). */
-const CAST_FRINGE = 0.05;
-/** Slack (u) kept on the open band: a cast may be a little wider than the tunnel, and cells are sampled at their centres. */
-const CAST_SLACK = 0.01;
 
 export interface SoilGrid {
   /** Layer per cell (LAYER ids), AIR above the litter. */
@@ -122,20 +114,27 @@ export function cellAt(g: SoilGrid, u: number, v: number): number {
   return c < 0 || c >= GRID_W || r < 0 || r >= GRID_H ? -1 : r * GRID_W + c;
 }
 
-/** A fixed 0..1 value per cell (for granular fills); deterministic. */
-function cellHash(i: number): number {
-  let h = Math.imul(i ^ 0x9e3779b9, 0x85ebca6b);
-  h ^= h >>> 13;
-  h = Math.imul(h, 0xc2b2ae35);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-}
-
 /**
  * Eats a disc of radius r at (u, v): every soil cell inside (not air, not a blocker) opens, and
  * castings there are eaten too. Where it eats F or H the walls around (out to MIX_RING) are
  * mixed. Writes what it ate into `out`. Allocates nothing.
  */
 export function digDisc(g: SoilGrid, u: number, v: number, r: number, out: Eaten): Eaten {
+  at.u = u;
+  at.v = v;
+  digDiscAt(g, at, r, out);
+  return out;
+}
+
+const at: UV = { u: 0, v: 0 };
+
+/**
+ * digDisc at the point `p`: the per-step form (the burrower's), which boxes no numbers (a number
+ * passed to a call V8 does not inline is boxed on the heap: solidShapes.ts).
+ */
+export function digDiscAt(g: SoilGrid, p: UV, r: number, out: Eaten): void {
+  const u = p.u;
+  const v = p.v;
   out.cells = 0;
   out.organic = 0;
   let mixing = false;
@@ -163,12 +162,13 @@ export function digDisc(g: SoilGrid, u: number, v: number, r: number, out: Eaten
     }
     if (changed) touch(g, row);
   }
-  if (mixing) mixRing(g, u, v, r);
-  return out;
+  if (mixing) mixRing(g, p, r);
 }
 
-/** Marks the not-yet-open soil around a disc as mixed (darker, crumbly walls). */
-function mixRing(g: SoilGrid, u: number, v: number, r: number): void {
+/** Marks the not-yet-open soil around a disc at `p` as mixed (darker, crumbly walls). */
+function mixRing(g: SoilGrid, p: UV, r: number): void {
+  const u = p.u;
+  const v = p.v;
   const R = r + MIX_RING;
   const c0 = Math.max(0, colOf(u - R));
   const c1 = Math.min(GRID_W - 1, colOf(u + R));
@@ -188,58 +188,4 @@ function mixRing(g: SoilGrid, u: number, v: number, r: number): void {
     }
     if (changed) touch(g, row);
   }
-}
-
-/**
- * Leaves a casting of radius r at (u, v) (spec 6): a dark granular blob that partly refills the
- * tunnel. (dirU, dirV) is the tunnel's direction there (any length, either way along it; the
- * burrower passes the body's direction at the tail). Castings settle on the downhill wall. The
- * uphill band across the axis stays open, and it is one cell wide measured along the grid (L1), so
- * its cell centres always form a 4-connected path at any angle: a cast never seals a 2 to 3 cell
- * tunnel. Below the band the cells fill, with a grainy fringe at its edge: about 45 to 65% of the
- * tunnel's cells in the cast. A vertical tunnel keeps its -u side open. `shade` 1..255: how dark (organic food makes darker casts); NaN gives a default.
- * Returns how many cells it filled (0 where no open tunnel lies under it). Allocates nothing. The
- * burrower leaves each cast just past its tail's own dig (burrowMotion.ts CAST_BACK), so its body
- * never eats a new one.
- */
-export function castBlob(g: SoilGrid, u: number, v: number, r: number, shade: number, dirU: number, dirV: number): number {
-  // Unit normal pointing UP off the tunnel's axis, so "up" is the open side: (mu, mv) with mv >= 0
-  // (for a vertical tunnel, the -u side is open). The filled side is the opposite.
-  // Only cells on the open side of `open` (distance across the axis) stay open.
-  const len = Math.hypot(dirU, dirV);
-  let mu = 0;
-  let mv = 1;
-  if (len > 1e-9) {
-    mu = -dirV / len;
-    mv = dirU / len;
-    if (mv < 0 || (Math.abs(mv) < 1e-9 && mu > 0)) {
-      mu = -mu;
-      mv = -mv;
-    }
-  }
-  const open = r - CELL * (Math.abs(mu) + Math.abs(mv)) - CAST_SLACK;
-  const c0 = Math.max(0, colOf(u - r));
-  const c1 = Math.min(GRID_W - 1, colOf(u + r));
-  const r0 = Math.max(0, rowOf(g, v - r));
-  const r1 = Math.min(GRID_H - 1, rowOf(g, v + r));
-  let filled = 0;
-  const s = Number.isFinite(shade) ? Math.max(1, Math.min(255, Math.round(shade))) : DEFAULT_SHADE;
-  for (let row = r0; row <= r1; row++) {
-    const dv = cellV(g, row) - v;
-    let changed = false;
-    for (let c = c0; c <= c1; c++) {
-      const du = cellU(c) - u;
-      if (du * du + dv * dv > r * r) continue;
-      const d = du * mu + dv * mv;
-      if (d >= open) continue;
-      const i = row * GRID_W + c;
-      if (!g.open[i] || g.cast[i]) continue;
-      if (d >= open - CAST_FRINGE && cellHash(i) >= CAST_FILL) continue;
-      g.cast[i] = s;
-      filled++;
-      changed = true;
-    }
-    if (changed) touch(g, row);
-  }
-  return filled;
 }
