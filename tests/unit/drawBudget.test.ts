@@ -6,6 +6,10 @@ import { PRESETS, type PresetId } from '../../src/render/graphics';
 import { scaledLeafCount } from '../../src/surface/leafScale';
 import { createBody } from '../../src/worm/body';
 import { rocks, ROCK_FOOT } from '../../src/surface/propPlacement';
+import { createBodyPath } from '../../src/underground/bodyPath';
+import { createSlab } from '../../src/underground/slab';
+import { addOpening, createOpenings, MAX_OPENINGS } from '../../src/underground/openings';
+import { createMiddens } from '../../src/underground/middens';
 
 /**
  * The draw-call budget (visual-quality-brief.md: up to 40 per frame on every preset), counted
@@ -107,6 +111,17 @@ describe('draw-call budget', () => {
   beforeAll(() => {
     crawl = new Crawl();
     world = buildWorld(crawl);
+    // A session's worth of burrow openings (their one draw), in front of the spawn.
+    const openings = createOpenings();
+    const path = createBodyPath();
+    const cut = createSlab(0, 3, 0, 1, 1);
+    for (let k = 0; k < MAX_OPENINGS; k++) {
+      path.exitU = k - 3;
+      addOpening(openings, path, cut);
+    }
+    const middens = createMiddens();
+    middens.update(openings);
+    world.scene.add(middens.mesh);
   });
 
   /** The most draws over `frames` idle frames at a view, as the game steps and syncs them. */
