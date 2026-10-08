@@ -2,13 +2,13 @@ import { advanceWave } from '../worm/wormShape';
 import { WAVES, wormLength } from '../worm/wormMesh';
 import { WORM_SEGMENTS, SPACING } from '../game/crawl';
 import { boundaryOf, bound, B_F, B_TOP, type Slab } from './slab';
-import { cellAt, AIR, type SoilGrid } from './soilGrid';
+import type { SoilGrid } from './soilGrid';
+import { ahead, soilAhead } from './soilFeel';
 import { castTail, digTunnel, CAST_EVERY, CAST_WINDOW, TUNNEL_R } from './burrowTrail';
 import type { Burrower } from './burrower';
 import type { Solids } from './solids';
 import { TOP_KEEP } from './solidShapes';
-import { backUp, keepOut, type BackLimits, BACK_ANGLE, BACK_SPEED, STUCK_REACH, STUCK_S, STUCK_SHARE, STUCK_TRIED } from './burrowBack';
-import { CAST_SPEED, EAT_SPEED, TUNNEL_SPEED, type LayerId } from './layers';
+import { backUp, keepOut, type BackLimits, BACK_ANGLE, BACK_KEEP, BACK_SPEED, STUCK_REACH, STUCK_S, STUCK_SHARE, STUCK_TRIED } from './burrowBack';
 import { hypot2 } from '../core/vec';
 
 /**
@@ -61,13 +61,6 @@ export const BREATH_HZ = 0.22;
 export const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
 /** Stick input below this is no input. */
 const DEAD = 0.15;
-/**
- * The soil is felt this far ahead of the head, past its own dig (TUNNEL_R plus a cell's half
- * diagonal), and over a small spread: one cell would flick between open and fresh as the head
- * crosses the grid, and the speed with it.
- */
-const FEEL_AHEAD = 0.24;
-const FEEL = [[0, 0], [0, 0.08], [0, -0.08], [0.1, 0]] as const;
 /** Rates (1/s) of the two smoothing stages from the soil's speed to the worm's (two stages: no kink). */
 const WANT_RATE = 12;
 const SPEED_RATE = 8;
@@ -79,41 +72,12 @@ function roomFor(room: number): number {
   const t = Math.min(1, Math.max(0, room / WALL_BAND));
   return t * t * (3 - 2 * t);
 }
-/** What soilAhead felt: the speed it allows, and the share of it that is fresh soil. */
-const ahead = { speed: 0, fresh: 0 };
 /**
  * Scratch for the calls below: points and limits go in objects, never as loose numbers (a number
  * passed to a call V8 does not inline is boxed on the heap: solidShapes.ts).
  */
 const pt = { u: 0, v: 0 };
 const lim: BackLimits = { step: 0, lo: 0, hi: 0, bottom: 0 };
-
-/** The speed the soil just ahead of the head allows (into `ahead`), averaged over the FEEL points. */
-function soilAhead(g: SoilGrid, b: Burrower): void {
-  const u = b.u[0];
-  const v = b.v[0];
-  const dir = b.dir;
-  const cu = Math.cos(dir);
-  const cv = Math.sin(dir);
-  let sum = 0;
-  let fresh = 0;
-  let n = 0;
-  for (let k = 0; k < FEEL.length; k++) {
-    const along = FEEL_AHEAD + FEEL[k][0];
-    const across = FEEL[k][1];
-    const i = cellAt(g, u + cu * along - cv * across, v + cv * along + cu * across);
-    if (i < 0) continue;
-    n++;
-    if (g.open[i]) sum += g.cast[i] ? CAST_SPEED : TUNNEL_SPEED;
-    else if (g.layer[i] === AIR) sum += TUNNEL_SPEED * 0.5;
-    else {
-      sum += EAT_SPEED[g.layer[i] as LayerId];
-      fresh++;
-    }
-  }
-  ahead.speed = n ? sum / n : 0;
-  ahead.fresh = n ? fresh / n : 0;
-}
 
 /**
  * This step's way pointed (du, dv), its strength, and the speed the soil and the stick allow
@@ -151,13 +115,14 @@ export function stepBurrowing(b: Burrower, s: Slab, g: SoilGrid, o: Solids, p: P
   way.mag = mag;
   // Pointing back against the body while stuck: back up (and on while it points back).
   // (Back is measured from the neck: the head itself never turns more than MAX_NECK_BEND off it.)
-  const back = Math.abs(wrap(Math.atan2(dv, du) - Math.atan2(b.v[0] - b.v[1], b.u[0] - b.u[1]))) > BACK_ANGLE;
+  const back = mag > DEAD && Math.abs(wrap(Math.atan2(dv, du) - Math.atan2(b.v[0] - b.v[1], b.u[0] - b.u[1]))) > (b.backing ? BACK_KEEP : BACK_ANGLE);
   const was = b.backing;
-  b.backing = mag > DEAD && back && (b.backing || (b.stuck >= STUCK_S && b.tried >= STUCK_TRIED));
+  if (!back) b.backSpent = false;
+  b.backing = back && !b.backSpent && (b.backing || (b.stuck >= STUCK_S && b.tried >= STUCK_TRIED));
   // Each way starts from rest (the head never flips from one way to the other at speed).
   if (b.backing !== was) b.want = b.speed = 0;
   if (b.backing) {
-    backStep(b, s, o, dt);
+    backStep(b, s, g, o, dt);
     return;
   }
   steer(b, g, dt);
@@ -166,7 +131,7 @@ export function stepBurrowing(b: Burrower, s: Slab, g: SoilGrid, o: Solids, p: P
 }
 
 /** Backing up (burrowBack.ts): the tail leads back along the body's own line. */
-function backStep(b: Burrower, s: Slab, o: Solids, dt: number): void {
+function backStep(b: Burrower, s: Slab, g: SoilGrid, o: Solids, dt: number): void {
   const n = b.u.length;
   const mag = way.mag;
   b.want += (BACK_SPEED * mag - b.want) * (1 - Math.exp(-WANT_RATE * dt));
@@ -177,13 +142,15 @@ function backStep(b: Burrower, s: Slab, o: Solids, dt: number): void {
   lim.lo = s.playLo + END_KEEP;
   lim.hi = s.playHi - END_KEEP;
   lim.bottom = s.bottom + BOTTOM_KEEP;
-  backUp(s, o, b, lim);
+  backUp(s, o, g, b, lim);
   const moved = hypot2(b.u[n - 1] - b.prevU[n - 1], b.v[n - 1] - b.prevV[n - 1]);
   // The head keeps its facing, within its bend off the neck as the body moves under it.
   holdBend(b);
-  // The tail blocked too: stop backing (pointing back again tries again once stuck).
+  // The tail blocked too, or at its tunnel's end: stop backing, and stay stopped while the stick
+  // still points back (pointing back again tries again, once stuck).
   if (b.speed > 0.5 * BACK_SPEED * mag && moved < STUCK_SHARE * b.speed * dt) {
     b.backing = false;
+    b.backSpent = true;
     b.want = b.speed = 0;
   }
   advanceWave(b.wave, moved, dt, 0.3, WAVES_PER_UNIT, BREATH_HZ);

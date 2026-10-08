@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createBodyPath, poseAt, restAxis } from '../../src/underground/bodyPath';
-import { buildEmerge, HEAD_SPEED } from '../../src/underground/emergePath';
+import { buildEmerge, HEAD_SPEED, LONGEST } from '../../src/underground/emergePath';
 import {
   canEmergeAt, canEmergeNearEntry, createEmergeMap, emergeSides, mapEmerge, type EmergeMap,
 } from '../../src/underground/emergeMap';
@@ -60,9 +60,10 @@ describe('coming up out of the cut (spec 4.2)', () => {
           const { us, vs } = bodyUnderTop(s, hu, hv, dir, (rand() - 0.5) * 0.3);
           buildEmerge(p, s, m, us, vs, dir);
           expect(p.seconds).toBeGreaterThanOrEqual(RISE_S + OUT_S);
-          // Contrived poses too (a hairpin out through a sharp bend of its own body): the realistic
-          // targets are pinned below ("quickly enough for a lesson").
-          expect(p.seconds).toBeLessThan(8);
+          // Contrived poses too (a hairpin out through a sharp bend of its own body): never past
+          // LONGEST (a whole number of steps); the realistic targets are pinned below ("quickly
+          // enough for a lesson").
+          expect(p.seconds).toBeLessThanOrEqual(LONGEST + 1 / 60 + 1e-9);
           const { first, last } = play(s, p, p.seconds, HEAD_SPEED);
           for (let i = 0; i < N; i++) {
             expect(first[i][0]).toBeCloseTo(slabX(s, us[i]), 9);

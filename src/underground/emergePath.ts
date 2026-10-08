@@ -25,7 +25,7 @@ const TURN_STEP = Math.PI / 18;
 /** ...the body's last ROUND segments bending as one arc into the new way. */
 const ROUND = 6;
 /** Coming up never takes longer than this for the sake of the speed caps (see fitSlide). */
-const LONGEST = 5.8;
+export const LONGEST = 5.8;
 /** Coming up, the head cruises at no more than this (u/s; the crawl's top speed is 1.6). */
 export const HEAD_SPEED = 2.4;
 /** A front point eases onto the path this far ahead of the nearest place to it (see buildEmerge). */

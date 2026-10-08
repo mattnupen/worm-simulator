@@ -37,6 +37,11 @@ export interface Burrower {
   stuckU: number;
   stuckV: number;
   backing: boolean;
+  /**
+   * Backing stopped with the tail blocked (or at its tunnel's end): it does not start again until
+   * the stick stops pointing back (then pointing back again tries again, once stuck).
+   */
+  backSpent: boolean;
 }
 
 export function createBurrower(): Burrower {
@@ -45,7 +50,7 @@ export function createBurrower(): Burrower {
     u: new Float64Array(n), v: new Float64Array(n), prevU: new Float64Array(n), prevV: new Float64Array(n),
     dir: -Math.PI / 2, prevDir: -Math.PI / 2, speed: 0, want: 0,
     wave: { phase: 0, activity: 0 }, prevWave: { phase: 0, activity: 0 },
-    eating: false, eat: 0, sinceCast: 0, castLeft: 0, gut: 0.5, nearTop: false, stuck: 0, tried: 0, stuckU: 0, stuckV: 0, backing: false,
+    eating: false, eat: 0, sinceCast: 0, castLeft: 0, gut: 0.5, nearTop: false, stuck: 0, tried: 0, stuckU: 0, stuckV: 0, backing: false, backSpent: false,
   };
 }
 
@@ -68,4 +73,5 @@ export function placeBurrower(b: Burrower, us: ArrayLike<number>, vs: ArrayLike<
   b.stuckU = us[0];
   b.stuckV = vs[0];
   b.backing = false;
+  b.backSpent = false;
 }

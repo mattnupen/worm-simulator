@@ -57,7 +57,8 @@ export interface Played { first: P3[]; last: P3[]; frames: P3[][]; topSpeed: num
 /**
  * Plays the move over `seconds` at 60 Hz and checks it frame by frame:
  * - no point moves faster than POINT_SPEED, nor the head than `headSpeed` (u/s);
- * - no segment turns faster than TURN_RATE (or the move's own `turnRate`, for one fitSeconds capped);
+ * - no segment turns faster than TURN_RATE (or the move's own `turnRate`, at most 1.3 TURN_RATE, for
+ *   one fitSeconds capped);
  * - every point moves smoothly (the change in its step bounded, still at both ends) and never
  *   doubles back: while it moves visibly (over SEEN a frame) its way changes by under REVERSE from
  *   one such frame to the next, across a stall too;
@@ -66,6 +67,8 @@ export interface Played { first: P3[]; last: P3[]; frames: P3[][]; topSpeed: num
  * change of way.
  */
 export function play(s: Slab, p: BodyPath, seconds: number, headSpeed: number): Played {
+  // A move fitSeconds capped turns faster than TURN_RATE, but only a little.
+  expect(p.turnRate).toBeLessThanOrEqual(1.3 * TURN_RATE);
   const u = new Float64Array(N);
   const v = new Float64Array(N);
   const w = new Float64Array(N);

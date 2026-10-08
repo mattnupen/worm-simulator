@@ -4,20 +4,37 @@ import { createBody } from '../../src/worm/body';
 import { canDigAt } from '../../src/underground/digSpot';
 import { mulberry32 } from '../../src/core/random';
 import { B_A } from '../../src/underground/slab';
+import { cellAt } from '../../src/underground/soilGrid';
+import { STUCK_S, STUCK_TRIED } from '../../src/underground/burrowBack';
 import { makeGame, press, run, until } from './burrowPlay';
-import { midOf, run as runWorm, setup } from './burrowWorld';
+import { midOf, run as runWorm, setup, tunnel } from './burrowWorld';
 
-/** Steps it backed up in (canGetOut). */
+/**
+ * Steps it backed up in, those with the tail in soil never dug (canGetOut), and the most times
+ * backing started or stopped while one way was held.
+ */
 let backed = 0;
+let undug = 0;
+let mostFlips = 0;
 
 /** Holds each of 8 ways for 1.5 s in turn until the head gets 0.25 u from where it was; false when none does. */
 function canGetOut(game: ReturnType<typeof makeGame>['game']): boolean {
   const w = game.worm;
+  const g = game.grid;
   for (let k = 0; k < 8; k++) {
     const a = (k / 8) * Math.PI * 2;
     const u0 = w.u[0];
     const v0 = w.v[0];
-    run(game, 1.5, { x: Math.cos(a), y: Math.sin(a) }, () => { if (w.backing) backed++; });
+    let flips = 0;
+    let was = w.backing;
+    run(game, 1.5, { x: Math.cos(a), y: Math.sin(a) }, () => {
+      if (w.backing !== was) flips++;
+      was = w.backing;
+      if (!w.backing) return;
+      backed++;
+      if (!g.open[cellAt(g, w.u[15], w.v[15])]) undug++;
+    });
+    mostFlips = Math.max(mostFlips, flips);
     if (Math.hypot(w.u[0] - u0, w.v[0] - v0) > 0.25) return true;
   }
   return false;
@@ -51,8 +68,38 @@ describe('the worm is never trapped underground (it backs up out of dead ends)',
       expect(visits).toBe(12);
     }
     expect(checks).toBe(288);
-    // Some ways out were backing up (a dead end the head could not turn round in).
+    // Some ways out were backing up (a dead end the head could not turn round in)...
     expect(backed).toBeGreaterThan(0);
+    // ...back through its own tunnel (it was 6-11% of backing steps in undug soil, for up to 1.5 s)...
+    expect(undug / backed).toBeLessThan(0.01);
+    // ...and backing settles: on once and off once while a way is held, never flicking on and off.
+    expect(mostFlips).toBeLessThanOrEqual(2);
+  });
+
+  it('backs through its own tunnel and stops at its end, not starting again while the stick points back', () => {
+    const w = setup(0, midOf(B_A));
+    const tail0 = w.b.u[15];
+    tunnel(w, tail0, 0);
+    // Stuck with its head in fresh soil (as if pressed into a dead end).
+    w.b.stuck = STUCK_S;
+    w.b.tried = STUCK_TRIED;
+    let starts = 0;
+    let ends = 0;
+    let was = false;
+    let back = Infinity;
+    runWorm(w, -1, 0, 60 * 3, () => {
+      if (w.b.backing !== was) (w.b.backing ? starts++ : ends++);
+      was = w.b.backing;
+      back = Math.min(back, w.b.u[15]);
+      // Never into soil it has not dug.
+      expect(w.g.open[cellAt(w.g, w.b.u[15], w.b.v[15])]).toBe(1);
+    });
+    // It backed to the tunnel's end (within its width), stopped there once and did not start again
+    // (it turns round instead: its head is free in open soil).
+    expect(starts).toBe(1);
+    expect(ends).toBe(1);
+    expect(back).toBeLessThan(tail0 - 0.05);
+    expect(back).toBeGreaterThan(tail0 - 0.2);
   });
 
   it('a U-turn in open soil turns round as before: it never backs up when it can move', () => {

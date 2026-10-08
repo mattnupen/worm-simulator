@@ -4,14 +4,16 @@ import type { Solids } from './solids';
 import { pushOutFrom } from './solidPush';
 import { TOP_KEEP, type UV } from './solidShapes';
 import { hypot2 } from '../core/vec';
+import { cellAt, type SoilGrid } from './soilGrid';
 
 /**
  * Backing up (V2 spec 6: nightcrawlers crawl backward as well as forward, and pull back into their
  * burrows). The head cannot turn back past its own neck, so a head pushed into a dead end (a
  * crease between a rock's flank and the line under the leaves' top, or a slab end) could neither go
  * on nor turn round. Pointing back against the body while the head is stuck, the worm backs up:
- * the tail leads, back along the body's own line (the tunnel it came along), and the rest follows
- * it. It keeps backing while the stick points back; then the head is free to turn. Allocates nothing.
+ * the tail leads, back along the tunnel it came along, and the rest follows it. It keeps backing
+ * while the stick points back, and stops at the tunnel's end (a worm's tail does not dig); then the
+ * head is free to turn. Allocates nothing.
  */
 
 /**
@@ -26,8 +28,20 @@ export const STUCK_SHARE = 0.2;
 export const STUCK_TRIED = 0.1;
 /** ...and backing starts when the stick points within about 37 degrees of straight back along the body (this far off the neck's way). */
 export const BACK_ANGLE = 2.5;
+/**
+ * ...and once backing, it keeps on while the stick stays within about 60 degrees of straight back
+ * (the neck's way swings as the body moves under the head: one threshold would flick it on and off).
+ */
+export const BACK_KEEP = 2.1;
 /** Backing up is slow and steady: about half a crawl through its own tunnel. */
 export const BACK_SPEED = 0.7;
+/**
+ * The tail follows its tunnel round bends: it goes the first of these turns (radians off the body's
+ * last segment) that keeps it in open tunnel (castings included) FEEL_BACK past where it steps.
+ * None does: it is at the tunnel's end, and stays.
+ */
+const TAIL_TURNS = [0, 0.3, -0.3, 0.6, -0.6, 0.9, -0.9] as const;
+const FEEL_BACK = 0.05;
 
 const p: UV = { u: 0, v: 0 };
 const from: UV = { u: 0, v: 0 };
@@ -56,22 +70,29 @@ export interface BackBody {
 export interface BackLimits { step: number; lo: number; hi: number; bottom: number }
 
 /**
- * One step backing up `lim.step` along the body's own line, inside the playable slab (`lim.lo`..
- * `lim.hi`, above `lim.bottom`). It digs nothing: the body goes back through the tunnel it came
- * along (and leaves its castings there). The caller measures how far the tail moved (from prevU,
- * prevV): nothing here boxes a number (solidShapes.ts).
+ * One step backing up `lim.step` along its tunnel (from the body's last segment, round the tunnel's
+ * bends), inside the playable slab (`lim.lo`..`lim.hi`, above `lim.bottom`). It digs nothing: the
+ * body goes back through the tunnel it came along (and leaves its castings there), and at the
+ * tunnel's end the tail stays put. The caller measures how far the tail moved (from prevU, prevV):
+ * nothing here boxes a number (solidShapes.ts).
  */
-export function backUp(s: Slab, o: Solids, b: BackBody, lim: BackLimits): void {
+export function backUp(s: Slab, o: Solids, g: SoilGrid, b: BackBody, lim: BackLimits): void {
   const { u, v, prevU, prevV } = b;
   const { step, lo, hi, bottom } = lim;
   const t = u.length - 1;
-  let eu = u[t] - u[t - 1];
-  let ev = v[t] - v[t - 1];
-  const el = hypot2(eu, ev) || 1;
-  eu /= el;
-  ev /= el;
-  u[t] = Math.max(lo, Math.min(hi, u[t] + eu * step));
-  v[t] = Math.max(bottom, v[t] + ev * step);
+  const eu = u[t] - u[t - 1];
+  const ev = v[t] - v[t - 1];
+  const along = Math.atan2(ev, eu);
+  for (let k = 0; k < TAIL_TURNS.length; k++) {
+    const a = along + TAIL_TURNS[k];
+    const cu = Math.cos(a);
+    const cv = Math.sin(a);
+    const i = cellAt(g, u[t] + cu * (step + FEEL_BACK), v[t] + cv * (step + FEEL_BACK));
+    if (i < 0 || !g.open[i]) continue;
+    u[t] = Math.max(lo, Math.min(hi, u[t] + cu * step));
+    v[t] = Math.max(bottom, v[t] + cv * step);
+    break;
+  }
   keepOut(s, o, u, v, prevU, prevV, t);
   // The rest follows the tail, each point at most SPACING behind the one after it.
   for (let i = t - 1; i >= 0; i--) {
