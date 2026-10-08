@@ -1,12 +1,13 @@
 import { mulberry32 } from '../core/random';
 import { PROP } from '../surface/propGeometry';
-import { DOT_STRIDE, ROOT_STRIDE, STONE_STRIDE, type Solids } from './solids';
+import { BURIED_STRIDE, DOT_STRIDE, ROOT_STRIDE, STONE_STRIDE, type Solids } from './solids';
+import { buriedAt, wallDepth, BURY_STEPS, WALL_RUN } from './rootEnds';
 import { writeBlob, writeTube, type Pen } from './cutShapes';
 import { writeFill } from './cutSections';
 
 /**
  * The cut's stones and big roots, drawn exactly where they block (V2 spec 5.2): where each meets
- * the face its outline is its collision capsule's, within about 0.015 u (tests/unit/cutSolids.test.ts),
+ * the face its outline is its collision capsule's, within about 0.02 u (tests/unit/cutSolids.test.ts),
  * so the worm never overlaps a root or stops short of one. Build-time only (once per dig).
  */
 
@@ -39,8 +40,11 @@ const ROOT_BARK = (i: number, a: number) => (Math.cos(a * 5 + i * 0.9) > 0.72 ? 
 
 /** The big roots: each chain of segments as one tube through its capsules' axes. */
 export function writeRoots(p: Pen, o: Solids): void {
-  forChains(o, (us, vs, rs, branch) => writeRoot(p, us, vs, rs, branch));
+  forChains(o, (us, vs, rs, branch) => writeRoot(p, o, us, vs, rs, branch));
 }
+
+/** Where a root past the playable slab is drawn as it bends into the wall, as shares of WALL_RUN (no one sees it closely). */
+const SLAB_END_STEPS = [0.25, 0.5, 0.75, 1] as const;
 
 /** Calls `f` with each root chain's points, and whether it branches off an earlier chain. */
 function forChains(o: Solids, f: (us: number[], vs: number[], rs: number[], branch: boolean) => void): void {
@@ -81,41 +85,46 @@ function onEarlier(o: Solids, i: number): boolean {
 
 /**
  * One root through its chain's points, straight between them as its capsules are, with knobs of
- * at most ROUGH. A tip inside the slab closes as the last capsule's round end does; an end past the
- * playable slab bends into the wall over 0.6 u; a branch starts inside its parent.
+ * at most ROUGH between its ends. A thin end inside the slab closes as the last capsule's round end
+ * does; a thick one runs on into the wall where solidRoots buried it (its capsule is where it
+ * crosses the face); an end past the playable slab bends into the wall over WALL_RUN; a branch
+ * starts inside its parent.
  */
-function writeRoot(p: Pen, cu: number[], cv: number[], cr: number[], branch: boolean): void {
+function writeRoot(p: Pen, o: Solids, cu: number[], cv: number[], cr: number[], branch: boolean): void {
   const s = p.s;
   const us = cu.slice();
   const vs = cv.slice();
-  const rs = cr.slice();
   const ds = us.map(() => 0);
+  // Knobs between the ends: each end's shape starts from its capsule's exact radius.
+  const rs = cr.map((r, i) => r + (i > 0 && i < cr.length - 1 ? Math.min(ROUGH, 0.06 * r) * Math.sin(i * 2.7 + cu[0]) : 0));
   for (const first of [true, false]) {
     if (first && branch) continue;
     const e = first ? 0 : us.length - 1;
     const nb = first ? 1 : us.length - 2;
     const l = Math.hypot(us[e] - us[nb], vs[e] - vs[nb]) || 1;
-    const tu = (us[e] - us[nb]) / l;
-    const tv = (vs[e] - vs[nb]) / l;
+    let tu = (us[e] - us[nb]) / l;
+    let tv = (vs[e] - vs[nb]) / l;
     const add = (u: number, v: number, d: number, r: number) => {
       if (first) { us.unshift(u); vs.unshift(v); ds.unshift(d); rs.unshift(r); } else { us.push(u); vs.push(v); ds.push(d); rs.push(r); }
     };
-    if (us[e] < s.playLo || us[e] > s.playHi) {
-      // Into the wall: on along the root, curving back into the face over 0.6 u, so it narrows away.
-      const u0 = us[e];
-      const v0 = vs[e];
-      const r = rs[e];
-      for (const f of [0.15, 0.3, 0.45, 0.6]) add(u0 + tu * f, v0 + tv * f, -r * 2.2 * (f / 0.6) ** 1.5, r);
+    const u0 = us[e];
+    const v0 = vs[e];
+    const r = rs[e];
+    const buried = buriedAt(o, u0, v0);
+    // Past an end and heading on out (one that turned back there ends round, as its capsule does).
+    const past = (u0 < s.playLo && tu < 0) || (u0 > s.playHi && tu > 0);
+    if (past || buried >= 0) {
+      // Into the wall: on along the root (or the way it was buried), sinking behind the face.
+      const k = buried * BURIED_STRIDE;
+      const run = buried >= 0 ? o.buried[k + 5] : WALL_RUN;
+      if (buried >= 0) { tu = o.buried[k + 3]; tv = o.buried[k + 4]; }
+      for (const g of buried >= 0 ? BURY_STEPS : SLAB_END_STEPS) add(u0 + tu * g * run, v0 + tv * g * run, wallDepth(g * run, r, run), r);
     } else {
       // Round off as the capsule's end does (a hemisphere).
-      const r = rs[e];
-      const u0 = us[e];
-      const v0 = vs[e];
       for (const f of [0.5, 0.8, 0.95, 1]) add(u0 + tu * r * f, v0 + tv * r * f, 0, r * Math.max(0.02, Math.sqrt(1 - f * f) - 0.01));
     }
   }
-  const knob = (i: number) => Math.min(ROUGH, 0.06 * rs[i]) * Math.sin(i * 2.7 + us[0]);
-  writeTube(p, us, vs, ds, rs.map((r, i) => r + knob(i)), ROOT_BARK, PROP.plain, 10, 0.6, 0.45, true);
+  writeTube(p, us, vs, ds, rs, ROOT_BARK, PROP.plain, 10, 0.6, 0.45, true);
 }
 
 /** A few fine rootlets off the big roots' undersides: thin enough to pass through (spec 5.2), drawn only. */

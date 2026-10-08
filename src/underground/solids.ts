@@ -4,16 +4,17 @@ import { boundaryAt, B_A, B_F, type Slab } from './slab';
 import { GRID_H, GRID_W, SOLID_ROOT, SOLID_STONE, cellU, cellV, colOf, rowOf, type SoilGrid } from './soilGrid';
 import { dampen } from './soilGridEdit';
 import { logSection, rockSection } from './sections';
-import { ENTRY_DEPTH, ENTRY_HI, ENTRY_LO, placeRoots } from './solidRoots';
+import { ENTRY_DEPTH, ENTRY_HI, ENTRY_LO, placeRoots, rootBottom, rootTop } from './solidRoots';
 import { placeHints } from './solidHints';
 import {
-  addCap, blockerDepth, capDepth, sectionDepth, BLOCKER_GAP, CAP_STRIDE, MAX_SECTIONS, STONE_STRIDE,
+  addCap, blockerDepth, capDepth, sectionDepth, BLOCKER_GAP, CAP_STRIDE, DOT_STRIDE, MAX_ROOT_DOTS, MAX_SECTIONS, STONE_STRIDE,
   type SolidHit, type Solids,
 } from './solidShapes';
 
 /**
  * What blocks the worm in a slab (V2 spec 5.2): stones in the mineral soil, big roots from the
- * nearest trunk and small roots cut across (solidRoots.ts), the snail shell and beetle hints
+ * nearest trunk (solidRoots.ts, their bends and ends rootEnds.ts), small roots cut across
+ * (placeDots), the snail shell and beetle hints
  * (solidHints.ts), and the cut-through parts of surface rocks and the log
  * (sections.ts). Fine roots are only drawn: the worm passes through them. The worm slides along
  * blockers: collide-and-slide on circles, tapering capsules and the sections' convex outlines
@@ -22,7 +23,7 @@ import {
  */
 export { pushOutSolids } from './solidPush';
 export {
-  createSolids, solidDepth, BLOCKER_GAP, DOT_STRIDE, MAX_ROOT_DOTS, MAX_ROOT_SEGS, MAX_SECTIONS, MAX_STONES,
+  createSolids, solidDepth, BLOCKER_GAP, BURIED_STRIDE, DOT_STRIDE, MAX_ROOT_DOTS, MAX_ROOT_SEGS, MAX_SECTIONS, MAX_STONES,
   ROOT_STRIDE, STONE_STRIDE, type SolidHit, type Solids,
 } from './solidShapes';
 export { ENTRY_DEPTH, ENTRY_HI, ENTRY_LO, ROOT_REACH, ROOT_TIP } from './solidRoots';
@@ -44,6 +45,7 @@ function inEntry(s: Slab, u: number, v: number, r: number): boolean {
 export function placeSolids(s: Slab, o: Solids): Solids {
   o.stoneCount = 0;
   o.rootCount = 0;
+  o.buriedCount = 0;
   o.capCount = 0;
   o.dotCount = 0;
   o.sectionCount = 0;
@@ -56,6 +58,7 @@ export function placeSolids(s: Slab, o: Solids): Solids {
   if (o.sectionCount < MAX_SECTIONS && logSection(s, o.log, o.sections[o.sectionCount])) o.sectionCount++;
   placeHints(s, o);
   placeRoots(s, o, rand);
+  placeDots(s, o, rand);
   placeStones(s, o, rand);
   return o;
 }
@@ -84,6 +87,24 @@ function placeStones(s: Slab, o: Solids, rand: () => number): void {
     const av = wide ? Math.sin(rot) : Math.cos(rot);
     const half = r * (1 - squash);
     addCap(o, SOLID_STONE, u - au * half, v - av * half, r * squash, u + au * half, v + av * half, r * squash);
+  }
+}
+
+/** 1-3 small roots cut square across: discs in H, A and E, inside the playable slab, apart from every blocker. */
+function placeDots(s: Slab, o: Solids, rand: () => number): void {
+  o.dotCount = 0;
+  const want = 1 + Math.floor(rand() * 3);
+  for (let tries = 0; o.dotCount < Math.min(want, MAX_ROOT_DOTS) && tries < 60; tries++) {
+    const r = 0.05 + 0.06 * rand();
+    const u = s.playLo + 0.6 + rand() * (s.playHi - s.playLo - 1.2);
+    const top = rootTop(s, u, r);
+    const lo = rootBottom(s, u) + r;
+    if (top <= lo) continue;
+    const v = lo + rand() * (top - lo);
+    if (blockerDepth(o, u, v, r + BLOCKER_GAP, o.capCount, hit) > 0) continue;
+    const k = o.dotCount++ * DOT_STRIDE;
+    o.dots[k] = u; o.dots[k + 1] = v; o.dots[k + 2] = r;
+    addCap(o, SOLID_ROOT, u, v, r, u, v, r);
   }
 }
 

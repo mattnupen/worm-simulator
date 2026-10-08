@@ -41,6 +41,9 @@ export function writeSnail(p: Pen, u: number, v: number, size: number, turn: num
   }, PLAIN, 8, 0.6, 0.35);
 }
 
+/** The beetle's depth off the face. */
+const BEETLE_D = 0.05;
+
 /**
  * A ground beetle seen from above, as if walking on the cut: glossy black wing cases with a seam,
  * its shield and head, jaws, two antennae and six legs. `dir` is the way it faces in the plane.
@@ -51,14 +54,8 @@ export function writeBeetle(p: Pen, u: number, v: number, len: number, dir: numb
   // Plane point `along` the body and `across` it, at depth d.
   const pu = (along: number, across: number) => u + (fu * along - fv * across) * len;
   const pv = (along: number, across: number) => v + (fv * along + fu * across) * len;
-  const d0 = 0.05;
-  // Glossy black with a green-bronze sheen and bright margins, as many ground beetles.
-  const shine = (x: number, y: number, z: number) => (z > 0.55 && Math.abs(y - 0.38) < 0.16 && x > -0.6 && x < 0.6 ? '#5e7a62' : z < 0.4 ? '#4e4224' : '#181c18');
-  const dull = (_x: number, _y: number, z: number) => (z < 0.4 ? '#4e4224' : '#161816');
-  writeBlob(p, pu(-0.12, 0), pv(-0.12, 0), d0, 0.34 * len, 0.2 * len, 0.13 * len, dir, { hex: shine, code: PLAIN, face: 0.45, lump: 0.02, seed: 3, fine: true });
-  writeTube(p, [pu(-0.45, 0), pu(0.2, 0)], [pv(-0.45, 0), pv(0.2, 0)], [d0 + 0.12 * len, d0 + 0.12 * len], [0.012, 0.012], () => '#030202', PLAIN, 4, 0.8);
-  writeBlob(p, pu(0.31, 0), pv(0.31, 0), d0, 0.11 * len, 0.15 * len, 0.09 * len, dir, { hex: dull, code: PLAIN, face: 0.45, lump: 0.03, seed: 5 });
-  writeBlob(p, pu(0.47, 0), pv(0.47, 0), d0, 0.08 * len, 0.09 * len, 0.07 * len, dir, { hex: () => '#100d0b', code: PLAIN, face: 0.45, lump: 0.03, seed: 7 });
+  const d0 = BEETLE_D;
+  writeBeetleBody(p, u, v, len, dir);
   for (const side of [-1, 1]) {
     // Jaws and antennae.
     writeTube(p, [pu(0.52, side * 0.04), pu(0.6, side * 0.05), pu(0.63, side * 0.01)], [pv(0.52, side * 0.04), pv(0.6, side * 0.05), pv(0.63, side * 0.01)], [d0, d0, d0], [0.014, 0.01, 0.005], () => '#1c1612', PLAIN, 4, 0.5);
@@ -74,6 +71,25 @@ export function writeBeetle(p: Pen, u: number, v: number, len: number, dir: numb
       writeTube(p, [pu(a0, side * c0), pu(a1, side * c1), pu(a2, side * c2)], [pv(a0, side * c0), pv(a1, side * c1), pv(a2, side * c2)], [d0, d0 + 0.015, d0], [0.02, 0.014, 0.008], (i) => (i === 1 ? '#0e0b09' : '#241c16'), PLAIN, 4, 0.5);
     }
   }
+}
+
+/**
+ * The beetle's body (what blocks the worm, solidHints.ts BEETLE_CAP): its wing cases with their
+ * seam, its shield and its head.
+ */
+export function writeBeetleBody(p: Pen, u: number, v: number, len: number, dir: number): void {
+  const fu = Math.cos(dir);
+  const fv = Math.sin(dir);
+  const pu = (along: number) => u + fu * along * len;
+  const pv = (along: number) => v + fv * along * len;
+  const d0 = BEETLE_D;
+  // Glossy black with a green-bronze sheen and bright margins, as many ground beetles.
+  const shine = (x: number, y: number, z: number) => (z > 0.55 && Math.abs(y - 0.38) < 0.16 && x > -0.6 && x < 0.6 ? '#5e7a62' : z < 0.4 ? '#4e4224' : '#181c18');
+  const dull = (_x: number, _y: number, z: number) => (z < 0.4 ? '#4e4224' : '#161816');
+  writeBlob(p, pu(-0.12), pv(-0.12), d0, 0.34 * len, 0.2 * len, 0.13 * len, dir, { hex: shine, code: PLAIN, face: 0.45, lump: 0.02, seed: 3, fine: true });
+  writeTube(p, [pu(-0.45), pu(0.2)], [pv(-0.45), pv(0.2)], [d0 + 0.12 * len, d0 + 0.12 * len], [0.012, 0.012], () => '#030202', PLAIN, 4, 0.8);
+  writeBlob(p, pu(0.31), pv(0.31), d0, 0.11 * len, 0.15 * len, 0.09 * len, dir, { hex: dull, code: PLAIN, face: 0.45, lump: 0.03, seed: 5 });
+  writeBlob(p, pu(0.47), pv(0.47), d0, 0.08 * len, 0.09 * len, 0.07 * len, dir, { hex: () => '#100d0b', code: PLAIN, face: 0.45, lump: 0.03, seed: 7 });
 }
 
 /**

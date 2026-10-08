@@ -155,9 +155,10 @@ export function leanNormals(p: Pen, first: number, face: number): void {
  * A tube through plane points (u[i], v[i], d[i]) with radius r[i], `sides` round: roots, stalks,
  * legs, the snail's whorl. `hex(i, a)` colours point i at angle a round it (a = PI/2 faces the camera
  * for a tube in the plane), lit from above by `up` (brighter on top, darker below); the parameter
- * of its kind code runs 0..1 along it. With `sharp`, each bend gets three rings (square to the way
- * in, the bisector, square to the way out), so the tube's outline is its capsules' to within a
- * few thousandths: straight sides meeting in the crease inside a bend, round outside it.
+ * of its kind code runs 0..1 along it. With `sharp`, each bend in the plane gets three rings
+ * (square to the way in, the bisector, square to the way out), so the tube's outline is its
+ * capsules' to within a few thousandths: straight sides meeting in the crease inside a bend, round
+ * outside it. (A bend toward or away from the camera, as a root sinking into the wall, gets one.)
  */
 export function writeTube(
   p: Pen, u: readonly number[], v: readonly number[], d: readonly number[], r: readonly number[],
@@ -168,7 +169,7 @@ export function writeTube(
   const n = u.length;
   let rows = 0;
   for (let i = 0; i < n; i++) {
-    if (sharp && i > 0 && i < n - 1) {
+    if (sharp && i > 0 && i < n - 1 && d[i - 1] === d[i] && d[i + 1] === d[i]) {
       ring(p, u, v, d, r, i, i - 1, i, hex, kind, sides, face, up, true);
       ring(p, u, v, d, r, i, i - 1, i + 1, hex, kind, sides, face, up, true);
       ring(p, u, v, d, r, i, i, i + 1, hex, kind, sides, face, up, true);

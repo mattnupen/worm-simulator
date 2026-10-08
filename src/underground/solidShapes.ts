@@ -22,16 +22,22 @@ export const MAX_STONES = 16;
 /** Floats per stone: u, v, radius, x scale, y scale, rotation, shade 0..1. The stone is the ellipse
  *  of radii radius * x scale and radius * y scale (one of them 1), turned by the rotation. */
 export const STONE_STRIDE = 7;
-export const MAX_ROOT_SEGS = 64;
+/** Room for the big roots' segments: as grown (at most 64), with their fillet points (rootEnds.ts). */
+export const MAX_ROOT_SEGS = 128;
 /** Floats per root segment: u0, v0, r0, u1, v1, r1. A root is a chain of joined segments; a
  *  branch is a chain that starts on its parent. */
 export const ROOT_STRIDE = 6;
+/** Thick root ends in the playable slab that run on into the wall (rootEnds.ts), BURIED_STRIDE
+ *  floats each: the end's u, v, radius, the way it goes in (du, dv) and the run it sinks over,
+ *  each with one capsule. */
+export const MAX_BURIED = 8;
+export const BURIED_STRIDE = 6;
 /** Small roots cut square across: discs of wood (DOT_STRIDE floats: u, v, radius). */
 export const MAX_ROOT_DOTS = 3;
 export const DOT_STRIDE = 3;
 export const MAX_SECTIONS = 4;
-/** Collision capsules (stones, root segments, root discs and the two hints), CAP_STRIDE floats each as ROOT_STRIDE. */
-const MAX_CAPS = MAX_STONES + MAX_ROOT_SEGS + MAX_ROOT_DOTS + 2;
+/** Collision capsules (stones, root segments, buried ends, root discs and the two hints), CAP_STRIDE floats each as ROOT_STRIDE. */
+const MAX_CAPS = MAX_STONES + MAX_ROOT_SEGS + MAX_BURIED + MAX_ROOT_DOTS + 2;
 export const CAP_STRIDE = 6;
 /**
  * Separate blockers stay at least this far apart: more than the worm is thick (2 x BODY_RADIUS,
@@ -52,6 +58,8 @@ export interface Solids {
   stoneCount: number;
   readonly roots: Float32Array;
   rootCount: number;
+  readonly buried: Float32Array;
+  buriedCount: number;
   /** Rocks and the log the cut passes through, as outlines in the plane. */
   readonly sections: readonly Section[];
   sectionCount: number;
@@ -73,6 +81,7 @@ export function createSolids(): Solids {
     slab: null,
     stones: new Float32Array(MAX_STONES * STONE_STRIDE), stoneCount: 0,
     roots: new Float32Array(MAX_ROOT_SEGS * ROOT_STRIDE), rootCount: 0,
+    buried: new Float32Array(MAX_BURIED * BURIED_STRIDE), buriedCount: 0,
     sections: Array.from({ length: MAX_SECTIONS }, createSection), sectionCount: 0,
     log: { u: 0, v: 0, rx: 0, ry: 0 },
     dots: new Float32Array(MAX_ROOT_DOTS * DOT_STRIDE), dotCount: 0,
