@@ -114,12 +114,10 @@ function start(renderer: THREE.WebGLRenderer): void {
   let dirty = true;
 
   const runner = new SpeedTestRunner({
-    // Every run starts at the spawn, whatever the player did before opening the test.
-    resetWorld: () => {
-      crawl.reset();
-      game.reset();
-      dirty = true;
-    },
+    // Every run starts at the spawn, whatever the player did before opening the test (or dug: no
+    // openings). ?dig=1 starts it underground there, in Wide (scripts/perf-gates.mjs's run below).
+    resetWorld: () => { crawl.reset(); if (params.dig) game.enterNow(); else game.reset(); dirty = true; },
+    where: () => (params.dig ? 'Underground' : 'Surface'),
     setMaxFps: (fps) => loop.setMaxFps(fps),
     applyTier: (tier) => applySpec(tierSpec(testBase, TIERS[tier])),
     showPhase: (p) => showRunning(shell,
@@ -283,7 +281,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     const cmds = commands();
     if (frozen()) game.hold(cmds.action);
     else {
-      game.step(dt, cmds.move, cmds.action);
+      game.step(dt, cmds.move, cmds.action, runner.running && params.dig);
       // ?prompt= shows one kind over the game's own and counts the presses (tests, screenshots).
       if (params.prompt && pressEdge.update(cmds.action)) app.dataset.actionPresses = String(++presses);
       const on = state.screen === 'crawl' && !runner.running && app.dataset.promptOff === undefined;

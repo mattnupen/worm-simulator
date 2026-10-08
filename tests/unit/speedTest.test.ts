@@ -185,6 +185,12 @@ describe('formatResults', () => {
     expect(lines[3]).toBe('Measurement restarts: 2');
   });
 
+  it('says where the test ran right after the Leaves line (V2: the perf gates check it), and nothing when not given', () => {
+    const lines = formatResults(full, auto, 1, 2000, device, 0, 'Underground').split('\n');
+    expect(lines[lines.indexOf('Leaves: 2000') + 1]).toBe('Where: Underground');
+    expect(formatResults(full, auto, 1, 2000, device)).not.toContain('Where:');
+  });
+
   it('flags when the restart limit was reached', () => {
     const lines = formatResults(full, auto, 1, 2000, device, MAX_RESTARTS).split('\n');
     expect(lines[3]).toBe(

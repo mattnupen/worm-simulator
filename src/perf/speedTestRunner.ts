@@ -13,7 +13,8 @@ export const FPS_CAP = 30;
 export interface SpeedTestHost {
   /**
    * Put the worm, its camera and the leaves it moved back at the spawn, as on a fresh load,
-   * so the numbers never depend on where the player had crawled.
+   * so the numbers never depend on where the player had crawled (or dug: V2's `?dig=1` run
+   * starts underground at the spawn).
    */
   resetWorld(): void;
   /** Use Infinity for no cap. */
@@ -23,6 +24,8 @@ export interface SpeedTestHost {
   /** A phase started: show its running card. */
   showPhase(phase: PhaseSpec): void;
   deviceInfo(): DeviceInfo;
+  /** Where the test ran: "Surface" or "Underground" (V2), for the report. */
+  where?(): string;
 }
 
 export interface SpeedTestResult { text: string; pass: boolean; tier: number }
@@ -81,6 +84,7 @@ export class SpeedTestRunner {
     this.result = {
       text: formatResults(
         full, auto, this.quality.tier, this.leaves(), this.host.deviceInfo(), test.restarts,
+        this.host.where?.(),
       ),
       pass: verdict(auto) === 'PASS',
       tier: this.quality.tier,

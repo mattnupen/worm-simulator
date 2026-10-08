@@ -212,9 +212,13 @@ export class BurrowGame implements MoveState {
     followCut(c, this.view, this.slab!, w, this.ask, this.frame, dt);
   }
 
-  /** Underground at once where the worm is, in the current view: the speed test's dig run. */
+  /**
+   * Underground at once where the worm is: the speed test's dig run. Always in Wide (the default),
+   * so the numbers never depend on the view the player picked; that pick stays stored.
+   */
   enterNow(): void {
     this.reset();
+    this.view = 'wide';
     const m = this.machine;
     m.hold(false);
     if (m.step(true, true, false, true, 0) !== 'startDig') return;

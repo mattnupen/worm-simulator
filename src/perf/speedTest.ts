@@ -99,6 +99,8 @@ export interface DeviceInfo {
 
 export function formatResults(
   full: FpsSummary, auto: FpsSummary, finalTier: number, leaves: number, d: DeviceInfo, restarts = 0,
+  /** On the surface or underground (V2; the perf gates check it): "Surface" or "Underground". */
+  where?: string,
 ): string {
   return [
     `Result: ${verdict(auto)}`,
@@ -111,6 +113,7 @@ export function formatResults(
     `Quality level used: ${finalTier} of ${TIERS.length - 1} (0 = best)`,
     `Full quality, no cap: ${full.avgFps.toFixed(1)} fps average, ${full.lowFps.toFixed(1)} fps low`,
     `Leaves: ${leaves}`,
+    ...(where ? [`Where: ${where}`] : []),
     `GPU: ${d.gpu}`,
     ...deviceLines(d),
   ].join('\n');

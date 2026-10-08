@@ -24,6 +24,7 @@ test('runs the speed test offline from a file with zero network requests', async
   await expect(page.getByTestId('running')).toBeVisible();
   await expect(page.getByTestId('result')).toContainText('fps average', { timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Copy results' })).toBeFocused();
+  await expect(page.getByTestId('result')).toContainText('Where: Surface');
 
   expect(outside).toEqual([]);
   expect(errors).toEqual([]);
@@ -101,6 +102,17 @@ test('a speed test opened after crawling runs (it starts from the spawn, see Cra
   await page.getByRole('button', { name: 'Start speed test' }).click();
   await expect(page.getByTestId('running')).toBeVisible();
   await expect(page.getByTestId('result')).toContainText('fps average', { timeout: 30_000 });
+  expect(errors).toEqual([]);
+});
+
+test('the speed test digs underground with ?dig=1 and says so (the perf gates\' underground run)', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('GPU stall')) errors.push(m.text()); });
+  await page.goto(PAGE + '&speedtest=1&dig=1');
+  await page.getByRole('button', { name: 'Start speed test' }).click();
+  await expect(page.locator('#app')).toHaveAttribute('data-place', 'underground');
+  await expect(page.getByTestId('result')).toContainText('Where: Underground', { timeout: 60_000 });
   expect(errors).toEqual([]);
 });
 

@@ -346,11 +346,13 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     expect(dipDarkness(game.mode)).toBe(0);
   });
 
-  it('enterNow puts the speed test straight underground, in its view, and the scripted dig moves', () => {
-    const { game } = makeGame();
+  it('enterNow puts the speed test straight underground, always in Wide, and the scripted dig moves', () => {
+    // The player had picked Close: the test still measures Wide, and saves nothing.
+    const { game, saved } = makeGame({ view: 'close' });
     game.enterNow();
     expect(game.mode.mode).toBe('underground');
     expect(game.view).toBe('wide');
+    expect(saved).toEqual([]);
     expect(game.slabVersion).toBe(1);
     // Not the player's visit: their first one still shows the hint card.
     expect(game.visits).toBe(0);

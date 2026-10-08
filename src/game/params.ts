@@ -16,6 +16,8 @@ export interface GameParams {
    * screenshots only; the game itself sets the prompt from where the worm is.
    */
   prompt: ActionKind | null;
+  /** `?dig=1`: the speed test digs underground instead of crawling (V2 perf gates). */
+  dig: boolean;
 }
 
 export function parseParams(search: string): GameParams {
@@ -28,5 +30,6 @@ export function parseParams(search: string): GameParams {
     quick: p.get('quick') === '1',
     speedTest: p.get('speedtest') === '1',
     prompt: prompt !== null && (ACTION_KINDS as readonly string[]).includes(prompt) ? (prompt as ActionKind) : null,
+    dig: p.get('dig') === '1',
   };
 }
