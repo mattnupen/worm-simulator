@@ -92,21 +92,6 @@ function warped(p: BodyPath, t: number): number {
   return p.warp[k] + (p.warp[k + 1] - p.warp[k]) * (x - k);
 }
 
-/**
- * The share of the move's time (0..1) at which the head comes out on the floor (passes `exitAt`):
- * from then on the worm crawls out (the reduced-motion dip is dark over it: burrowMoves.ts).
- */
-export function slideOutAt(p: BodyPath): number {
-  let lo = 0;
-  let hi = 1;
-  for (let k = 0; k < 24; k++) {
-    const t = (lo + hi) / 2;
-    if (p.headFrom + (p.headTo - p.headFrom) * slid(p, warped(p, t)) >= p.exitAt) hi = t;
-    else lo = t;
-  }
-  return hi;
-}
-
 /** The slide's progress at linear time t (0..1) of the move (`p.warp`, worked out by fitSlide). */
 export function slidePose(p: BodyPath, t: number, outU: Float64Array, outV: Float64Array, outW: Float64Array): void {
   slideAt(p, warped(p, t), outU, outV, outW);

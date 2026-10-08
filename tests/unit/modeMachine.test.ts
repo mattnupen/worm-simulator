@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createModeMachine, createModeState, moveDuration, bodyProgress, cameraProgress, dipDarkness, promptKind,
-  DEFAULT_UNDERGROUND_VIEW, SINK_S, SWING_S, FADE_S, RISE_S, OUT_S,
+  DEFAULT_UNDERGROUND_VIEW, SINK_S, SWING_S, FADE_S, DIP_IN, DIP_OUT, RISE_S, OUT_S,
   type ModeEvent, type ModeMachine,
 } from '../../src/underground/modeMachine';
 
@@ -115,19 +115,19 @@ describe('the surface / underground state machine (spec 4, 10)', () => {
     expect(lastCam).toBeLessThan(0.05);
   });
 
-  it('reduced motion uses the short cross-fade, read when the move starts', () => {
+  it('reduced motion uses the short dip, read when the move starts', () => {
     const m = createModeMachine();
     m.step(true, true, false, true, DT);
     expect(m.state.reduced).toBe(true);
-    expect(moveDuration(m.state)).toBeCloseTo(SINK_S + FADE_S, 9);
+    expect(moveDuration(m.state)).toBeCloseTo(FADE_S, 9);
     // the setting changing mid-move does not change the move that started
     m.step(false, true, false, false, DT);
     expect(m.state.reduced).toBe(true);
-    expect(moveDuration(m.state)).toBeCloseTo(SINK_S + FADE_S, 9);
+    expect(moveDuration(m.state)).toBeCloseTo(FADE_S, 9);
     runMove(m, false);
     expect(m.state.mode).toBe('underground');
     expect(m.state.reduced).toBe(true);
-    // coming up reads it afresh, and the fade (0.7 s) is shorter than the crawl out (1.1 s)
+    // coming up reads it afresh
     m.step(true, false, true, false, DT);
     expect(m.state.reduced).toBe(false);
     expect(moveDuration(m.state)).toBeCloseTo(RISE_S + Math.max(OUT_S, SWING_S), 9);
@@ -137,99 +137,126 @@ describe('the surface / underground state machine (spec 4, 10)', () => {
     expect(m.state.reduced).toBe(true);
     runMove(m, false);
     m.step(true, false, true, true, DT);
-    expect(moveDuration(m.state)).toBeCloseTo(RISE_S + Math.max(OUT_S, FADE_S), 9);
+    expect(moveDuration(m.state)).toBeCloseTo(FADE_S, 9);
+  });
+
+  it('reduced motion, both ways: dark over DIP_IN, the worm and the camera cut to the end there, clear over DIP_OUT (spec 4.1)', () => {
+    // About 0.7 s each way, however long the worm's own move would take.
+    expect(FADE_S).toBeCloseTo(0.7, 9);
+    expect(DIP_IN).toBeCloseTo(0.3, 9);
+    expect(DIP_OUT).toBeCloseTo(0.35, 9);
+    for (const down of [true, false]) {
+      const m = down ? createModeMachine() : undergroundMachine();
+      m.step(true, down, !down, true, DT);
+      m.setMoveTime(4.5);
+      const s = m.state;
+      expect(moveDuration(s)).toBeCloseTo(FADE_S, 9);
+      const atStart = down ? 0 : 1;
+      let cuts = 0;
+      let lastDark = 0;
+      let n = 0;
+      let cam = cameraProgress(s);
+      while (s.mode === (down ? 'diggingDown' : 'comingUp') && n++ < 1000) {
+        const dark = dipDarkness(s);
+        const c = cameraProgress(s);
+        if (c !== cam) {
+          // One cut, at DIP_IN, fully dark; the worm's move ends there too.
+          cuts++;
+          expect(dark).toBe(1);
+          expect(s.t).toBeGreaterThanOrEqual(DIP_IN);
+          expect(s.t).toBeLessThan(DIP_IN + DT + 1e-9);
+          expect(bodyProgress(s)).toBe(1);
+          cam = c;
+        }
+        if (s.t < DIP_IN) {
+          // Going dark, the worm just starting its move (at its own pace), the camera still.
+          expect(dark).toBeGreaterThanOrEqual(lastDark);
+          expect(c).toBe(atStart);
+          expect(bodyProgress(s)).toBeCloseTo(s.t / 4.5, 9);
+        } else if (s.t <= FADE_S - DIP_OUT) expect(dark).toBe(1);
+        else expect(dark).toBeLessThan(lastDark);
+        lastDark = dark;
+        m.step(false, true, false, true, DT);
+      }
+      expect(cuts).toBe(1);
+      expect(Math.abs(n * DT - FADE_S)).toBeLessThan(2 * DT);
+      expect(s.mode).toBe(down ? 'underground' : 'surface');
+      expect(dipDarkness(s)).toBe(0);
+      expect(cameraProgress(s)).toBe(1 - atStart);
+    }
   });
 
   it('pins the spec timings (4.1, 4.2) in seconds', () => {
-    // [reduced, sink + camera, camera starts; coming up: move, camera starts, camera ends]
-    // (Reduced, coming up: the camera cuts at RISE_S, in the dark, when the game has not said when
-    // the head comes out.)
-    for (const [reduced, down, up, camEnd] of [[false, 2.5, 2.5, 2.5], [true, 1.7, 2.1, 1.0]] as const) {
-      const m = createModeMachine();
-      m.step(true, true, false, reduced, DT);
-      expect(moveDuration(m.state)).toBeCloseTo(down, 9);
-      // The worm's own move runs through the whole dig-down; the camera holds for the first 1.0 s.
-      m.state.t = 0.999;
-      expect(cameraProgress(m.state)).toBe(0);
-      expect(bodyProgress(m.state)).toBeCloseTo(0.999 / down, 9);
-      m.state.t = down;
-      expect(cameraProgress(m.state)).toBe(1);
-      expect(bodyProgress(m.state)).toBe(1);
-      m.state.t = 0;
-      runMove(m, false);
-      m.step(true, false, true, reduced, DT);
-      expect(moveDuration(m.state)).toBeCloseTo(up, 9);
-      m.state.t = reduced ? 0.99 : 1.0;
-      expect(cameraProgress(m.state)).toBe(1);
-      m.state.t = camEnd;
-      expect(cameraProgress(m.state)).toBeCloseTo(0, 9);
-      m.state.t = 2.1;
-      expect(bodyProgress(m.state)).toBe(1);
-    }
+    // Digging down 2.5 s: the camera holds for the first 1.0 s while the worm's move runs through all of it.
+    const m = createModeMachine();
+    m.step(true, true, false, false, DT);
+    expect(moveDuration(m.state)).toBeCloseTo(2.5, 9);
+    m.state.t = 0.999;
+    expect(cameraProgress(m.state)).toBe(0);
+    expect(bodyProgress(m.state)).toBeCloseTo(0.999 / 2.5, 9);
+    m.state.t = 2.5;
+    expect(cameraProgress(m.state)).toBe(1);
+    expect(bodyProgress(m.state)).toBe(1);
+    m.state.t = 0;
+    runMove(m, false);
+    // Coming up 2.5 s: the camera holds through the 1.0 s rise, then swings back with the crawl out.
+    m.step(true, false, true, false, DT);
+    expect(moveDuration(m.state)).toBeCloseTo(2.5, 9);
+    m.state.t = 1.0;
+    expect(cameraProgress(m.state)).toBe(1);
+    m.state.t = 2.5;
+    expect(cameraProgress(m.state)).toBeCloseTo(0, 9);
+    m.state.t = 2.1;
+    expect(bodyProgress(m.state)).toBe(1);
   });
 
   it('coming up takes the length the game sets; the swing ends with the worm\'s move', () => {
-    for (const reduced of [false, true]) {
-      const m = undergroundMachine();
-      m.setMoveTime(9); // not coming up: ignored
-      m.step(true, false, true, reduced, DT);
-      expect(m.state.moveS).toBe(RISE_S + OUT_S);
-      m.setMoveTime(NaN);
-      m.setMoveTime(1.5); // never shorter than the rise and the crawl out
-      expect(m.state.moveS).toBe(RISE_S + OUT_S);
-      m.setMoveTime(4.6);
-      // The head comes out on the floor 3.3 s in (reduced: the dip is dark from then on).
-      m.setOutTime(3.3);
-      const s = m.state;
-      expect(moveDuration(s)).toBeCloseTo(4.6, 9);
-      s.t = 3.1;
-      expect(cameraProgress(s)).toBeCloseTo(1, 9);
-      s.t = 3;
-      expect(cameraProgress(s)).toBe(1);
-      s.t = 2.3;
-      expect(bodyProgress(s)).toBeCloseTo(0.5, 9);
-      s.t = 3.1 + (reduced ? FADE_S : SWING_S);
-      expect(cameraProgress(s)).toBeCloseTo(0, 9);
-      if (reduced) {
-        // Dark from as the head comes out until the worm is all but at rest, clear at its end.
-        for (const t of [3.3, 3.8, 4.2]) { s.t = t; expect(dipDarkness(s)).toBe(1); }
-        s.t = 4.6;
-        expect(dipDarkness(s)).toBe(0);
-        s.t = 2.9;
-        expect(dipDarkness(s)).toBe(0);
-      }
-      s.t = 0;
-      const { n } = runMove(m, false, false, true);
-      expect(Math.abs(n * DT - 4.6)).toBeLessThan(2 * DT);
-      // The next coming up starts from the default again.
-      tap(m);
-      runMove(m, false);
-      m.step(true, false, true, reduced, DT);
-      expect(moveDuration(s)).toBeCloseTo(reduced ? RISE_S + OUT_S : RISE_S + SWING_S, 9);
-    }
+    const m = undergroundMachine();
+    m.setMoveTime(9); // not coming up: ignored
+    m.step(true, false, true, false, DT);
+    expect(m.state.moveS).toBe(RISE_S + OUT_S);
+    m.setMoveTime(NaN);
+    m.setMoveTime(1.5); // never shorter than the rise and the crawl out
+    expect(m.state.moveS).toBe(RISE_S + OUT_S);
+    m.setMoveTime(4.6);
+    const s = m.state;
+    expect(moveDuration(s)).toBeCloseTo(4.6, 9);
+    s.t = 3.1;
+    expect(cameraProgress(s)).toBeCloseTo(1, 9);
+    s.t = 3;
+    expect(cameraProgress(s)).toBe(1);
+    s.t = 2.3;
+    expect(bodyProgress(s)).toBeCloseTo(0.5, 9);
+    s.t = 3.1 + SWING_S;
+    expect(cameraProgress(s)).toBeCloseTo(0, 9);
+    s.t = 0;
+    const { n } = runMove(m, false, false, true);
+    expect(Math.abs(n * DT - 4.6)).toBeLessThan(2 * DT);
+    // The next coming up starts from the default again.
+    tap(m);
+    runMove(m, false);
+    m.step(true, false, true, false, DT);
+    expect(moveDuration(s)).toBeCloseTo(RISE_S + SWING_S, 9);
   });
 
   it('digging down takes the length the game sets for a big turn; the swing ends with it', () => {
-    for (const reduced of [false, true]) {
-      const m = createModeMachine();
-      m.setMoveTime(9); // settled: ignored
-      m.step(true, true, false, reduced, DT);
-      const s = m.state;
-      const least = SINK_S + (reduced ? FADE_S : SWING_S);
-      m.setMoveTime(1.2); // never shorter than the hold and the camera's move
-      expect(s.moveS).toBe(least);
-      m.setMoveTime(4);
-      expect(moveDuration(s)).toBe(4);
-      s.t = 2;
-      expect(bodyProgress(s)).toBeCloseTo(0.5, 9);
-      s.t = 4 - (reduced ? FADE_S : SWING_S);
-      expect(cameraProgress(s)).toBe(0);
-      s.t = 4;
-      expect(cameraProgress(s)).toBe(1);
-      s.t = 0;
-      const { n } = runMove(m, false);
-      expect(Math.abs(n * DT - 4)).toBeLessThan(2 * DT);
-    }
+    const m = createModeMachine();
+    m.setMoveTime(9); // settled: ignored
+    m.step(true, true, false, false, DT);
+    const s = m.state;
+    m.setMoveTime(1.2); // never shorter than the hold and the camera's move
+    expect(s.moveS).toBe(SINK_S + SWING_S);
+    m.setMoveTime(4);
+    expect(moveDuration(s)).toBe(4);
+    s.t = 2;
+    expect(bodyProgress(s)).toBeCloseTo(0.5, 9);
+    s.t = 4 - SWING_S;
+    expect(cameraProgress(s)).toBe(0);
+    s.t = 4;
+    expect(cameraProgress(s)).toBe(1);
+    s.t = 0;
+    const { n } = runMove(m, false);
+    expect(Math.abs(n * DT - 4)).toBeLessThan(2 * DT);
   });
 
   describe('edge cases', () => {

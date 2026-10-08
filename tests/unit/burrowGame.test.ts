@@ -15,7 +15,7 @@ import { CAM_OPTS } from '../../src/game/cameraClearance';
 import { footprints } from '../../src/surface/obstacles';
 import { loadSettings, updateSettings, SETTINGS_KEY, type KeyValueStore } from '../../src/save/settingsStore';
 import { project } from './cutWorld';
-import { DT, N, STILL, UP, RIGHT, makeGame, press, run, until, digDown, steerToTop } from './burrowPlay';
+import { DT, N, STILL, UP, RIGHT, makeGame, press, run, until, digDown, steerToTop, shown, gap } from './burrowPlay';
 
 describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
   it('crawls on the surface and offers Dig down where allowed', () => {
@@ -213,7 +213,7 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     digDown(game);
     const s = game.slab!;
     const c = game.cam;
-    const cp: CutPose = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0, near: 0 };
+    const cp: CutPose = { px: 0, py: 0, pz: 0, lx: 0, ly: 0, lz: 0 };
     cutPose(s, c.cu.value, c.cv.value, c.h.value, c.pitch.value, cp);
     const at = (u: number) => project(cp, 16 / 9, s.ox + s.tx * u, game.worm.v[0], s.oz + s.tz * u).nx;
     expect(Math.sign(at(1) - at(0))).toBe(game.rightSign);
@@ -278,56 +278,71 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     expect(game.hintShowing).toBe(false);
   });
 
-  it('reduced motion: the camera\'s move is the short cross-fade, read as the move starts', () => {
-    let reduced = true;
-    const { crawl, game } = makeGame({ reduced: () => reduced });
-    run(game, 0.5, UP);
-    press(game);
-    reduced = false;
-    expect(game.mode.reduced).toBe(true);
-    let moving = 0;
-    for (let k = 0; k < 60 * 6 && game.mode.mode === 'diggingDown'; k++) {
-      const p = cameraProgress(game.mode);
-      game.step(DT, STILL, false);
-      if (p > 0 && p < 1) moving += DT;
+  it('reduced motion going down: a short dip; in the dark the worm is sunk and the camera at the cut, still as it clears', () => {
+    for (const view of ['wide', 'close'] as const) {
+      let reduced = true;
+      const { crawl, game } = makeGame({ reduced: () => reduced, view });
+      run(game, 0.5, UP);
+      press(game);
+      reduced = false;
+      expect(game.mode.reduced).toBe(true);
+      let t = 10 * DT; // the press's steps
+      let cutAt = NaN;
+      let cam = cameraProgress(game.mode);
+      let held: number[] | null = null;
+      let camMoved = 0;
+      const frame = () => shown(game, 0.5).cut!;
+      for (let k = 0; k < 60 * 6 && game.mode.mode === 'diggingDown'; k++) {
+        game.step(DT, STILL, false);
+        t += DT;
+        const c = cameraProgress(game.mode);
+        if (c !== cam) {
+          cutAt = t;
+          // Cut in the dark, the worm already sunk (the rest of its move skipped).
+          expect(dipDarkness(game.mode)).toBe(1);
+          expect(game.offW.every((w) => w === 0)).toBe(true);
+          cam = c;
+        }
+        if (held) camMoved = Math.max(camMoved, ...frame().map((x, i) => Math.abs(x - held![i])));
+        else if (c === 1) held = frame();
+      }
+      expect(game.mode.mode).toBe('underground');
+      expect(t).toBeLessThan(FADE_S + 2 * DT);
+      expect(cutAt).toBeLessThan(0.4);
+      // The cut camera stood still from the cut on: nothing slides in as the dip clears.
+      run(game, 0.5, STILL, () => { camMoved = Math.max(camMoved, ...frame().map((x, i) => Math.abs(x - held![i]))); });
+      expect(camMoved).toBeLessThan(1e-3);
+      expect(crawl.motion.head.z).toBeGreaterThan(0.5);
     }
-    expect(game.mode.mode).toBe('underground');
-    expect(moving).toBeGreaterThan(FADE_S - 0.05);
-    expect(moving).toBeLessThan(FADE_S + 0.05);
-    expect(crawl.motion.head.z).toBeGreaterThan(0.5);
   });
 
-  it('reduced motion coming up: dark from as the head comes out until the worm is at rest; the camera cuts in the dark', () => {
-    const { game } = makeGame({ reduced: () => true });
+  it('reduced motion coming up: a short dip; in the dark the worm and the camera cut to where the crawl starts', () => {
+    const { crawl, game } = makeGame({ reduced: () => true });
     run(game, 0.5, UP);
     digDown(game);
     steerToTop(game);
+    const before = shown(game, 1).body;
     press(game);
     expect(game.mode.mode).toBe('comingUp');
-    const out = game.mode.outS;
-    const end = game.mode.moveS;
-    expect(out).toBeGreaterThan(0.3);
-    expect(out).toBeLessThan(end - 0.5);
+    let t = 10 * DT;
     let cam = 1;
     let cuts = 0;
-    let clearBefore = 0;
     for (let k = 0; k < 60 * 8 && game.mode.mode === 'comingUp'; k++) {
-      const { t } = game.mode;
-      const dark = dipDarkness(game.mode);
       const c = cameraProgress(game.mode);
       if (c !== cam) {
         cuts++;
-        expect(dark).toBe(1);
+        expect(dipDarkness(game.mode)).toBe(1);
         cam = c;
       }
-      // The rise is seen; from the head coming out until the worm nears rest, all dark.
-      if (t < out - FADE_S / 2) clearBefore = Math.max(clearBefore, dark);
-      if (t >= out && t <= end - FADE_S / 2 - DT) expect(dark).toBe(1);
+      // Before the cut the worm only starts its move; from the cut it lies where the crawl starts.
+      if (c === 1) expect(gap(shown(game, 1).body, before)).toBeLessThan(0.5);
+      else expect(gap(shown(game, 1).body, crawl.body.flatMap((p) => [p.x, p.y, p.z]))).toBeLessThan(1e-6);
       game.step(DT, STILL, false);
+      t += DT;
     }
     expect(game.mode.mode).toBe('surface');
+    expect(t).toBeLessThan(FADE_S + 2 * DT);
     expect(cuts).toBe(1);
-    expect(clearBefore).toBe(0);
     expect(dipDarkness(game.mode)).toBe(0);
   });
 

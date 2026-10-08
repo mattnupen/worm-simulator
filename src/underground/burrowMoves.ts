@@ -9,9 +9,8 @@ import { placeBurrower, BREATH_HZ, TUNNEL_R, WAVES_PER_UNIT, type Burrower } fro
 import { poseAt, smootherstep, wrap, AXIS_UP, type BodyPath } from './bodyPath';
 import { buildSink } from './sinkPath';
 import { buildEmerge } from './emergePath';
-import { slideOutAt } from './slidePath';
 import { mapEmerge, type EmergeMap } from './emergeMap';
-import { bodyProgress, type ModeMachine, type ModeState, type UndergroundView } from './modeMachine';
+import { bodyProgress, DIP_IN, type ModeMachine, type ModeState, type UndergroundView } from './modeMachine';
 import { frameTarget, snapCutCam, type CutCam, type CutFrame } from './cutCamera';
 import { addOpening, type Openings } from './openings';
 
@@ -155,9 +154,14 @@ function keepPrev(g: MoveState): void {
   w.prevWave.activity = w.wave.activity;
 }
 
-/** One step of digging down or coming up: the worm along the move's path; the machine times it. */
+/**
+ * One step of digging down or coming up: the worm along the move's path; the machine times it.
+ * With reduced motion the worm cuts to the move's end in the dark (modeMachine.ts), and going down
+ * the cut camera is put on it at once there (nothing slides in as the dip clears).
+ */
 export function stepMove(g: MoveState, dt: number, action: boolean, reduced: boolean): void {
   const down = g.mode.mode === 'diggingDown';
+  const cut = g.mode.reduced && g.mode.t < DIP_IN;
   const ev = g.machine.step(action, false, false, reduced, dt);
   if (down && g.stage) buildStage(g);
   while (ev === 'arrive' && g.stage) buildStage(g);
@@ -176,6 +180,7 @@ export function stepMove(g: MoveState, dt: number, action: boolean, reduced: boo
       for (let i = 0; i < N; i++) if (Math.abs(g.offW[i]) < IN_PLANE) digPoint(g.grid, w, i);
     }
     if (ev === 'arrive') arriveBelow(g, false);
+    else if (cut && g.mode.t >= DIP_IN) snapCam(g);
     return;
   }
   const out = g.waveOut;
@@ -228,7 +233,6 @@ export function startUp(g: MoveState): void {
   g.prevW.fill(0);
   buildEmerge(p, s, g.emerge, w.u, w.v, w.dir);
   g.machine.setMoveTime(p.seconds);
-  g.machine.setOutTime(slideOutAt(p) * g.mode.moveS);
   poseAt(p, 1, us, vs, ws);
   for (let i = 0; i < N; i++) {
     endBody[i].x = slabX(s, us[i]) + s.nx * ws[i];
