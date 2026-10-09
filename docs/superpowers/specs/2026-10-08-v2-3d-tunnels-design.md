@@ -33,7 +33,8 @@ spec (`2026-10-04-v2-underground-design.md`, sections 6 and 10, and as-built sec
 - The game records the head's path for the whole visit to a slab. That path is the trail.
   - The trail is recorded through a **pursuit point**: a point that follows the head at most
     `TRAIL_LAG` (0.1 u) behind it, a tractrix. That rounds the head's sharp corners (sliding
-    along a stone, a turn on the spot) to a radius of about 0.1 u.
+    along a stone, a turn on the spot short of a full reversal) to a radius of about 0.1 u. A
+    true reversal retraces the trail, and the body doubles back along it, still in its tunnel.
   - Every trail point is within 0.1 u of where the head then was. The head dug a disc of
     `TUNNEL_R` (0.14 u) there, so **every trail point lies in the open tunnel**.
 - **Arc length along the trail:** each body point sits on the trail at arc length `i × SPACING`
@@ -79,10 +80,10 @@ spec (`2026-10-04-v2-underground-design.md`, sections 6 and 10, and as-built sec
     begun, once it is at least `TRAIL_STEP` (0.02 u) from the point before it.
   - Capacity is 8192 points, about 160 u of path. When the trail is full, the oldest half is
     dropped (copyWithin). The body needs only the last 3.3 u; older points serve backing.
-  - API: `seedTrail(t, u, v)` (from a body pose, head first), `followHead(t, u, v)` (after the
+  - API: `seedTrail(t, b)` (from a body pose, head first), `followHead(t, b)` (after the
     head moves forward: cut at the head's place if it had backed, move the pursuit point,
-    commit), `poseBehind(t, u, v)` (points 1 to 15 by arc length behind the head),
-    `backAlong(t, u, v, step)` (pin the head, move its arc back, place every point by arc).
+    commit), `poseBehind(t, b)` (points 1 to 15 by arc length behind the head),
+    `backAlong(t, b, { step })` (pin the head, move its arc back, place every point by arc).
     The trail lives on the `Burrower` (`b.trail`), and `placeBurrower` seeds it.
 - `burrowTrail.ts` `trailBody` calls `followHead` and `poseBehind`. The chain (`linkOut`, `drawLink`, `lastBend`,
   `MAX_BEND`, `SLACK`, `BEND_EASE`) is deleted. In `burrowBack.ts`, `backUp`'s tail search
