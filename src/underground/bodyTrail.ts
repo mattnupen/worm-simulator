@@ -4,18 +4,25 @@ import { hypot2 } from '../core/vec';
 /**
  * The burrowing body rides its head's trail (V2 emergency fix, spec 2026-10-08 section 3): a chain
  * on a rail. The trail is the head's path drawn through a pursuit point that follows the head at
- * most TRAIL_LAG behind (a tractrix: sharp corners, a turn on the spot or a slide along a stone,
- * come out rounded to about TRAIL_LAG). Every trail point lies within TRAIL_LAG of where the head
- * then was, inside the TUNNEL_R disc it dug there, so the trail is always in open tunnel. Each body
- * point lies on the trail its link's length of arc behind the point ahead, so the body slides
- * along its tunnel and nothing pops: placing points by chord (the first point a link's length away)
- * jumped up to 0.4 u in a step on a hairpin whose legs were closer than a link. 5ede96b also used
- * arc length but averaged the points, and its trail gained slack while the head turned back: the
- * body shrank to 58%. Here nothing is averaged, and the pursuit point adds no trail while the head
- * turns in place. Across a bend a link's chord is shorter than its arc, as the tunnel is.
+ * most TRAIL_LAG behind (a tractrix): a sharp corner or a slide along a stone comes out rounded to
+ * about TRAIL_LAG. Every trail point lies within TRAIL_LAG of where the head then was, inside the
+ * TUNNEL_R disc it dug there, so the trail is always in open tunnel. While the head turns or
+ * jitters within TRAIL_LAG of the pursuit point, no trail is added. A true reversal (the head going
+ * straight back along its own line) retraces the trail, and the body doubles over on it: still on
+ * the path, and nothing pops.
+ *
+ * Each body point lies on the trail its link's length of arc behind the point ahead, so the body
+ * slides along its tunnel and nothing pops: placing points by chord (the first point a link's
+ * length away) jumped up to 0.4 u in a step on a hairpin whose legs were closer than a link. The
+ * body keeps its length because no point is averaged and no trail is added while the head turns in
+ * place (an earlier arc-length body that did both shrank to 58%). Across a bend a link's chord is
+ * shorter than its arc, as the tunnel is. The head, off the trail, counts as its distance from the
+ * pursuit point past the trail's end, so the neck's chord is never longer than its link; turning
+ * in place shortens it (by about 2.5 times the radius the head turns on).
+ *
  * Backing, the head leads back along the trail, the tail stopping at the trail's start. Pure;
  * allocates nothing, and no fractional number crosses a call that V8 might not inline (the
- * helpers read and write the scratch object `pt`).
+ * helpers read and write the scratch objects `pt` and `pose`).
  */
 const N = WORM_SEGMENTS;
 /** A new trail point is begun once the live one is this far (u) past the point before it. */
@@ -24,8 +31,13 @@ export const TRAIL_STEP = 0.02;
 export const TRAIL_LAG = 0.1;
 /** Most trail points kept (about 160 u of path); when full the oldest half is dropped. */
 export const TRAIL_CAP = 8192;
-/** Seeded links ease to SPACING at this share per unit (u) the head moves. */
+/** Seeded links ease to SPACING at this share per unit (u) the head moves... */
 const LEN_EASE = 2;
+/**
+ * ...but the body grows by at most this share of the head's move: short seeded links grew faster
+ * than the head moved, and the tail slid back along the trail.
+ */
+const GROW_MOST = 0.5;
 
 /** The body the trail poses: points head first, now and at the last step. */
 export interface TrailBody {
@@ -53,6 +65,7 @@ export interface BodyTrail {
   backed: boolean;
 }
 
+/** An empty trail: seed it (seedTrail) before poseBehind or backAlong. */
 export function createTrail(): BodyTrail {
   return {
     u: new Float64Array(TRAIL_CAP), v: new Float64Array(TRAIL_CAP), arc: new Float64Array(TRAIL_CAP), n: 0,
@@ -148,7 +161,9 @@ export function seedTrail(t: BodyTrail, b: Pick<TrailBody, 'u' | 'v'>): void {
 /**
  * After the head moved forward: if it had backed, the trail is cut at its place (the old branch
  * stays in the soil, not in the record); the pursuit point is drawn to within TRAIL_LAG of the
- * head and committed every TRAIL_STEP; the links ease toward SPACING.
+ * head and committed every TRAIL_STEP; the links ease toward SPACING. It commits at most one point
+ * a step: when the head jumps further, the live segment is longer than TRAIL_STEP, a straight
+ * chord of the head's path, which is fine.
  */
 export function followHead(t: BodyTrail, b: TrailBody): void {
   if (t.backed) {
@@ -174,7 +189,10 @@ export function followHead(t: BodyTrail, b: TrailBody): void {
     push(t);
   }
   const moved = hypot2(b.u[0] - b.prevU[0], b.v[0] - b.prevV[0]);
-  const e = Math.min(1, moved * LEN_EASE);
+  let e = Math.min(1, moved * LEN_EASE);
+  let grow = 0;
+  for (let i = 1; i < N; i++) grow += (SPACING - t.len[i]) * e;
+  if (grow > GROW_MOST * moved) e *= (GROW_MOST * moved) / grow;
   for (let i = 1; i < N; i++) t.len[i] += (SPACING - t.len[i]) * e;
 }
 

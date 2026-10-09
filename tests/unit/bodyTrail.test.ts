@@ -60,11 +60,23 @@ function arcLinks(t: BodyTrail, b: TrailBody): number[] {
   for (let i = 1; i < N; i++) a.push(arcAt(t, t.at[i]));
   return Array.from({ length: N - 1 }, (_, i) => a[i] - a[i + 1]);
 }
+/** The trail's point at place s. */
+function trailAt(t: BodyTrail, s: number): number[] {
+  const k = Math.min(t.n - 2, Math.floor(s));
+  const f = s - k;
+  return [t.u[k] + (t.u[k + 1] - t.u[k]) * f, t.v[k] + (t.v[k + 1] - t.v[k]) * f];
+}
 /**
- * The links are exact: each is SPACING of arc along the trail, and its chord is never longer
- * (shorter only where the trail bends), nor shorter than minShare of SPACING.
+ * The links are exact: each body point is on the trail at its place, each link is SPACING of arc
+ * along the trail, and its chord is never longer (shorter only where the trail bends), nor shorter
+ * than minShare of SPACING.
  */
 function expectLinks(t: BodyTrail, b: TrailBody, minShare: number): void {
+  for (let i = t.backed ? 0 : 1; i < N; i++) {
+    const [u, v] = trailAt(t, t.at[i]);
+    expect(Math.abs(b.u[i] - u)).toBeLessThan(1e-9);
+    expect(Math.abs(b.v[i] - v)).toBeLessThan(1e-9);
+  }
   for (const l of arcLinks(t, b)) expect(l).toBeCloseTo(SPACING, 9);
   for (const l of links(b)) {
     expect(l).toBeLessThanOrEqual(SPACING + 1e-9);
@@ -74,6 +86,29 @@ function expectLinks(t: BodyTrail, b: TrailBody, minShare: number): void {
 /** On a straight leg every chord is SPACING. */
 function expectStraightLinks(b: TrailBody): void {
   for (const l of links(b)) expect(l).toBeCloseTo(SPACING, 6);
+}
+/** The head's path so far, from the seeded body's tail. */
+function seededPath(b: TrailBody): number[][] {
+  const path: number[][] = [];
+  for (let i = N - 1; i >= 0; i--) path.push([b.u[i], b.v[i]]);
+  return path;
+}
+/** Every body point within TRAIL_LAG (and a little) of the head's path. */
+function expectOnPath(path: number[][], b: TrailBody): void {
+  for (let i = 1; i < N; i++) expect(distToPath(path, b.u[i], b.v[i])).toBeLessThan(TRAIL_LAG + 0.01);
+}
+/**
+ * Moves the head to (u, v) and checks the body: on the head's path, no point moving more than
+ * 1.5 times the head's step (nothing pops), the links exact.
+ */
+function driveTo(t: BodyTrail, b: TrailBody, path: number[][], u: number, v: number, minShare: number): void {
+  const du = u - b.u[0];
+  const dv = v - b.v[0];
+  stepHead(t, b, du, dv);
+  path.push([b.u[0], b.v[0]]);
+  expectOnPath(path, b);
+  expect(mostMoved(b)).toBeLessThanOrEqual(1.5 * Math.hypot(du, dv) + 1e-9);
+  expectLinks(t, b, minShare);
 }
 /** The farthest any body point moved this step. */
 function mostMoved(b: TrailBody): number {
@@ -172,12 +207,15 @@ describe('the body rides the head\'s trail (a chain on a rail)', () => {
     const t = createTrail();
     const b = straightBody();
     seedTrail(t, b);
-    for (let k = 0; k < 60; k++) stepHead(t, b, STEP, 0);
-    for (let k = 0; k < 80; k++) stepHead(t, b, 0, STEP);
+    const path = seededPath(b);
+    for (let k = 0; k < 60; k++) { stepHead(t, b, STEP, 0); path.push([b.u[0], b.v[0]]); }
+    for (let k = 0; k < 80; k++) { stepHead(t, b, 0, STEP); path.push([b.u[0], b.v[0]]); }
     const start = { u: -SPACING * (N - 1), v: 0 };
     for (let k = 0; k < 2000; k++) {
       stepBack(t, b, STEP);
       expectLinks(t, b, 0.85);
+      expect(distToPath(path, b.u[0], b.v[0])).toBeLessThan(TRAIL_LAG + 0.01);
+      expectOnPath(path, b);
     }
     // The tail is at the trail's start: the tunnel's end.
     expect(b.u[N - 1]).toBeCloseTo(start.u, 6);
@@ -204,9 +242,12 @@ describe('the body rides the head\'s trail (a chain on a rail)', () => {
     for (let k = 0; k < 100; k++) stepHead(t, b, STEP, 0);
     for (let k = 0; k < 50; k++) stepBack(t, b, STEP);
     const nAfterBack = t.n;
+    const cutU = b.u[0];
     for (let k = 0; k < 200; k++) stepHead(t, b, 0, -STEP);
-    // The old branch beyond the head (about 50 points) was cut before the new way was appended.
+    // The old branch beyond the head (about 50 points, out to u = 2) was cut before the new way
+    // was appended: no trail point is left on it.
     expect(t.n).toBeLessThan(nAfterBack + 160);
+    for (let k = 0; k < t.n; k++) expect(t.u[k]).toBeLessThanOrEqual(cutU + TRAIL_LAG);
     expect(t.backed).toBe(false);
     // The body lies on the new leg, straight down from the cut.
     expect(Math.abs(b.u[N - 1] - b.u[0])).toBeLessThan(1e-3);
@@ -232,14 +273,81 @@ describe('the body rides the head\'s trail (a chain on a rail)', () => {
   });
 
   it('a seed with uneven links eases them to SPACING as it moves, with no jump at the start', () => {
+    // Links of 0.1 grew faster than the head moved until the growth was capped at half its move.
+    for (const seeded of [0.2, 0.1]) {
+      const t = createTrail();
+      const b = straightBody();
+      for (let i = 0; i < N; i++) b.u[i] = -seeded * i; // links not SPACING
+      b.prevU.set(b.u);
+      seedTrail(t, b);
+      const before = Array.from(b.u);
+      poseBehind(t, b);
+      for (let i = 0; i < N; i++) expect(b.u[i]).toBeCloseTo(before[i], 9);
+      for (let k = 0; k < 400; k++) {
+        stepHead(t, b, STEP, 0);
+        expect(mostMoved(b)).toBeLessThanOrEqual(1.5 * STEP + 1e-9);
+      }
+      for (const l of links(b)) expect(l).toBeCloseTo(SPACING, 3);
+    }
+  });
+
+  it('turning in place adds no trail, and the neck shortens only a little and never pops', () => {
+    // The head goes round a small circle (0.3 rad a step) where it stopped, then straight on. In
+    // the game it turns at most DIG_TURN (2.6 rad/s) at no less than 0.35 of its speed, so circles
+    // of about 0.04 u. The neck's chord shortens by about 2.5 times the radius: measured 0.885 of
+    // SPACING at 0.01 and 0.583 at 0.04 (the other links stay straight).
+    const minShare: Record<number, number> = { 0.01: 0.85, 0.04: 0.55 };
+    for (const r of [0.01, 0.04]) {
+      const t = createTrail();
+      const b = straightBody();
+      seedTrail(t, b);
+      const path = seededPath(b);
+      const n0 = t.n;
+      for (let k = 1; k <= 300; k++) driveTo(t, b, path, r * Math.sin(k * 0.3), r - r * Math.cos(k * 0.3), minShare[r]);
+      expect(t.n).toBe(n0); // within TRAIL_LAG of the pursuit point: no trail
+      const [u0, v0] = [b.u[0], b.v[0]];
+      for (let k = 1; k <= 200; k++) driveTo(t, b, path, u0 + STEP * k, v0, minShare[r]);
+      expectStraightLinks(b);
+    }
+  });
+
+  it('a tight loop (radius 0.12) keeps the body on its path, with no pops', () => {
     const t = createTrail();
     const b = straightBody();
-    for (let i = 0; i < N; i++) b.u[i] = -0.2 * i; // links 0.2, not SPACING
     seedTrail(t, b);
-    const before = Array.from(b.u);
-    poseBehind(t, b);
-    for (let i = 0; i < N; i++) expect(b.u[i]).toBeCloseTo(before[i], 9);
-    for (let k = 0; k < 400; k++) stepHead(t, b, STEP, 0);
-    for (const l of links(b)) expect(l).toBeCloseTo(SPACING, 3);
+    const path = seededPath(b);
+    const R = 0.12;
+    let u = 0, v = 0, dir = 0;
+    // Measured 0.583: the trail's loop is tighter than the head's (the pursuit point cuts inside).
+    for (let k = 0; k < Math.ceil((2 * Math.PI * R) / STEP); k++) {
+      dir += STEP / R;
+      u += STEP * Math.cos(dir);
+      v += STEP * Math.sin(dir);
+      driveTo(t, b, path, u, v, 0.55);
+    }
+    for (let k = 0; k < 200; k++) {
+      u += STEP * Math.cos(dir);
+      v += STEP * Math.sin(dir);
+      driveTo(t, b, path, u, v, 0.55);
+    }
+  });
+
+  it('crossing an older part of the trail (a figure of eight) keeps the body on its own path, with no pops', () => {
+    const t = createTrail();
+    const b = straightBody();
+    seedTrail(t, b);
+    const path = seededPath(b);
+    // A lemniscate, u = A sin s, v = A sin s cos s: it crosses itself at the start, at right
+    // angles, with the body (3.3 u) lying across the crossing. Then straight on. Measured 0.916:
+    // the chords shorten round the lobes' ends.
+    const A = 0.6;
+    let s = 0;
+    while (s < 2 * Math.PI) {
+      s += STEP / (A * Math.hypot(Math.cos(s), Math.cos(2 * s)));
+      const q = Math.min(s, 2 * Math.PI);
+      driveTo(t, b, path, A * Math.sin(q), A * Math.sin(q) * Math.cos(q), 0.9);
+    }
+    for (let k = 1; k <= 200; k++) driveTo(t, b, path, (STEP * k) / Math.SQRT2, (STEP * k) / Math.SQRT2, 0.9);
+    expectStraightLinks(b);
   });
 });
