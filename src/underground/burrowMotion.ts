@@ -27,7 +27,8 @@ export { createBurrower, placeBurrower, type Burrower } from './burrower';
 export const DIG_TURN = 2.6;
 /**
  * ...and its path turns no tighter than this radius (u) at the speed it goes: turning fast while
- * all but still, it dug corners sharper than the body bends round...
+ * all but still, it dug corners sharper than this, which put an elbow in the body (it bends as its
+ * tunnel does)...
  */
 export const MIN_TURN_R = 0.35;
 /** ...but it can still turn this fast (radians a second) when it hardly moves... */
@@ -156,10 +157,15 @@ export function stepBurrowing(b: Burrower, s: Slab, g: SoilGrid, o: Solids, p: P
   }
   steer(b, g, dt);
   moveHead(b, s, o, dt);
-  digOn(b, s, g, o, dt);
+  digOn(b, s, g, dt);
 }
 
-/** Backing up (burrowBack.ts): the body slides back along the head's trail (bodyTrail.ts). */
+/**
+ * Backing up (burrowBack.ts): the head's arc moves back along its trail and the body follows behind
+ * it (bodyTrail.ts). The head rides the trail too and is not kept out of the solids: on a corner
+ * rounded round a stone it may graze the stone's margin by up to about 0.017 u (measured
+ * 2026-10-08), as the body does.
+ */
 function backStep(b: Burrower, s: Slab, dt: number): void {
   const n = b.u.length;
   const mag = way.mag;
@@ -234,7 +240,7 @@ function moveHead(b: Burrower, s: Slab, o: Solids, dt: number): void {
 }
 
 /** After the head moves: stuck or not, the tunnel dug, the body after it, a casting, the wave. */
-function digOn(b: Burrower, s: Slab, g: SoilGrid, o: Solids, dt: number): void {
+function digOn(b: Burrower, s: Slab, g: SoilGrid, dt: number): void {
   const moved = hypot2(b.u[0] - b.prevU[0], b.v[0] - b.prevV[0]);
   // Trying to move and getting nowhere: stuck (pointing back then backs up).
   b.tried += b.speed * dt;
@@ -244,7 +250,7 @@ function digOn(b: Burrower, s: Slab, g: SoilGrid, o: Solids, dt: number): void {
     b.stuckU = b.u[0];
     b.stuckV = b.v[0];
   }
-  digTunnel(b, s, g, o);
+  digTunnel(b, g);
   b.sinceCast += moved;
   if (b.sinceCast >= CAST_EVERY) {
     b.sinceCast = 0;

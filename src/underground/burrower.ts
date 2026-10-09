@@ -68,7 +68,10 @@ export function createBurrower(): Burrower {
   };
 }
 
-/** Puts the body at the given points (head first), facing `dir`, still, with nothing to interpolate; its trail is seeded through them. */
+/**
+ * Puts the body at the given points (head first), facing `dir`, still, with nothing to
+ * interpolate; its trail is seeded through them.
+ */
 export function placeBurrower(b: Burrower, us: ArrayLike<number>, vs: ArrayLike<number>, dir: number, wave: WaveState): void {
   for (let i = 0; i < b.u.length; i++) {
     b.u[i] = b.prevU[i] = us[i];

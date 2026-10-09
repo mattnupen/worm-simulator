@@ -9,9 +9,10 @@ import { TOP_KEEP, type UV } from './solidShapes';
  * burrows). The head cannot turn back past its own neck, so a head pushed into a dead end (a
  * crease between a rock's flank and the line under the leaves' top, or a slab end) could neither go
  * on nor turn round. Pointing back against the body while the head is stuck, the worm backs up:
- * the tail leads, back along the trail the head came by (bodyTrail.ts backAlong), and the rest
- * follows it. It keeps backing while the stick points back, and stops at the trail's start (a
- * worm's tail does not dig); then the head is free to turn. Allocates nothing.
+ * the head's arc moves back along the trail it came by and the body follows behind it
+ * (bodyTrail.ts backAlong), so the tail goes first in the tunnel. It keeps backing while the stick
+ * points back, and stops when the tail reaches the trail's start (a worm's tail does not dig); then
+ * the head is free to turn. Allocates nothing.
  */
 
 /**
@@ -37,7 +38,11 @@ export const BACK_SPEED = 0.7;
 const p: UV = { u: 0, v: 0 };
 const from: UV = { u: 0, v: 0 };
 
-/** Keeps a body point under the leaves' top and out of stones and roots, from where it was. */
+/**
+ * Keeps the head, digging forward, under the leaves' top and out of stones and roots, from where it
+ * was. Backing, the head rides the trail as the body does and is not kept out: it may graze a
+ * stone's margin by up to 0.025 u, as the body may (bodyTrail.ts).
+ */
 export function keepOut(s: Slab, o: Solids, u: Float64Array, v: Float64Array, prevU: Float64Array, prevV: Float64Array, i: number): void {
   p.u = u[i];
   boundaryOf(s, B_TOP, p);

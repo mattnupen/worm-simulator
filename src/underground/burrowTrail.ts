@@ -3,8 +3,6 @@ import { followHead, poseBehind } from './bodyTrail';
 import { digDiscAt, type Eaten, type SoilGrid } from './soilGrid';
 import { castBlobAt, type CastSpot } from './castings';
 import type { Burrower } from './burrower';
-import type { Slab } from './slab';
-import type { Solids } from './solids';
 
 /**
  * The burrower's body behind its head (moved from burrowMotion.ts): the tunnel it digs, the body
@@ -37,7 +35,7 @@ const cast: CastSpot = { u: 0, v: 0, shade: 0, dirU: 0, dirV: 0 };
  * Only the head digs: where every body point dug too, each bend came out 0.4 to 0.6 u wide, twice
  * the worm; now the tunnel is the body's own width (V2: a round tube).
  */
-export function digTunnel(b: Burrower, _s: Slab, g: SoilGrid, _o: Solids): void {
+export function digTunnel(b: Burrower, g: SoilGrid): void {
   pt.u = b.u[0];
   pt.v = b.v[0];
   digDiscAt(g, pt, TUNNEL_R, ate);
@@ -46,9 +44,9 @@ export function digTunnel(b: Burrower, _s: Slab, g: SoilGrid, _o: Solids): void 
 }
 
 /**
- * The body after the head: the head's trail recorded (its pursuit point), then every point placed
- * on it its link's length along the trail behind the one ahead (bodyTrail.ts). The trail is all open tunnel, so
- * the body never crosses undug soil, round sharp turns too. The body digs nothing.
+ * The body after the head: the head's trail recorded (its pursuit point), then each body point
+ * placed on it, its link's length of arc behind the one ahead (bodyTrail.ts). The trail is all
+ * open tunnel, so the body never crosses undug soil, round sharp turns too. The body digs nothing.
  */
 function trailBody(b: Burrower): void {
   followHead(b.trail, b);

@@ -20,9 +20,11 @@ import { hypot2 } from '../core/vec';
  * pursuit point past the trail's end, so the neck's chord is never longer than its link; turning
  * in place shortens it (by about 2.5 times the radius the head turns on).
  *
- * Backing, the head leads back along the trail, the tail stopping at the trail's start. Pure;
- * allocates nothing, and no fractional number crosses a call that V8 might not inline (the
- * helpers read and write the scratch objects `pt` and `pose`).
+ * Backing, the head's arc moves back and the body follows behind it along the trail, so the tail
+ * goes first in the tunnel, stopping at the trail's start. The head then rides the trail too: on a
+ * corner rounded round a stone it may graze the stone's margin, as the body does, by up to about
+ * 0.02 u (measured 2026-10-08). Pure; allocates nothing, and no fractional number crosses a call
+ * that V8 might not inline (the helpers read and write the scratch objects `pt` and `pose`).
  */
 const N = WORM_SEGMENTS;
 /** A new trail point is begun once the live one is this far (u) past the point before it. */
@@ -116,7 +118,14 @@ function placeOf(t: BodyTrail): void {
 }
 
 function setArc(t: BodyTrail, k: number): void {
-  t.arc[k] = k === 0 ? 0 : t.arc[k - 1] + hypot2(t.u[k] - t.u[k - 1], t.v[k] - t.v[k - 1]);
+  if (k === 0) {
+    t.arc[0] = 0;
+    return;
+  }
+  // Math.sqrt, not hypot2 (as in followHead): it runs every step.
+  const du = t.u[k] - t.u[k - 1];
+  const dv = t.v[k] - t.v[k - 1];
+  t.arc[k] = t.arc[k - 1] + Math.sqrt(du * du + dv * dv);
 }
 
 /** Appends (pt.u, pt.v) as the new last point, dropping the oldest half first when full. */

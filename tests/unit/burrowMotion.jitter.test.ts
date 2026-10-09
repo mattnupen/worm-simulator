@@ -10,6 +10,7 @@ import { DT, N, SEEN, hit, setup, run, midOf, watch } from './burrowWorld';
 describe('no jitter (frame to frame)', () => {
   it('moves smoothly over a seed sweep: no jumps, no reversals, no wobble, bounded turning', () => {
     let wobbles = 0;
+    let wobble = 0;
     for (let seed = 1; seed <= 12; seed++) {
       const rand = mulberry32(seed);
       const w = setup(rand() * 4 - 2, midOf(B_H), true, seed);
@@ -37,10 +38,14 @@ describe('no jitter (frame to frame)', () => {
       expect(h.maxAccel).toBeLessThanOrEqual(1.4 * DT * 1.05);
       expect(h.reversals).toBe(0);
       wobbles += h.wobbles;
+      wobble = Math.max(wobble, h.maxWobble);
     }
-    // The head's facing is held off its neck, which rides the trail, and may flick back within a few
-    // frames: 2 over the sweep (measured 2026-10-08), each under 0.003 rad (about 0.2 degrees): unseen.
+    // The head's facing is held off its neck, which rides the trail, and may flick back: 2 over the
+    // sweep (measured 2026-10-08), both one frame (seed 7) as the stick swings to a new way while the
+    // head is pressed against a stone: it turns 0.0195 rad (about 1.1 degrees) toward it and is eased
+    // back 0.0104 rad the next (holdBend).
     expect(wobbles).toBeLessThanOrEqual(2);
+    expect(wobble).toBeLessThanOrEqual(0.02);
   });
 
   it('speed never surges or ripples frame to frame, even through castings and layer lines', () => {
@@ -75,6 +80,7 @@ describe('no jitter (frame to frame)', () => {
   it('pushing into a stone or a big root: it stops or slides, never bounces or buzzes', () => {
     let tested = 0;
     let wobbles = 0;
+    let wobble = 0;
     for (let seed = 1; seed <= 8; seed++) {
       const base = setup(0, midOf(B_A), true, seed);
       const { s, o } = base;
@@ -104,14 +110,16 @@ describe('no jitter (frame to frame)', () => {
           expect(solidDepth(o, b.u[0], b.v[0], BODY_RADIUS + 0.03, hit)).toBeGreaterThan(0);
           expect(h.reversals).toBe(0);
           wobbles += h.wobbles;
+          wobble = Math.max(wobble, h.maxWobble);
           expect(h.maxAccel).toBeLessThanOrEqual(1.4 * DT * 1.05);
           tested++;
         }
       }
     }
     // The head's facing is held off its neck, which rides the trail: 1 flick back in 219 cases
-    // (measured 2026-10-08), under 0.003 rad (about 0.2 degrees): unseen.
+    // (measured 2026-10-08), 0.0027 rad (about 0.15 degrees): unseen.
     expect(wobbles).toBeLessThanOrEqual(1);
+    expect(wobble).toBeLessThanOrEqual(0.003);
     expect(tested).toBeGreaterThan(20);
   });
 

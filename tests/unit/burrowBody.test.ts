@@ -439,9 +439,9 @@ describe('the body stays in its tunnel (Matt, 2026-10-08: it cut across the dirt
       const each = () => { for (let i = 1; i < N; i++) worst = Math.max(worst, strayOf(w.g, w.b.u[i], w.b.v[i])); };
       runWorm(w, 1, 0, 60 * 1.5, each);
       runWorm(w, du, dv, 60 * 3, each);
-      // Body points ride the head's trail, within TRAIL_LAG of the head's dig: in open cells, or
-      // within a few hundredths of one (cell centres are 0.1 apart).
-      expect(worst, `turn (${du}, ${dv})`).toBeLessThan(0.05);
+      // The body points are on the trail, so in open cells: it measures 0 (the chain gave 0.059 to
+      // 0.173, 2026-10-08).
+      expect(worst, `turn (${du}, ${dv})`).toBeLessThan(0.01);
     }
   });
 });

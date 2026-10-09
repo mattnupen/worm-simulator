@@ -20,9 +20,10 @@ interface Measured {
   /** Set when node could not expose its garbage collector: nothing measured. */
   skipped?: string;
   underground: number;
-  /** Backing up along the trail, and how many times it backed to the trail's start. */
+  /** Backing up along the trail, how many times it backed to the trail's start, and went on from there. */
   backing: number;
   backs: number;
+  cuts: number;
   canDigAt: number;
   surface: number;
   crawl: number;
@@ -67,9 +68,10 @@ describe('no per-step garbage, as built (bytes the heap grows per step)', () => 
     // (Node 26, V8 14.6: a few numbers still boxed where V8 does not inline a small helper; it was
     // about 2.8 KB). The bounds leave room for V8 inlining a little differently as code changes.
     expect(m.underground).toBeLessThan(64);
-    // Backing up along the head's trail (bodyTrail.ts backAlong), to the trail's start and again
-    // (0 measured, 2026-10-08).
+    // Backing up along the head's trail (bodyTrail.ts backAlong), to the trail's start, a step on
+    // from there (the trail cut: followHead) and again (0 measured, 2026-10-08).
     expect(m.backs).toBeGreaterThan(1);
+    expect(m.cuts).toBeGreaterThan(1);
     expect(m.backing).toBeLessThan(64);
     // The dig spot the prompt asks for every few steps on the surface (48 measured; it was 6.7 KB).
     expect(m.canDigAt).toBeLessThan(96);

@@ -61,7 +61,7 @@ export const SEEN = 1e-3;
 export const TURN_SEEN = 5e-4;
 export function watch(b: Burrower) {
   const st = { pu: 0, pv: 0, lastU: b.u[0], lastV: b.v[0], lastDir: b.dir, turn: 0, flips: [] as number[], k: 0,
-    reversals: 0, wobbles: 0, maxStep: 0, maxTurn: 0, maxAccel: 0 };
+    reversals: 0, wobbles: 0, maxWobble: 0, maxStep: 0, maxTurn: 0, maxAccel: 0 };
   return Object.assign(st, {
     step(): void {
       const su = b.u[0] - st.lastU;
@@ -75,8 +75,11 @@ export function watch(b: Burrower) {
       st.maxTurn = Math.max(st.maxTurn, Math.abs(turn));
       if (Math.abs(turn) > TURN_SEEN) {
         if (st.turn !== 0 && Math.sign(turn) !== st.turn) {
-          // A flip back within 4 frames of the last flip is a wobble.
-          if (st.flips.length && st.k - st.flips[st.flips.length - 1] <= 4) st.wobbles++;
+          // A flip back within 4 frames of the last flip is a wobble (maxWobble: its largest turn, radians).
+          if (st.flips.length && st.k - st.flips[st.flips.length - 1] <= 4) {
+            st.wobbles++;
+            st.maxWobble = Math.max(st.maxWobble, Math.abs(turn));
+          }
           st.flips.push(st.k);
         }
         st.turn = Math.sign(turn);

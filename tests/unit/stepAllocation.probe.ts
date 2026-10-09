@@ -55,7 +55,8 @@ const underground = bytesPerCall(() => under.step(DT, STILL, false, true));
 
 // Backing up (burrowBack.ts): a worm that dug about a while backs along its trail (bodyTrail.ts
 // backAlong), the stick pointing back along its body. Each time its tail reaches the trail's start
-// (backing ends) it is put back where it began: only typed arrays are copied, which allocates nothing.
+// (backing ends) it takes one step forward (the trail cut at the head's place: bodyTrail.ts
+// followHead), then is put back where it began: only typed arrays are copied, which allocates nothing.
 const rev = game();
 rev.enterNow();
 for (let i = 0; i < 3000; i++) rev.step(DT, STILL, false, true);
@@ -66,10 +67,18 @@ const kept = {
   arc: Float64Array.from(tr.arc), at: Float64Array.from(tr.at), len: Float64Array.from(tr.len), n: tr.n, dir: w.dir,
 };
 const backWay: Pointing = { du: 0.5, dv: 0.5 };
+const onWay: Pointing = { du: 0.5, dv: 0.5 };
 let backs = 0;
+let cuts = 0;
 const backing = bytesPerCall(() => {
   if (!w.backing) {
     backs++;
+    if (tr.backed) {
+      onWay.du = Math.cos(w.dir);
+      onWay.dv = Math.sin(w.dir);
+      stepBurrowing(w, rev.slab!, rev.grid, rev.solids, onWay, DT);
+      if (!tr.backed) cuts++;
+    }
     w.u.set(kept.u); w.v.set(kept.v); w.prevU.set(kept.u); w.prevV.set(kept.v);
     tr.u.set(kept.tu); tr.v.set(kept.tv); tr.arc.set(kept.arc); tr.at.set(kept.at); tr.len.set(kept.len);
     tr.n = kept.n;
@@ -147,6 +156,6 @@ const alone = new Crawl();
 const crawl = bytesPerCall(() => alone.step(DT, TURNING), 1);
 
 console.log(JSON.stringify({
-  underground, backing, backs, canDigAt: dig, surface, crawl,
+  underground, backing, backs, cuts, canDigAt: dig, surface, crawl,
   modes: [under.mode.mode, top.mode.mode], digs, offered,
 }));

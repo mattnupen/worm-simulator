@@ -5,17 +5,21 @@ import { canDigAt } from '../../src/underground/digSpot';
 import { mulberry32 } from '../../src/core/random';
 import { B_A } from '../../src/underground/slab';
 import { cellAt } from '../../src/underground/soilGrid';
+import { solidDepth } from '../../src/underground/solids';
+import { BODY_RADIUS } from '../../src/game/crawl';
 import { STUCK_S, STUCK_TRIED } from '../../src/underground/burrowBack';
 import { makeGame, press, run, until } from './burrowPlay';
-import { midOf, run as runWorm, setup, tunnel, strayOf } from './burrowWorld';
+import { hit, midOf, run as runWorm, setup, tunnel, strayOf } from './burrowWorld';
 
 /**
- * Steps it backed up in, those with the tail farther than backing allows from its tunnel
- * (canGetOut), and the most times backing started or stopped while one way was held.
+ * Steps it backed up in, those with the tail off its tunnel (canGetOut), the head's deepest graze of
+ * a stone's margin while backing, and the most times backing started or stopped while one way was
+ * held.
  */
 let backed = 0;
 let undug = 0;
 let mostFlips = 0;
+let headGraze = 0;
 
 /** Holds each of 8 ways for 1.5 s in turn until the head gets 0.25 u from where it was; false when none does. */
 function canGetOut(game: ReturnType<typeof makeGame>['game']): boolean {
@@ -33,7 +37,8 @@ function canGetOut(game: ReturnType<typeof makeGame>['game']): boolean {
       if (!w.backing) return;
       backed++;
       // The tail off its tunnel (it backs along the trail, all open tunnel: bodyTrail.ts).
-      if (strayOf(g, w.u[15], w.v[15]) > 0.45) undug++;
+      if (strayOf(g, w.u[15], w.v[15]) > 0.05) undug++;
+      headGraze = Math.max(headGraze, solidDepth(game.solids, w.u[0], w.v[0], BODY_RADIUS, hit));
     });
     mostFlips = Math.max(mostFlips, flips);
     if (Math.hypot(w.u[0] - u0, w.v[0] - v0) > 0.25) return true;
@@ -75,6 +80,10 @@ describe('the worm is never trapped underground (it backs up out of dead ends)',
     expect(undug / backed).toBeLessThan(0.01);
     // ...and backing settles: on once and off once while a way is held, never flicking on and off.
     expect(mostFlips).toBeLessThanOrEqual(2);
+    // Backing, the head rides the trail as the body does: on a corner rounded round a stone it may
+    // graze the stone's margin, by up to about 0.017 u (measured 2026-10-08).
+    if (process.env.BODY_REPORT) process.stderr.write(`\nbacking: head graze ${headGraze.toFixed(4)}, undug ${undug} of ${backed}`);
+    expect(headGraze).toBeLessThanOrEqual(0.025);
   });
 
   it('backs through its own tunnel and stops at its end, not starting again while the stick points back', () => {
