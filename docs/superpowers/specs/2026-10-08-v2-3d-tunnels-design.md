@@ -31,16 +31,28 @@ spec (`2026-10-04-v2-underground-design.md`, sections 6 and 10, and as-built sec
 
 ### 3.1 Behaviour
 - The game records the head's path for the whole visit to a slab. That path is the trail.
-- Each body point *i* sits on the trail at arc length `i × SPACING` (0.22 u) behind the head.
-  Points between trail samples are interpolated linearly.
-- **The body is only ever in the tunnel**, because every trail point is a place the head was,
-  and the head opened a tunnel there. This holds on hairpins, loops and when it crosses an older
-  tunnel.
-- The body keeps its length along the trail. On bends the straight-line distance between points
-  is a little shorter (at the tightest free turn, `MIN_TURN_R` 0.35 u, a link of 0.22 u becomes
-  about 0.219 u). That is fine.
-- **Backing up** moves the head's place on the trail backward by `BACK_SPEED × dt`, and the
-  whole body slides back along the same path. It stops when the tail reaches the trail's start
+  - The trail is recorded through a **pursuit point**: a point that follows the head at most
+    `TRAIL_LAG` (0.1 u) behind it, a tractrix. That rounds the head's sharp corners (sliding
+    along a stone, a turn on the spot) to a radius of about 0.1 u.
+  - Every trail point is within 0.1 u of where the head then was. The head dug a disc of
+    `TUNNEL_R` (0.14 u) there, so **every trail point lies in the open tunnel**.
+- **Chain on a rail:** each body point sits on the trail, behind the one ahead of it. The
+  straight-line distance to that point is exactly its link length, `SPACING` (0.22 u). The
+  search walks back along the trail from the point ahead to the first crossing. The links are
+  exact, so the body can never shrink.
+  - Why it isn't arc length: 5ede96b put points at arc length and smoothed them, and the body
+    shrank to 58% where the trail folded (3d1f515 reverted it). Here no point is averaged.
+- **The body is only ever in the tunnel.** All points are on the trail, and a 0.22 u chord across
+  a corner rounded to 0.1 u stays inside a 0.14 u tunnel. This holds on hairpins, loops and when
+  it crosses an older tunnel.
+- When the trail is seeded from a pose whose links are not exactly `SPACING`, each link keeps its
+  seeded length and eases to `SPACING` as the worm moves. That way, nothing pops on arrival.
+- The bend limits of the chain (`MAX_BEND` 0.6) go away. The body bends as sharply as its
+  tunnel. Where the head's path turned sharply, the body shows that bend, now rounded. The new
+  tests bound how sharp it gets from measured values, and "in the tunnel" comes first.
+- **Backing up** pins the head's exact place as the trail's end, then moves the tail's place on
+  the trail backward by `BACK_SPEED × dt`. Every other point, the head included, is placed
+  forward from the one behind it, as a chain on the rail. It stops when the tail reaches the trail's start
   (the tunnel's end: "a worm's tail does not dig"). The existing stuck test (`moved <
   STUCK_SHARE × …`) ends backing there, as now.
 - **Going forward after backing** cuts the trail at the head's place and appends the new path.
@@ -56,14 +68,15 @@ spec (`2026-10-04-v2-underground-design.md`, sections 6 and 10, and as-built sec
 ### 3.3 Data
 - New pure module `src/underground/bodyTrail.ts`: preallocated `Float64Array`s of u, v and
   cumulative arc length. It allocates nothing per step.
-  - A point is appended once the head has moved at least `TRAIL_STEP` (0.02 u) from the last one.
-    The head's live position is always the trail's end.
+  - The trail's last point is the live pursuit point. It is committed, and a new live point
+    begun, once it is at least `TRAIL_STEP` (0.02 u) from the point before it.
   - Capacity is 8192 points, about 160 u of path. When the trail is full, the oldest half is
     dropped (copyWithin). The body needs only the last 3.3 u; older points serve backing.
-  - API (names final in the plan): `resetTrail`, `seedTrail(t, u, v)` (tail to head),
-    `extendTrail(t, u, v)` (head moved forward: cut at the head's place if backed, then append),
-    `retreat(t, ds)` (returns how far it actually went), and `poseBody(t, u, v)` (writes every
-    body point).
+  - API: `seedTrail(t, u, v)` (from a body pose, head first), `followHead(t, u, v)` (after the
+    head moves forward: cut at the head's place if it had backed, move the pursuit point,
+    commit), `poseBehind(t, u, v)` (points 1 to 15 from the head, back along the trail),
+    `backAlong(t, u, v, step)` (pin the head, move the tail back, place the rest forward).
+    The trail lives on the `Burrower` (`b.trail`), and `placeBurrower` seeds it.
 - `burrowTrail.ts` `trailBody` calls `poseBody`. The chain (`linkOut`, `drawLink`, `lastBend`,
   `MAX_BEND`, `SLACK`, `BEND_EASE`) is deleted. In `burrowBack.ts`, `backUp`'s tail search
   (`TAIL_TURNS`, `nearOpen`, `FEEL_BACK`) is replaced by `retreat` plus `poseBody`. `keepOut`
@@ -91,7 +104,8 @@ the digs on the way down and up all come from one source, as everything undergro
 - `castBlobAt` also fills: in each cell it fills, the hollow samples drop to a lumpy level, from a
   fixed hash and a broad bump, about 30–55% of `TUNNEL_R`. A later dig through the casting raises
   them again (max).
-- The hollow has its own dirty-row range, in fine rows, the same way as the grid's rows.
+- The hollow has its own dirty rectangle (fine columns and rows), so the renderer rewrites only
+  the tiles a dig touched.
 - `fillSoilGrid` zeroes it for each new slab.
 - **The open cells stay the truth for gameplay** (speed, eating, emerge, castings). The hollow is
   for drawing, and for later interactions.
