@@ -61,8 +61,14 @@ export interface SoilGrid {
    * renderer pushes the hollow tiles back by it (hollowMesh.ts).
    */
   readonly hollow: Uint8Array;
-  /** Hollow samples changed since takeHollowDirty. */
+  /**
+   * Hollow samples digs changed since takeHollowDirty. Castings, laid at the tail some 3 u behind
+   * the head, mark their own rectangle (hollowCastDirty, takeHollowCastDirty): one rectangle round
+   * both would span every tile from head to tail.
+   */
   readonly hollowDirty: HollowRect;
+  /** Hollow samples castings changed since takeHollowCastDirty. */
+  readonly hollowCastDirty: HollowRect;
   /** World height of the bottom row's lower edge (the slab's bottom). */
   v0: number;
   /** Rows changed since takeDirty (dirtyLo > dirtyHi: none). */
@@ -85,6 +91,7 @@ export function createSoilGrid(): SoilGrid {
     mixed: new Uint8Array(n), solid: new Uint8Array(n), damp: new Uint8Array(n),
     hollow: new Uint8Array(HOLLOW_W * HOLLOW_H),
     hollowDirty: { c0: 0, c1: HOLLOW_W - 1, r0: 0, r1: HOLLOW_H - 1 },
+    hollowCastDirty: { c0: HOLLOW_W, c1: -1, r0: HOLLOW_H, r1: -1 },
     v0: 0, dirtyLo: 0, dirtyHi: GRID_H - 1,
   };
 }
@@ -120,8 +127,17 @@ export function fillSoilGrid(g: SoilGrid, s: Slab): void {
   g.dirtyLo = 0;
   g.dirtyHi = GRID_H - 1;
   g.hollow.fill(0);
-  const hd = g.hollowDirty;
-  hd.c0 = 0; hd.c1 = HOLLOW_W - 1; hd.r0 = 0; hd.r1 = HOLLOW_H - 1;
+  markHollowWhole(g);
+}
+
+/**
+ * Marks the whole hollow changed, for the next upload to look at every tile (a new slab). The dig
+ * rectangle covers it all, so the castings' is cleared rather than scanned a second time.
+ */
+export function markHollowWhole(g: SoilGrid): void {
+  const d = g.hollowDirty;
+  d.c0 = 0; d.c1 = HOLLOW_W - 1; d.r0 = 0; d.r1 = HOLLOW_H - 1;
+  clearRect(g.hollowCastDirty);
 }
 
 export function touch(g: SoilGrid, r: number): void {
@@ -138,19 +154,31 @@ export function takeDirty(g: SoilGrid, out: { lo: number; hi: number }): { lo: n
   return out;
 }
 
-function markHollow(g: SoilGrid, c: number, r: number): void {
-  const d = g.hollowDirty;
+/** Grows rectangle `d` to take in sample (c, r). Integers only. */
+function markHollow(d: HollowRect, c: number, r: number): void {
   if (c < d.c0) d.c0 = c;
   if (c > d.c1) d.c1 = c;
   if (r < d.r0) d.r0 = r;
   if (r > d.r1) d.r1 = r;
 }
 
-/** The changed hollow rectangle into `out` (c0 > c1 when none), then clears it. */
-export function takeHollowDirty(g: SoilGrid, out: HollowRect): void {
-  const d = g.hollowDirty;
-  out.c0 = d.c0; out.c1 = d.c1; out.r0 = d.r0; out.r1 = d.r1;
+function clearRect(d: HollowRect): void {
   d.c0 = HOLLOW_W; d.c1 = -1; d.r0 = HOLLOW_H; d.r1 = -1;
+}
+
+function takeRect(d: HollowRect, out: HollowRect): void {
+  out.c0 = d.c0; out.c1 = d.c1; out.r0 = d.r0; out.r1 = d.r1;
+  clearRect(d);
+}
+
+/** The hollow rectangle digs changed into `out` (c0 > c1 when none), then clears it. */
+export function takeHollowDirty(g: SoilGrid, out: HollowRect): void {
+  takeRect(g.hollowDirty, out);
+}
+
+/** The hollow rectangle castings changed into `out` (c0 > c1 when none), then clears it. */
+export function takeHollowCastDirty(g: SoilGrid, out: HollowRect): void {
+  takeRect(g.hollowCastDirty, out);
 }
 
 /** The hollow's depth (u) at (u, v), the nearest sample (tests and later interactions). */
@@ -236,6 +264,7 @@ function carve(g: SoilGrid, p: UV, r: number): void {
   const r1 = Math.min(HOLLOW_H - 1, Math.floor((v + r - g.v0) / HOLLOW_STEP));
   const scale = 255 / HOLLOW_MAX;
   const rr = r * r;
+  const dirty = g.hollowDirty;
   for (let row = r0; row <= r1; row++) {
     const dv = g.v0 + (row + 0.5) * HOLLOW_STEP - v;
     const cellRow = (row >> HOLLOW_SHIFT) * GRID_W;
@@ -249,28 +278,30 @@ function carve(g: SoilGrid, p: UV, r: number): void {
       const i = row * HOLLOW_W + c;
       if (depth > g.hollow[i]) {
         g.hollow[i] = depth;
-        markHollow(g, c, row);
+        markHollow(dirty, c, row);
       }
     }
   }
 }
 
-/**
- * Lowers the hollow samples of cell i to a casting's mound (spec 4.2): HOLLOW_MOUND_R x 0.30 deep
- * (u behind the face) at the casting's middle (`edge255` 0) up to x 0.55 at its edge (255). Each
- * cell is a pellet, raised in its middle and up to HOLLOW_PELLET deeper at its edges, so the mound
- * reads as a granular lump (lit tops, shadowed gaps), plus a little grain. It only ever lowers.
- * `edge255` is an integer so no double is passed (boxed).
- */
 /** A cell's middle in samples, and its corner samples' squared distance from it. */
 const PELLET_MID = (HOLLOW_RES - 1) / 2;
 const PELLET_FAR = 2 * PELLET_MID * PELLET_MID;
 
+/**
+ * Lowers the hollow samples of cell i to a casting's mound (spec 4.2): HOLLOW_MOUND_R x 0.30 deep
+ * (u behind the face) at the casting's middle (`edge255` 0) up to x 0.55 at its edge (255). Each
+ * cell is a pellet, raised in its middle and up to HOLLOW_PELLET deeper at its edges, so the mound
+ * reads as a granular lump (lit tops, shadowed gaps), plus a little grain. It only ever lowers, and
+ * marks what it lowers in the castings' own dirty rectangle (hollowCastDirty).
+ * `edge255` is an integer so no double is passed (boxed).
+ */
 export function fillHollowCell(g: SoilGrid, i: number, edge255: number): void {
   const cr = Math.floor(i / GRID_W);
   const cc = i - cr * GRID_W;
   const scale = 255 / HOLLOW_MAX;
   const base = HOLLOW_MOUND_R * (0.3 + (0.25 * edge255) / 255);
+  const dirty = g.hollowCastDirty;
   for (let a = 0; a < HOLLOW_RES; a++) {
     const row = cr * HOLLOW_RES + a;
     for (let b = 0; b < HOLLOW_RES; b++) {
@@ -286,7 +317,7 @@ export function fillHollowCell(g: SoilGrid, i: number, edge255: number): void {
       const level = Math.max(0, Math.round((base + pellet + grain) * scale));
       if (g.hollow[k] > level) {
         g.hollow[k] = level;
-        markHollow(g, c, row);
+        markHollow(dirty, c, row);
       }
     }
   }

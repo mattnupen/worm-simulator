@@ -81,7 +81,7 @@ describe('the worm is never trapped underground (it backs up out of dead ends)',
     // ...and backing settles: on once and off once while a way is held, never flicking on and off.
     expect(mostFlips).toBeLessThanOrEqual(2);
     // Backing, the head rides the trail as the body does: on a corner rounded round a stone it may
-    // graze the stone's margin, by up to about 0.017 u (measured 2026-10-08).
+    // graze the stone's margin, by up to about 0.017 u (measured 2026-10-08; allowed 0.025).
     if (process.env.BODY_REPORT) process.stderr.write(`\nbacking: head graze ${headGraze.toFixed(4)}, undug ${undug} of ${backed}`);
     expect(headGraze).toBeLessThanOrEqual(0.025);
   });

@@ -164,7 +164,7 @@ export function stepBurrowing(b: Burrower, s: Slab, g: SoilGrid, o: Solids, p: P
  * Backing up (burrowBack.ts): the head's arc moves back along its trail and the body follows behind
  * it (bodyTrail.ts). The head rides the trail too and is not kept out of the solids: on a corner
  * rounded round a stone it may graze the stone's margin by up to about 0.017 u (measured
- * 2026-10-08), as the body does.
+ * 2026-10-08; the tests allow 0.025), as the body does.
  */
 function backStep(b: Burrower, s: Slab, dt: number): void {
   const n = b.u.length;

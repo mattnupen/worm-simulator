@@ -4,6 +4,7 @@ import { createCutFace } from '../../src/underground/cutFace';
 import { createHollowMesh, TILE_U, TILE_QUADS, TILES_W, TILES_H, VERTS_PER_TILE, INDICES_PER_TILE, BEHIND } from '../../src/underground/hollowMesh';
 import { createSlab, slabX, slabZ, SLAB_HALF, boundaryAt, B_TOP } from '../../src/underground/slab';
 import { createSoilGrid, fillSoilGrid, digDisc, CELL, GRID_W, HOLLOW_STEP, HOLLOW_W, type SoilGrid } from '../../src/underground/soilGrid';
+import { castBlob } from '../../src/underground/castings';
 
 const ate = { cells: 0, organic: 0 };
 function setUp() {
@@ -264,5 +265,49 @@ describe('the hollow tiles (spec 4.3: one draw, tiles claimed where tunnels are)
     const left = tileOf(near.g, 0.75, vC);
     expect(near.hollow.slotOf[left]).toBeGreaterThanOrEqual(0);
     expect(noHollow(near.g, left)).toBe(true);
+  });
+
+  it('setSlab marks the whole hollow changed itself: the next upload claims every tile again, with no fillSoilGrid', () => {
+    const { hollow, s, g } = setUp();
+    const vC = g.v0 + 8.75;
+    for (let u = 0; u <= 2; u += 0.05) digDisc(g, u, vC, 0.14, ate);
+    hollow.upload(g);
+    const used = hollow.used();
+    expect(used).toBeGreaterThan(1);
+    hollow.setSlab(s, g);
+    expect(hollow.used()).toBe(0);
+    hollow.upload(g);
+    expect(hollow.used()).toBe(used);
+  });
+
+  it('a casting far behind the head, on the head\'s own step, rewrites the tiles round each, not those between', () => {
+    const { hollow, g } = setUp();
+    const vC = g.v0 + 8.75;
+    // A tunnel along tile row 17 from u -3 to the head at 1.25 (tile column 18).
+    for (let u = -3; u <= 1.25 + 1e-9; u += 0.05) digDisc(g, u, vC, 0.14, ate);
+    hollow.upload(g);
+    const attrs = attrsOf(hollow);
+    for (const a of attrs) renderUpload(a);
+    const colOfTile = (t: number) => t % TILES_W;
+    // Every tile between is claimed, so rewriting it would queue it.
+    for (let tx = 13; tx <= 17; tx++) expect(hollow.slotOf[17 * TILES_W + tx]).toBeGreaterThanOrEqual(0);
+    // One step: the head digs on and a casting is laid 3 u behind it, in the middle of tile column 12.
+    digDisc(g, 1.3, vC, 0.14, ate);
+    expect(castBlob(g, -1.75, vC, 0.15, 128, 1, 0)).toBeGreaterThan(0);
+    hollow.upload(g);
+    const pos = attrs[0];
+    const tileOfSlot = new Map<number, number>();
+    hollow.slotOf.forEach((slot, t) => { if (slot >= 0) tileOfSlot.set(slot, t); });
+    const cols = pos.updateRanges.map((r) => colOfTile(tileOfSlot.get(r.start / (VERTS_PER_TILE * 3))!));
+    // Some round the head, some round the casting...
+    expect(cols.some((c) => c >= 17)).toBe(true);
+    expect(cols.some((c) => c <= 12)).toBe(true);
+    // ...and none between (one rectangle round both would rewrite columns 13 to 16 too).
+    for (const c of cols) expect(c <= 12 || c >= 17).toBe(true);
+    expect(cols.length).toBeLessThanOrEqual(6);
+    // Nothing is left marked: the next upload queues nothing more.
+    for (const a of attrs) renderUpload(a);
+    hollow.upload(g);
+    expect(pos.updateRanges.length).toBe(0);
   });
 });

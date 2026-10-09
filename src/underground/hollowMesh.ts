@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { B_TOP, B_F, B_H, B_A, B_E, B_B, SLAB_HALF, boundaryOf, bound, slabX, slabZ, type Slab, type UV } from './slab';
-import { GRID_H, GRID_W, CELL, HOLLOW_H, HOLLOW_MAX, HOLLOW_SHIFT, HOLLOW_STEP, HOLLOW_W, takeHollowDirty, type HollowRect, type SoilGrid } from './soilGrid';
+import { GRID_H, GRID_W, CELL, HOLLOW_H, HOLLOW_MAX, HOLLOW_SHIFT, HOLLOW_STEP, HOLLOW_W, markHollowWhole, takeHollowCastDirty, takeHollowDirty, type HollowRect, type SoilGrid } from './soilGrid';
 import { CUT_FRAGMENT, CUT_VERTEX } from './cutFaceGlsl';
 
 /**
@@ -10,7 +10,9 @@ import { CUT_FRAGMENT, CUT_VERTEX } from './cutFaceGlsl';
  * range covers the claimed slots). Where a tile has no hollow it lies BEHIND the face, hidden;
  * where the face cuts its hole (cutFaceGlsl.ts) the tile shows the tunnel's back half, lit by its
  * own normals, in the same soil colours as the face (one shader, HOLLOW defined). Only tiles a dig
- * changed are rewritten, each uploaded as its own range. Allocates nothing after load.
+ * or a casting changed are rewritten, each uploaded as its own range: the head's digs and the
+ * tail's castings (some 3 u apart) are two dirty rectangles, so the tiles between are not touched.
+ * Allocates nothing after load.
  */
 export const TILE_U = 0.5;
 /** Quads along a tile's side: 1/24 u apart, about 7 across a tunnel. */
@@ -33,8 +35,9 @@ const MARGIN = Math.round(CLAIM_MARGIN / HOLLOW_STEP);
 export interface HollowMesh {
   readonly mesh: THREE.Mesh;
   /**
-   * A new slab: every slot freed. Call it after fillSoilGrid (which zeroes the hollow and marks it
-   * all dirty, and sets g.v0): the next upload then scans every tile and claims none.
+   * A new slab: every slot freed, and the whole hollow marked changed, so the next upload scans
+   * every tile (on a fresh slab from fillSoilGrid, which sets g.v0 and zeroes the hollow, it claims
+   * none).
    */
   setSlab(s: Slab, g: SoilGrid): void;
   /** Claims and rewrites the tiles the hollow changed in since the last call. */
@@ -138,6 +141,7 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
   let used = 0;
   let slab: Slab | null = null;
   const dirty: HollowRect = { c0: 0, c1: -1, r0: 0, r1: -1 };
+  const castDirty: HollowRect = { c0: 0, c1: -1, r0: 0, r1: -1 };
   const at: UV = { u: 0, v: 0 };
 
   /**
@@ -241,6 +245,41 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
     return false;
   }
 
+  /** Tile columns t0..t1 and rows s0..s1 (t0 > t1: none), from span(). */
+  const tiles = { t0: 0, t1: -1, s0: 0, s1: -1 };
+  /**
+   * The tiles rectangle `d` reaches, into `tiles`: a sample moves the vertices within one sample of
+   * it (bilinear) and their normals one more, and a tile within MARGIN samples may need claiming.
+   * Integers only.
+   */
+  function span(d: HollowRect): void {
+    if (d.c0 > d.c1) {
+      tiles.t0 = 0; tiles.t1 = -1; tiles.s0 = 0; tiles.s1 = -1;
+      return;
+    }
+    tiles.t0 = Math.max(0, Math.floor((d.c0 - MARGIN) / PER));
+    tiles.t1 = Math.min(TILES_W - 1, Math.floor((d.c1 + MARGIN) / PER));
+    tiles.s0 = Math.max(0, Math.floor((d.r0 - MARGIN) / PER));
+    tiles.s1 = Math.min(TILES_H - 1, Math.floor((d.r1 + MARGIN) / PER));
+  }
+
+  /**
+   * Rewrites the claimed tiles in columns t0..t1, rows s0..s1, and claims those that now need it,
+   * skipping the tiles in columns k0..k1, rows j0..j1 (already done). Integers only.
+   */
+  function rewrite(g: SoilGrid, s: Slab, t0: number, t1: number, s0: number, s1: number, k0: number, k1: number, j0: number, j1: number): void {
+    for (let ty = s0; ty <= s1; ty++) {
+      const skipRow = ty >= j0 && ty <= j1;
+      for (let tx = t0; tx <= t1; tx++) {
+        if (skipRow && tx >= k0 && tx <= k1) continue;
+        const tile = ty * TILES_W + tx;
+        const slot = slotOf[tile];
+        if (slot >= 0) writeDepths(g, s, slot);
+        else if (needs(g, tile)) claim(g, s, tile);
+      }
+    }
+  }
+
   return {
     mesh,
     slotOf,
@@ -254,26 +293,22 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
       // slab, so claiming tiles never touches it.
       geo.boundingSphere!.center.set(slabX(s, 0), g.v0 + (GRID_H * CELL) / 2, slabZ(s, 0));
       geo.boundingSphere!.radius = Math.hypot(SLAB_HALF, (GRID_H * CELL) / 2) + 1;
+      markHollowWhole(g);
     },
     upload(g) {
       const s = slab;
       if (!s) return;
       takeHollowDirty(g, dirty);
-      if (dirty.c0 > dirty.c1) return;
-      // A sample moves the vertices within one sample of it (bilinear) and their normals one more;
-      // a tile within MARGIN samples may need claiming. Integers only.
-      const t0 = Math.max(0, Math.floor((dirty.c0 - MARGIN) / PER));
-      const t1 = Math.min(TILES_W - 1, Math.floor((dirty.c1 + MARGIN) / PER));
-      const s0 = Math.max(0, Math.floor((dirty.r0 - MARGIN) / PER));
-      const s1 = Math.min(TILES_H - 1, Math.floor((dirty.r1 + MARGIN) / PER));
-      for (let ty = s0; ty <= s1; ty++) {
-        for (let tx = t0; tx <= t1; tx++) {
-          const tile = ty * TILES_W + tx;
-          const slot = slotOf[tile];
-          if (slot >= 0) writeDepths(g, s, slot);
-          else if (needs(g, tile)) claim(g, s, tile);
-        }
-      }
+      takeHollowCastDirty(g, castDirty);
+      // The digs' tiles, then the castings' (skipping any the digs' already rewrote).
+      span(dirty);
+      const t0 = tiles.t0;
+      const t1 = tiles.t1;
+      const s0 = tiles.s0;
+      const s1 = tiles.s1;
+      rewrite(g, s, t0, t1, s0, s1, 0, -1, 0, -1);
+      span(castDirty);
+      rewrite(g, s, tiles.t0, tiles.t1, tiles.s0, tiles.s1, t0, t1, s0, s1);
     },
   };
 }

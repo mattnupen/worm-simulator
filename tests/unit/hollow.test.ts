@@ -2,10 +2,11 @@
 import { describe, it, expect } from 'vitest';
 import { createSlab } from '../../src/underground/slab';
 import {
-  createSoilGrid, fillSoilGrid, digDisc, takeHollowDirty, hollowAt, AIR, GRID_W, HOLLOW_MAX, HOLLOW_STEP, HOLLOW_W, HOLLOW_H, HOLLOW_MOUND_R, HOLLOW_PELLET,
+  createSoilGrid, fillSoilGrid, digDisc, takeHollowDirty, takeHollowCastDirty, markHollowWhole, hollowAt, AIR, GRID_W, HOLLOW_MAX, HOLLOW_STEP, HOLLOW_W, HOLLOW_H, HOLLOW_MOUND_R, HOLLOW_PELLET,
   cellAt, SOLID_STONE,
 } from '../../src/underground/soilGrid';
 import { castBlob } from '../../src/underground/castings';
+import { TUNNEL_R } from '../../src/underground/burrowTrail';
 
 const ate = { cells: 0, organic: 0 };
 const rect = { c0: 0, c1: -1, r0: 0, r1: -1 };
@@ -25,6 +26,13 @@ describe('the hollow: how deep the tunnels go behind the face (spec 4.2)', () =>
     takeHollowDirty(g, rect);
     expect(rect.c0).toBe(0);
     expect(rect.c1).toBe(HOLLOW_W - 1);
+    // The castings' rectangle starts empty: the digs' covers the whole map.
+    takeHollowCastDirty(g, rect);
+    expect(rect.c0).toBeGreaterThan(rect.c1);
+  });
+
+  it('measures a casting\'s mound against the tunnel\'s own radius (the copy in soilGrid.ts)', () => {
+    expect(HOLLOW_MOUND_R).toBe(TUNNEL_R);
   });
 
   it('a dig carves a round profile, sqrt(r^2 - d^2) deep, to byte precision', () => {
@@ -86,25 +94,50 @@ describe('the hollow: how deep the tunnels go behind the face (spec 4.2)', () =>
     digDisc(g, 1, -3, 0.14, ate);
     expect(g.hollow.some((x) => x > 0)).toBe(true);
     takeHollowDirty(g, rect);
+    castBlob(g, 1, -3, 0.15, 128, 1, 0);
     fillSoilGrid(g, s);
     expect(g.hollow.every((x) => x === 0)).toBe(true);
     takeHollowDirty(g, rect);
     expect(rect).toEqual({ c0: 0, c1: HOLLOW_W - 1, r0: 0, r1: HOLLOW_H - 1 });
+    // The castings' rectangle is cleared, not scanned a second time.
+    takeHollowCastDirty(g, rect);
+    expect(rect.c0).toBeGreaterThan(rect.c1);
   });
 
-  it('a casting marks its hollow samples dirty, lowers them to about the spec mound, and never raises one', () => {
+  it('markHollowWhole marks the whole map in the digs\' rectangle and clears the castings\'', () => {
+    const { g } = setUp();
+    for (let u = 0; u <= 2; u += 0.05) digDisc(g, u, -3, 0.14, ate);
+    castBlob(g, 1, -3, 0.15, 128, 1, 0);
+    markHollowWhole(g);
+    takeHollowDirty(g, rect);
+    expect(rect).toEqual({ c0: 0, c1: HOLLOW_W - 1, r0: 0, r1: HOLLOW_H - 1 });
+    takeHollowCastDirty(g, rect);
+    expect(rect.c0).toBeGreaterThan(rect.c1);
+  });
+
+  it('a casting marks its hollow samples in its own dirty rectangle, lowers them to about the spec mound, and never raises one', () => {
     const { g } = setUp();
     for (let u = 0; u <= 2; u += 0.05) digDisc(g, u, -3, 0.14, ate);
     const before = Uint8Array.from(g.hollow);
     takeHollowDirty(g, rect);
+    takeHollowCastDirty(g, rect);
     expect(castBlob(g, 1, -3, 0.15, 128, 1, 0)).toBeGreaterThan(0);
+    // Not in the digs' rectangle...
     takeHollowDirty(g, rect);
+    expect(rect.c0).toBeGreaterThan(rect.c1);
+    // ...but in the castings', and it holds every sample the casting lowered.
+    takeHollowCastDirty(g, rect);
     expect(rect.c0).toBeLessThanOrEqual(rect.c1);
     expect(rect.r0).toBeLessThanOrEqual(rect.r1);
     let lowered = 0;
     for (let k = 0; k < g.hollow.length; k++) {
       expect(g.hollow[k]).toBeLessThanOrEqual(before[k]);
-      if (g.hollow[k] < before[k]) lowered++;
+      if (g.hollow[k] < before[k]) {
+        lowered++;
+        const c = k % HOLLOW_W;
+        const r = Math.floor(k / HOLLOW_W);
+        expect(c >= rect.c0 && c <= rect.c1 && r >= rect.r0 && r <= rect.r1).toBe(true);
+      }
     }
     expect(lowered).toBeGreaterThan(0);
     // Wherever the mound was set, it is 0.30..0.55 of the tunnel radius deep, plus its pellets

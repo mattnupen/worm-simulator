@@ -264,6 +264,30 @@ test('reduced motion: going down dips through dark soil instead of swinging the 
   expect(errors).toEqual([]);
 });
 
+test('digging, the tunnels\' hollow tiles draw in the scene, within the 40 draw call budget (spec 2026-10-08 section 6)', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = watchErrors(page);
+  // The speed test's scripted dig (the perf gates' underground run). ?speedtest=1 also sets
+  // window.__wormDebug (main.ts); the full test, not ?quick=1, so it is still digging when checked.
+  await page.goto(PAGE + '?speedtest=1&dig=1');
+  await page.getByRole('button', { name: 'Start speed test' }).click();
+  await place(page, 'underground');
+  await page.waitForTimeout(1500);
+  await frames(page);
+  type Debug = { hollow(): { inScene: boolean; visible: boolean; count: number }; drawCalls(): number };
+  const read = () => page.evaluate(() => {
+    const d = (window as unknown as { __wormDebug: Debug }).__wormDebug;
+    return { hollow: d.hollow(), calls: d.drawCalls() };
+  });
+  await expect.poll(async () => (await read()).hollow.count, { timeout: SLOW }).toBeGreaterThan(0);
+  const got = await read();
+  expect(got.hollow.inScene).toBe(true);
+  expect(got.hollow.visible).toBe(true);
+  expect(got.calls).toBeGreaterThan(0);
+  expect(got.calls).toBeLessThanOrEqual(40);
+  expect(errors).toEqual([]);
+});
+
 test.describe('at 1366 x 768', () => {
   test.use({ viewport: { width: 1366, height: 768 } });
 

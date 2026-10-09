@@ -23,8 +23,9 @@ import { hypot2 } from '../core/vec';
  * Backing, the head's arc moves back and the body follows behind it along the trail, so the tail
  * goes first in the tunnel, stopping at the trail's start. The head then rides the trail too: on a
  * corner rounded round a stone it may graze the stone's margin, as the body does, by up to about
- * 0.02 u (measured 2026-10-08). Pure; allocates nothing, and no fractional number crosses a call
- * that V8 might not inline (the helpers read and write the scratch objects `pt` and `pose`).
+ * 0.017 u (measured 2026-10-08; the tests allow 0.025). Pure; allocates nothing, and no
+ * fractional number crosses a call that V8 might not inline (the helpers read and write the
+ * scratch objects `pt` and `pose`).
  */
 const N = WORM_SEGMENTS;
 /** A new trail point is begun once the live one is this far (u) past the point before it. */

@@ -315,6 +315,19 @@ function start(renderer: THREE.WebGLRenderer): void {
   resize();
   warmShaders(renderer, world, camera);
   cut.preload(renderer, camera);
+  // ?speedtest=1 only (automated checks; students never load it): the underground's hollow tiles
+  // and the last frame's draw calls, for tests/e2e/underground.spec.ts.
+  if (params.speedTest) {
+    (window as unknown as { __wormDebug: unknown }).__wormDebug = {
+      hollow: () => {
+        const m = world.scene.getObjectByName('cutHollow') as THREE.Mesh | undefined;
+        let shown = !!m;
+        for (let o: THREE.Object3D | null = m ?? null; o; o = o.parent) shown &&= o.visible;
+        return { inScene: !!m, visible: shown, count: m ? m.geometry.drawRange.count : 0 };
+      },
+      drawCalls: () => renderer.info.render.calls,
+    };
+  }
   window.addEventListener('resize', resize);
   const loop = startLoop(update, render, {
     maxFps: MAX_FPS,

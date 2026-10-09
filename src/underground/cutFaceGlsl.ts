@@ -20,8 +20,9 @@ import { LITTER_TILE_U, OLD_TILE_U, SOIL_TILE_U } from './soilTiles';
  * grid's hollow) in the same soil, lit by their own shape (spec 2026-10-08 section 4.4).
  *
  * Lean for software GL, which runs every line for every pixel, branch or not: six texture reads a
- * pixel, all outside the branches (the broad noise, the three tiles, two of the soil grid), and
- * the branches only mix colours. No extra pass.
+ * pixel, all outside the branches (the broad noise, the three tiles, two of the soil grid). The
+ * branches only mix colours, but for the face's one discard in its tunnels (after every read).
+ * No extra pass.
  */
 export const CUT_VERTEX = /* glsl */ `
   attribute vec2 aPlane;

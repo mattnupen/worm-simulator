@@ -41,7 +41,8 @@ const from: UV = { u: 0, v: 0 };
 /**
  * Keeps the head, digging forward, under the leaves' top and out of stones and roots, from where it
  * was. Backing, the head rides the trail as the body does and is not kept out: it may graze a
- * stone's margin by up to 0.025 u, as the body may (bodyTrail.ts).
+ * stone's margin by up to about 0.017 u (measured 2026-10-08; the tests allow 0.025), as the body
+ * may (bodyTrail.ts).
  */
 export function keepOut(s: Slab, o: Solids, u: Float64Array, v: Float64Array, prevU: Float64Array, prevV: Float64Array, i: number): void {
   p.u = u[i];
