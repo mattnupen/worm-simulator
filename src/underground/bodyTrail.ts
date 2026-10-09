@@ -7,11 +7,15 @@ import { hypot2 } from '../core/vec';
  * most TRAIL_LAG behind (a tractrix: sharp corners, a turn on the spot or a slide along a stone,
  * come out rounded to about TRAIL_LAG). Every trail point lies within TRAIL_LAG of where the head
  * then was, inside the TUNNEL_R disc it dug there, so the trail is always in open tunnel. Each body
- * point lies on the trail at exactly its link's length (a chord) from the point ahead: the links
- * never stretch or shrink (5ede96b put points at arc length and averaged them: the body shrank to
- * 58% where the trail folded). Backing, the tail leads back along the trail and the rest is placed
- * forward from the point behind. Pure; allocates nothing, and no number crosses a call that V8
- * might not inline (the helpers read and write the scratch objects `pt`, `lead` and `hit`).
+ * point lies on the trail its link's length of arc behind the point ahead, so the body slides
+ * along its tunnel and nothing pops: placing points by chord (the first point a link's length away)
+ * jumped up to 0.4 u in a step on a hairpin whose legs were closer than a link. 5ede96b also used
+ * arc length but averaged the points, and its trail gained slack while the head turned back: the
+ * body shrank to 58%. Here nothing is averaged, and the pursuit point adds no trail while the head
+ * turns in place. Across a bend a link's chord is shorter than its arc, as the tunnel is.
+ * Backing, the head leads back along the trail, the tail stopping at the trail's start. Pure;
+ * allocates nothing, and no fractional number crosses a call that V8 might not inline (the
+ * helpers read and write the scratch object `pt`).
  */
 const N = WORM_SEGMENTS;
 /** A new trail point is begun once the live one is this far (u) past the point before it. */
@@ -38,9 +42,12 @@ export interface BodyTrail {
   /** Arc length (u) from point 0. */
   readonly arc: Float64Array;
   n: number;
-  /** Each body point's place on the trail (k + f: on segment k..k+1 at f). The head's only while backed. */
+  /**
+   * Each body point's place on the trail (k + f: on segment k..k+1 at f), where the next search
+   * for it starts. The head's only while backed (moving forward, it is just past the trail's end).
+   */
   readonly at: Float64Array;
-  /** len[i]: the link (u) from body point i - 1 to point i (i >= 1). */
+  /** len[i]: the link from body point i - 1 to point i (i >= 1), as arc length (u) along the trail. */
   readonly len: Float64Array;
   /** The head has backed along the trail since it last moved forward (its place is at[0]). */
   backed: boolean;
@@ -53,8 +60,12 @@ export function createTrail(): BodyTrail {
   };
 }
 
-/** A point on the trail: place `s` in, (u, v) out (pointAt), or (u, v) in (push). */
-const pt = { u: 0, v: 0, s: 0 };
+/**
+ * A point on the trail: its place s, arc length a and (u, v), passed in and out of the helpers
+ * below. The fields start as fractions: a field that first held a whole number had V8 box every
+ * fractional value written to it later (burrower.ts).
+ */
+const pt = { u: 0.5, v: 0.5, s: 0.5, a: 0.5 };
 
 /** The point at place pt.s, into pt.u, pt.v. */
 function pointAt(t: BodyTrail): void {
@@ -65,6 +76,28 @@ function pointAt(t: BodyTrail): void {
     pt.v = t.v[k];
     return;
   }
+  pt.u = t.u[k] + (t.u[k + 1] - t.u[k]) * f;
+  pt.v = t.v[k] + (t.v[k + 1] - t.v[k]) * f;
+}
+
+/** The arc length at place pt.s, into pt.a. */
+function arcAt(t: BodyTrail): void {
+  const k = Math.min(t.n - 2, Math.floor(pt.s));
+  pt.a = t.arc[k] + (t.arc[k + 1] - t.arc[k]) * (pt.s - k);
+}
+
+/**
+ * The place at arc length pt.a (within the trail), into pt.s and its point into pt.u, pt.v. The
+ * search starts at place pt.s, the point's place last step, so it walks a segment or two.
+ */
+function placeOf(t: BodyTrail): void {
+  const a = pt.a;
+  let k = Math.max(0, Math.min(t.n - 2, Math.floor(pt.s)));
+  while (k > 0 && t.arc[k] > a) k--;
+  while (k < t.n - 2 && t.arc[k + 1] < a) k++;
+  const l = t.arc[k + 1] - t.arc[k];
+  const f = l > 1e-12 ? Math.max(0, Math.min(1, (a - t.arc[k]) / l)) : 0;
+  pt.s = k + f;
   pt.u = t.u[k] + (t.u[k + 1] - t.u[k]) * f;
   pt.v = t.v[k] + (t.v[k + 1] - t.v[k]) * f;
 }
@@ -145,89 +178,51 @@ export function followHead(t: BodyTrail, b: TrailBody): void {
   for (let i = 1; i < N; i++) t.len[i] += (SPACING - t.len[i]) * e;
 }
 
-/** A walk's lead: the point (u, v) it measures from, the place `s` it starts at, the link `len`. */
-const lead = { u: 0, v: 0, s: 0, len: 0 };
-/** Where a walk puts a point: (u, v) and its place s. */
-const hit = { u: 0, v: 0, s: 0 };
+/** The head's arc length (`a`), and its distance (u) past the live point while moving forward (`d`). */
+const pose = { a: 0.5, d: 0.5 };
 
 /**
- * From place lead.s along the trail toward `dir` (-1 back, +1 forward), the first place exactly
- * lead.len from the lead (lead.u, lead.v), into `hit`; the trail's end when it gives out first.
- * The start is nearer the lead than lead.len (it is the lead's own place, or for body point 1 the
- * live end, within TRAIL_LAG of the head), so the crossing is where the trail first leaves the
- * lead's circle: on the first segment whose far end is on or outside it.
+ * Points 1..15, each its link's arc length behind the one ahead, from the head at pose.a (never
+ * before the trail's start). Moving forward the head is just past the live point, on the straight
+ * on to it: a point that falls there (only one whose links are shorter than TRAIL_LAG) lies on it.
  */
-function walk(t: BodyTrail, dir: number): void {
-  pt.s = lead.s;
-  pointAt(t);
-  let cu = pt.u;
-  let cv = pt.v;
-  let cs = lead.s;
-  let mu = cu - lead.u;
-  let mv = cv - lead.v;
-  const L2 = lead.len * lead.len;
-  if (mu * mu + mv * mv >= L2) {
-    // Not expected (only a seeded link shorter than TRAIL_LAG could do it): toward the start, off the trail.
-    const d = hypot2(mu, mv);
-    hit.u = lead.u + (mu * lead.len) / d;
-    hit.v = lead.v + (mv * lead.len) / d;
-    hit.s = cs;
-    return;
-  }
-  // The first vertex past place cs: back, floor(cs) when cs is fractional, cs - 1 when whole;
-  // forward, floor(cs) + 1 either way.
-  for (let j = dir < 0 ? Math.ceil(cs) - 1 : Math.floor(cs) + 1; j >= 0 && j < t.n; j += dir) {
-    const bu = t.u[j];
-    const bv = t.v[j];
-    const eu = bu - lead.u;
-    const ev = bv - lead.v;
-    if (eu * eu + ev * ev >= L2) {
-      // c inside the circle, b on or outside it: one crossing on c..b (a disc is convex), the
-      // larger root of |m + r (b - c)|^2 = len^2. b - c is not zero, as c and b are on either side.
-      const du = bu - cu;
-      const dv = bv - cv;
-      const a = du * du + dv * dv;
-      const bq = 2 * (du * mu + dv * mv);
-      const c0 = mu * mu + mv * mv - L2;
-      const r = Math.max(0, Math.min(1, (-bq + Math.sqrt(Math.max(0, bq * bq - 4 * a * c0))) / (2 * a)));
-      hit.u = cu + du * r;
-      hit.v = cv + dv * r;
-      hit.s = cs + (j - cs) * r;
-      return;
-    }
-    cu = bu;
-    cv = bv;
-    cs = j;
-    mu = eu;
-    mv = ev;
-  }
-  hit.u = cu;
-  hit.v = cv;
-  hit.s = cs;
-}
-
-/**
- * Points 1..15 placed back along the trail, each from the point ahead. The head itself is off the
- * trail (the live end trails it by up to TRAIL_LAG), so point 1 starts its walk at the live end but
- * measures its link from the head.
- */
-export function poseBehind(t: BodyTrail, b: TrailBody): void {
+function placeBehind(t: BodyTrail, b: TrailBody): void {
+  const k = t.n - 1;
+  const end = t.arc[k];
+  let a = pose.a;
   for (let i = 1; i < N; i++) {
-    lead.u = b.u[i - 1];
-    lead.v = b.v[i - 1];
-    lead.s = i === 1 ? t.n - 1 : t.at[i - 1];
-    lead.len = t.len[i];
-    walk(t, -1);
-    b.u[i] = hit.u;
-    b.v[i] = hit.v;
-    t.at[i] = hit.s;
+    a -= t.len[i];
+    if (a < 0) a = 0;
+    if (a > end) {
+      const f = (a - end) / pose.d;
+      b.u[i] = t.u[k] + (b.u[0] - t.u[k]) * f;
+      b.v[i] = t.v[k] + (b.v[0] - t.v[k]) * f;
+      t.at[i] = k;
+    } else {
+      pt.a = a;
+      pt.s = t.at[i];
+      placeOf(t);
+      b.u[i] = pt.u;
+      b.v[i] = pt.v;
+      t.at[i] = pt.s;
+    }
   }
 }
 
+/** Points 1..15 placed back along the trail from the head, which is just past the live point. */
+export function poseBehind(t: BodyTrail, b: TrailBody): void {
+  const k = t.n - 1;
+  const d = hypot2(b.u[0] - t.u[k], b.v[0] - t.v[k]);
+  pose.a = t.arc[k] + d;
+  pose.d = d;
+  placeBehind(t, b);
+}
+
 /**
- * One step backing `step.step` (u): the head is pinned as the trail's end (no jump), the tail goes
- * back along the trail (never past its start: the tunnel's end), and the rest is placed forward
- * from the point behind, the head last.
+ * One step backing `step.step` (u). The first step pins the head as the trail's end, so nothing
+ * jumps; each step then moves the head that far back along the trail, but never so far that the
+ * tail would pass the trail's start (the tunnel's end: a worm's tail does not dig), and places the
+ * rest behind it.
  */
 export function backAlong(t: BodyTrail, b: TrailBody, step: { step: number }): void {
   if (!t.backed) {
@@ -237,28 +232,18 @@ export function backAlong(t: BodyTrail, b: TrailBody, step: { step: number }): v
     t.at[0] = t.n - 1;
     t.backed = true;
   }
-  const T = N - 1;
-  // The tail's place, moved back by step.step of arc length.
-  let k = Math.min(t.n - 2, Math.floor(t.at[T]));
-  const want = t.arc[k] + (t.arc[k + 1] - t.arc[k]) * (t.at[T] - k) - step.step;
-  if (want <= 0) pt.s = 0;
-  else {
-    while (k > 0 && t.arc[k] > want) k--;
-    const l = t.arc[k + 1] - t.arc[k];
-    pt.s = k + (l > 1e-12 ? (want - t.arc[k]) / l : 0);
-  }
-  t.at[T] = pt.s;
-  pointAt(t);
-  b.u[T] = pt.u;
-  b.v[T] = pt.v;
-  for (let i = T - 1; i >= 0; i--) {
-    lead.u = b.u[i + 1];
-    lead.v = b.v[i + 1];
-    lead.s = t.at[i + 1];
-    lead.len = t.len[i + 1];
-    walk(t, 1);
-    b.u[i] = hit.u;
-    b.v[i] = hit.v;
-    t.at[i] = hit.s;
-  }
+  pt.s = t.at[0];
+  arcAt(t);
+  let body = 0;
+  for (let i = 1; i < N; i++) body += t.len[i];
+  let a = pt.a - step.step;
+  if (a < body) a = Math.min(pt.a, body);
+  pt.a = a;
+  placeOf(t);
+  b.u[0] = pt.u;
+  b.v[0] = pt.v;
+  t.at[0] = pt.s;
+  // The head is on the trail now, so no point falls past its end (pose.d is not used).
+  pose.a = a;
+  placeBehind(t, b);
 }
