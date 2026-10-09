@@ -85,7 +85,7 @@ export function castBlobAt(g: SoilGrid, c: CastSpot, r: number): number {
       if (!g.open[i] || g.cast[i]) continue;
       if (d >= open - CAST_FRINGE && cellHash(i) >= CAST_FILL) continue;
       g.cast[i] = s;
-      fillHollowCell(g, i, Math.min(1, Math.sqrt(du * du + dv * dv) / r));
+      fillHollowCell(g, i, Math.min(255, ((Math.sqrt(du * du + dv * dv) / r) * 255) | 0));
       filled++;
       changed = true;
     }

@@ -23,15 +23,20 @@ export const SOLID_ROOT = 2;
 const DAMP: Readonly<Record<LayerId, number>> = { 0: 90, 1: 210, 2: 180, 3: 130, 4: 100, 5: 90 };
 /** Walls this far beyond an eaten F or H cell turn darker and crumbly (spec 6, mixing). */
 export const MIX_RING = 0.12;
-/** The hollow (spec 2026-10-08 section 4.2): this many depth samples per cell across and up... */
-export const HOLLOW_RES = 4;
-/** (A power of two: the carve below turns a sample's index into its cell's with a shift by 2.) */
+/** The hollow (spec 2026-10-08 section 4.2): 2^HOLLOW_SHIFT depth samples per cell across and up (a shift turns a sample's index into its cell's)... */
+export const HOLLOW_SHIFT = 2;
+export const HOLLOW_RES = 1 << HOLLOW_SHIFT;
 export const HOLLOW_W = GRID_W * HOLLOW_RES;
 export const HOLLOW_H = GRID_H * HOLLOW_RES;
 /** ...0.025 u apart... */
 export const HOLLOW_STEP = CELL / HOLLOW_RES;
 /** ...each a byte, 0..255 for 0..HOLLOW_MAX (u) behind the face (just over TUNNEL_R). */
 export const HOLLOW_MAX = 0.16;
+/**
+ * The tunnel radius (u) a casting's mound is measured against: burrowTrail.ts TUNNEL_R, repeated
+ * here because castings.ts (which burrowTrail imports) cannot import it back without a cycle.
+ */
+export const HOLLOW_MOUND_R = 0.14;
 /** A rectangle of hollow samples (c0 > c1: none). */
 export interface HollowRect { c0: number; c1: number; r0: number; r1: number }
 
@@ -228,16 +233,17 @@ function carve(g: SoilGrid, p: UV, r: number): void {
   const r0 = Math.max(0, Math.floor((v - r - g.v0) / HOLLOW_STEP));
   const r1 = Math.min(HOLLOW_H - 1, Math.floor((v + r - g.v0) / HOLLOW_STEP));
   const scale = 255 / HOLLOW_MAX;
+  const rr = r * r;
   for (let row = r0; row <= r1; row++) {
     const dv = g.v0 + (row + 0.5) * HOLLOW_STEP - v;
-    const cellRow = (row >> 2) * GRID_W; // >> 2 is / HOLLOW_RES
+    const cellRow = (row >> HOLLOW_SHIFT) * GRID_W;
     for (let c = c0; c <= c1; c++) {
       const du = -SLAB_HALF + (c + 0.5) * HOLLOW_STEP - u;
       const d2 = du * du + dv * dv;
-      if (d2 >= r * r) continue;
-      const ci = cellRow + (c >> 2);
+      if (d2 >= rr) continue;
+      const ci = cellRow + (c >> HOLLOW_SHIFT);
       if (g.layer[ci] === AIR || g.solid[ci] !== 0) continue;
-      const depth = Math.min(255, Math.round(Math.sqrt(r * r - d2) * scale));
+      const depth = Math.min(255, Math.round(Math.sqrt(rr - d2) * scale));
       const i = row * HOLLOW_W + c;
       if (depth > g.hollow[i]) {
         g.hollow[i] = depth;
@@ -248,20 +254,27 @@ function carve(g: SoilGrid, p: UV, r: number): void {
 }
 
 /**
- * Lowers the hollow samples of cell i to a casting's mound: about 40% of HOLLOW_MAX deep at the
- * casting's middle (`dist01` 0) up to 70% at its edge (1), grainy. It only ever lowers.
+ * Lowers the hollow samples of cell i to a casting's mound (spec 4.2): HOLLOW_MOUND_R x 0.30 deep
+ * (u behind the face) at the casting's middle (`edge255` 0) up to x 0.55 at its edge (255), plus a
+ * little grain. It only ever lowers. `edge255` is an integer so no double is passed (boxed).
  */
-export function fillHollowCell(g: SoilGrid, i: number, dist01: number): void {
+export function fillHollowCell(g: SoilGrid, i: number, edge255: number): void {
   const cr = Math.floor(i / GRID_W);
   const cc = i - cr * GRID_W;
   const scale = 255 / HOLLOW_MAX;
+  const base = HOLLOW_MOUND_R * (0.3 + (0.25 * edge255) / 255);
   for (let a = 0; a < HOLLOW_RES; a++) {
     const row = cr * HOLLOW_RES + a;
     for (let b = 0; b < HOLLOW_RES; b++) {
       const c = cc * HOLLOW_RES + b;
       const k = row * HOLLOW_W + c;
-      const grain = ((Math.imul(k ^ 0x9e3779b9, 0x85ebca6b) >>> 24) / 255 - 0.5) * 0.015;
-      const level = Math.max(0, Math.round((HOLLOW_MAX * (0.4 + 0.3 * dist01) + grain) * scale));
+      // murmur3's finalizer: neighbouring samples get unrelated grain.
+      let h = k ^ 0x9e3779b9;
+      h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b);
+      h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35);
+      h ^= h >>> 16;
+      const grain = ((h >>> 24) / 255 - 0.5) * 0.015;
+      const level = Math.max(0, Math.round((base + grain) * scale));
       if (g.hollow[k] > level) {
         g.hollow[k] = level;
         markHollow(g, c, row);
