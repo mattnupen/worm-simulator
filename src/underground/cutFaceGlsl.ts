@@ -3,6 +3,7 @@ import { glslFloat as f } from '../render/glslNumber';
 import { FACE_BELOW } from './cutFrame';
 import { BEYOND_LEVEL, BEYOND_SPAN, BOTTOM_FADE, DIM_DEPTH, DIM_LEVEL, FACE_FADE, FACE_GAMMA, WARM_ADD, WARM_DEPTH } from './faceLight';
 import { GRID_H } from './soilGrid';
+import { TUNNEL_R } from './burrowTrail';
 import { LITTER_TILE_U, OLD_TILE_U, SOIL_TILE_U } from './soilTiles';
 
 /**
@@ -14,9 +15,13 @@ import { LITTER_TILE_U, OLD_TILE_U, SOIL_TILE_U } from './soilTiles';
  * soil grid's data texture adds the tunnels, castings, mixed walls and damp. Darker with depth;
  * the bottom darkens away; past the face's ends it fades to dark.
  *
+ * The face discards in its tunnels (one compare a pixel): with HOLLOW defined the same shader draws
+ * the tunnels' back halves (hollowMesh.ts: fine tiles pushed back behind the face by the soil
+ * grid's hollow) in the same soil, lit by their own shape (spec 2026-10-08 section 4.4).
+ *
  * Lean for software GL, which runs every line for every pixel, branch or not: six texture reads a
  * pixel, all outside the branches (the broad noise, the three tiles, two of the soil grid), and
- * the branches only mix colours. No discard, no extra pass.
+ * the branches only mix colours. No extra pass.
  */
 export const CUT_VERTEX = /* glsl */ `
   attribute vec2 aPlane;
@@ -25,10 +30,20 @@ export const CUT_VERTEX = /* glsl */ `
   varying vec2 vPlane;
   varying vec4 vBoundsA;
   varying vec2 vBoundsB;
+  #ifdef HOLLOW
+  attribute vec3 aSlabNormal;
+  attribute float aDepth;
+  varying vec3 vNormal3;
+  varying float vDepth;
+  #endif
   void main() {
     vPlane = aPlane;
     vBoundsA = aBoundsA;
     vBoundsB = aBoundsB;
+    #ifdef HOLLOW
+    vNormal3 = aSlabNormal;
+    vDepth = aDepth;
+    #endif
     gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
   }
 `;
@@ -48,6 +63,10 @@ export const CUT_FRAGMENT = /* glsl */ `
   varying vec2 vPlane;
   varying vec4 vBoundsA;
   varying vec2 vBoundsB;
+  #ifdef HOLLOW
+  varying vec3 vNormal3;
+  varying float vDepth;
+  #endif
   ${GRADE_GLSL}
 
   void main() {
@@ -74,7 +93,7 @@ export const CUT_FRAGMENT = /* glsl */ `
 
     // The soil grid: tunnels (r), castings (g), mixed walls (b), damp (a), its tunnels already
     // softened (cutFace.ts blurBores). Two bilinear reads half a cell above and below: their mean
-    // smooths the cells a little more, their difference tells a bore's floor from its roof.
+    // smooths the cells a little more.
     vec2 g = (p - uGrid.xy) * uGrid.zw;
     float inside = step(0.0, g.x) * step(g.x, 1.0) * step(0.0, g.y) * step(g.y, 1.0);
     vec2 hv = vec2(0.0, ${f(0.5 / GRID_H)});
@@ -85,22 +104,18 @@ export const CUT_FRAGMENT = /* glsl */ `
     float damp = s.a;
     s *= inside;
 
-    // Each layer's colour, and its mean (what a tunnel's far wall shows, in shadow: below).
+    // Each layer's colour.
     vec3 col;
-    vec3 mean;
     if (y > vBoundsA.y) {
       // L: this fall's leaves edge-on. The lower ones are older: duller and darker.
       float older = clamp((top - y) / max(0.01, top - vBoundsA.y), 0.0, 1.0);
       col = mix(lit.rgb, lit.rgb * vec3(0.55, 0.5, 0.48) + vec3(0.08, 0.05, 0.03), older * 0.6);
-      mean = vec3(0.3, 0.2, 0.1);
     } else if (y > vBoundsA.z) {
       // F: matted fragments, hyphae and fine roots.
       col = old.rgb;
-      mean = vec3(0.144, 0.093, 0.057);
     } else if (y > vBoundsA.w) {
       // H: black crumbs.
       col = hum;
-      mean = vec3(0.07, 0.05, 0.035);
     } else {
       // A, E and B from the grain tile: sand grain (r), mottles (g), pebbles (b), platy streaks (a).
       // Pebbles come in richer and poorer patches; the broad noise also breaks the tile's repeat.
@@ -113,18 +128,15 @@ export const CUT_FRAGMENT = /* glsl */ `
         col = mix(col, vec3(0.62, 0.33, 0.11), smoothstep(0.5, 0.75, mot) * 0.7);
         col = mix(col, vec3(0.36, 0.27, 0.2), (1.0 - smoothstep(0.2, 0.45, mot)) * 0.4);
         col = mix(col, pebCol * 0.85, peb);
-        mean = vec3(0.46, 0.28, 0.14);
       } else if (y < vBoundsB.x) {
         // E: pale grey-white, in thin plates.
         col = vec3(0.66, 0.63, 0.57) * (0.86 + 0.2 * gr.r) * (0.93 + 0.1 * gr.a);
         col = mix(col, pebCol, peb * 0.35);
-        mean = vec3(0.63, 0.6, 0.55);
       } else {
         // A: thin grey-brown grain, stained dark where humus washed in.
         col = vec3(0.25, 0.2, 0.16) * (0.65 + 0.7 * gr.r);
         col = mix(col, vec3(0.1, 0.075, 0.06), smoothstep(0.55, 0.75, mot) * 0.7);
         col = mix(col, pebCol * 0.6, peb * 0.7);
-        mean = vec3(0.22, 0.17, 0.135);
       }
     }
 
@@ -132,9 +144,9 @@ export const CUT_FRAGMENT = /* glsl */ `
     float moss = (1.0 - smoothstep(0.04, 0.24, abs(p.y - vBoundsA.y + 0.08))) * smoothstep(0.3, 0.55, br.g) * old.a;
     col = mix(col, vec3(0.3, 0.46, 0.1) * (0.6 + 0.6 * old.a), moss);
     col *= 1.0 - 0.22 * damp;
-    // The tunnel, cut in half: a round hole the worm's own width. Its edge is crisp, broken a
-    // little by the grain, and a little inside the dug cells' edge (where the softened bore crosses
-    // 0.5), so a 3-cell bore draws about the body's width.
+    // The tunnel, cut in half: a round hole the worm's own width, cut by the face (below). Its edge
+    // is crisp, broken a little by the grain, and a little inside the dug cells' edge (where the
+    // softened bore crosses 0.5), so a 3-cell bore draws about the body's width.
     float e = s.r + (gr.r - 0.5) * 0.3;
     float open = smoothstep(0.53, 0.59, e);
     // Just outside it, a thin line of wall pressed darker; where the worm ate through F or H, a
@@ -142,19 +154,29 @@ export const CUT_FRAGMENT = /* glsl */ `
     col *= 1.0 - 0.35 * smoothstep(0.4, 0.53, e) * (1.0 - open);
     float mixed = smoothstep(0.22, 0.42, e + (lit.a - 0.25) * 0.4) * (1.0 - open) * smoothstep(0.25, 0.6, s.b);
     col = mix(col, vec3(0.03, 0.02, 0.015) + hum * 0.8, mixed * 0.9);
-    // Inside: the burrow's far half in shadow, the layer's own soil, browner and nearly even:
-    // darker than the wall around it, but a deep soil brown, never black. Its roof is in shadow
-    // and its floor catches a little light.
-    float floorLit = smoothstep(0.05, 0.6, hi.r - lo.r) * inside;
-    float roof = clamp((lo.r - hi.r) * 2.5, 0.0, 1.0);
-    vec3 hollow = mix(max(mean * vec3(0.6, 0.48, 0.38), vec3(0.13, 0.085, 0.052)), col * 0.5, 0.2);
-    hollow *= (1.0 - 0.15 * smoothstep(0.62, 0.95, s.r)) * (1.0 - 0.35 * roof);
-    hollow = mix(hollow, col * 0.6, floorLit * 0.4);
-    col = mix(col, hollow, open);
     // Castings settled in the tunnel: granular lumps of dark crumbs (H's), darker for a gut full
-    // of leaves, their tops catching more light than the tunnel's shadowed depth behind them.
+    // of leaves. Painted before the light below, so the hollow's mounds are lit by their own shape
+    // (their tops catch more light than the tunnel's depth behind them); on the face the mix is
+    // the same either way, and its castings are cut out with the hole.
+    float castAmt = smoothstep(0.12, 0.3, s.g * (0.7 + 0.6 * lit.a));
     vec3 castCol = mix(vec3(0.3, 0.2, 0.13), vec3(0.17, 0.11, 0.07), clamp(s.g * 1.6 - 0.3, 0.0, 1.0));
-    col = mix(col, castCol * (0.35 + 1.4 * smoothstep(0.05, 0.35, lit.a)), smoothstep(0.12, 0.3, s.g * (0.7 + 0.6 * lit.a)));
+    col = mix(col, castCol * (0.35 + 1.4 * smoothstep(0.05, 0.35, lit.a)), castAmt);
+    // The tunnel (spec 2026-10-08 section 4.4). The face cuts its hole here (and where a casting
+    // lies in it): the hollow tiles behind show the tunnel's back half (hollowMesh.ts), in the same
+    // soil, lit by its own shape. One compare a pixel on the face.
+    #ifndef HOLLOW
+    if (max(open, castAmt) > 0.5) discard;
+    #else
+    // Light from the camera's side and above (slab frame: u, v, toward the camera), wrapped, so the
+    // floor catches light and the roof is in shadow; the face itself (normal (0, 0, 1)) gets 1.
+    vec3 lightDir = vec3(0.0, 0.8, 0.6);
+    float wrapLit = dot(normalize(vNormal3), lightDir) * 0.5 + 0.5;
+    col *= wrapLit / 0.8;
+    // Darker deeper in: toward 45% at the tunnel's full depth...
+    col *= mix(1.0, 0.45, clamp(vDepth / ${f(TUNNEL_R)}, 0.0, 1.0));
+    // ...but a deep soil brown, never black (V2 spec 5).
+    col = max(col, vec3(0.13, 0.085, 0.052) * 0.55);
+    #endif
 
     // Warm light from the surface fades with depth; the bottom darkens away (burrows go deeper).
     float below = top - p.y;

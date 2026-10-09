@@ -314,6 +314,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   applyActive();
   resize();
   warmShaders(renderer, world, camera);
+  cut.preload(renderer, camera);
   window.addEventListener('resize', resize);
   const loop = startLoop(update, render, {
     maxFps: MAX_FPS,

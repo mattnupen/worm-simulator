@@ -6,6 +6,7 @@ import type { WormPose } from '../worm/wormMesh';
 import type { BurrowGame } from './burrowGame';
 import type { Slab } from './slab';
 import { createCutFace } from './cutFace';
+import { createHollowMesh } from './hollowMesh';
 import { createSlabProps } from './slabProps';
 import { createMiddens } from './middens';
 import { cutPose, CUT_MARGIN, type CutPose } from './cutCamera';
@@ -37,6 +38,11 @@ export interface CutScene {
   readonly group: THREE.Group;
   /** Poses this frame: the surface as before, or the cut and the camera's moves between. */
   sync(alpha: number, timeSec: number, camera: THREE.PerspectiveCamera, width: number, height: number): void;
+  /**
+   * Sends the hollow tiles' buffers to the GPU now, at load (after warmShaders, while the Start
+   * card is up), so the first dig-down does not (spec 2026-10-08 section 4.3).
+   */
+  preload(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void;
 }
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
@@ -64,11 +70,15 @@ const headAt = new THREE.Vector3();
  */
 export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud: CutHud): CutScene {
   const face = createCutFace();
+  // The tunnels' back halves (spec 2026-10-08 section 4.3), drawn after the face so their pixels
+  // behind it fail the depth test early (the face has no named order in drawOrder.ts: opaque 0).
+  const hollow = createHollowMesh(face.uniforms);
+  hollow.mesh.renderOrder = face.mesh.renderOrder + 1;
   const props = createSlabProps();
   const middens = createMiddens();
   const group = new THREE.Group();
   group.name = 'underground';
-  group.add(face.mesh, props.mesh);
+  group.add(face.mesh, hollow.mesh, props.mesh);
   group.visible = false;
   world.scene.add(group, middens.mesh);
   world.scene.background = new THREE.Color(DEEP_SOIL);
@@ -107,6 +117,7 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
     if (slabVersion !== game.slabVersion) {
       slabVersion = game.slabVersion;
       face.setSlab(s, game.grid);
+      hollow.setSlab(s, game.grid);
       props.startSlab(s, game.solids);
       building = true;
     }
@@ -118,7 +129,10 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
       }
     }
     // The soil's changed rows (none while the next slab's soil is still being laid).
-    if (!game.stage) face.upload(game.grid);
+    if (!game.stage) {
+      face.upload(game.grid);
+      hollow.upload(game.grid);
+    }
   }
 
   /** The worm in the cut (and on its way in and out), from the game's last two steps; `offMost` too. */
@@ -144,6 +158,25 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
 
   return {
     group,
+    preload(renderer, camera) {
+      // The pool (about 13 MB with its index) has its first bufferData the first frame it is drawn:
+      // on the Mac that frame cost 4 to 6 ms more, several times that on a Chromebook, mid camera
+      // swing. three has no call that only uploads a geometry, so draw the hollow alone once: its
+      // draw range is empty (nothing is drawn, no pixel changes, nothing is cleared) but three
+      // uploads every attribute and the index to draw it. Its program is warmShaders' (no lights
+      // either way), so this compiles nothing.
+      const mesh = hollow.mesh;
+      const culled = mesh.frustumCulled;
+      const clear = renderer.autoClear;
+      mesh.frustumCulled = false;
+      renderer.autoClear = false;
+      try {
+        renderer.render(mesh, camera);
+      } finally {
+        mesh.frustumCulled = culled;
+        renderer.autoClear = clear;
+      }
+    },
     sync(alpha, timeSec, camera, width, height) {
       const m = game.mode;
       if (m.mode !== place) {
