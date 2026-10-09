@@ -23,6 +23,17 @@ export const SOLID_ROOT = 2;
 const DAMP: Readonly<Record<LayerId, number>> = { 0: 90, 1: 210, 2: 180, 3: 130, 4: 100, 5: 90 };
 /** Walls this far beyond an eaten F or H cell turn darker and crumbly (spec 6, mixing). */
 export const MIX_RING = 0.12;
+/** The hollow (spec 2026-10-08 section 4.2): this many depth samples per cell across and up... */
+export const HOLLOW_RES = 4;
+/** (A power of two: the carve below turns a sample's index into its cell's with a shift by 2.) */
+export const HOLLOW_W = GRID_W * HOLLOW_RES;
+export const HOLLOW_H = GRID_H * HOLLOW_RES;
+/** ...0.025 u apart... */
+export const HOLLOW_STEP = CELL / HOLLOW_RES;
+/** ...each a byte, 0..255 for 0..HOLLOW_MAX (u) behind the face (just over TUNNEL_R). */
+export const HOLLOW_MAX = 0.16;
+/** A rectangle of hollow samples (c0 > c1: none). */
+export interface HollowRect { c0: number; c1: number; r0: number; r1: number }
 
 export interface SoilGrid {
   /** Layer per cell (LAYER ids), AIR above the litter. */
@@ -37,6 +48,14 @@ export interface SoilGrid {
   readonly solid: Uint8Array;
   /** Moisture 0..255. */
   readonly damp: Uint8Array;
+  /**
+   * How deep the tunnels go behind the face, HOLLOW_RES x HOLLOW_RES samples a cell (byte: 0..HOLLOW_MAX).
+   * Every tunnel is centred in the cut's plane, so their back halves are one surface over it: the
+   * renderer pushes the hollow tiles back by it (hollowMesh.ts).
+   */
+  readonly hollow: Uint8Array;
+  /** Hollow samples changed since takeHollowDirty. */
+  readonly hollowDirty: HollowRect;
   /** World height of the bottom row's lower edge (the slab's bottom). */
   v0: number;
   /** Rows changed since takeDirty (dirtyLo > dirtyHi: none). */
@@ -57,6 +76,8 @@ export function createSoilGrid(): SoilGrid {
   return {
     layer: new Uint8Array(n), open: new Uint8Array(n), cast: new Uint8Array(n),
     mixed: new Uint8Array(n), solid: new Uint8Array(n), damp: new Uint8Array(n),
+    hollow: new Uint8Array(HOLLOW_W * HOLLOW_H),
+    hollowDirty: { c0: 0, c1: HOLLOW_W - 1, r0: 0, r1: HOLLOW_H - 1 },
     v0: 0, dirtyLo: 0, dirtyHi: GRID_H - 1,
   };
 }
@@ -91,6 +112,9 @@ export function fillSoilGrid(g: SoilGrid, s: Slab): void {
   }
   g.dirtyLo = 0;
   g.dirtyHi = GRID_H - 1;
+  g.hollow.fill(0);
+  const hd = g.hollowDirty;
+  hd.c0 = 0; hd.c1 = HOLLOW_W - 1; hd.r0 = 0; hd.r1 = HOLLOW_H - 1;
 }
 
 export function touch(g: SoilGrid, r: number): void {
@@ -105,6 +129,29 @@ export function takeDirty(g: SoilGrid, out: { lo: number; hi: number }): { lo: n
   g.dirtyLo = GRID_H;
   g.dirtyHi = -1;
   return out;
+}
+
+function markHollow(g: SoilGrid, c: number, r: number): void {
+  const d = g.hollowDirty;
+  if (c < d.c0) d.c0 = c;
+  if (c > d.c1) d.c1 = c;
+  if (r < d.r0) d.r0 = r;
+  if (r > d.r1) d.r1 = r;
+}
+
+/** The changed hollow rectangle into `out` (c0 > c1 when none), then clears it. */
+export function takeHollowDirty(g: SoilGrid, out: HollowRect): void {
+  const d = g.hollowDirty;
+  out.c0 = d.c0; out.c1 = d.c1; out.r0 = d.r0; out.r1 = d.r1;
+  d.c0 = HOLLOW_W; d.c1 = -1; d.r0 = HOLLOW_H; d.r1 = -1;
+}
+
+/** The hollow's depth (u) at (u, v), the nearest sample (tests and later interactions). */
+export function hollowAt(g: SoilGrid, u: number, v: number): number {
+  const c = Math.floor((u + SLAB_HALF) / HOLLOW_STEP);
+  const r = Math.floor((v - g.v0) / HOLLOW_STEP);
+  if (c < 0 || c >= HOLLOW_W || r < 0 || r >= HOLLOW_H) return 0;
+  return (g.hollow[r * HOLLOW_W + c] * HOLLOW_MAX) / 255;
 }
 
 /** The cell index at (u, v), or -1 outside the grid. */
@@ -163,6 +210,64 @@ export function digDiscAt(g: SoilGrid, p: UV, r: number, out: Eaten): void {
     if (changed) touch(g, row);
   }
   if (mixing) mixRing(g, p, r);
+  // Runs even when no cell opened (the head moving through its own tunnel); it marks dirty only
+  // the samples that got deeper, so re-digging uploads nothing.
+  carve(g, p, r);
+}
+
+/**
+ * Carves the hollow for a dig of radius r at `p`: each sample within r goes at least sqrt(r^2 - d^2)
+ * deep (the back half of a round tunnel), but not in air or a blocker's cell. Allocates nothing
+ * (inline Math.sqrt: a non-inlined helper would box its doubles).
+ */
+function carve(g: SoilGrid, p: UV, r: number): void {
+  const u = p.u;
+  const v = p.v;
+  const c0 = Math.max(0, Math.floor((u - r + SLAB_HALF) / HOLLOW_STEP));
+  const c1 = Math.min(HOLLOW_W - 1, Math.floor((u + r + SLAB_HALF) / HOLLOW_STEP));
+  const r0 = Math.max(0, Math.floor((v - r - g.v0) / HOLLOW_STEP));
+  const r1 = Math.min(HOLLOW_H - 1, Math.floor((v + r - g.v0) / HOLLOW_STEP));
+  const scale = 255 / HOLLOW_MAX;
+  for (let row = r0; row <= r1; row++) {
+    const dv = g.v0 + (row + 0.5) * HOLLOW_STEP - v;
+    const cellRow = (row >> 2) * GRID_W; // >> 2 is / HOLLOW_RES
+    for (let c = c0; c <= c1; c++) {
+      const du = -SLAB_HALF + (c + 0.5) * HOLLOW_STEP - u;
+      const d2 = du * du + dv * dv;
+      if (d2 >= r * r) continue;
+      const ci = cellRow + (c >> 2);
+      if (g.layer[ci] === AIR || g.solid[ci] !== 0) continue;
+      const depth = Math.min(255, Math.round(Math.sqrt(r * r - d2) * scale));
+      const i = row * HOLLOW_W + c;
+      if (depth > g.hollow[i]) {
+        g.hollow[i] = depth;
+        markHollow(g, c, row);
+      }
+    }
+  }
+}
+
+/**
+ * Lowers the hollow samples of cell i to a casting's mound: about 40% of HOLLOW_MAX deep at the
+ * casting's middle (`dist01` 0) up to 70% at its edge (1), grainy. It only ever lowers.
+ */
+export function fillHollowCell(g: SoilGrid, i: number, dist01: number): void {
+  const cr = Math.floor(i / GRID_W);
+  const cc = i - cr * GRID_W;
+  const scale = 255 / HOLLOW_MAX;
+  for (let a = 0; a < HOLLOW_RES; a++) {
+    const row = cr * HOLLOW_RES + a;
+    for (let b = 0; b < HOLLOW_RES; b++) {
+      const c = cc * HOLLOW_RES + b;
+      const k = row * HOLLOW_W + c;
+      const grain = ((Math.imul(k ^ 0x9e3779b9, 0x85ebca6b) >>> 24) / 255 - 0.5) * 0.015;
+      const level = Math.max(0, Math.round((HOLLOW_MAX * (0.4 + 0.3 * dist01) + grain) * scale));
+      if (g.hollow[k] > level) {
+        g.hollow[k] = level;
+        markHollow(g, c, row);
+      }
+    }
+  }
 }
 
 /** Marks the not-yet-open soil around a disc at `p` as mixed (darker, crumbly walls). */

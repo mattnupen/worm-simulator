@@ -1,5 +1,5 @@
 import { hypot2 } from '../core/vec';
-import { CELL, GRID_H, GRID_W, cellU, cellV, colOf, rowOf, touch, type SoilGrid } from './soilGrid';
+import { CELL, GRID_H, GRID_W, cellU, cellV, colOf, fillHollowCell, rowOf, touch, type SoilGrid } from './soilGrid';
 import type { UV } from './slab';
 
 /** Castings in the soil grid (moved from soilGrid.ts). */
@@ -85,6 +85,7 @@ export function castBlobAt(g: SoilGrid, c: CastSpot, r: number): number {
       if (!g.open[i] || g.cast[i]) continue;
       if (d >= open - CAST_FRINGE && cellHash(i) >= CAST_FILL) continue;
       g.cast[i] = s;
+      fillHollowCell(g, i, Math.min(1, Math.sqrt(du * du + dv * dv) / r));
       filled++;
       changed = true;
     }
