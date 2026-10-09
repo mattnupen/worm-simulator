@@ -46,6 +46,8 @@ export interface CutFace {
   setSlab(s: Slab, g: SoilGrid): void;
   /** Uploads the grid rows that changed since the last call (all of them after setSlab). Allocates nothing. */
   upload(g: SoilGrid): void;
+  /** The face's uniforms, shared with the hollow tiles (hollowMesh.ts). */
+  readonly uniforms: Record<string, THREE.IUniform>;
 }
 
 /**
@@ -119,6 +121,7 @@ export function createCutFace(): CutFace {
 
   return {
     mesh,
+    uniforms: material.uniforms,
     setSlab(s, g) {
       const p = pos.array as Float32Array;
       const q = plane.array as Float32Array;
