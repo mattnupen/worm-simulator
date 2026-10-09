@@ -1,5 +1,5 @@
 import { hypot2 } from '../core/vec';
-import { linkOut } from './burrowBack';
+import { followHead, poseBehind } from './bodyTrail';
 import { digDiscAt, type Eaten, type SoilGrid } from './soilGrid';
 import { castBlobAt, type CastSpot } from './castings';
 import type { Burrower } from './burrower';
@@ -37,22 +37,22 @@ const cast: CastSpot = { u: 0, v: 0, shade: 0, dirU: 0, dirV: 0 };
  * Only the head digs: where every body point dug too, each bend came out 0.4 to 0.6 u wide, twice
  * the worm; now the tunnel is the body's own width (V2: a round tube).
  */
-export function digTunnel(b: Burrower, s: Slab, g: SoilGrid, o: Solids): void {
+export function digTunnel(b: Burrower, _s: Slab, g: SoilGrid, _o: Solids): void {
   pt.u = b.u[0];
   pt.v = b.v[0];
   digDiscAt(g, pt, TUNNEL_R, ate);
   if (ate.cells > 0) b.gut += (ate.organic / ate.cells - b.gut) * 0.15;
-  trailBody(b, s, o);
+  trailBody(b);
 }
 
 /**
- * Follow the leader: each point drawn after the one ahead and kept out of the top and the solids
- * (burrowBack.ts linkOut; a body laid down through a stone comes out of it at once, at rest too). The chain keeps its length and bends smoothly; on the
- * inside of a tight bend a point may sit over undug soil (the chain cuts the corner: the head's
- * turning radius, MIN_TURN_R in burrowMotion.ts, keeps that small). The body digs nothing.
+ * The body after the head: the head's trail recorded (its pursuit point), then every point placed
+ * on it its link's length along the trail behind the one ahead (bodyTrail.ts). The trail is all open tunnel, so
+ * the body never crosses undug soil, round sharp turns too. The body digs nothing.
  */
-function trailBody(b: Burrower, s: Slab, o: Solids): void {
-  for (let i = 1; i < b.u.length; i++) linkOut(b, s, o, i, i - 1, i - 2);
+function trailBody(b: Burrower): void {
+  followHead(b.trail, b);
+  poseBehind(b.trail, b);
 }
 
 /**
@@ -70,8 +70,8 @@ export function castTail(b: Burrower, g: SoilGrid, spend: boolean): void {
   cast.shade = 90 + 160 * b.gut;
   cast.dirU = tu;
   cast.dirV = tv;
-  // Straight behind the tail, else a little to either side: the tail, cutting a bend's inside, may
-  // lie beside its tunnel rather than in it.
+  // Straight behind the tail, else a little to either side: a casting that finds no open tunnel
+  // straight behind (an earlier casting there) is tried beside it.
   let filled = 0;
   for (let k = 0; k < CAST_SIDE.length && filled < CAST_MIN; k++) {
     cast.u = b.u[t] + (tu / tl) * CAST_BACK - (tv / tl) * CAST_SIDE[k];

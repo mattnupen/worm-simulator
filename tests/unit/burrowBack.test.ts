@@ -32,7 +32,7 @@ function canGetOut(game: ReturnType<typeof makeGame>['game']): boolean {
       was = w.backing;
       if (!w.backing) return;
       backed++;
-      // The tail beside its tunnel by more than backing allows (burrowBack.ts NEAR_OPEN).
+      // The tail off its tunnel (it backs along the trail, all open tunnel: bodyTrail.ts).
       if (strayOf(g, w.u[15], w.v[15]) > 0.45) undug++;
     });
     mostFlips = Math.max(mostFlips, flips);
@@ -71,8 +71,7 @@ describe('the worm is never trapped underground (it backs up out of dead ends)',
     expect(checks).toBe(288);
     // Some ways out were backing up (a dead end the head could not turn round in)...
     expect(backed).toBeGreaterThan(0);
-    // ...back through its own tunnel or the soil just beside it (the tail, a chain cutting the
-    // bends' insides, may lie up to about 0.4 u beside it), never off away from it...
+    // ...back through its own tunnel (the trail is all open tunnel), never off away from it...
     expect(undug / backed).toBeLessThan(0.01);
     // ...and backing settles: on once and off once while a way is held, never flicking on and off.
     expect(mostFlips).toBeLessThanOrEqual(2);
@@ -96,12 +95,12 @@ describe('the worm is never trapped underground (it backs up out of dead ends)',
       // Never into soil it has not dug.
       expect(w.g.open[cellAt(w.g, w.b.u[15], w.b.v[15])]).toBe(1);
     });
-    // It backed to the tunnel's end (within its width), stopped there once and did not start again
-    // (it turns round instead: its head is free in open soil).
+    // It backed to the tunnel's end, stopped there once and did not start again (it turns round
+    // instead: its head is free in open soil).
     expect(starts).toBe(1);
     expect(ends).toBe(1);
-    expect(back).toBeLessThan(tail0 - 0.05);
-    expect(back).toBeGreaterThan(tail0 - 0.2);
+    // The trail's start is the seeded tail: the tunnel's end.
+    expect(back).toBeCloseTo(tail0, 2);
   });
 
   it('a U-turn in open soil turns round as before: it never backs up when it can move', () => {

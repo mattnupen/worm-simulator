@@ -1,5 +1,6 @@
 import { BurrowGame } from '../../src/underground/burrowGame';
 import { canDigAt } from '../../src/underground/digSpot';
+import { stepBurrowing, type Pointing } from '../../src/underground/burrowMotion';
 import { Crawl } from '../../src/game/crawl';
 import type { Vec2, Vec3 } from '../../src/core/vec';
 
@@ -51,6 +52,40 @@ const game = (): BurrowGame => new BurrowGame(new Crawl(), { reducedMotion: () =
 const under = game();
 under.enterNow();
 const underground = bytesPerCall(() => under.step(DT, STILL, false, true));
+
+// Backing up (burrowBack.ts): a worm that dug about a while backs along its trail (bodyTrail.ts
+// backAlong), the stick pointing back along its body. Each time its tail reaches the trail's start
+// (backing ends) it is put back where it began: only typed arrays are copied, which allocates nothing.
+const rev = game();
+rev.enterNow();
+for (let i = 0; i < 3000; i++) rev.step(DT, STILL, false, true);
+const w = rev.worm;
+const tr = w.trail;
+const kept = {
+  u: Float64Array.from(w.u), v: Float64Array.from(w.v), tu: Float64Array.from(tr.u), tv: Float64Array.from(tr.v),
+  arc: Float64Array.from(tr.arc), at: Float64Array.from(tr.at), len: Float64Array.from(tr.len), n: tr.n, dir: w.dir,
+};
+const backWay: Pointing = { du: 0.5, dv: 0.5 };
+let backs = 0;
+const backing = bytesPerCall(() => {
+  if (!w.backing) {
+    backs++;
+    w.u.set(kept.u); w.v.set(kept.v); w.prevU.set(kept.u); w.prevV.set(kept.v);
+    tr.u.set(kept.tu); tr.v.set(kept.tv); tr.arc.set(kept.arc); tr.at.set(kept.at); tr.len.set(kept.len);
+    tr.n = kept.n;
+    tr.backed = false;
+    w.dir = w.prevDir = kept.dir;
+    w.speed = w.want = 0;
+    w.backing = true;
+    w.backSpent = false;
+  }
+  const du = w.u[2] - w.u[0];
+  const dv = w.v[2] - w.v[0];
+  const l = Math.sqrt(du * du + dv * dv) || 1;
+  backWay.du = du / l;
+  backWay.dv = dv / l;
+  stepBurrowing(w, rev.slab!, rev.grid, rev.solids, backWay, DT);
+});
 
 // canDigAt over bodies as the crawl leaves them, turning as it goes.
 const c = new Crawl();
@@ -112,6 +147,6 @@ const alone = new Crawl();
 const crawl = bytesPerCall(() => alone.step(DT, TURNING), 1);
 
 console.log(JSON.stringify({
-  underground, canDigAt: dig, surface, crawl,
+  underground, backing, backs, canDigAt: dig, surface, crawl,
   modes: [under.mode.mode, top.mode.mode], digs, offered,
 }));

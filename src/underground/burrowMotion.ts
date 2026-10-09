@@ -8,7 +8,8 @@ import { castTail, digTunnel, CAST_EVERY, CAST_WINDOW, TUNNEL_R } from './burrow
 import type { Burrower } from './burrower';
 import type { Solids } from './solids';
 import { TOP_KEEP } from './solidShapes';
-import { backUp, keepOut, type BackLimits, BACK_ANGLE, BACK_KEEP, BACK_SPEED, STUCK_REACH, STUCK_S, STUCK_SHARE, STUCK_TRIED } from './burrowBack';
+import { keepOut, BACK_ANGLE, BACK_KEEP, BACK_SPEED, STUCK_REACH, STUCK_S, STUCK_SHARE, STUCK_TRIED } from './burrowBack';
+import { backAlong } from './bodyTrail';
 import { hypot2 } from '../core/vec';
 
 /**
@@ -26,7 +27,7 @@ export { createBurrower, placeBurrower, type Burrower } from './burrower';
 export const DIG_TURN = 2.6;
 /**
  * ...and its path turns no tighter than this radius (u) at the speed it goes: turning fast while
- * all but still, it dug corners the body (a chain after it, burrowTrail.ts) cut across...
+ * all but still, it dug corners sharper than the body bends round...
  */
 export const MIN_TURN_R = 0.35;
 /** ...but it can still turn this fast (radians a second) when it hardly moves... */
@@ -54,7 +55,7 @@ const WALL_BAND = 0.35;
 /** The head's limits: this far inside the playable slab's ends, and above the slab's bottom. */
 const END_KEEP = 0.2;
 const BOTTOM_KEEP = 0.3;
-/** Head within this of its neck's way (as the body's MAX_BEND, burrowBack.ts): farther, it wound the body into loops. */
+/** Head within this of its neck's way: farther, it turned back into its own neck. */
 const MAX_NECK_BEND = 0.6;
 /**
  * Past that limit the head is eased back (this share a step, but never left more than BEND_LAG past
@@ -93,7 +94,11 @@ function roomFor(room: number): number {
  * passed to a call V8 does not inline is boxed on the heap: solidShapes.ts).
  */
 const pt = { u: 0, v: 0 };
-const lim: BackLimits = { step: 0, lo: 0, hi: 0, bottom: 0 };
+/**
+ * How far (u) backAlong goes this step. It starts as a fraction: a field that first held a whole
+ * number had V8 box every fractional value written to it later (burrower.ts).
+ */
+const backBy = { step: 0.5 };
 
 /**
  * This step's way pointed (du, dv), its strength, and the speed the soil and the stick allow
@@ -146,7 +151,7 @@ export function stepBurrowing(b: Burrower, s: Slab, g: SoilGrid, o: Solids, p: P
   // Each way starts from rest (the head never flips from one way to the other at speed).
   if (b.backing !== was) b.want = b.speed = 0;
   if (b.backing) {
-    backStep(b, s, g, o, dt);
+    backStep(b, s, dt);
     return;
   }
   steer(b, g, dt);
@@ -154,23 +159,20 @@ export function stepBurrowing(b: Burrower, s: Slab, g: SoilGrid, o: Solids, p: P
   digOn(b, s, g, o, dt);
 }
 
-/** Backing up (burrowBack.ts): the tail leads back along the body's own line. */
-function backStep(b: Burrower, s: Slab, g: SoilGrid, o: Solids, dt: number): void {
+/** Backing up (burrowBack.ts): the body slides back along the head's trail (bodyTrail.ts). */
+function backStep(b: Burrower, s: Slab, dt: number): void {
   const n = b.u.length;
   const mag = way.mag;
   b.want += (BACK_SPEED * mag - b.want) * (1 - Math.exp(-WANT_RATE * dt));
   b.speed += (b.want - b.speed) * (1 - Math.exp(-SPEED_RATE * dt));
   b.eat = 0;
   b.eating = false;
-  lim.step = b.speed * dt;
-  lim.lo = s.playLo + END_KEEP;
-  lim.hi = s.playHi - END_KEEP;
-  lim.bottom = s.bottom + BOTTOM_KEEP;
-  backUp(s, o, g, b, lim);
+  backBy.step = b.speed * dt;
+  backAlong(b.trail, b, backBy);
   const moved = hypot2(b.u[n - 1] - b.prevU[n - 1], b.v[n - 1] - b.prevV[n - 1]);
   // The head keeps its facing, within its bend off the neck as the body moves under it.
   holdBend(b);
-  // The tail blocked too, or at its tunnel's end: stop backing, and stay stopped while the stick
+  // The tail at the trail's start (its tunnel's end): stop backing, and stay stopped while the stick
   // still points back (pointing back again tries again, once stuck).
   if (b.speed > 0.5 * BACK_SPEED * mag && moved < STUCK_SHARE * b.speed * dt) {
     b.backing = false;

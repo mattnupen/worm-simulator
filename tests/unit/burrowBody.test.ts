@@ -9,7 +9,7 @@ import { BODY_RADIUS, SPACING, WORM_SEGMENTS } from '../../src/game/crawl';
 import { createBody } from '../../src/worm/body';
 import { canDigAt } from '../../src/underground/digSpot';
 import { mulberry32 } from '../../src/core/random';
-import { DT, N, hit, setup, midOf, tunnel, strayOf } from './burrowWorld';
+import { DT, N, hit, setup, midOf, tunnel, strayOf, run as runWorm } from './burrowWorld';
 import { makeGame, digDown, press, run, until } from './burrowPlay';
 import type { Vec2 } from '../../src/core/vec';
 
@@ -90,14 +90,14 @@ class BodyWatch {
 }
 
 /**
- * The body keeps its length in every frame (15 x SPACING within 5%, no link under `segment` x
- * SPACING: a link may go 5% slack before it is pushed out, burrowBack.ts drawLink) and never folds:
- * no point within `fold` x SPACING of the one two along, no bend sharper than `sharp` (radians).
- * (Without a bend limit the chain wound into loops tighter than the worm is thick, lay back on
- * itself and creased: point i+2 within 0.15 u of point i in 29% of frames of slow rotation.)
+ * The body keeps its length in every frame (15 x SPACING within 5%, as straight links: along the
+ * trail it is exact, bodyTrail.ts, and across a bend a link's chord is shorter than its arc, as the
+ * tunnel is), no link under `segment` x SPACING (the neck shortens as the head turns in place), no
+ * point within `fold` x SPACING of the one two along, no bend sharper than `sharp` (radians). The
+ * body bends as its tunnel does, so each scenario's bounds are its own, measured.
  */
 const NOMINAL = (N - 1) * SPACING;
-function keepsLength(w: BodyWatch, segment = 0.9, fold = 1.6, sharp = 0.7): void {
+function keepsLength(w: BodyWatch, segment: number, fold: number, sharp: number): void {
   expect(w.minLength).toBeGreaterThanOrEqual(0.95 * NOMINAL);
   expect(w.minSegment).toBeGreaterThanOrEqual(segment * SPACING);
   expect(w.minFold).toBeGreaterThanOrEqual(fold * SPACING);
@@ -294,39 +294,42 @@ function wandering(w: BodyWatch): number {
   return tested;
 }
 
-// Bounds from measured values (follow the leader, the body digging nothing): sharpest bend p99,
-// frames with an isolated elbow, bend change p99, each point's second difference p99, and how far
-// body points sit outside open tunnel (stray) p99. The neck's bend is the head's own turning
-// (MAX_NECK_BEND) and left out. In a coil or a U-turn the chain folds, as it always did
-// (follow-the-leader before 65f4d89: sharpest p99 3.09 in tight turns): those have no sharpest bound.
+// Bounds from values measured on the trail (2026-10-08; the body rides its head's trail and bends
+// with its tunnel, bodyTrail.ts): sharpest bend p99, frames with an isolated elbow, bend change p99,
+// each point's second difference p99, and how far body points sit outside open tunnel (stray) p99,
+// now 0 everywhere. The neck's bend is the head's own turning (MAX_NECK_BEND) and left out. Where the
+// head turned sharply (on the spot, or at a stone) its trail is rounded to about TRAIL_LAG, under a
+// link's length, so one joint takes the turn: an isolated elbow, as the tunnel has one there. In a
+// coil or a U-turn the body folds as its tunnel does: those have no sharpest bound.
 describe('the body frame to frame: smooth, no elbows, its length kept (Matt notices jitter)', () => {
   it('sliding along stones and roots', () => {
     const w = new BodyWatch();
     slides(w);
     const r = report('stone and root slides', w);
     expect(w.frames).toBeGreaterThan(100000);
-    // 0.13 (at most 0.34) / 0% / 0.001 / 0.0005 / 0.
-    expect(r.sharp99).toBeLessThanOrEqual(0.2);
-    expect(q(w.sharpest, 1)).toBeLessThanOrEqual(0.45);
+    // Measured on the trail (2026-10-08), the body bending with its tunnel round the stone: 0.36 (at
+    // most 0.66) / 0.02% / 0.004 / 0.0005 / 0; length 3.28, link 0.94, fold 1.85, sharpest 0.72.
+    expect(r.sharp99).toBeLessThanOrEqual(0.45);
+    expect(q(w.sharpest, 1)).toBeLessThanOrEqual(0.8);
     expect(r.elbowShare).toBeLessThan(0.001);
-    expect(r.ch99).toBeLessThanOrEqual(0.005);
+    expect(r.ch99).toBeLessThanOrEqual(0.006);
     expect(r.acc99).toBeLessThanOrEqual(0.001);
     expect(r.stray99).toBeLessThanOrEqual(0.01);
-    keepsLength(w);
+    keepsLength(w, 0.9, 1.7, 0.85);
   });
 
   it('tight turns and U-turns', () => {
     const w = new BodyWatch();
     tightTurns(w);
     const r = report('tight turns', w);
-    // 0.17% / 0.020 / 0.0008 / 0.24 (stray 0.19 without the bend limit). Pressed against stones in
-    // a turn on the spot, a joint is pushed to 1.3 rad and the fold measure to 1.59 x SPACING (eased
-    // back BEND_EASE a step, burrowBack.ts).
-    expect(r.elbowShare).toBeLessThan(0.01);
-    expect(r.ch99).toBeLessThanOrEqual(0.04);
+    // Measured on the trail (2026-10-08), the body bending with its tunnel at each turn on the spot:
+    // 5.2% / 0.057 / 0.0011 / 0 (the chain: 0.17% / 0.020 / 0.0008 / stray 0.24, across the dirt);
+    // length 3.22, link 0.81, fold 1.30, sharpest 1.63.
+    expect(r.elbowShare).toBeLessThan(0.065);
+    expect(r.ch99).toBeLessThanOrEqual(0.07);
     expect(r.acc99).toBeLessThanOrEqual(0.002);
-    expect(r.stray99).toBeLessThanOrEqual(0.3);
-    keepsLength(w, 0.9, 1.5, 1.4);
+    expect(r.stray99).toBeLessThanOrEqual(0.01);
+    keepsLength(w, 0.75, 1.2, 1.9);
   });
 
   it('the arrow keys, eight ways, in the game', () => {
@@ -334,13 +337,14 @@ describe('the body frame to frame: smooth, no elbows, its length kept (Matt noti
     keys(w);
     const r = report('keys', w);
     expect(w.frames).toBeGreaterThan(8000);
-    // 0.60 / 0.15% / 0.012 / 0.0006 / 0.16.
-    expect(r.sharp99).toBeLessThanOrEqual(1.0);
-    expect(r.elbowShare).toBeLessThan(0.01);
-    expect(r.ch99).toBeLessThanOrEqual(0.02);
-    expect(r.acc99).toBeLessThanOrEqual(0.001);
-    expect(r.stray99).toBeLessThanOrEqual(0.25);
-    keepsLength(w);
+    // Measured on the trail (2026-10-08), the body bending with its tunnel at each key's corner:
+    // 1.69 / 2.9% / 0.048 / 0.0009 / 0; length 3.22, link 0.70, fold 1.26, sharpest 1.74.
+    expect(r.sharp99).toBeLessThanOrEqual(1.9);
+    expect(r.elbowShare).toBeLessThan(0.04);
+    expect(r.ch99).toBeLessThanOrEqual(0.06);
+    expect(r.acc99).toBeLessThanOrEqual(0.0012);
+    expect(r.stray99).toBeLessThanOrEqual(0.01);
+    keepsLength(w, 0.65, 1.15, 2.0);
   });
 
   it('backing up, and as it ends no point jumps', () => {
@@ -352,50 +356,52 @@ describe('the body frame to frame: smooth, no elbows, its length kept (Matt noti
     // As backing ends no point steps much more than the head does (0.0025 u; a tail pop was 0.022).
     expect(pops.ends).toBeGreaterThan(5);
     expect(pops.worst).toBeLessThan(0.005);
-    // 0% / 0.017 / 0.0014 / 0.02 (follow-the-leader before 65f4d89: 5.5% / 0.053 / 0.0025).
-    expect(r.elbowShare).toBeLessThan(0.02);
-    expect(r.ch99).toBeLessThanOrEqual(0.07);
-    expect(r.acc99).toBeLessThanOrEqual(0.004);
-    expect(r.stray99).toBeLessThanOrEqual(0.3);
-    keepsLength(w);
+    // Measured on the trail (2026-10-08), the body sliding back through its tunnel's bends: 4.1% /
+    // 0.083 / 0.0017 / 0; length 3.22, link 0.66, fold 1.59, sharpest 1.27.
+    expect(r.elbowShare).toBeLessThan(0.055);
+    expect(r.ch99).toBeLessThanOrEqual(0.1);
+    expect(r.acc99).toBeLessThanOrEqual(0.0025);
+    expect(r.stray99).toBeLessThanOrEqual(0.01);
+    keepsLength(w, 0.6, 1.45, 1.5);
   });
 
   it('the stick turned slowly round and round: it keeps its length', () => {
     const w = new BodyWatch();
     expect(slowRotation(w)).toBeGreaterThanOrEqual(3);
     const r = report('slow rotation', w);
-    // 0% / 0.038 / 0.0011 / 0.17 (stray 0.08 when the chain could curl tighter).
-    expect(r.elbowShare).toBeLessThan(0.005);
-    expect(r.ch99).toBeLessThanOrEqual(0.06);
-    expect(r.acc99).toBeLessThanOrEqual(0.0015);
-    expect(r.stray99).toBeLessThanOrEqual(0.3);
-    keepsLength(w);
+    // Measured on the trail (2026-10-08), the body bending with its coiled tunnel: 1.1% / 0.093 /
+    // 0.0017 / 0; length 3.23, link 0.84, fold 1.50, sharpest 1.38.
+    expect(r.elbowShare).toBeLessThan(0.015);
+    expect(r.ch99).toBeLessThanOrEqual(0.11);
+    expect(r.acc99).toBeLessThanOrEqual(0.0025);
+    expect(r.stray99).toBeLessThanOrEqual(0.01);
+    keepsLength(w, 0.78, 1.35, 1.6);
   });
 
   it('the arrow keys round a circle (loops): it never winds tighter than it can turn, nor folds', () => {
     const w = new BodyWatch();
     expect(circleKeys(w)).toBeGreaterThanOrEqual(3);
     const r = report('circle keys', w);
-    // 0.09% / 0.041 / 0.0030 / 0.17. One of the four places has a stone inside the loop: the chain,
-    // cutting the loop's inside, is pushed out round it and bends up to 1.8 rad there (eased back
-    // BEND_EASE a step, burrowBack.ts); elsewhere at most MAX_BEND.
-    expect(r.elbowShare).toBeLessThan(0.01);
-    expect(r.ch99).toBeLessThanOrEqual(0.06);
-    expect(r.acc99).toBeLessThanOrEqual(0.004);
-    expect(r.stray99).toBeLessThanOrEqual(0.3);
-    keepsLength(w, 0.9, 1.0, 2.1);
+    // Measured on the trail (2026-10-08), the body bending with its looped tunnel: 0% / 0.037 /
+    // 0.0016 / 0; length 3.26, link 0.87, fold 1.64, sharpest 1.17.
+    expect(r.elbowShare).toBeLessThan(0.005);
+    expect(r.ch99).toBeLessThanOrEqual(0.05);
+    expect(r.acc99).toBeLessThanOrEqual(0.0025);
+    expect(r.stray99).toBeLessThanOrEqual(0.01);
+    keepsLength(w, 0.8, 1.5, 1.4);
   });
 
   it('an analog stick wandering smoothly, let go now and then: the body keeps its length, at rest too', () => {
     const w = new BodyWatch();
     expect(wandering(w)).toBeGreaterThanOrEqual(4);
     const r = report('wandering stick', w);
-    // 0.31% / 0.018 / 0.0007 / 0.30.
-    expect(r.elbowShare).toBeLessThan(0.01);
-    expect(r.ch99).toBeLessThanOrEqual(0.04);
-    expect(r.acc99).toBeLessThanOrEqual(0.001);
-    expect(r.stray99).toBeLessThanOrEqual(0.35);
-    keepsLength(w);
+    // Measured on the trail (2026-10-08), the body bending with its tunnel: 1.9% / 0.034 / 0.0010 /
+    // 0; length 3.22, link 0.93, fold 1.64, sharpest 1.08.
+    expect(r.elbowShare).toBeLessThan(0.025);
+    expect(r.ch99).toBeLessThanOrEqual(0.045);
+    expect(r.acc99).toBeLessThanOrEqual(0.0013);
+    expect(r.stray99).toBeLessThanOrEqual(0.01);
+    keepsLength(w, 0.88, 1.5, 1.3);
   });
 
   it('just arrived and idle: no body point moves after the first step', () => {
@@ -421,5 +427,21 @@ describe('the body frame to frame: smooth, no elbows, its length kept (Matt noti
       expect(later, `seed ${seed}`).toBe(0);
     }
     expect(tested).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('the body stays in its tunnel (Matt, 2026-10-08: it cut across the dirt after a sharp turn)', () => {
+  it('a sharp turn and then straight on: no body point leaves its tunnel', () => {
+    for (const [du, dv] of [[0, -1], [0, 1], [-0.3, -1]] as const) {
+      const w = setup(0, midOf(B_A));
+      tunnel(w, w.b.u[N - 1], 0); // the tunnel it lies in, as digging down leaves it
+      let worst = 0;
+      const each = () => { for (let i = 1; i < N; i++) worst = Math.max(worst, strayOf(w.g, w.b.u[i], w.b.v[i])); };
+      runWorm(w, 1, 0, 60 * 1.5, each);
+      runWorm(w, du, dv, 60 * 3, each);
+      // Body points ride the head's trail, within TRAIL_LAG of the head's dig: in open cells, or
+      // within a few hundredths of one (cell centres are 0.1 apart).
+      expect(worst, `turn (${du}, ${dv})`).toBeLessThan(0.05);
+    }
   });
 });

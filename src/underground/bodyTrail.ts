@@ -177,7 +177,9 @@ export function followHead(t: BodyTrail, b: TrailBody): void {
   const k = t.n - 1;
   const du = b.u[0] - t.u[k];
   const dv = b.v[0] - t.v[k];
-  const d = hypot2(du, dv);
+  // Math.sqrt, not hypot2, in this and poseBehind: V8 did not inline hypot2 into them and boxed
+  // its result, 48 bytes a step (stepAllocation.test.ts). The lengths here are small and finite.
+  const d = Math.sqrt(du * du + dv * dv);
   if (d > TRAIL_LAG) {
     t.u[k] += (du * (d - TRAIL_LAG)) / d;
     t.v[k] += (dv * (d - TRAIL_LAG)) / d;
@@ -188,7 +190,9 @@ export function followHead(t: BodyTrail, b: TrailBody): void {
     pt.v = t.v[k];
     push(t);
   }
-  const moved = hypot2(b.u[0] - b.prevU[0], b.v[0] - b.prevV[0]);
+  const mu = b.u[0] - b.prevU[0];
+  const mv = b.v[0] - b.prevV[0];
+  const moved = Math.sqrt(mu * mu + mv * mv);
   let e = Math.min(1, moved * LEN_EASE);
   let grow = 0;
   for (let i = 1; i < N; i++) grow += (SPACING - t.len[i]) * e;
@@ -230,7 +234,9 @@ function placeBehind(t: BodyTrail, b: TrailBody): void {
 /** Points 1..15 placed back along the trail from the head, which is just past the live point. */
 export function poseBehind(t: BodyTrail, b: TrailBody): void {
   const k = t.n - 1;
-  const d = hypot2(b.u[0] - t.u[k], b.v[0] - t.v[k]);
+  const du = b.u[0] - t.u[k];
+  const dv = b.v[0] - t.v[k];
+  const d = Math.sqrt(du * du + dv * dv);
   pose.a = t.arc[k] + d;
   pose.d = d;
   placeBehind(t, b);

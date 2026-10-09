@@ -51,8 +51,11 @@ describe('the tunnel is the worm\'s own width (a round tube)', () => {
     's-curve': (t) => [1, Math.sin(1.4 * t)],
     wandering: (t) => [Math.cos(0.37 * t + 0.5), Math.sin(0.61 * t) - 0.15],
   };
-  /** How far (u) a body point may sit outside open tunnel, by way (measured 0, 0.20, 0.20, 0.16). */
-  const STRAY_MAX: Record<string, number> = { straight: 0, 'gentle curve': 0.25, 's-curve': 0.25, wandering: 0.25 };
+  /**
+   * How far (u) a body point may sit outside open tunnel, by way: 0 on every way, measured on the
+   * trail (2026-10-08; the chain cut the bends' insides by 0.20, 0.20, 0.16).
+   */
+  const STRAY_MAX: Record<string, number> = { straight: 0, 'gentle curve': 0.01, 's-curve': 0.01, wandering: 0.01 };
   for (const [name, way] of Object.entries(ways)) {
     it(`${name}: about 2 x TUNNEL_R across, every open cell within the head's own dig, the body by it`, () => {
       const all: number[] = [];
@@ -71,8 +74,7 @@ describe('the tunnel is the worm\'s own width (a round tube)', () => {
           stepBurrower(w.b, w.s, w.g, w.o, du, dv, DT);
           pu.push(w.b.u[0]);
           pv.push(w.b.v[0]);
-          // The head lies in its open tunnel, and the body (a chain after it, cutting the bends'
-          // insides a little) close by it.
+          // The head lies in its open tunnel, and the body (on the head's trail, bodyTrail.ts) in it.
           expect(w.g.open[cellAt(w.g, w.b.u[0], w.b.v[0])]).toBe(1);
           for (let i = 1; i < N; i++) stray = Math.max(stray, strayOf(w.g, w.b.u[i], w.b.v[i]));
         }
