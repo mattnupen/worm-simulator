@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { B_TOP, B_F, B_H, B_A, B_E, B_B, SLAB_HALF, boundaryOf, bound, slabX, slabZ, type Slab, type UV } from './slab';
-import { GRID_H, CELL, HOLLOW_H, HOLLOW_MAX, HOLLOW_STEP, HOLLOW_W, takeHollowDirty, type HollowRect, type SoilGrid } from './soilGrid';
+import { GRID_H, GRID_W, CELL, HOLLOW_H, HOLLOW_MAX, HOLLOW_SHIFT, HOLLOW_STEP, HOLLOW_W, takeHollowDirty, type HollowRect, type SoilGrid } from './soilGrid';
 import { CUT_FRAGMENT, CUT_VERTEX } from './cutFaceGlsl';
 
 /**
@@ -218,7 +218,11 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
     geo.setDrawRange(0, used * INDICES_PER_TILE);
   }
 
-  /** Any hollow sample in tile `tile`, its edges widened by CLAIM_MARGIN. */
+  /**
+   * Any hollow sample or open grid cell (castings included: the face's hole is cut there too) in
+   * tile `tile`, its edges widened by CLAIM_MARGIN. The open cells matter where the face's hole
+   * reaches past the last carved sample (a cell opened at the dig's rim, its samples just outside).
+   */
   function needs(g: SoilGrid, tile: number): boolean {
     const tc = (tile % TILES_W) * PER;
     const tr = Math.floor(tile / TILES_W) * PER;
@@ -229,6 +233,10 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
     for (let r = r0; r <= r1; r++) {
       const o = r * HOLLOW_W;
       for (let c = c0; c <= c1; c++) if (g.hollow[o + c]) return true;
+    }
+    for (let r = r0 >> HOLLOW_SHIFT; r <= r1 >> HOLLOW_SHIFT; r++) {
+      const o = r * GRID_W;
+      for (let c = c0 >> HOLLOW_SHIFT; c <= c1 >> HOLLOW_SHIFT; c++) if (g.open[o + c]) return true;
     }
     return false;
   }

@@ -88,17 +88,22 @@ describe('the cut face\'s tunnel channel (soft round bores)', () => {
     expect(at(5)).toBe(0);
   });
 
-  it('does not count castings as tunnel: a casting cell reads as wall', () => {
+  it('counts castings as tunnel: the hole is the whole tunnel, the casting drawn in it by the hollow', () => {
     const { face, g, tex } = setUp();
     digDisc(g, 1, -3, 0.35, eaten);
+    const before = new Uint8Array(tex.image.data as Uint8Array);
+    face.upload(g);
+    const dug = new Uint8Array(tex.image.data as Uint8Array);
     castBlob(g, 1, -3, 0.3, 200, 1, 0);
     face.upload(g);
     const bytes = tex.image.data as Uint8Array;
     let checked = 0;
     for (let i = 0; i < g.cast.length; i++) {
       if (!g.cast[i]) continue;
-      // Its own weight (4 of 16) is gone, whatever its neighbours.
-      expect(bytes[i * 4]).toBeLessThanOrEqual(192);
+      // The tunnel byte is what the dig alone gave (the cast takes nothing from the hole)...
+      expect(bytes[i * 4]).toBe(dug[i * 4]);
+      expect(bytes[i * 4]).toBeGreaterThan(before[i * 4]);
+      // ...and the casting is in G.
       expect(bytes[i * 4 + 1]).toBe(200);
       checked++;
     }

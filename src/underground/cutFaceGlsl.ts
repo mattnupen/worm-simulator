@@ -154,28 +154,29 @@ export const CUT_FRAGMENT = /* glsl */ `
     col *= 1.0 - 0.35 * smoothstep(0.4, 0.53, e) * (1.0 - open);
     float mixed = smoothstep(0.22, 0.42, e + (lit.a - 0.25) * 0.4) * (1.0 - open) * smoothstep(0.25, 0.6, s.b);
     col = mix(col, vec3(0.03, 0.02, 0.015) + hum * 0.8, mixed * 0.9);
-    // Castings settled in the tunnel: granular lumps of dark crumbs (H's), darker for a gut full
-    // of leaves. Painted before the light below, so the hollow's mounds are lit by their own shape
-    // (their tops catch more light than the tunnel's depth behind them); on the face the mix is
-    // the same either way, and its castings are cut out with the hole.
-    float castAmt = smoothstep(0.12, 0.3, s.g * (0.7 + 0.6 * lit.a));
-    vec3 castCol = mix(vec3(0.3, 0.2, 0.13), vec3(0.17, 0.11, 0.07), clamp(s.g * 1.6 - 0.3, 0.0, 1.0));
-    col = mix(col, castCol * (0.35 + 1.4 * smoothstep(0.05, 0.35, lit.a)), castAmt);
-    // The tunnel (spec 2026-10-08 section 4.4). The face cuts its hole here (and where a casting
-    // lies in it): the hollow tiles behind show the tunnel's back half (hollowMesh.ts), in the same
-    // soil, lit by its own shape. One compare a pixel on the face.
+    // The tunnel (spec 2026-10-08 section 4.4). The face cuts its hole here, castings in it
+    // included (cutFace.ts): the hollow tiles behind show the tunnel's back half (hollowMesh.ts),
+    // in the same soil, lit by its own shape. One compare a pixel on the face.
     #ifndef HOLLOW
-    if (max(open, castAmt) > 0.5) discard;
+    if (open > 0.5) discard;
     #else
-    // Light from the camera's side and above (slab frame: u, v, toward the camera), wrapped, so the
-    // floor catches light and the roof is in shadow; the face itself (normal (0, 0, 1)) gets 1.
-    vec3 lightDir = vec3(0.0, 0.8, 0.6);
-    float wrapLit = dot(normalize(vNormal3), lightDir) * 0.5 + 0.5;
-    col *= wrapLit / 0.8;
-    // Darker deeper in: toward 45% at the tunnel's full depth...
-    col *= mix(1.0, 0.45, clamp(vDepth / ${f(TUNNEL_R)}, 0.0, 1.0));
-    // ...but a deep soil brown, never black (V2 spec 5).
-    col = max(col, vec3(0.13, 0.085, 0.052) * 0.55);
+    // Castings settled on the tunnel's downhill wall, as mounds of pellets in the hollow
+    // (soilGrid.ts fillHollowCell): H's own dark crumbs (the humus colour above), a little darker
+    // for a gut full of leaves, so a casting never reads as the soil around it. Lit only by the
+    // mound's shape below (no painted highlight).
+    float castAmt = smoothstep(0.07, 0.2, s.g * (0.7 + 0.6 * lit.a));
+    col = mix(col, hum * (1.8 - 0.6 * clamp(s.g * 1.6 - 0.3, 0.0, 1.0)), castAmt);
+    // Light from the camera's side and above (slab frame: u, v, toward the camera), so the floor and
+    // a casting's top catch light and the roof is in shadow; the face itself (normal (0, 0, 1)) gets
+    // 1. These factors are in the face's perceptual space (raised to FACE_GAMMA below), so they are
+    // gentle: 0.6 deepest in is about a third of the light.
+    float lambert = dot(normalize(vNormal3), vec3(0.0, 0.8, 0.6));
+    // Darker deeper in, toward 0.6 at the tunnel's full depth.
+    float shade = (1.0 + 0.5 * (lambert - 0.6)) * mix(1.0, 0.6, clamp(vDepth / ${f(TUNNEL_R)}, 0.0, 1.0));
+    // A deep soil brown, never black (V2 spec 5), and never brighter than the face: the factor
+    // stays within 0.4..1 of the soil's own colour, which the face's depth dimming, fades and grade
+    // below then treat exactly as the face around it, so each layer still shows in its tunnels.
+    col *= clamp(shade, 0.4, 1.0);
     #endif
 
     // Warm light from the surface fades with depth; the bottom darkens away (burrows go deeper).

@@ -3,7 +3,7 @@ import type * as THREE from 'three';
 import { createCutFace } from '../../src/underground/cutFace';
 import { createHollowMesh, TILE_U, TILE_QUADS, TILES_W, TILES_H, VERTS_PER_TILE, INDICES_PER_TILE, BEHIND } from '../../src/underground/hollowMesh';
 import { createSlab, slabX, slabZ, SLAB_HALF, boundaryAt, B_TOP } from '../../src/underground/slab';
-import { createSoilGrid, fillSoilGrid, digDisc, HOLLOW_STEP, HOLLOW_W, type SoilGrid } from '../../src/underground/soilGrid';
+import { createSoilGrid, fillSoilGrid, digDisc, CELL, GRID_W, HOLLOW_STEP, HOLLOW_W, type SoilGrid } from '../../src/underground/soilGrid';
 
 const ate = { cells: 0, organic: 0 };
 function setUp() {
@@ -226,6 +226,19 @@ describe('the hollow tiles (spec 4.3: one draw, tiles claimed where tunnels are)
       deepest = Math.max(deepest, depth.getX(k));
     }
     expect(deepest).toBeGreaterThan(0.1);
+  });
+
+  it('an open cell claims its tile even with no hollow sample in it (the face cuts its hole there)', () => {
+    const { hollow, s, g } = setUp();
+    // A fresh slab marks the whole hollow dirty, so the next upload looks at every tile.
+    fillSoilGrid(g, s);
+    hollow.setSlab(s, g);
+    const vC = g.v0 + 8.75;
+    g.open[Math.floor((vC - g.v0) / CELL) * GRID_W + Math.floor((1.25 + SLAB_HALF) / CELL)] = 1;
+    expect(g.hollow.every((x) => x === 0)).toBe(true);
+    hollow.upload(g);
+    expect(hollow.used()).toBe(1);
+    expect(hollow.slotOf[tileOf(g, 1.25, vC)]).toBeGreaterThanOrEqual(0);
   });
 
   it('a neighbour tile is claimed through the 0.1 u margin, and only through it', () => {

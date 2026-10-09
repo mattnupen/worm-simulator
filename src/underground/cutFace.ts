@@ -16,8 +16,12 @@ const PAST_COLS = Math.ceil(FACE_FADE / COLUMN_STEP);
 const MAX_COLS = Math.round((2 * (SLAB_HALF + FACE_EXTRA)) / COLUMN_STEP) + 1 + 2 * PAST_COLS;
 const ROW_BYTES = GRID_W * 4;
 
-/** 1 where the cell is an open tunnel (not refilled by a casting). */
-const bore = (g: SoilGrid, i: number): number => (g.open[i] && !g.cast[i] ? 1 : 0);
+/**
+ * 1 where the cell is tunnel, castings in it included: the face's hole is the whole tunnel, and the
+ * hollow tiles behind draw a casting as a mound in it (cutFaceGlsl.ts). A casting leaves only a
+ * one-cell band open, which a blur of open-only cells would close over on the face (a plug).
+ */
+const bore = (g: SoilGrid, i: number): number => g.open[i];
 
 /**
  * Rows lo..hi's tunnel byte (R) as a 3 x 3 tent blur of the open cells: with the face's

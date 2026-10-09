@@ -159,12 +159,15 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
   return {
     group,
     preload(renderer, camera) {
-      // The pool (about 13 MB with its index) has its first bufferData the first frame it is drawn:
-      // on the Mac that frame cost 4 to 6 ms more, several times that on a Chromebook, mid camera
-      // swing. three has no call that only uploads a geometry, so draw the hollow alone once: its
-      // draw range is empty (nothing is drawn, no pixel changes, nothing is cleared) but three
-      // uploads every attribute and the index to draw it. Its program is warmShaders' (no lights
-      // either way), so this compiles nothing.
+      // An addition to spec 4.3 (which only builds the pool at load), for the first-dig hitch: the
+      // pool (about 11 MB: 7.9 MB of attributes and a 3.1 MB index) has its first bufferData the
+      // first frame it is drawn, and on the Mac that frame cost 4 to 6 ms more, several times that
+      // on a Chromebook, mid camera swing. three has no call that only uploads a geometry, so draw
+      // the hollow alone once: its draw range is empty (nothing is drawn, no pixel changes, nothing
+      // is cleared) but three uploads every attribute and the index to draw it. Drawn alone, it
+      // renders with three's _emptyScene (no fog, environment or lights), so its program matches
+      // warmShaders' and this compiles nothing only while world.scene has no fog, environment or
+      // three Lights either (the game lights by uniforms); add any of those and this compiles.
       const mesh = hollow.mesh;
       const culled = mesh.frustumCulled;
       const clear = renderer.autoClear;

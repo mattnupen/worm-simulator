@@ -37,6 +37,8 @@ export const HOLLOW_MAX = 0.16;
  * here because castings.ts (which burrowTrail imports) cannot import it back without a cycle.
  */
 export const HOLLOW_MOUND_R = 0.14;
+/** A casting's mound is pellets: each cell's samples sink up to this (u) more toward its edges. */
+export const HOLLOW_PELLET = 0.024;
 /** A rectangle of hollow samples (c0 > c1: none). */
 export interface HollowRect { c0: number; c1: number; r0: number; r1: number }
 
@@ -255,9 +257,15 @@ function carve(g: SoilGrid, p: UV, r: number): void {
 
 /**
  * Lowers the hollow samples of cell i to a casting's mound (spec 4.2): HOLLOW_MOUND_R x 0.30 deep
- * (u behind the face) at the casting's middle (`edge255` 0) up to x 0.55 at its edge (255), plus a
- * little grain. It only ever lowers. `edge255` is an integer so no double is passed (boxed).
+ * (u behind the face) at the casting's middle (`edge255` 0) up to x 0.55 at its edge (255). Each
+ * cell is a pellet, raised in its middle and up to HOLLOW_PELLET deeper at its edges, so the mound
+ * reads as a granular lump (lit tops, shadowed gaps), plus a little grain. It only ever lowers.
+ * `edge255` is an integer so no double is passed (boxed).
  */
+/** A cell's middle in samples, and its corner samples' squared distance from it. */
+const PELLET_MID = (HOLLOW_RES - 1) / 2;
+const PELLET_FAR = 2 * PELLET_MID * PELLET_MID;
+
 export function fillHollowCell(g: SoilGrid, i: number, edge255: number): void {
   const cr = Math.floor(i / GRID_W);
   const cc = i - cr * GRID_W;
@@ -274,7 +282,8 @@ export function fillHollowCell(g: SoilGrid, i: number, edge255: number): void {
       h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35);
       h ^= h >>> 16;
       const grain = ((h >>> 24) / 255 - 0.5) * 0.015;
-      const level = Math.max(0, Math.round((base + grain) * scale));
+      const pellet = (HOLLOW_PELLET * ((a - PELLET_MID) * (a - PELLET_MID) + (b - PELLET_MID) * (b - PELLET_MID))) / PELLET_FAR;
+      const level = Math.max(0, Math.round((base + pellet + grain) * scale));
       if (g.hollow[k] > level) {
         g.hollow[k] = level;
         markHollow(g, c, row);

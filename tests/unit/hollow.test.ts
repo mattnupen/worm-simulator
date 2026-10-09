@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { createSlab } from '../../src/underground/slab';
 import {
-  createSoilGrid, fillSoilGrid, digDisc, takeHollowDirty, hollowAt, AIR, GRID_W, HOLLOW_MAX, HOLLOW_STEP, HOLLOW_W, HOLLOW_H, HOLLOW_MOUND_R,
+  createSoilGrid, fillSoilGrid, digDisc, takeHollowDirty, hollowAt, AIR, GRID_W, HOLLOW_MAX, HOLLOW_STEP, HOLLOW_W, HOLLOW_H, HOLLOW_MOUND_R, HOLLOW_PELLET,
   cellAt, SOLID_STONE,
 } from '../../src/underground/soilGrid';
 import { castBlob } from '../../src/underground/castings';
@@ -107,9 +107,10 @@ describe('the hollow: how deep the tunnels go behind the face (spec 4.2)', () =>
       if (g.hollow[k] < before[k]) lowered++;
     }
     expect(lowered).toBeGreaterThan(0);
-    // Wherever the mound was set, it is 0.30..0.55 of the tunnel radius deep, plus grain (0.0075).
+    // Wherever the mound was set, it is 0.30..0.55 of the tunnel radius deep, plus its pellets
+    // (up to HOLLOW_PELLET deeper) and grain (0.0075).
     const lo = HOLLOW_MOUND_R * 0.3 - 0.0075 - HOLLOW_MAX / 255;
-    const hi = HOLLOW_MOUND_R * 0.55 + 0.0075 + HOLLOW_MAX / 255;
+    const hi = HOLLOW_MOUND_R * 0.55 + HOLLOW_PELLET + 0.0075 + HOLLOW_MAX / 255;
     for (let k = 0; k < g.hollow.length; k++) {
       if (g.hollow[k] === before[k]) continue;
       const depth = (g.hollow[k] * HOLLOW_MAX) / 255;
