@@ -547,8 +547,8 @@ Commits `2f38219..2696786` on `v2-underground`. Plan A ended at 79 unit files / 
 | Coming up | Action near the top | Only where the whole body can then lie on the floor along the cut, clear of footprints and inside the play area (`emergeMap.ts`); elsewhere near the top Action stays the view switch. Near-top has hysteresis (in at 0.2 u, out at 0.35 u) |
 | Castings | A blob that partly refills the tunnel | Settles on the downhill wall, about 46% fill, with a guaranteed open band: never seals a tunnel at any angle |
 | Tunnel width | About the body's width | Was up to twice that on curves (every body point dug); now only the head digs (median 0.29 u) |
-| Body underground | Same body chain as the surface | A follow-the-leader chain: links 0.95–1.0 × spacing, each joint turning at most 0.6 rad, the head within 0.6 rad of its neck; a free head turns no tighter than a 0.35 u radius (full rate when pressed). It never shrinks or folds; on tight bends it cuts the inside corner, so the body can sit up to about 0.35–0.45 u over undug soil (cosmetic) |
-| Tunnel look | Dark voids | The layer's own soil, browner, darker than the wall but never black; crisp edge, a thin pressed-wall line, castings as lit granular lumps |
+| Body underground | Same body chain as the surface | Since 2026-10-08 (section 14.7): the body rides its head's trail, a pursuit-smoothed path with corners rounded to about 0.1 u, each point a link's length of arc behind the one ahead. It never leaves its tunnel (measured stray 0); on tight turns it bends as sharply as the tunnel. Before that fix it was a follow-the-leader chain that cut the inside of bends by up to 0.35–0.45 u |
+| Tunnel look | Dark voids | Since 2026-10-08 (section 14.7): real 3D half-pipes carved into the face, in the layer's own soil, lit by their own shape and darker deeper in, never black; castings are lit crumb lumps on the downhill floor |
 | Close view | 4–5 worm lengths, more room ahead | About 1.7 worm lengths (4–5 would be as wide as Wide), and it keeps the whole worm in frame, so digging down it has about 2.2 u ahead and 3.8 u behind |
 | Wide view | Surface to about B, follows gently | As spec, plus: capped at the 16:9 width on wider screens, at least 7 u wide on phones, portrait litter top 19% down (clear of Pause) |
 | Layer names | At both far ends | The nearer end only, docked at the screen's edge when the end is off screen (Wide is capped at 16:9, so both ends rarely fit) |
@@ -601,9 +601,49 @@ Gates are relative to a Step 0 build run side by side (`node scripts/perf-gates.
 - `buildEmerge` can take about 20 ms on a Chromebook as Come up is pressed (one frame).
 - The camera pulls in fast past the big rock at (−9.5, −10) while turning hard (since V1).
 - Midden leaf bits read well only at play distance.
-- On loops the worm's coil lies partly over undug soil inside its older tunnel ring (the chain
-  cuts corners, up to about 0.35–0.45 u); it reads as a worm curling up.
+- ~~On loops the worm's coil lies partly over undug soil~~: fixed on 2026-10-08 (14.7).
 - Surface Ultra's gate margin is thin (0.613 against 0.610).
+
+### 14.7 Emergency fix (2026-10-08): 3D tunnels, and a body that stays in them
+Matt's playtest after the release: tunnels were flat paint, and after a sharp turn the body cut
+across the dirt. Both are fixed, and `/v2/` is re-cut (`--emergency-fix`). Spec:
+`2026-10-08-v2-3d-tunnels-design.md`; plan: `plans/2026-10-08-v2-3d-tunnels.md`.
+- **Body** (`bodyTrail.ts`):
+  - It rides the head's trail, drawn through a pursuit point at most 0.1 u behind the head, so
+    every trail point is in the head's own dig.
+  - Points sit a link's length of arc apart. Exact straight-line chords were tried first: they
+    popped up to 0.4 u per step where the trail folded.
+  - Backing pins the head and slides the body back along the trail, stopping at its start.
+  - The chain (`drawLink`, `MAX_BEND`) is gone.
+  - Measured:
+    - stray 0 in every scenario;
+    - body length at least 0.976 of nominal;
+    - isolated elbows up to 5.2% of frames in deliberately tight turns (the body bends as its tunnel does);
+    - body points may graze a stone's margin by up to 0.02 u, and the head by up to 0.017 u while backing;
+    - underground allocation 32 B a step, backing 0.
+- **Tunnel:**
+  - The soil grid has a fine depth map, `hollow` (0.025 u samples). Digs carve a round
+    profile into it, and castings fill it as granular mounds.
+  - `hollowMesh.ts` draws it as one draw call: a pool of 896 tiles of 0.5 u (12 × 12 quads),
+    claimed as tunnels reach them, pushed back by the depth, clamped at the soil's top, and
+    uploaded per tile.
+  - The face shader cuts its hole there (`discard`). The same shader with `HOLLOW` defined lights
+    the wall, so the layers carry over the rim.
+  - About 11 MB of buffers are uploaded at load (`CutScene.preload`), so the first dig doesn't hitch.
+- **Gates** (2026-10-08, 4 cycles, all PASS), as median ratio against the gate:
+
+  | Preset | Surface | Underground |
+  |---|---|---|
+  | Low | 1.478 / 1.089 | 1.402 / 1.089 |
+  | Medium | 1.163 / 0.871 | 0.983 / 0.871 |
+  | High | 0.805 / 0.741 | 0.770 / 0.741 |
+  | Ultra | 0.620 / 0.610 | 0.659 / 0.610 |
+
+  Draws are at most 21 underground and 25 on the surface. No Low fallback was needed.
+- **Known limits:**
+  - Tunnels in F and H are subtle (dark layers).
+  - In Wide, castings are small specks.
+  - Pellet relief is near the tile spacing, so castings read as lit lumps rather than separate pellets.
 
 ### 14.5 Deferred (to V3 or Plan C)
 - Spec 8.1 Should items not built: twigs and sticks; conifer needles; still-green and bleached
