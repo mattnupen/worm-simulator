@@ -32,7 +32,10 @@ const MARGIN = Math.round(CLAIM_MARGIN / HOLLOW_STEP);
 
 export interface HollowMesh {
   readonly mesh: THREE.Mesh;
-  /** A new slab: every slot freed (the hollow is all zero; the next upload claims nothing). */
+  /**
+   * A new slab: every slot freed. Call it after fillSoilGrid (which zeroes the hollow and marks it
+   * all dirty, and sets g.v0): the next upload then scans every tile and claims none.
+   */
   setSlab(s: Slab, g: SoilGrid): void;
   /** Claims and rewrites the tiles the hollow changed in since the last call. */
   upload(g: SoilGrid): void;
@@ -69,7 +72,9 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
   const nv = SLOTS * VERTS_PER_TILE;
   const geo = new THREE.BufferGeometry();
   const pos = new THREE.BufferAttribute(new Float32Array(nv * 3), 3);
-  const nrm = new THREE.BufferAttribute(new Float32Array(nv * 3), 3);
+  // Normals as normalized bytes, four to a vertex (the fourth is padding, 0): 4 B a vertex, not 12,
+  // and an aligned vertex format that no GL backend has to convert (a 3-byte one may be).
+  const nrm = new THREE.BufferAttribute(new Int8Array(nv * 4), 4, true);
   const depth = new THREE.BufferAttribute(new Float32Array(nv), 1);
   const plane = new THREE.BufferAttribute(new Float32Array(nv * 2), 2);
   const ba = new THREE.BufferAttribute(new Float32Array(nv * 4), 4);
@@ -135,19 +140,21 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
   const dirty: HollowRect = { c0: 0, c1: -1, r0: 0, r1: -1 };
   const at: UV = { u: 0, v: 0 };
 
-  /** Writes slot `slot`'s depths, positions and normals from the hollow (tile `tile`). */
-  function writeDepths(g: SoilGrid, s: Slab, slot: number, tile: number): void {
-    const tu = (tile % TILES_W) * TILE_U - SLAB_HALF;
-    const tv = Math.floor(tile / TILES_W) * TILE_U + g.v0;
+  /**
+   * Writes slot `slot`'s depths, positions and normals from the hollow, at the plane points claim()
+   * wrote (rows above the soil's top lie on it).
+   */
+  function writeDepths(g: SoilGrid, s: Slab, slot: number): void {
     const P = pos.array as Float32Array;
-    const Nn = nrm.array as Float32Array;
+    const Nn = nrm.array as Int8Array;
     const D = depth.array as Float32Array;
+    const Q = plane.array as Float32Array;
     const h = HOLLOW_STEP;
     for (let y = 0; y < TV; y++) {
       for (let x = 0; x < TV; x++) {
         const k = slot * VERTS_PER_TILE + y * TV + x;
-        const u = tu + x * QUAD;
-        const v = tv + y * QUAD;
+        const u = Q[k * 2];
+        const v = Q[k * 2 + 1];
         probe.u = u; probe.v = v;
         depthAt(g);
         const d = found.d;
@@ -164,10 +171,10 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
         probe.v = v - h; depthAt(g); const dv0 = found.d;
         const gu = (du1 - du0) / (2 * h);
         const gv = (dv1 - dv0) / (2 * h);
-        const l = Math.sqrt(gu * gu + gv * gv + 1);
-        Nn[k * 3] = gu / l;
-        Nn[k * 3 + 1] = gv / l;
-        Nn[k * 3 + 2] = 1 / l;
+        const l = 127 / Math.sqrt(gu * gu + gv * gv + 1);
+        Nn[k * 4] = Math.round(gu * l);
+        Nn[k * 4 + 1] = Math.round(gv * l);
+        Nn[k * 4 + 2] = Math.round(l);
       }
     }
     queue(0, slot);
@@ -175,7 +182,11 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
     queue(2, slot);
   }
 
-  /** Claims tile `tile` into the next slot: its plane points and layer boundaries, then its depths. */
+  /**
+   * Claims tile `tile` into the next slot: its plane points and layer boundaries, then its depths.
+   * No vertex goes above its column's litter top (there is no face there to hide the tile): rows
+   * above it lie on the top line, their triangles flat and empty.
+   */
   function claim(g: SoilGrid, s: Slab, tile: number): void {
     const slot = used++;
     slotOf[tile] = slot;
@@ -195,7 +206,7 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
       for (let y = 0; y < TV; y++) {
         const k = slot * VERTS_PER_TILE + y * TV + x;
         Q[k * 2] = at.u;
-        Q[k * 2 + 1] = tv + y * QUAD;
+        Q[k * 2 + 1] = Math.min(tv + y * QUAD, top);
         A[k * 4] = top; A[k * 4 + 1] = f; A[k * 4 + 2] = hh; A[k * 4 + 3] = a;
         B[k * 2] = e; B[k * 2 + 1] = b;
       }
@@ -203,7 +214,7 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
     queue(3, slot);
     queue(4, slot);
     queue(5, slot);
-    writeDepths(g, s, slot, tile);
+    writeDepths(g, s, slot);
     geo.setDrawRange(0, used * INDICES_PER_TILE);
   }
 
@@ -231,7 +242,8 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
       slotOf.fill(-1);
       used = 0;
       geo.setDrawRange(0, 0);
-      // The same bounds as the face (cutFace.ts): the whole playable slab, generously.
+      // The whole soil grid (every tile the pool may claim), with 1 u to spare: one sphere for the
+      // slab, so claiming tiles never touches it.
       geo.boundingSphere!.center.set(slabX(s, 0), g.v0 + (GRID_H * CELL) / 2, slabZ(s, 0));
       geo.boundingSphere!.radius = Math.hypot(SLAB_HALF, (GRID_H * CELL) / 2) + 1;
     },
@@ -250,7 +262,7 @@ export function createHollowMesh(uniforms: Record<string, THREE.IUniform>): Holl
         for (let tx = t0; tx <= t1; tx++) {
           const tile = ty * TILES_W + tx;
           const slot = slotOf[tile];
-          if (slot >= 0) writeDepths(g, s, slot, tile);
+          if (slot >= 0) writeDepths(g, s, slot);
           else if (needs(g, tile)) claim(g, s, tile);
         }
       }
