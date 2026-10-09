@@ -36,23 +36,30 @@ spec (`2026-10-04-v2-underground-design.md`, sections 6 and 10, and as-built sec
     along a stone, a turn on the spot) to a radius of about 0.1 u.
   - Every trail point is within 0.1 u of where the head then was. The head dug a disc of
     `TUNNEL_R` (0.14 u) there, so **every trail point lies in the open tunnel**.
-- **Chain on a rail:** each body point sits on the trail, behind the one ahead of it. The
-  straight-line distance to that point is exactly its link length, `SPACING` (0.22 u). The
-  search walks back along the trail from the point ahead to the first crossing. The links are
-  exact, so the body can never shrink.
-  - Why it isn't arc length: 5ede96b put points at arc length and smoothed them, and the body
-    shrank to 58% where the trail folded (3d1f515 reverted it). Here no point is averaged.
-- **The body is only ever in the tunnel.** All points are on the trail, and a 0.22 u chord across
-  a corner rounded to 0.1 u stays inside a 0.14 u tunnel. This holds on hairpins, loops and when
-  it crosses an older tunnel.
+- **Arc length along the trail:** each body point sits on the trail at arc length `i × SPACING`
+  (0.22 u) behind the head, counting the short virtual segment from the live point to the head.
+  Every point moves continuously along the trail, so nothing pops.
+  - Why not exact chords: the first version used them (each point exactly `SPACING` in a
+    straight line from the one ahead). Where the trail folded back on itself with its legs
+    closer than a link, the first crossing jumped from leg to leg, and points popped up to
+    0.4 u in a step (measured 2026-10-08).
+  - Why the old shrink doesn't come back: 5ede96b also put points at arc length, but it
+    averaged them, and its trail gained slack where the head turned in place. The body shrank
+    to 58% (3d1f515 reverted it). Here nothing is averaged, and the pursuit point adds no trail
+    while the head turns in place.
+  - The body's length along the trail is always exact. On a tight bend, the straight-line
+    distance between points is shorter, as a worm's body is when it follows its tunnel round a
+    bend.
+- **The body is only ever in the tunnel.** All points are on the trail. This holds on hairpins,
+  loops and when it crosses an older tunnel.
 - When the trail is seeded from a pose whose links are not exactly `SPACING`, each link keeps its
   seeded length and eases to `SPACING` as the worm moves. That way, nothing pops on arrival.
 - The bend limits of the chain (`MAX_BEND` 0.6) go away. The body bends as sharply as its
   tunnel. Where the head's path turned sharply, the body shows that bend, now rounded. The new
   tests bound how sharp it gets from measured values, and "in the tunnel" comes first.
-- **Backing up** pins the head's exact place as the trail's end, then moves the tail's place on
-  the trail backward by `BACK_SPEED × dt`. Every other point, the head included, is placed
-  forward from the one behind it, as a chain on the rail. It stops when the tail reaches the trail's start
+- **Backing up** pins the head's exact place as the trail's end, then moves the head's arc back
+  by `BACK_SPEED × dt`. The head now lies on the trail, and every point keeps its arc spacing.
+  It stops when the tail reaches the trail's start
   (the tunnel's end: "a worm's tail does not dig"). The existing stuck test (`moved <
   STUCK_SHARE × …`) ends backing there, as now.
 - **Going forward after backing** cuts the trail at the head's place and appends the new path.
@@ -74,12 +81,12 @@ spec (`2026-10-04-v2-underground-design.md`, sections 6 and 10, and as-built sec
     dropped (copyWithin). The body needs only the last 3.3 u; older points serve backing.
   - API: `seedTrail(t, u, v)` (from a body pose, head first), `followHead(t, u, v)` (after the
     head moves forward: cut at the head's place if it had backed, move the pursuit point,
-    commit), `poseBehind(t, u, v)` (points 1 to 15 from the head, back along the trail),
-    `backAlong(t, u, v, step)` (pin the head, move the tail back, place the rest forward).
+    commit), `poseBehind(t, u, v)` (points 1 to 15 by arc length behind the head),
+    `backAlong(t, u, v, step)` (pin the head, move its arc back, place every point by arc).
     The trail lives on the `Burrower` (`b.trail`), and `placeBurrower` seeds it.
-- `burrowTrail.ts` `trailBody` calls `poseBody`. The chain (`linkOut`, `drawLink`, `lastBend`,
+- `burrowTrail.ts` `trailBody` calls `followHead` and `poseBehind`. The chain (`linkOut`, `drawLink`, `lastBend`,
   `MAX_BEND`, `SLACK`, `BEND_EASE`) is deleted. In `burrowBack.ts`, `backUp`'s tail search
-  (`TAIL_TURNS`, `nearOpen`, `FEEL_BACK`) is replaced by `retreat` plus `poseBody`. `keepOut`
+  (`TAIL_TURNS`, `nearOpen`, `FEEL_BACK`) is replaced by `backAlong`. `keepOut`
   stays, for the head.
 - `castTail`'s side offsets (`CAST_SIDE`), which were for a tail lying beside its tunnel, can
   shrink to straight behind. The plan decides; behaviour must not regress (never seal a tunnel).
