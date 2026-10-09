@@ -366,8 +366,8 @@ Screenshots are in `docs/codev/versions/v02-underground/`.
   so it is the third. The robin still needs a Minnesota diet and range source. The mole is marked
   "on ballot (V2)" in `topics.md`; mark the other two "on ballot" when the form goes out.
 - **Version name:** "Underground" is one word, which `CLAUDE.md` allows when Matt picks it.
-- **Emergency fix (2026-10-08).** Before V2 went out, `/v2/` was re-cut with two fixes from
-  Matt's playtest. Spec: `docs/superpowers/specs/2026-10-08-v2-3d-tunnels-design.md`.
+- **Emergency fix (2026-10-08).** Two fixes from Matt's playtest, made before V2 went out. Once
+  Matt approves the root build, `/v2/` is re-cut with `npm run release -- 2 --emergency-fix`. Spec: `docs/superpowers/specs/2026-10-08-v2-3d-tunnels-design.md`.
   - Tunnels are real 3D half-pipes carved into the cut face, not paint on it.
   - The worm's body rides its head's trail, so it never cuts across undug soil on a sharp turn.
   - Screenshots: `v02-underground/tunnels-3d-wide.jpg`, `tunnels-3d-close.jpg`,

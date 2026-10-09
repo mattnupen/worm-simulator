@@ -62,9 +62,8 @@ How to write an entry (for Matt and Claude):
 - **Real tunnels.** When your worm digs, its tunnel is a real hole now. You can see into it, with
   light on the floor and shadow on the roof, and your worm lies down inside it. Castings sit in
   the tunnel as little lumps.
-- **Your worm's body stays in its tunnel.** After a sharp turn, the back of your worm used to cut
-  across the dirt. Now it follows the tunnel all the way round, and when it backs up, it goes back
-  the way it came.
+- **Your worm's body stays in its tunnel.** Even after a sharp turn, your worm's whole body
+  follows its tunnel all the way round. When it backs up, it goes back the way it came.
 - *(These two fixes were made on 2026-10-08, before V2 went out.)*
 
 ## V1 · True Size (2026-10-06)

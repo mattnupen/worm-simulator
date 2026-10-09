@@ -606,7 +606,8 @@ Gates are relative to a Step 0 build run side by side (`node scripts/perf-gates.
 
 ### 14.7 Emergency fix (2026-10-08): 3D tunnels, and a body that stays in them
 Matt's playtest after the release: tunnels were flat paint, and after a sharp turn the body cut
-across the dirt. Both are fixed, and `/v2/` is re-cut (`--emergency-fix`). Spec:
+across the dirt. Both are fixed. Once Matt approves the root build, `/v2/` is re-cut with
+`npm run release -- 2 --emergency-fix`. Spec:
 `2026-10-08-v2-3d-tunnels-design.md`; plan: `plans/2026-10-08-v2-3d-tunnels.md`.
 - **Body** (`bodyTrail.ts`):
   - It rides the head's trail, drawn through a pursuit point at most 0.1 u behind the head, so
@@ -619,7 +620,7 @@ across the dirt. Both are fixed, and `/v2/` is re-cut (`--emergency-fix`). Spec:
     - stray 0 in every scenario;
     - body length at least 0.976 of nominal;
     - isolated elbows up to 5.2% of frames in deliberately tight turns (the body bends as its tunnel does);
-    - body points may graze a stone's margin by up to 0.02 u, and the head by up to 0.017 u while backing;
+    - body points may graze a stone's margin by up to 0.02 u, and the head by up to 0.017 u while backing (the tests allow 0.025);
     - underground allocation 32 B a step, backing 0.
 - **Tunnel:**
   - The soil grid has a fine depth map, `hollow` (0.025 u samples). Digs carve a round
