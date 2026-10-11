@@ -13,6 +13,18 @@ How to write an entry (for Matt and Claude):
   "## VN · Name (YYYY-MM-DD)" and start a new "Coming next" above it.
 -->
 
+## Coming next: V3 · Predators
+
+### New
+- The Start screen shows which version you are playing: V3 · Predators.
+- **Learn about predators in the game.** When you start, a short lesson shows you the animals
+  that eat worms, and how a worm with no eyes can sense danger.
+- At the end of the lesson, the game reminds you to fill in this week's form in Canvas.
+
+### Because you voted
+- You picked **predators** as the next topic, so V3 is all about them. This week you get to design
+  how a predator should work in the game. The best design gets built into V4.
+
 ## V2 · Underground (2026-10-08)
 
 ### New

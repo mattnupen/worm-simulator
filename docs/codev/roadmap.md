@@ -1,5 +1,11 @@
 # 8-week roadmap (V1–V8)
 
+**Update (2026-10-11):** students chose **predators**, and Matt made it V3 (live Monday
+2026-10-12). From V3 on, rounds run the Strategy A way (`IMPLEMENTATION.md`): learn the topic in
+the game, design for it on the form, and the design is built in the next version. First Bite
+(eating and Moisture) goes back to the topic pool. The table below is the original plan; redo the
+weeks after V3 on Friday.
+
 Written 2026-10-04. It will change as students vote and as we learn, so update it each Friday.
 
 **Goal for the 8 weeks:** students try both of the game's big modes early. These are the 3D forest
@@ -16,7 +22,7 @@ unit ends with the big idea: *worms change the forest*.
 |---|---|---|---|---|
 | 1 (Oct 5) | **V1 · True Size** | How big is a worm's world? No native earthworms in Minnesota | World scale: Classic / Hybrid / True | Which World scale? |
 | 2 (Oct 12) | **V2 · Underground** | Before worms: the forest floor's layers (litter, fermentation, humus) and who lives in them; worms are newcomers | Dig down from a realistic, layered forest floor into a painted 3D cutaway. Free dig: tunnels and castings, no goal yet | **Which native forest-floor life should the game add?** Shapes V3 · quick camera question · topic vote → V4 |
-| 3 (Oct 19) | **V3 · First Bite** | What worms eat; breathing through moist skin | Surface Level 1: eat leaves (species differ), grow, Moisture meter, sun gap and damp spots. Moisture also works underground | A Moisture design question · topic vote → V5 |
+| 3 (Oct 12) | **V3 · Predators** (students' pick) | The animals that eat worms, and how a worm senses danger | The in-game predators lesson. Students design a predator on the form | Predator designs (built in V4) · topic ranking → V4's design topic |
 | 4 (Oct 26) | **V4** (students' pick) | From V2's vote | | topic vote → V6 |
 | 5 (Nov 2) | **V5** (students' pick) | From V3's vote | | topic vote → V7 |
 | 6 (Nov 9) | **V6** (students' pick) | From V4's vote | | Finale design votes |
