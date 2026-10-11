@@ -1,10 +1,10 @@
 # Running Worm Simulator's co-development
 
-How Worm Simulator puts the co-development framework into practice: the weekly schedule, what
-students see, the form, and the Friday summary.
+Worm Simulator's weekly schedule, what students see, version names and the changelog.
 
-**The principles live in [`FRAMEWORK.md`](FRAMEWORK.md), and they win.** This file only holds the
-Worm Simulator specifics (order, timing, tools). When something here conflicts with the framework,
+**The principles live in [`FRAMEWORK.md`](FRAMEWORK.md), and they win.** How this project applies
+them (Strategy A, the form, the pipeline, roles, living artifacts) is in
+[`IMPLEMENTATION.md`](IMPLEMENTATION.md). This file only holds the schedule and materials. When something here conflicts with the framework,
 the framework wins: fix this file, or amend the framework on purpose and record why in the
 decision log.
 
@@ -20,21 +20,18 @@ VN live (Mon)  ──►  play + form (Mon–Thu)  ──►  summarise + decide
         └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-What each version's form feeds into (Matt decides; framework P4):
+Each form critiques the current build, ranks the last form's designs, and collects designs for
+the next topic. The full pipeline is in `IMPLEMENTATION.md`, section 4.
 
-| Input on VN's form | Decided Friday, built in |
-|---|---|
-| Design question: how should the game show this version's topic? | VN+1 |
-| Next topic: 3 vetted options | VN+2 |
-| Ideas: themes from VN−1's write-ins | VN+1 or VN+2, depending on size |
-
-Matt picks the topics for V1, V2 and V3 (V1's form has no topic vote, and V2's topic vote picks V4), plus the V8 finale. The current plan is in `roadmap.md`.
+Matt picked the topics for V1, V2 and V3, and picks the V8 finale. V2's form chose the first
+student topic, which students design on V3's form (`IMPLEMENTATION.md`, section 4). The current
+plan is in `roadmap.md`.
 
 ## What students see each version (Canvas)
 
 1. **Slides** (Google Slides), titled "Worm Simulator VN · <Name>":
    1. **You said, we did:** built from this version's `CHANGELOG.md` entry. It shows what
-      students said, what was built, and what wasn't built and why (framework P2).
+      students said, what was built, and what wasn't built and why (framework P4).
    2. **The worm topic** (2–3 slides): one big idea at a 6th-grade reading level, with a
       photo or diagram. Every image has alt text, and the sources go in a footer.
    3. **While you play, notice…:** one focus prompt tied to the topic.
@@ -44,58 +41,14 @@ Matt picks the topics for V1, V2 and V3 (V1's form has no topic vote, and V2's t
 2. **The build link:** `https://wormsimulator.com/vN/`
 3. **The Google Form.**
 
-## The form (about 10 minutes, at most 10 questions)
+## The form and the Friday summary
 
-Title it "Worm Simulator VN · <Name>: Feedback". Keep the same structure every week so students
-learn it. Make a copy of last week's form and edit it.
-
-| # | Question | Type | Purpose |
-|---|---|---|---|
-| 1 | Were you able to play VN? | MC: Yes / It wouldn't load / I didn't have time | Catch access problems |
-| 2 | About how long did you play? | MC: under 5 min / 5–15 / 15–30 / 30+ | Context for answers |
-| 3 | Fact check on the topic | MC, one correct answer | Formative check for Matt |
-| 4 | How well did the game show [topic]? | Linear scale 1–4 | Is the game true to worms? |
-| 5 | **Design vote:** [version's question] | MC: 2–4 vetted options + Other | Main steering vote |
-| 6 | Why did you choose that? | Short answer. Starter: "In the game I noticed ___, and real worms ___." | Claim, evidence, reasoning |
-| 7 | **Next topic:** what should worms learn to do next? | MC: 3 vetted topics + Other | Topic steering |
-| 8 | **Ideas from last week:** which should we build? | Checkboxes, pick up to 2 | Converge write-ins |
-| 9 | Was anything confusing or broken? | Checkboxes for common issues + Other | Bugs and friction |
-| 10 | How fun was this version? (+ optional "Your idea" box) | Linear scale 1–5, plus paragraph | Fun check, and new ideas to diverge |
-
-Writing options (framework P3 and P4):
-- Only offer options we're ready to build. Each one is a testable bet: "If we do X, we expect Y
-  to change."
-- Write options as what the player would *experience*, not code ("The worm gets slower and
-  wrinkly as it dries out").
-- When possible, put every design-vote option into the build as a setting, so students vote on
-  something they actually tried.
-- Write-ins and "Other" answers are grouped into themes and checked against the framework's
-  decision tests (section 4) and the non-negotiables in `CLAUDE.md` before any of them reaches a
-  form. Ideas that are fun but false become a "myth or fact?" slide.
-
-## Friday summary (Claude's job)
-
-1. Matt exports the Form responses as a CSV into `codev-raw/` (git-ignored) and removes names,
-   emails and any other identifying columns first. Claude only works from de-identified data
-   (framework P14).
-2. Claude reads it and fills in the version doc's Results section. It includes:
-   - turnout;
-   - tallies and percentages for every multiple-choice question;
-   - fact-check accuracy, and the most common wrong answer, which is a hint for the next
-     slides;
-   - write-in themes with counts;
-   - bugs, grouped;
-   - fun, as percentages per answer, read as a trend across versions (framework P12);
-   - participation per class period (framework P11).
-3. Claude proposes options and a recommendation, run through the framework's decision tests.
-   Matt decides and writes down why, especially when it isn't the top vote (framework P4).
-4. Claude adds the decided changes under "Coming next" in `CHANGELOG.md` as they're built, and
-   drafts the next version's doc, including its name and the "You said, we did" slide.
+See `IMPLEMENTATION.md`: section 3 covers the form's four sections, and section 5 the Friday
+routine. Make each version's form by copying last week's form, so the sections stay the same.
 
 Privacy: committed docs hold only counts, percentages and paraphrased themes. Never include
-names, emails or identifying quotes. If the form records emails for Canvas completion credit,
-that column is removed before Claude sees the file, and the raw export never leaves Matt's
-computer.
+names, emails or identifying quotes. Raw exports stay in `codev-raw/` on Matt's computer, and
+Claude only sees de-identified copies.
 
 ## Version names and the changelog
 
@@ -138,7 +91,8 @@ See `roadmap.md` for the 8-week plan (V1–V8). In short:
 
 ## Files
 
-- `FRAMEWORK.md`: the co-development principles every plan is checked against.
+- `FRAMEWORK.md`: the co-development principles every plan is checked against. Never edited to fit this project.
+- `IMPLEMENTATION.md`: how Worm Simulator applies the framework.
 - `versions/vNN-<name-slug>.md`: one doc per version, made from `version-template.md`. Example:
   `v02-first-bite.md`, zero-padded so the files sort.
 - `../../CHANGELOG.md`: what changed in each version, written for students.

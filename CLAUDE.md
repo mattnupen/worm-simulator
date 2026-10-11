@@ -8,17 +8,19 @@ students learn one worm topic from slides, play that version, and answer a Googl
 steers what gets built next, and Matt decides.
 
 **`docs/codev/FRAMEWORK.md` guides all co-development work.** Every plan, ballot, feature or
-process change must trace to its principles and pass its decision tests (section 4). If a plan
+process change must trace to its principles and pass its decision tests (section 5). If a plan
 conflicts with a principle, stop and raise it with Matt: either change the plan, or amend the
-framework on purpose and record why in the decision log. Worm Simulator's own schedule, form and
-materials are in `docs/codev/README.md`.
+framework on purpose and record why in the decision log. **Never edit `FRAMEWORK.md` to fit this
+project.** How Worm Simulator applies it (Strategy A, async form-led co-design) is in
+`docs/codev/IMPLEMENTATION.md`, and the weekly schedule and materials are in `docs/codev/README.md`.
 
 ## Read first
 
 | What | Where |
 |---|---|
 | **Co-development framework (principles and decision tests; guides all work)** | `docs/codev/FRAMEWORK.md` |
-| How Worm Simulator runs it (weekly schedule, form, slides, Friday summary, version names) | `docs/codev/README.md` |
+| How Worm Simulator implements it (strategy, form, pipeline, roles, living artifacts) | `docs/codev/IMPLEMENTATION.md` |
+| Weekly schedule, slides, version names, changelog | `docs/codev/README.md` |
 | Current and past versions | `docs/codev/versions/` |
 | What changed in each version (student-friendly) | `CHANGELOG.md` |
 | Topic pool students vote from | `docs/codev/topics.md` |
@@ -62,8 +64,9 @@ Step 0 build side by side rather than absolute fps.
 
 ## Co-development
 
-The principles are in `docs/codev/FRAMEWORK.md`, and the Worm Simulator specifics (weekly
-schedule, form, slides, version names, changelog) are in `docs/codev/README.md`. This section only
+The principles are in `docs/codev/FRAMEWORK.md`, how we apply them is in
+`docs/codev/IMPLEMENTATION.md`, and the weekly schedule, slides, version names and changelog are
+in `docs/codev/README.md`. This section only
 holds what that means for the code and the repo.
 
 ### How co-development shapes the code
@@ -84,7 +87,7 @@ holds what that means for the code and the repo.
     them (e.g. store the default in effect with each pick and ignore picks made under an old
     default).
   - Delete the losing modes once a decision is settled, unless Matt decides to keep the choice.
-- **Versions are small:** one headline change plus fixes (framework P6). If an idea won't fit
+- **Versions are small:** one headline change plus fixes (framework P8). If an idea won't fit
   one version, ship the smallest meaningful slice. Specs and plans still go in
   `docs/superpowers/` and name the version they serve.
 - **Each build shows its version** as a small label on the Start screen, such as "V2 · First Bite".
@@ -102,8 +105,9 @@ holds what that means for the code and the repo.
   2. the Start-screen label (`src/version.ts`) shows the new number and name;
   3. merge to `main`, push, and Matt checks the root build;
   4. once Matt approves: the "Coming next" changelog entry becomes "VN · Name (date)", then
-     `npm run release -- N`, commit and push `releases/vN/index.html` with the changelog, and
-     check that `wormsimulator.com/vN/` serves it;
+     `npm run release -- N`, commit and push `releases/vN/index.html` with the changelog, tag the
+     release (`git tag vN && git push origin vN`, framework P13), and check that
+     `wormsimulator.com/vN/` serves it;
   5. a student Chromebook check is done if rendering changed.
 
 ### Each version's materials (Claude drafts, Matt publishes)

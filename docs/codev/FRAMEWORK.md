@@ -1,279 +1,342 @@
 # Co-Development Framework: Building Software With Students
 
-A guiding framework for co-developing an AI-built game or app with a large group of students. It holds the principles, the evidence behind them, and tests for checking any plan. It deliberately leaves out schedules, feature lists and project content, so it stays valid as the project changes.
+A guiding framework for co-developing AI-built games or apps with a class or a large group of students. It holds principles, evidence, strategy options and decision tests. It deliberately leaves out schedules, feature lists and subject content, so it stays valid across projects and as a project changes.
 
 ## How to use this document
 
-- **Plans come from this framework.** Any development plan, round plan, ballot or process change should be traceable to the principles here.
-- **Check plans against it.** Before committing to a plan, run it through the decision tests (section 4).
-- **When a plan conflicts with a principle, stop.** Either change the plan, or deliberately amend this framework and record why in the decision log. Don't quietly drift.
-- **What does not belong here:** dates, round numbers, feature roadmaps, content facts, tool settings or anything else that will change. Those live in the project's plan and log files.
+- **Choose a strategy** (section 3) that fits the project's time budget and goals, and record the choice.
+- **Plans come from this framework.** Development plans, forms, ballots and process changes should trace back to the principles here.
+- **Check plans against it** using the decision tests (section 5).
+- **When a plan conflicts with a principle, stop.** Either change the plan, or deliberately amend the framework and record why in the decision log.
+- **What doesn't belong here:** dates, round numbers, roadmaps, subject facts, tool settings. Those live in each project's own files.
 
-Evidence labels: **[Evidence]** means a published study or documented practice supports it. **[Inference]** means it's reasoned from adjacent evidence. Sources are listed at the end.
+Evidence labels: **[Evidence]** means a published study or documented practice supports it. **[Inference]** means it's reasoned from adjacent evidence. Sources are at the end.
 
 ---
 
-## 1. Project stance
+## 1. Stance
 
-**Learning-first.** The project exists so students learn: the subject content, plus how software is designed. Game quality matters because it motivates that learning, not as a goal of its own. School co-design projects have to choose between learning-oriented and outcome-oriented, and that choice shapes everything else (Iivari & Kinnula 2016). **[Evidence]** When the two conflict, learning wins.
+**Students guide development through what they learn.** Students study the subject, design how it should appear in the software, see their designs built, and critique the result. The teacher acts as editor and the AI acts as builder.
 
-**Honest level of participation.** Hart's ladder of participation (Hart 1992) has eight rungs, from least to most youth agency:
+**Learning-first.** Software quality matters because it motivates learning, not as a goal of its own. School co-design projects have to choose between learning-oriented and outcome-oriented, and that choice shapes the rest (Iivari & Kinnula 2016). **[Evidence]**
+
+**Level of participation.** Hart's ladder (Hart 1992) has eight rungs, from least to most youth agency:
 
 | Rung | Name | What it looks like |
 |---|---|---|
 | 1 | Manipulation | Adults use young people to support their own cause and present it as the young people's idea |
 | 2 | Decoration | Young people are present to make the project look good, with no role in it |
 | 3 | Tokenism | Young people appear to have a voice but have little or no real say |
-| 4 | Assigned but informed | Adults assign roles; young people understand the purpose and why they're involved |
-| 5 | Consulted and informed | Adults run it; young people give advice and learn how their input was used |
+| 4 | Assigned but informed | Adults assign roles; young people understand the purpose |
+| 5 | Consulted and informed | Adults run it; young people advise and learn how their input was used |
 | 6 | Adult-initiated, shared decisions | Adults start it; decisions are shared with young people |
 | 7 | Youth-initiated and directed | Young people start and run it; adults support |
 | 8 | Youth-initiated, shared decisions with adults | Young people start it and choose to share decisions with adults |
 
-Rungs 1–3 are non-participation. Rungs 4–8 are real participation, at increasing levels of youth control.
+- Rungs 1–3 are non-participation. Rungs 4–8 are real participation at increasing levels of youth control.
+- Higher isn't automatically better. Hart later cautioned against treating the ladder as a ranking every project must climb. Avoid rungs 1–3 and be honest about which rung you're on (Hart 2008).
+- A teacher-initiated, AI-built project can aim for **rung 6**, and should never fall below **rung 5** in any cycle. **[Evidence + Inference]**
 
-Higher is not automatically better. Hart later cautioned against treating the ladder as a strict ranking every project should climb. The right rung depends on the project, and what matters is avoiding rungs 1–3 and being honest about which rung the project is on (Hart 2008).
+**Roles.**
+- **Students** are designers and critics once they've learned the content. Otherwise they are informants and testers.
+- **Teacher** is editor and product owner. They set constraints, check accuracy, curate and merge ideas, and make the final call in public.
+- **AI** is builder. It implements student designs as faithfully as constraints allow.
 
-Because the teacher initiates this project and owns the build, rungs 7–8 don't fit its structure. The target is **rung 6 where possible, and never below rung 5 in any cycle**. **[Evidence + Inference]**
-
-**Realistic roles at scale.** Druin defines four roles children can play in design: user, tester, informant, and design partner. Full design partnership needs about 3–4 children per 2–3 adults and months of sessions (Druin 2002). **[Evidence]** With one teacher and a large group:
-- **Every student** is an informant and tester.
-- **A small, rotating group** works closer to design partners.
-- **The teacher** is product owner and final decider. **[Inference]**
+Druin's full "design partner" role needs about 3–4 children per 2–3 adults over months (Druin 2002), which a single teacher can't provide for a whole class. Strategies A and B below approximate it at scale. **[Evidence + Inference]**
 
 ---
 
 ## 2. Core principles
 
-### P1. Students own fun and feel. The teacher owns learning goals and accuracy.
-**Why.** In informant design, children were strong informants on fun, feedback, sounds and puzzles. They could not set learning goals for content they hadn't learned yet (Scaife et al. 1997). **[Evidence]**
+### P1. Learn first, then design.
+**Why.** In informant design, children were strong informants on fun and feel but couldn't set learning goals for content they hadn't learned yet (Scaife et al. 1997). Learning by Design puts investigation before design, and students learned content as well as or better than comparison students (Kolodner). **[Evidence]**
 **Apply.**
-- Ask students about experience: what was confusing, boring, exciting, or stuck.
-- Accuracy of subject content is the teacher's call, checked against vetted sources.
-- Teach the content before asking students to propose content-based features.
+- Every design request is preceded by a short learning step on that topic.
+- Before content is learned, ask only about experience: fun, confusion, where students got stuck.
 
-**Avoid.** Asking students to design content they haven't learned. Letting a popular vote override accuracy.
+**Avoid.** Asking for content designs on topics students haven't studied.
 
-### P2. Close the loop every cycle.
-**Why.** Under Hart's ladder, students learning how their input was used is the line between tokenism and real consultation. The TRAck method, tested with 84 children, tracks, represents and acknowledges every idea, and found that a "fair, transparent, and defensible process" made students scrutinize designs carefully (Read et al. 2014). Most published co-design studies don't describe the loop back to children at all (Abimbade & Adisa 2023, preprint). Supergiant required every Hades update to visibly respond to player feedback. **[Evidence]**
-**Apply.**
-- Each cycle, tell students what they said, what was built, and what wasn't built and why.
-- Keep a log of every idea and its status (considered, merged, built, parked), each with a reason.
-- Only ask for input you can actually act on.
-
-**Avoid.** Collecting feedback with no visible result. Unexplained silence about popular ideas.
-
-### P3. Ask about problems, observe behavior, and own the solutions.
-**Why.** Players are "really, really good at identifying problems… a lot less good at identifying solutions" (Darrah, former BioWare producer). Valve calls direct observation "the best single method" of playtesting, because "people don't know why they do what they do." Group discussion suffers from anchoring and social pressure, and surveys reduce bias but lose nuance (Valve 2009). **[Evidence]**
-**Apply.**
-- Ask what happened and how it felt, not what to build.
-- Watch a few players play each new version, and note where they get stuck or quit.
-- Collect individual written input before any group discussion.
-- Turn recurring problems into options. The team designs the solutions.
-
-**Avoid.** Feature wish-list forms. Relying only on self-reported surveys.
-
-### P4. Votes are input. A named decider decides, in public.
+### P2. Students design. The teacher edits.
 **Why.**
-- Open voting has documented failures: bandwagon effects, early-mover and position bias, vocal minorities, solution-level requests, and the "implicit promise" that the winner gets built (ProdPad).
-- Supergiant read every request and acted on recurring low-vote ideas (Rao, on Hades).
-- Design sprints pair voting with a single Decider, because debate otherwise stalls (GV design sprint). **[Evidence]**
+- Rung 6 means shared decisions.
+- Players are "really good at identifying problems… a lot less good at identifying solutions" (Darrah). That finding is about untrained players. Students who have studied the topic and must cite evidence are in a different position. **[Evidence + Inference]**
 
 **Apply.**
-- Curate a short ballot from recurring problems and well-supported proposals.
-- Phrase each option as a testable bet: "If we do X, we expect Y to change."
-- Randomize option order. Hide running totals.
-- Use ranked or limited-budget voting (e.g. top 2, or Buy a Feature, where each student's budget covers only about a third to half of the options) so students face trade-offs.
-- The decider announces the choice and the reasoning, especially when it isn't the top vote.
+- Students propose *what* to add and *how it should work*.
+- The teacher checks accuracy, merges similar ideas, sizes ideas to fit one build, and tells the AI to stay faithful to the student design.
+- Set constraints up front, such as "one new thing this round" or "must fit one build," so students design within them.
 
-**Avoid.** Open "suggest anything" upvote boards. Binding votes. Running totals visible while voting is open.
+**Avoid.** The teacher or AI quietly redesigning student ideas. Unconstrained asks that can't be built.
 
-### P5. Bugs and must-fixes are never on the ballot.
-**Why.** Minecraft's early development ran on two separate lists, bugs and features. Mixing them makes broken things compete with new things for attention. **[Evidence (documented practice) + Inference]**
-**Apply.** Keep a separate bug list. Fix bugs alongside every release, as a standing obligation.
+### P3. Designs come with evidence.
+**Why.** Claim–evidence–reasoning (CER) scaffolds that are faded over time produced stronger independent reasoning in 7th graders (McNeill et al. 2006). When AI writes the code, learning comes from students making and defending decisions, not from voting alone. **[Evidence + Inference from Kafai; Tinterri et al. 2023]**
+**Apply.**
+- Every content design answers: *what, how do you know, and where did you learn it*.
+- Start with sentence starters and remove them over rounds.
+- Keep a shared "rules of thumb" list of vetted claims as the content spec the AI builds from.
 
-### P6. Small increments: one headline change per release.
+### P4. Close the loop every cycle.
 **Why.**
-- Every Hades update carried one headline addition plus feedback fixes.
-- Small, frequent releases with a regular update post kept Factorio's community engaged and its team focused.
-- AI-assisted codebases accumulate complexity and regressions quickly, especially with large changes (CMU and others, second-hand and directional). **[Evidence, partly weak]**
+- Under Hart, students learning how their input was used is the line between tokenism and consultation.
+- The TRAck method, tested with 84 children, tracks and acknowledges every idea. It found that a "fair, transparent, and defensible process" increased careful scrutiny (Read et al. 2014).
+- Most co-design studies don't describe the loop back to children (Abimbade & Adisa 2023, preprint).
+- Supergiant's Hades updates always visibly answered player feedback. **[Evidence]**
 
 **Apply.**
-- Each release has one change students can point to as theirs, plus fixes.
-- If an idea won't fit one release, ship the smallest meaningful slice.
+- Each cycle, tell students what they said, what was built, and what wasn't and why.
+- Credit groups or class sections, never individual names.
+- Show student work in the software itself where possible, such as drawings or "designed by Period 3." This is the most visible proof their input mattered.
+- Only ask for input you can act on.
 
-**Avoid.** Bundling several features to satisfy several factions.
-
-### P7. Core feel before content. Judge every build against fixed experience goals.
+### P5. Votes are input. A named decider decides, in public.
 **Why.**
-- Fullerton's playcentric method settles the core mechanic first. It then judges each build against **player experience goals written as feelings, not features**.
-- Notch's rule was to play the game as if finished and build the first missing piece. **[Evidence]**
+- Open voting has known failure modes: bandwagon effects, position bias, vocal minorities, and the "implicit promise" that the winner gets built (ProdPad).
+- Design sprints use a single Decider so decisions don't stall (GV).
+- Supergiant read every request and acted on recurring low-vote ideas. **[Evidence]**
 
 **Apply.**
-- Set a small number of experience goals early, keep them stable, and score every build against them.
-- Don't open feature voting until the core interaction feels right.
-- Goals can change only by deliberate decision, recorded in the log.
+- Curate a short shortlist from student designs.
+- Show it without names, in random order, with running totals hidden.
+- Use ranked or limited choice, such as top 2, so students face trade-offs.
+- Weight groups equally.
+- Announce the decision and the reasoning, especially when it isn't the top choice.
 
-**Avoid.** Adding content to a core that doesn't feel good. Goals that are really feature lists.
-
-### P8. Put the learning inside the mechanics, then debrief.
+### P6. Critique against the design.
 **Why.**
-- When content was built into the core game mechanic instead of attached as a quiz or reward, children learned more in equal time and chose to play about 7× longer (Habgood & Ainsworth 2011).
-- Meta-analyses show games teach best when combined with other instruction, played over multiple sessions, and played in groups (Wouters et al. 2013; Sitzmann 2011).
-- An immersive ecology world beat no strong hands-on curriculum on its own (EcoMUVE). The investigation around the game matters as much as the game. **[Evidence]**
+- Valve: direct observation is "the best single method," and people can't reliably explain their own behavior (Valve 2009).
+- Written peer feedback improves work (g ≈ 0.4). Peer *grading* doesn't (Double et al. 2020).
+- Fullerton: judge each build against stable **experience goals** written as feelings, not features. **[Evidence]**
 
 **Apply.**
-- Every content idea should become something the player experiences or must act on.
-- Use short just-in-time information in the game instead of long front-loaded lectures.
-- Pair each cycle with a brief class discussion.
+- After each build, students compare it to the design they chose ("does it work the way we said?") and to the experience goals.
+- Ask what happened and how it felt.
+- Use kind, specific, helpful feedback norms (EL Education).
+- When possible, watch a few students play.
 
-**Avoid.** Content delivered only before or outside play. Content bolted on as quizzes or rewards.
-
-### P9. Make students justify design decisions with evidence.
+### P7. Build learning into the mechanics.
 **Why.**
-- When AI writes the code, the constructionist benefit has to come from students *making and defending decisions*. Voting alone mostly removes the learning mechanism. **[Inference from Kafai; Tinterri et al. 2023]**
-- Learning by Design gives middle school routines for this. **Pin-ups:** students present a design with evidence for peer critique. **Gallery walks:** students show what happened and what they'll change. **Rules of thumb:** shared claims posted and revised over time. LBD students learned content as well or better than comparison students (Kolodner).
-- Claim–evidence–reasoning scaffolds that are **faded over time** produced stronger independent reasoning in 7th graders (McNeill et al. 2006).
-- Written peer feedback improves work (g ≈ 0.4). Peer grading does not (Double et al. 2020). **[Evidence]**
+- When content was built into the core game mechanic instead of added on as a quiz or reward, children learned more in equal time and chose to play about 7× longer (Habgood & Ainsworth 2011).
+- Games teach best combined with other instruction, over multiple sessions (Wouters et al. 2013; Sitzmann 2011).
+- An immersive world on its own did no better than a strong hands-on curriculum (EcoMUVE). **[Evidence]**
 
 **Apply.**
-- Content-related proposals come with a claim, evidence and reasoning.
-- Start with full sentence frames and remove them over time.
-- Keep a shared, revisable "rules of thumb" list as the content spec the AI builds from.
-- Teach a feedback norm such as kind, specific and helpful (EL Education). Use peer feedback, never peer grades.
+- Student designs should turn content into something the player experiences or must act on.
+- Pair play with the learning step and the critique.
 
-### P10. Design for equity of voice.
+**Avoid.** Content that appears only as text, quizzes or rewards.
+
+### P8. Small increments: one headline change per release.
 **Why.**
-- About 17% of teens sometimes can't finish homework because of connectivity, and 24% in lower-income households (Pew). Demanding software raises that barrier.
-- Student-voice participation helps most for students who otherwise find little meaning in school (Mitra).
-- Shy children give brief answers (Scaife et al.), and students defer to adults (Druin). **[Evidence]**
+- Hades shipped one headline addition plus fixes per update.
+- Factorio's regular, small updates kept its community engaged.
+- AI-written codebases accumulate complexity and regressions with large changes. This evidence is second-hand and directional. **[Evidence, partly weak]**
 
 **Apply.**
-- Every student gets at least one in-class channel to give input and vote, independent of home access.
-- Draw rotating roles (lead testers, reviewers) at random so quiet students get a turn.
-- Weight groups such as class sections equally so one enthusiastic group can't dominate.
-- Show ideas without authors' names when deciding.
-- Accept paper input, since children dislike being unable to draw digitally (DisCo).
-- Personally invite students who aren't participating.
+- Each release has one student-designed change plus fixes.
+- Settle the core interaction before opening content design (Fullerton; Minecraft's "build the first missing piece").
 
-**Avoid.** Decisions made only by at-home volunteers. Popularity contests between named students.
+### P9. Bugs are never on the ballot.
+**Why.** Minecraft's early development ran on separate bug and feature lists. **[Evidence (practice) + Inference]**
+**Apply.** Keep a separate bug list. Fix bugs as a standing obligation.
 
-### P11. Make participation light, chosen and visible.
+### P10. Equity of voice.
 **Why.**
-- Homework for this age should be short and achievable "with little struggle" (Cooper).
-- Choosing among homework options raised motivation and test scores. Completion only trended up (Patall et al. 2010).
-- No benchmark exists for voluntary participation or drop-off at this age. **[Evidence]**
+- About 17% of teens sometimes can't finish homework because of connectivity, and 24% in lower-income homes (Pew).
+- Student voice helps most for students otherwise disengaged (Mitra).
+- Shy children give brief answers (Scaife et al.), and children defer to adults (Druin).
+- Children dislike being unable to draw on a computer, so paper matters (DisCo). **[Evidence]**
 
 **Apply.**
-- Offer a few task types students choose between, such as testing, evidence-based proposals, and making assets or info content.
-- Keep each one short.
-- Measure participation per group every cycle and react to trends.
+- Weight groups equally.
+- Accept paper drawings, photographed in.
+- Make anything digital work on a phone.
+- Personally invite quiet or non-participating students.
+- Know which voices your strategy over- or under-represents (see section 3).
 
-**Avoid.** Assuming novelty will sustain participation. One-size-fits-all tasks.
-
-### P12. Use feedback instruments built for children.
+### P11. Light, chosen participation.
 **Why.**
-- Children around 11–12 answer short self-completion forms reasonably consistently. They struggle with negatively worded items and vague quantifiers, and they satisfice when bored (Borgers et al.).
-- The Smileyometer face scale works at this age. Repeated use may inflate ratings, so read trends, not absolute scores (Read & Horton). **[Evidence]**
+- Homework for this age should be short and doable "with little struggle" (Cooper).
+- Choice among tasks raised motivation and scores. Completion only trended up (Patall et al. 2010).
+- No benchmark exists for voluntary participation at this age. **[Evidence]**
 
 **Apply.**
-- Keep forms short and stable from cycle to cycle so trends are comparable.
-- Use positive wording and concrete questions such as "Did you get stuck? Where?"
-- Use "I like / I wish" prompts and ranking instead of long rating grids.
+- Keep tasks short and fixed in shape.
+- Offer choice where possible: critique only, or critique plus design.
+- Measure participation per group every cycle.
 
-**Avoid.** Long forms. Double negatives. Changing questions every cycle.
+### P12. Child-appropriate input tools.
+**Why.**
+- Children around 11–12 answer short forms reasonably consistently. They struggle with negative wording and vague quantifiers, and they disengage when bored (Borgers et al.).
+- Smiley-face scales work at this age, but repeated use may inflate ratings, so read trends (Read & Horton). **[Evidence]**
+
+**Apply.**
+- Keep forms short, positively worded, concrete, and the same every cycle.
+- Prefer "I like / I wish," ranking and drawing over long rating grids.
 
 ### P13. Guardrails for AI-built software.
-**Why.** AI coding speeds early work, then complexity, bugs and structural drift accumulate. Experienced developers often overestimate the speedup. Recommended practice is for a human to set the structure and system boundaries, review every change, and keep scope small (second-hand, directional). **[Evidence, weak + Inference]**
+**Why.** AI coding speeds early work, then complexity and drift accumulate. Recommended practice: humans set the structure, review changes, and keep scope small. **[Evidence, weak + Inference]**
 **Apply.**
-- Keep an architecture note the AI must follow.
-- Make one change per work session.
-- Use version control with a tagged version per release.
-- Run a smoke test on the weakest device students will actually use.
-- Keep an instant rollback to the previous release.
-- Keep the released version playable at all times.
-
-**Avoid.** Large AI rewrites. Releasing untested builds to students. Code no one has reviewed.
+- An architecture note the AI follows.
+- One change per session.
+- Version control with a tag per release.
+- A smoke test on the weakest student device.
+- Instant rollback to the last release.
+- The released version always playable.
 
 ### P14. Privacy by design.
-**Why.** Middle school users are mostly under 13, so COPPA, FERPA and state student-data law apply. In Minnesota that's § 13.32. Google requires schools to obtain COPPA consent for Workspace for Education. **[Evidence]**
+**Why.** Users under 13 bring COPPA, FERPA and state student-data law (in Minnesota, § 13.32). Google requires schools to get COPPA consent for Workspace for Education. **[Evidence]**
 **Apply.**
-- Collect input through school-managed accounts.
-- Collect the minimum personal data.
-- The software has no accounts, analytics, third-party tracking or AI chat on student input.
-- Share only de-identified summaries with AI tools.
-- Get district sign-off before launch and inform families.
-- Delete responses at the end of the project.
+- Collect input through school accounts and collect minimal personal data.
+- Tell students to keep names and faces out of drawings.
+- The software has no accounts, analytics, tracking or AI chat on student input.
+- Share only de-identified data with AI tools.
+- Get district sign-off and inform families.
+- Delete responses at project end.
 
-**Avoid.** Any feature that sends student data off-device without district approval.
-
-### P15. Inspect and adapt the process itself.
-**Why.**
-- Online KidsTeam changed its own process every week based on participant experience (Walsh & Foss 2015).
-- Layered Elaboration shows co-design can run asynchronously, with ideas built in layers across iterations (Walsh et al. 2010). **[Evidence]**
-
+### P15. Inspect and adapt the process.
+**Why.** Online KidsTeam changed its process weekly based on participant experience (Walsh & Foss 2015). **[Evidence]**
 **Apply.**
-- Periodically review what's working in the process: participation, quality of input, and whether students notice their impact.
-- Change the process deliberately and record why.
+- Periodically review participation, input quality, and whether students notice their impact.
+- Change the strategy deliberately and record why.
 
 ---
 
-## 3. The cycle pattern
+## 3. Participation strategies
 
-Every cycle follows this pattern, whatever its length or schedule:
+All three follow the principles. They differ in **where design happens** and **how much class time they cost**. A project picks one as its default and can switch, or mix, by deliberate decision.
 
-1. **Frame.** Set a focus or question for the cycle (P8).
-2. **Play and observe.** Students use the current version. Some are observed directly (P3).
-3. **Gather.** Short individual input on problems and feelings, plus optional evidence-backed proposals (P3, P9, P12).
-4. **Decide.** Curate options, vote, and the decider chooses and explains (P4).
-5. **Build.** One headline change plus fixes, with guardrails (P5, P6, P13).
-6. **Close the loop.** Report what was said, what was built and what wasn't, and update the logs (P2).
-7. **Reflect.** Debrief the learning (P8). Occasionally reflect on the process itself (P15).
+### Strategy A: Async form-led co-design
+Everything happens through one recurring form, done as optional homework. Each form has the same sections every cycle:
+
+1. **Learn:** a short lesson on the next topic (slides, video or vetted links) with one or two check questions. (P1)
+2. **Critique the current build:** the same short questions every cycle. (P6, P12)
+3. **React to classmates' designs:** an anonymized shortlist of the best designs from last cycle, with drawings. Students rank them and say what they'd add or change. This works as both peer critique and vote. (P5)
+4. **Design for the next topic:** design questions (*what, how do you know, how it should work*) plus an optional drawing upload. (P2, P3)
+
+This runs as a pipeline: each cycle critiques the last build, chooses the next feature, and collects designs for the one after. It applies Layered Elaboration, where ideas build in layers across iterations and co-design happens asynchronously (Walsh et al. 2010). **[Evidence + Inference]**
+
+**Pros**
+- Needs no class time, apart from an optional 1–2 minute announcement to close the loop.
+- Scales to large groups, and every participant has an individual voice.
+- Drawings capture ideas students can't express in words.
+- Teacher time is predictable: review, shortlist and build request each cycle.
+- Students see their designs, and their drawings, appear in the build.
+
+**Cons**
+- Optional homework means self-selected voices: the most motivated students and those with home access.
+- No live discussion, so peer critique and argumentation are thinner, and Learning by Design's strongest routines are missing.
+- About one cycle passes between a design and its build.
+- The teacher holds more curation power, so transparent reasoning matters more (P5).
+- Form fatigue if the form grows. File uploads require school sign-in.
+
+**Best when** class time is scarce, groups are large, and participation is optional.
+
+### Strategy B: In-class design studio
+Based on Learning by Design. Once a topic is learned, small groups fill in a short **design card** (*what, evidence and source, how it works, a sketch*). They present it in a **pin-up** for peer critique, then classes choose. After the build, a **gallery walk** or play session compares the result to the cards. (Kolodner; McNeill et al.; Double et al.) **[Evidence]**
+
+**Pros**
+- Strongest learning evidence: argumentation, peer feedback and CER all happen live.
+- Every student present takes part, which fixes the self-selection problem.
+- Groups produce fewer, more developed designs (for example 15–20 cards rather than 90), which are easier to curate.
+- Stronger ownership and social energy.
+
+**Cons**
+- Costs class time, roughly a class period per design topic.
+- Group dynamics: turn-taking and leadership conflicts, and pupils judging quality by different criteria than the teacher (Landoni et al. 2018).
+- Needs facilitation and materials.
+- Fewer design cycles fit in the same calendar.
+
+**Best when** the project is part of the curriculum, class time is budgeted, and deep content learning is the main goal.
+
+### Strategy C: Teacher-designed, student-tested
+The teacher (with the AI) designs features. Students play, report problems and feelings, and vote on a curated shortlist. This is the informant and tester model.
+
+**Pros**
+- Fastest and lightest, for both students and teacher.
+- Highest control over accuracy and feasibility.
+- Well suited to early rounds that set the core feel (P8), or to technical work students can't judge.
+
+**Cons**
+- Lowest ownership, around Hart rung 4–5. It risks tokenism if the loop isn't closed.
+- Weakest learning mechanism, because students don't design or justify anything.
+- Doesn't meet this framework's stance if used as the only strategy.
+
+**Best when** setting the core feel, for technical or infrastructure changes, or as a fallback when participation or time drops.
+
+### Choosing and mixing
+
+| Question | Points to |
+|---|---|
+| Is there no class time beyond a few minutes? | A |
+| Is class time budgeted and deep learning the priority? | B |
+| Are we setting core feel or doing technical work? | C |
+| Is participation optional and the group large? | A (watch equity) |
+| Do we need every student's voice on a big decision? | B, or A plus a short in-class vote |
+
+Common mixes:
+- **A as the default, with occasional B sessions** for major topics.
+- **C for the first rounds, then A or B** once the core feel is settled.
+
+Record the chosen strategy and any switch in the decision log.
 
 ---
 
-## 4. Decision tests for any plan
+## 4. The cycle pattern
 
-Before adopting a plan, ballot, feature or process change, check:
+Whatever the strategy, each cycle contains these steps. Strategy A runs them in parallel through a pipeline; B runs them in sequence.
 
-- [ ] **Learning:** Does it serve the learning goals, or at least not undercut them? (Stance)
-- [ ] **Ownership:** Are students being asked about things they can judge, with content accuracy kept with the teacher? (P1)
-- [ ] **Loop:** Will students see what happened to their input? (P2)
-- [ ] **Problem-based:** Did it come from observed or reported problems, not just requested solutions? (P3)
-- [ ] **Decision quality:** Was the ballot curated and unbiased, and will the reasoning be published? (P4)
-- [ ] **Size:** Is it one headline change, small enough to build, test and roll back? (P6, P13)
-- [ ] **Experience goals:** Does it move the build toward the stated experience goals? (P7)
-- [ ] **Integration:** Is any content built into play, not bolted on? (P8)
-- [ ] **Evidence:** Are content-based changes backed by a claim, evidence and a source? (P9)
-- [ ] **Equity:** Could every student have contributed to this decision, regardless of home access or confidence? (P10)
-- [ ] **Load:** Does it keep student tasks short and chosen? (P11)
-- [ ] **Privacy:** Does it add any data collection, accounts, tracking or outside calls? If so, stop. (P14)
+1. **Learn** the next topic. (P1)
+2. **Design** with evidence and drawings. (P2, P3)
+3. **React and decide:** a curated shortlist, ranked, then the decider explains. (P5)
+4. **Build:** one headline change plus fixes, with guardrails. (P8, P9, P13)
+5. **Play and critique** against the design and the experience goals. (P6)
+6. **Close the loop:** what was said, what was built, what wasn't and why, and credit in the build. (P4)
+7. **Adapt** the process when needed. (P15)
 
 ---
 
-## 5. Living artifacts the project should maintain
+## 5. Decision tests
 
-These are named here, but their contents live in the project, not in this document:
+Before adopting a plan, form, shortlist, feature or process change:
 
-- **Experience goals:** a short, stable list (P7).
-- **Content spec, or rules of thumb:** vetted claims with sources, which the AI builds from (P1, P9).
-- **Idea log:** every idea with its status and reason (P2).
-- **Decision log:** each cycle's options, choice and reasoning, plus any amendments to this framework (P4).
-- **Bug list:** separate from ideas (P5).
-- **Changelog:** a student-facing "you said, we built" record (P2).
-- **Architecture note:** structure and rules the AI must follow (P13).
-- **Participation record:** per group, per cycle (P11, P15).
+- [ ] **Learn first:** Did students learn the content before designing it? (P1)
+- [ ] **Student design:** Does the change come from student designs, with the teacher editing rather than replacing them? (P2)
+- [ ] **Evidence:** Do content changes rest on a claim, evidence and a source? (P3)
+- [ ] **Loop:** Will students see what happened to their input? (P4)
+- [ ] **Decision quality:** Was the shortlist anonymized, shuffled and fairly weighted, and will the reasoning be published? (P5)
+- [ ] **Critique:** Will students judge the result against the design and the experience goals? (P6)
+- [ ] **Integration:** Is content built into play, not bolted on? (P7)
+- [ ] **Size:** Is it one headline change that can be tested and rolled back? (P8, P13)
+- [ ] **Equity:** Whose voices does this miss, and is that acceptable this cycle? (P10)
+- [ ] **Load:** Is the student task short and stable? (P11, P12)
+- [ ] **Privacy:** Does it add data collection, accounts, tracking or outside calls? If so, stop. (P14)
 
 ---
 
-## 6. Strength of evidence and known gaps
+## 6. Living artifacts each project maintains
 
-- **Strong:** Habgood & Ainsworth on intrinsic integration; meta-analyses on games combined with instruction; faded CER scaffolds; peer feedback versus peer grading; children's questionnaire design.
-- **Moderate or practice-based:** closing the loop; studio practices from Hades, Minecraft and Factorio; voting-bias mitigations (product management literature, not schools); Learning by Design (developer-reported outcomes).
-- **Weak:** AI-coding risk statistics, which are second-hand from a vendor blog.
-- **Gaps:** no study of co-design with ~90 children on one evolving product; none involving AI-coded software; no K-12 study showing that closing the loop raises future participation; no data on voting behavior among 11–12-year-olds; no benchmark for voluntary participation rates.
+Their contents live in the project, not here:
 
-Where evidence is missing, the project should measure for itself and record what it learns.
+- **Strategy record:** which strategy (A, B, C or a mix) and why.
+- **Experience goals:** a short, stable list.
+- **Rules of thumb:** vetted content claims with sources.
+- **Idea log:** every design and its status (shortlisted, merged, built, parked), with reasons.
+- **Decision log:** shortlists, choices, reasoning and framework amendments.
+- **Bug list.**
+- **Changelog:** the student-facing "you said, we built."
+- **Architecture note** for the AI.
+- **Participation record:** per group, per cycle.
+
+---
+
+## 7. Strength of evidence and gaps
+
+- **Strong:** intrinsic integration (Habgood & Ainsworth); games combined with instruction (meta-analyses); faded CER scaffolds; peer feedback versus grading; questionnaire design for children.
+- **Moderate or practice-based:** closing the loop; studio practices; voting-bias fixes, which come from product management rather than schools; Learning by Design (developer-reported); Layered Elaboration as async co-design.
+- **Weak:** AI-coding risk figures, which are second-hand.
+- **Gaps:** no study of co-design with a large group on one evolving product; none with AI-built software; no comparison of async versus in-class co-design for learning; no K-12 evidence that closing the loop raises participation; no data on voting behavior among 11–12-year-olds; no participation benchmarks for optional homework.
+
+Where evidence is missing, measure it in the project and record what you learn.
 
 ---
 
@@ -286,14 +349,15 @@ Where evidence is missing, the project should measure for itself and record what
 - Double et al. (2020), peer assessment meta-analysis: https://link.springer.com/article/10.1007/s10648-019-09510-3
 - Druin (2002), roles of children in technology design: https://drum.lib.umd.edu/bitstream/handle/1903/1028/CS-TR-4058.pdf
 - EcoMUVE randomized trial (Harvard): https://clic.gse.harvard.edu/file_url/199
+- EL Education, critique protocols: https://eleducation.org
 - Factorio Friday Facts #294: https://www.factorio.com/blog/post/fff-294
 - Fullerton, *Game Design Workshop* excerpt: https://gamedeveloper.com/design/book-excerpt-game-design-workshop
 - Google Workspace for Education FAQ (COPPA): https://knowledge.workspace.google.com/admin/getting-started/editions/google-workspace-for-education-faq
+- GV design sprint Decider (Lyssna): https://www.lyssna.com/blog/what-is-a-design-sprint/
 - Habgood & Ainsworth (2011), intrinsic integration: https://shura.shu.ac.uk/3556/
 - Hades early access (PC Gamer): https://www.pcgamer.com/uk/a-journey-through-early-access-helped-make-hades-a-masterpiece/
-- Hart's ladder (YouthREX fact sheet): https://youthrex.com/wp-content/uploads/2019/05/FACTSHEET-Harts-Ladder.pdf
-- Hart, R. (1992), *Children's Participation: From Tokenism to Citizenship*, UNICEF Innocenti Essays No. 4
-- Hart, R. (2008), "Stepping back from 'the ladder': reflections on a model of participatory work with children," in *Participation and Learning* (Springer)
+- Hart, R. (1992), *Children's Participation: From Tokenism to Citizenship*, UNICEF Innocenti Essays No. 4; fact sheet: https://youthrex.com/wp-content/uploads/2019/05/FACTSHEET-Harts-Ladder.pdf
+- Hart, R. (2008), "Stepping back from 'the ladder'," in *Participation and Learning* (Springer)
 - Iivari & Kinnula (2016): https://urn.fi/URN:NBN:fi-fe2019040210765
 - Kafai, *Minds in Play*: https://www.yasminkafai.com/minds-in-play
 - Kolodner, Learning by Design: https://scholar.lib.vt.edu/ejournals/JITE/v39n3/kolodner.html
@@ -314,7 +378,4 @@ Where evidence is missing, the project should measure for itself and record what
 - Walsh et al. (2012), DisCo: https://mdsoar.org/items/623fa370-a933-494f-8602-87d43363f5bc/full
 - Walsh & Foss (2015), Online KidsTeam: https://mdsoar.org/handle/11603/7722
 - Wouters et al. (2013) and Sitzmann (2011), via Kapp summary: https://karlkapp.com/?p=4333
-- Design sprint Decider (Lyssna): https://www.lyssna.com/blog/what-is-a-design-sprint/
-- Buy a Feature (IdeaPlan): https://www.ideaplan.io/frameworks/buy-a-feature
 - AI coding risks (Ziva, secondary source): https://ziva.sh/blogs/vibe-coding-games
-- EL Education critique protocols: https://eleducation.org

@@ -17,28 +17,34 @@ The big idea in one sentence, at a 6th-grade reading level.
 
 ## What's new in this build
 This matches the version's `CHANGELOG.md` entry.
-- What changed because of last version's votes ("You said, we did").
+- What students designed and ranked that's in this build ("You said, we built").
 - The new feature for this version's topic.
 - Bugs fixed.
 - New settings or toggles, and where to find them.
 
-## Ballot
-### Design vote (Q5): <question>
-Each option is a testable bet: "If we do X, we expect Y to change" (`FRAMEWORK.md`, P4).
+## The form (`IMPLEMENTATION.md`, section 3)
+### 1. Learn: <next design topic>
+The slide link, and 1 or 2 check questions taken from the fact table above.
 
-| Option (as students read it) | What we'd build | The bet | In the build as a toggle? |
-|---|---|---|---|
-| A | | | |
-| B | | | |
+### 2. Critique VN
+The standard questions. If this build includes a student design, name it here: "Does
+<design> work the way we designed it?"
 
-### Next topic (Q7)
-Three topics from `topics.md`, each with sources and prerequisites checked.
+### 3. React: shortlist from VN−1's designs
+3 to 4 designs, with names removed, drawings included, and shuffled. Each is a testable bet: "If
+we do X, we expect Y to change" (`FRAMEWORK.md`, P5).
 
-### Ideas from last version (Q8)
-Themes from VN−1's write-ins, each checked against the framework's decision tests.
+| Design (as students read it) | Merged from | What we'd build | The bet | Facts checked against |
+|---|---|---|---|---|
+| A | | | | |
+| B | | | | |
 
-## Paste-ready form
-Write out Q1–Q10, following `README.md`, with the exact wording and options.
+### 4. Design for <next topic> (optional)
+The prompts, the sentence starters for this round (they come out over the rounds), and the
+constraints shown to students.
+
+### Paste-ready form
+Write out every question with its exact wording and options.
 
 ## Slides draft
 1. You said, we did: …
@@ -55,17 +61,16 @@ A short paste-ready post with the slides, build link and form link, plus the due
 ## Results (filled in after the form closes)
 - **Turnout:** n responses, about X% of students. Access problems: …
 - **Fact check:** X% correct. Most common wrong answer: …
-- **How well the game showed the topic:** average …
-- **Design vote:** A x%, B y%, Other z%, per class period and combined.
-- **Next topic:** …
-- **Ideas from last version:** …
-- **Write-in themes (new):** theme (count), …
+- **Works as designed? (section 2):** Yes / Partly / No %, and what's different …
+- **Ranking (section 3):** each design's rank score per class period, then combined with the periods weighted equally.
+- **New designs (section 4):** count, grouped into themes, and the proposed shortlist for the next form …
+- **Stuck points, likes and wishes:** themes (count) …
 - **Bugs and confusion:** …
 - **Fun:** % per answer, compared with last version …
 - **Participation:** responses per class period …
 
 ## Decisions
 - Ships in VN+1: …
-- Topic for VN+2: …
+- Shortlist for the next form: …
 - Matt's reasoning, especially where it isn't the top vote: …
 - Ideas not built, and why: …
