@@ -4,7 +4,7 @@ A 3D game for 6th graders in northern Minnesota. Students play an invasive earth
 forest floor. The game runs on low-end school Chromebooks and is live at https://wormsimulator.com.
 
 **The game is co-developed with students, one version a week (V1, V2, V3…).** For each version,
-students learn one worm topic from slides, play that version, and answer a Google Form. Their input
+students learn one worm topic in the game's learning intro, play that version, and answer a Google Form. Their input
 steers what gets built next, and Matt decides.
 
 **`docs/codev/FRAMEWORK.md` guides all co-development work.** Every plan, ballot, feature or
@@ -123,9 +123,11 @@ the files sort) from `docs/codev/version-template.md`. It holds:
 
 After the form closes, it also holds the results and the decisions.
 
-The learning unit is **slides only**, so the game carries no lesson text beyond its normal
-goals and labels. When Matt asks, Claude can build the slides as Google Slides; load the
-google-workspace skill first.
+**Learning happens in the game (Matt, 2026-10-11).** Each round opens with an interactive
+in-game learning intro on the round's topic. Claude researches the topic and drafts the intro,
+and Matt approves or adjusts it. Every fact goes through `src/content/` with a source. The game
+reminds students to fill in the form from Canvas, as text only and never a link. See
+`docs/codev/IMPLEMENTATION.md`, section 3.
 
 ### Feedback data (framework P14)
 - Raw form exports go in `codev-raw/`, which is git-ignored, and never anywhere else in the repo.

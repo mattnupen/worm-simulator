@@ -22,15 +22,16 @@ This matches the version's `CHANGELOG.md` entry.
 - Bugs fixed.
 - New settings or toggles, and where to find them.
 
-## The form (`IMPLEMENTATION.md`, section 3)
-### 1. Learn: <next design topic>
-The slide link, and 1 or 2 check questions taken from the fact table above.
+## In-game learning intro (`IMPLEMENTATION.md`, section 3)
+The topic, how the intro teaches it in play, and the facts it uses (each in the fact table above
+and in `src/content/`). Matt approves it before release.
 
-### 2. Critique VN
+## The form (`IMPLEMENTATION.md`, section 3)
+### 1. Critique VN
 The standard questions. If this build includes a student design, name it here: "Does
 <design> work the way we designed it?"
 
-### 3. React: shortlist from VN−1's designs
+### 2. Vote: shortlist from VN−1's designs (and the next topic, if one is open)
 3 to 4 designs, with names removed, drawings included, and shuffled. Each is a testable bet: "If
 we do X, we expect Y to change" (`FRAMEWORK.md`, P5).
 
@@ -39,31 +40,27 @@ we do X, we expect Y to change" (`FRAMEWORK.md`, P5).
 | A | | | | |
 | B | | | | |
 
-### 4. Design for <next topic> (optional)
+### 3. Design for <this round's topic> (optional)
 The prompts, the sentence starters for this round (they come out over the rounds), and the
 constraints shown to students.
 
 ### Paste-ready form
 Write out every question with its exact wording and options.
 
-## Slides draft
-1. You said, we did: …
-2. Topic slides: text, image idea, alt text, sources.
-3. While you play, notice…
-4. What's new and how to play.
-5. Fill out the form.
+## "You said, we built" (Monday, 1–2 minutes)
+What students said and designed, what was built, and what wasn't built and why.
 
 ## Canvas announcement
-A short paste-ready post with the slides, build link and form link, plus the due date.
+A short paste-ready post with the build link and the form link, plus the due date.
 
 ---
 
 ## Results (filled in after the form closes)
 - **Turnout:** n responses, about X% of students. Access problems: …
 - **Fact check:** X% correct. Most common wrong answer: …
-- **Works as designed? (section 2):** Yes / Partly / No %, and what's different …
-- **Ranking (section 3):** each design's rank score per class period, then combined with the periods weighted equally.
-- **New designs (section 4):** count, grouped into themes, and the proposed shortlist for the next form …
+- **Works as designed? (section 1):** Yes / Partly / No %, and what's different …
+- **Vote (section 2):** each design's rank score per class period, then combined with the periods weighted equally.
+- **New designs (section 3):** count, grouped into themes, and the proposed shortlist for the next form …
 - **Stuck points, likes and wishes:** themes (count) …
 - **Bugs and confusion:** …
 - **Fun:** % per answer, compared with last version …

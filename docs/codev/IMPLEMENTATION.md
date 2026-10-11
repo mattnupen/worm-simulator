@@ -16,8 +16,7 @@ Timing, topic order and dates live in `README.md` (the weekly schedule) and `roa
 - **What came before:** V1 and V2 ran closer to Strategy C. Matt designed the features, and
   students played, reported and voted. That fits the framework's "C for the first rounds" mix,
   which settles the core feel (crawling, digging, the camera) first.
-- **When it starts:** V3's form is the first Strategy A form. V2's form was already written
-  and goes out as it is.
+- **When it starts:** with V3. V2's form was already written and goes out as it is.
 - **Fallback:** when a big decision needs every voice, add a short in-class vote to the async
   form ("A plus a short in-class vote", framework section 3). Record each switch in the decision log.
 
@@ -33,56 +32,58 @@ Timing, topic order and dates live in `README.md` (the weekly schedule) and `roa
   any place where the build has to differ from the student design, and never quietly redesigns
   it (P2).
 
-## 3. The form
+## 3. Learning in the game, voting on the form
 
-There is one Google Form per version, titled "Worm Simulator VN · <Name>: Feedback". It has the
-same four sections every time, takes about 10 minutes, and works on a phone (P10, P11, P12).
-Students choose how much to do: **critique only** (sections 1–3) or **critique plus design**
-(sections 1–4) (P11).
+### In-game learning intro (P1, P7)
+Each round opens with an **interactive learning intro inside the game**, not a separate slide
+deck. It teaches the background students need for that round's decisions. This means fewer clicks,
+and no switching back and forth between tabs. (Matt, 2026-10-11)
 
-1. **Learn** (P1). A link to the topic slides for the next design topic, plus 1 or 2 check
-   questions. Facts come from the version doc's sourced fact table.
-2. **Critique VN** (P6, P12). The same questions every time:
+- **How it's made:** Matt gives Claude the next round's topic. Claude researches it with sources,
+  builds the intro, and Matt approves or adjusts it before release.
+- Every fact in it goes through `src/content/` with a source ID (`CLAUDE.md` non-negotiables).
+  Where possible, it teaches through play rather than walls of text (P7).
+- The game shows a short reminder to fill in the round's Google Form. The reminder is text only,
+  never a link, because the game stays offline.
+- Methods for the intro are being worked out in the "In-game learning intros" thread. Its first
+  test topic is predators.
+
+### The form (from the class Canvas page)
+One Google Form per version, titled "Worm Simulator VN · <Name>: Feedback". It keeps the same
+sections every time, takes about 10 minutes, and works on a phone (P10, P11, P12). Students
+choose how much to do: **critique only** (sections 1–2) or **critique plus design** (sections 1–3)
+(P11).
+
+1. **Critique VN** (P6, P12). The same questions every time:
    - Could you play VN? (Yes / It wouldn't load / I didn't have time)
    - Did you get stuck? Where?
    - I like… / I wish…
    - Once the build includes a student design: "Does [the design] work the way we designed it?"
      (Yes / Partly / No), with a box for "What's different?"
    - A smiley-face fun rating, read as a trend across versions, never as an absolute score.
-3. **React to classmates' designs** (P5). A shortlist of 3 to 4 designs from the last form.
-   - Names are removed and drawings are included.
-   - Google Forms' option shuffle puts the designs in a random order, and totals are never
-     shown.
-   - Students rank their top 2, then answer "What would you add or change?"
-4. **Design for the next topic** (P2, P3). This section is optional.
+2. **Vote** (P5). Students rank the round's options: a shortlist of classmates' designs (names
+   removed, drawings included, shuffled), and the next topic when one is open. Totals are hidden.
+   The section ends with "What would you add or change?"
+3. **Design for the round's topic** (P2, P3). This section is optional, and it builds on what the
+   in-game intro taught.
    - What should we add? How should it work in the game?
    - How do you know? Where did you learn it?
-   - Sentence starters come out over the rounds: full frames in V3, partial frames later, then
-     none.
+   - Sentence starters come out over the rounds.
    - Optional drawing upload, or a paper drawing that Matt photographs.
    - A reminder: "No names or faces in your drawing" (P14).
 
-Constraints shown to students in section 4 (P2): one new thing per design, it has to fit one week's
+Constraints shown to students in section 3 (P2): one new thing per design, it has to fit one week's
 build, and it has to be true of real worms or labelled as a game choice (`CLAUDE.md`
 non-negotiables).
 
-## 4. The pipeline
+## 4. How a round runs
 
-Each form does three jobs at once (framework section 4, Layered Elaboration). It critiques the
-current build, ranks the designs collected in the last form, and collects designs for the next
-topic.
+Each round follows the framework's cycle (section 4). Students vote on a topic, they learn it in
+the game's intro, they design for it on the form, the design is built, and they critique it.
 
-| Form for | Critiques | Ranks designs from | Collects designs for | Winner built into |
-|---|---|---|---|---|
-| V3 | V3 · First Bite | none yet | the topic students picked on V2's form | V5 |
-| V4 | V4 | V3's form | next topic | V5 |
-| V5 | V5 (first student-designed build) | V4's form | next topic | V6 |
-| V6 | V6 | V5's form | next topic | V7 |
-| V7 | V7 | V6's form | finale | V8 |
-
-The gap from design to build is two versions: design in week N, rank in week N+1, build that
-weekend. **V4 is a teacher-designed (Strategy C) build**, because no student design has been
-ranked yet. `roadmap.md` needs updating to match. See "Open decisions."
+- **Topics are chosen by students' vote.** Predators is the current pick (2026-10-11).
+- **V4 works like V3:** it's built around a new topic students voted on.
+- The order of topics and the dates are in `roadmap.md`. The roadmap needs updating to match.
 
 ## 5. Friday routine
 
@@ -157,12 +158,8 @@ Strategy A over-represents motivated students and students with internet at home
 
 ## 11. Open decisions for Matt
 
-1. **Experience goals.** What 3 or 4 feelings should every build be judged against?
-2. **Who picks the design topics after V3?**
-   - Option A: Matt picks from `topics.md`, keeping the forms short. *(recommended)*
-   - Option B: students rank topics too, in section 3.
-3. **What V4 builds.** No student design has been ranked by then, so V4 is teacher-designed
-   (Strategy C). It could be a core-feel round, or a small slice Matt designs. The topic students
-   picked on V2's form is designed on V3's form and built in V5.
-4. **Closing the gap.** Should we cut the design-to-build gap to one version by having students
-   rank the shortlist in a 2-minute class vote on Monday, instead of on the next form?
+1. **Experience goals** (framework P6). These are 3 or 4 short sentences describing how the game
+   should *feel* to play, not what's in it. For example: "Being a worm feels strange and real."
+   "I can always tell where I am and what to do next." "What I learned changes how I play."
+   Students check every new build against them ("Did it feel like this?"). They stay the same
+   from round to round.
