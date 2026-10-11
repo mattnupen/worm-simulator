@@ -11,14 +11,39 @@
 Lots of animals in a Minnesota forest eat earthworms. A worm has no eyes, ears, teeth or legs, so
 it has to sense danger and get away fast.
 
-<!-- FACTS: filled in from the predator research (In-game learning intros thread). -->
+Full research with exact quotes: `docs/codev/research/predators.md` (30 facts, checked
+2026-10-11). These are the 11 the in-game lesson shows (`src/content/lessons/predators.ts`):
+
+| Fact shown to students | Source | Status |
+|---|---|---|
+| For about 11,000 years after the glaciers melted, Minnesota's forests grew with no earthworms. | Minnesota DNR, *Invasive earthworms* | Checked 2026-10-11 |
+| Robins often find worms by standing still and staring at the ground, head tipped to one side. | Cornell, All About Birds, *American Robin* | Checked 2026-10-11 |
+| A woodcock pushes its long bill into the soil, and the bill can feel a worm moving underground. | Minnesota DNR, *American Woodcock* | Checked 2026-10-11 |
+| A star-nosed mole's nose is a star of 22 fleshy fingers; it may have the best sense of touch of any mammal. | Animal Diversity Web, *Condylura cristata* | Checked 2026-10-11 |
+| Earthworms are 50 to 90 percent of a woodcock's food. | Animal Diversity Web, *Scolopax minor* | Checked 2026-10-11 |
+| When a nightcrawler is disturbed, it pulls back down into its burrow very fast. | Colorado State University, *Nightcrawlers* | Checked 2026-10-11 |
+| In a Florida forest, a different worm crawls up out of the ground when a mole digs nearby. | Catania 2008, *PLoS ONE* | Checked 2026-10-11 |
+| Nightcrawlers come up to feed on damp nights and rarely leave their burrow all the way. | Colorado State University, *Nightcrawlers* | Checked 2026-10-11 |
+| In one study, light at night cut the number of nightcrawlers coming up by about half. | Nuutinen et al. 2014 | Checked 2026-10-11 |
+| Robins depend on earthworms; where worms spread, robins could spread too. | Minnesota Breeding Bird Atlas, *American Robin* | Checked 2026-10-11 |
+| Worms may help salamanders in some ways and hurt them in others. | Great Lakes Worm Watch, *Vertebrate Animals* | Checked 2026-10-11 |
+
+**Watch out (for design ideas):** the "worms flee up from a mole" study used a Florida worm, not
+nightcrawlers. A student design where our nightcrawler escapes upward can only ship labelled
+"Game choice". Nightcrawlers really escape by pulling back down.
+
+**While you play, notice…** Where could your worm hide from a robin, a woodcock or a mole? (The
+lesson's last card says this too.)
 
 ## What's new in this build
 This matches the "Coming next" entry in `CHANGELOG.md`.
 - The Start screen says **V3 · Predators**.
-- **Predators lesson:** the game opens with a short, playable lesson about the animals that eat
-  worms (built in the "In-game learning intros" thread). It ends with a reminder to fill in the
-  form in Canvas. The reminder is text only; the game has no links.
+- **Predators lesson "Who eats worms?":** the Start screen's first button is now **Learn: Who
+  eats worms?**. It's 7 short, hands-on cards: sort the hunters by how they find worms, guess how
+  much of a woodcock's food is worms, feel the ground thump and choose what to do, and so on. It
+  ends with a reminder to fill in the form from Canvas (text only; the game has no links). After a
+  student finishes, Crawl moves to the top and the lesson stays below it to replay. Built in the
+  "In-game learning intros" thread (PR #4); screenshots in `docs/codev/lessons/predators/`.
 - No predator hunts the worm yet. Students design how one should work on this form, and the
   winning design is built into V4.
 - Everything from V2 is still there: dig down, the soil layers, tunnels, castings, Wide and Close
@@ -128,7 +153,12 @@ Description: Artists check how the game looks and feels.
 
 **Q5. I wish…** (Short answer)
 
-**Q6. FACT CHECK** (Multiple choice, one correct) — fill in from the lesson's facts.
+**Q6. When a nightcrawler feels the ground shake, what does it do?** (Multiple choice, one
+correct. To grade it, turn the form into a quiz in Settings and mark the answer.)
+- Zips back down its burrow ← correct
+- Crawls up and out of the ground
+- Stays perfectly still
+- Rolls up into a ball
 
 **Q7. How fun was V3?** (Linear scale 1 to 5)
 - 1 = 😞 Not fun
@@ -159,7 +189,11 @@ Help text: Pick 1 for your favorite. Use each number once.
 Description: Your design could be built into V4! Rules: one new thing. Small enough to build in
 one week. True of real worms and predators, or call it a "game choice".
 
-**D1. Which predator should hunt your worm?** — fill in from the lesson's predators.
+**D1. Which predator should hunt your worm in the game?** (Multiple choice)
+- American robin
+- American woodcock
+- Star-nosed mole
+- Other: ____
 
 **D2. How should it work in the game?** (Paragraph)
 Help text: Try this: "The ___ would ___. My worm could stay safe by ___."
@@ -193,7 +227,7 @@ build next.
 > You picked predators! This week you learn about the animals that eat worms, then design one
 > for the game.
 >
-> 1. Play V3: https://wormsimulator.com/v3/ (the lesson is at the start)
+> 1. Play V3: https://wormsimulator.com/v3/ and press **Learn: Who eats worms?** first
 > 2. Check your job for this round: [JOB LIST]
 > 3. Fill out the form: [FORM LINK]
 >

@@ -17,8 +17,9 @@ How to write an entry (for Matt and Claude):
 
 ### New
 - The Start screen shows which version you are playing: V3 · Predators.
-- **Learn about predators in the game.** When you start, a short lesson shows you the animals
-  that eat worms, and how a worm with no eyes can sense danger.
+- **Learn: Who eats worms?** The first button on the Start screen opens a short lesson about the
+  animals that hunt worms: the robin, the woodcock and the star-nosed mole. Sort the hunters, make
+  guesses, and feel the ground shake. You can play it again any time from the Start screen.
 - At the end of the lesson, the game reminds you to fill in this week's form in Canvas.
 
 ### Because you voted
