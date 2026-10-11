@@ -29,6 +29,9 @@ import { showGraphics } from './ui/graphicsMenu';
 import { createActionPrompt } from './ui/actionPrompt';
 import { showResult, showRunning, showTestIntro } from './ui/speedTestUi';
 import { showUnderground } from './ui/undergroundHint';
+import { closeLesson, showLesson } from './ui/lesson';
+import { CURRENT_LESSON } from './content/lessons';
+import { lessonDone, markLessonDone } from './save/lessonStore';
 import { warmShaders } from './render/warmShaders';
 import { createBurrowing } from './underground/burrowing';
 
@@ -74,16 +77,16 @@ function run(renderer: THREE.WebGLRenderer): void {
 
 function start(renderer: THREE.WebGLRenderer): void {
   app.appendChild(renderer.domElement);
-  let state: ScreenState = initialScreens(params.speedTest);
+  let state: ScreenState = initialScreens(params.speedTest, params.lesson && !!CURRENT_LESSON);
   // The first card (Start, or the speed-test intro) goes up synchronously, before the slow
   // world build, so no frame is ever painted with an empty card. (The no-WebGL path shows its
   // FAIL card just as synchronously, above.) Its buttons only act once run() has finished.
+  const store = browserStore();
   draw();
   // Near plane 0.2 (not 0.1) doubles depth precision for the thin, layered leaf litter. The
   // camera stays >= 0.5 above the litter and 2.6 behind the worm, so nothing it normally looks
   // at comes within 0.2 of the lens.
   const camera = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
-  const store = browserStore();
   const crawl = new Crawl();
   const world = buildWorld(crawl);
   const keyboard = new KeyboardInput();
@@ -171,6 +174,8 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (runner.running && next.screen !== 'speedTest') stopTest();
     // Back from Graphics: focus returns to the button that opened it.
     const back = e.type === 'back' && state.screen === 'graphics';
+    // Leaving the lesson by any way (Esc included): its cue and any reading aloud stop.
+    if (state.screen === 'lesson') closeLesson(shell.root);
     state = next;
     // A slow streak from before (or a menu over the scene) must not count against Auto.
     graphics.interruptAuto(performance.now());
@@ -209,7 +214,18 @@ function start(renderer: THREE.WebGLRenderer): void {
           onCrawl: () => dispatch({ type: 'crawl' }),
           onGraphics: () => dispatch({ type: 'graphics' }),
           onSpeedTest: () => dispatch({ type: 'speedTest' }),
-        }, fromGraphics);
+        }, fromGraphics, CURRENT_LESSON ? {
+          title: CURRENT_LESSON.title,
+          done: lessonDone(store, CURRENT_LESSON.id),
+          onLesson: () => dispatch({ type: 'lesson' }),
+        } : undefined);
+      case 'lesson':
+        if (!CURRENT_LESSON) return;
+        return showLesson(shell, CURRENT_LESSON, {
+          onCrawl: () => dispatch({ type: 'crawl' }),
+          onStart: () => dispatch({ type: 'toStart' }),
+          onFinish: () => markLessonDone(store, CURRENT_LESSON!.id),
+        });
       case 'crawl':
         shownCard = cardNow();
         return shownCard === 0 ? showCrawl(shell) : showUnderground(shell, shownCard === 1);
@@ -367,13 +383,14 @@ function start(renderer: THREE.WebGLRenderer): void {
     }
   });
 
-  // Esc or P pauses and resumes; Esc also leaves the Graphics screen.
+  // Esc or P pauses and resumes; Esc also leaves the Graphics screen and the lesson.
   window.addEventListener('keydown', (e) => {
     if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
     const pauseKey = e.code === 'Escape' || e.code === 'KeyP';
     if (state.screen === 'crawl' && pauseKey) dispatch({ type: 'pause' });
     else if (state.screen === 'pause' && pauseKey) dispatch({ type: 'resume' });
     else if (state.screen === 'graphics' && e.code === 'Escape') dispatch({ type: 'back' });
+    else if (state.screen === 'lesson' && e.code === 'Escape') dispatch({ type: 'toStart' });
     else return;
     e.preventDefault();
   });

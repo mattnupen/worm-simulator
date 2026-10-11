@@ -14,6 +14,12 @@ function luminance(rgb: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+// These tests play as a returning student who has finished this version's lesson, so Crawl comes
+// first on Start. The lesson's own flow, on a new device, is tests/e2e/lesson.spec.ts.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
+});
+
 test('the Start screen shows the version label, at least 18 px and 7:1 on the parchment', async ({ page }) => {
   await page.goto(PAGE);
   const label = page.getByText(VERSION_LABEL, { exact: true });
