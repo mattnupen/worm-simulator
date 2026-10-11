@@ -23,7 +23,16 @@ export type SourceId =
   | 'wormwatch-vertebrates'
   | 'wormwatch-invertebrates'
   | 'umn-earthworm-problems'
-  | 'hale-2005';
+  | 'hale-2005'
+  | 'mnbirdatlas-robin'
+  | 'allaboutbirds-robin'
+  | 'mndnr-woodcock'
+  | 'adw-woodcock'
+  | 'mndnr-moles'
+  | 'adw-star-nosed-mole'
+  | 'csu-nightcrawlers'
+  | 'nuutinen-2014'
+  | 'catania-2008';
 
 export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'mndnr-humus': {
@@ -79,5 +88,59 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     publisher: 'Hale, Frelich, Reich and Pastor, Ecological Applications (2005)',
     url: 'https://esajournals.onlinelibrary.wiley.com/doi/abs/10.1890/03-5345',
     checked: '2026-10-04',
+  },
+  'mnbirdatlas-robin': {
+    title: 'American Robin',
+    publisher: 'Minnesota Breeding Bird Atlas',
+    url: 'https://mnbirdatlas.org/species/american-robin/',
+    checked: '2026-10-11',
+  },
+  'allaboutbirds-robin': {
+    title: 'American Robin Life History',
+    publisher: 'Cornell Lab of Ornithology, All About Birds',
+    url: 'https://www.allaboutbirds.org/guide/American_Robin/lifehistory',
+    checked: '2026-10-11',
+  },
+  'mndnr-woodcock': {
+    title: 'American Woodcock',
+    publisher: 'Minnesota DNR',
+    url: 'https://dnr.state.mn.us/birds/woodcock.html',
+    checked: '2026-10-11',
+  },
+  'adw-woodcock': {
+    title: 'Scolopax minor (American woodcock)',
+    publisher: 'Animal Diversity Web, University of Michigan',
+    url: 'https://animaldiversity.org/accounts/Scolopax_minor/',
+    checked: '2026-10-11',
+  },
+  'mndnr-moles': {
+    title: 'Moles',
+    publisher: 'Minnesota DNR',
+    url: 'https://www.dnr.state.mn.us/mammals/moles.html',
+    checked: '2026-10-11',
+  },
+  'adw-star-nosed-mole': {
+    title: 'Condylura cristata (star-nosed mole)',
+    publisher: 'Animal Diversity Web, University of Michigan',
+    url: 'https://animaldiversity.org/accounts/Condylura_cristata/',
+    checked: '2026-10-11',
+  },
+  'csu-nightcrawlers': {
+    title: 'Nightcrawlers',
+    publisher: 'Colorado State University, Arthropods of Colorado',
+    url: 'https://webdoc.agsci.colostate.edu/bspm/arthropodsofcolorado/Nightcrawlers.pdf',
+    checked: '2026-10-11',
+  },
+  'nuutinen-2014': {
+    title: 'Dew-worms in white nights',
+    publisher: 'Nuutinen and others, Soil Biology and Biochemistry (2014)',
+    url: 'https://knowledge.lancashire.ac.uk/id/eprint/13694/',
+    checked: '2026-10-11',
+  },
+  'catania-2008': {
+    title: 'Worm grunting, fiddling, and charming',
+    publisher: 'Catania, PLoS ONE (2008)',
+    url: 'https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0003472',
+    checked: '2026-10-11',
   },
 };
