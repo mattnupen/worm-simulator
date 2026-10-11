@@ -56,15 +56,14 @@ spread attention across the whole game. Each job ties to an experience goal (sec
 
 | Job | What to watch | Experience goal it checks |
 |---|---|---|
-| **Scientist** | Does the game match what we learned? Is anything untrue? | What I learned changes how I play. |
-| **Mechanic** | Do the controls and actions work? Does the new design work the way we designed it? | I can always tell where I am and what to do next. |
-| **Playtester** | Where did you get stuck, confused or lost? What broke? | I can always tell where I am and what to do next. |
-| **Feel checker** | Was it fun? Does it feel like being a worm? | Being a worm feels strange and real. |
-| **Access checker** | Could everyone play: text size, colours, keyboard-only, the device you used? | Everyone can play. |
+| **Scientist** | Does the game match what we learned? Is anything untrue or missing? | What I learned changes how I play. |
+| **Mechanic** | Do the controls and actions work? Does the new design work the way we designed it? Where did you get stuck or lost? What broke? Could you play on your device? | I can always tell where I am and what to do next. Everyone can play. |
+| **Artist** | How does it look and feel? Does it look like a real forest floor? Can you see everything clearly? Does moving feel like being a worm? | Being a worm feels strange and real. |
 
 How it works:
 - **Assignment:** Matt posts the job list in Canvas each round, rotated by a fixed order such as
-  seat or roster position. Each class period gets about equal numbers in each job. The list stays
+  seat or roster position, so every student has each job once every three rounds. Each class
+  period gets about a third of its students in each job. The list stays
   in Canvas and never goes into the repo (P14).
 - **On the form:** the first question is "My job this round." The form then branches to 1 or 2
   questions for that job, and every student also answers the shared critique questions. The form
@@ -197,4 +196,4 @@ purpose (logged in the decision log).
 ## 12. Open decisions for Matt
 
 1. **Confirm the experience goals** (section 10), or change any of them.
-2. **Confirm the jobs** (section 3): which five, their names, and how to rotate them.
+2. **Confirm the jobs** (section 3): Scientist, Mechanic and Artist, and how to rotate them.
