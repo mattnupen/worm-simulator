@@ -29,7 +29,7 @@ Each round produces a new version of the game (V1, V2, V3…), and each round is
    science (is it true to real worms?) or the game mechanics (do the controls work, and where did
    you get stuck?).
 3. **Give feedback.** A Google Form, linked from the class Canvas page, asks students to critique
-   the build, vote on classmates’ designs and the next topic, and (optionally) design something
+   the build, vote on classmates' designs and the next topic, and (optionally) design something
    new, with evidence for why it's true of real worms.
 4. **Decide.** Class periods are weighted equally. Votes are input, and the teacher makes the
    final call in public and explains why.
