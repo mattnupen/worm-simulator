@@ -25,9 +25,10 @@ the topic becomes theirs.
 Each round produces a new version of the game (V1, V2, V3…), and each round is **optional homework**.
 
 1. **Learn.** The game opens with a short interactive intro on the round's worm topic.
-2. **Play with a job.** Every student gets a role that rotates each round, such as checking the
-   science (is it true to real worms?) or the game mechanics (do the controls work, and where did
-   you get stuck?).
+2. **Play with a job.** Every student gets one of three roles, rotating each round so everyone
+   tries all three: *Scientist* (is it true to real worms?), *Mechanic* (do the controls work,
+   where did you get stuck, could you play on your device?), or *Artist* (does it look and feel
+   like being a worm on a real forest floor?).
 3. **Give feedback.** A Google Form, linked from the class Canvas page, asks students to critique
    the build, vote on classmates' designs and the next topic, and (optionally) design something
    new, with evidence for why it's true of real worms.
