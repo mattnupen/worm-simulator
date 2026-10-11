@@ -48,13 +48,40 @@ and no switching back and forth between tabs. (Matt, 2026-10-11)
 - Methods for the intro are being worked out in the "In-game learning intros" thread. Its first
   test topic is predators.
 
+### Rotating jobs (Matt, 2026-10-11; draft)
+Every student fills in the same form, but each round they have a **job**: a part of the game to
+watch closely while they play. Jobs rotate every round, so each student tries each one. The jobs
+give quiet students a clear thing to report (P10), make the critique more specific (P6), and
+spread attention across the whole game. Each job ties to an experience goal (section 10).
+
+| Job | What to watch | Experience goal it checks |
+|---|---|---|
+| **Scientist** | Does the game match what we learned? Is anything untrue? | What I learned changes how I play. |
+| **Mechanic** | Do the controls and actions work? Does the new design work the way we designed it? | I can always tell where I am and what to do next. |
+| **Playtester** | Where did you get stuck, confused or lost? What broke? | I can always tell where I am and what to do next. |
+| **Feel checker** | Was it fun? Does it feel like being a worm? | Being a worm feels strange and real. |
+| **Access checker** | Could everyone play: text size, colours, keyboard-only, the device you used? | Everyone can play. |
+
+How it works:
+- **Assignment:** Matt posts the job list in Canvas each round, rotated by a fixed order such as
+  seat or roster position. Each class period gets about equal numbers in each job. The list stays
+  in Canvas and never goes into the repo (P14).
+- **On the form:** the first question is "My job this round." The form then branches to 1 or 2
+  questions for that job, and every student also answers the shared critique questions. The form
+  keeps the same shape every round (P12).
+- **Results:** each job's answers are tallied separately, so the Friday summary reads like a
+  report from each team.
+- **In the game (optional):** the in-game intro can end with "This round, look out for…" for each
+  job, as text only.
+
 ### The form (from the class Canvas page)
 One Google Form per version, titled "Worm Simulator VN · <Name>: Feedback". It keeps the same
 sections every time, takes about 10 minutes, and works on a phone (P10, P11, P12). Students
 choose how much to do: **critique only** (sections 1–2) or **critique plus design** (sections 1–3)
 (P11).
 
-1. **Critique VN** (P6, P12). The same questions every time:
+1. **Critique VN** (P6, P12). The same questions every time, after "My job this round" and that
+   job's questions:
    - Could you play VN? (Yes / It wouldn't load / I didn't have time)
    - Did you get stuck? Where?
    - I like… / I wish…
@@ -142,12 +169,23 @@ Strategy A over-represents motivated students and students with internet at home
 | Instant rollback | Students only get `/vN/` links, so re-post the last version's link, or ship an emergency fix |
 | Released version always playable | Frozen `/vN/` snapshots, which are never rebuilt |
 
-## 10. Living artifacts (framework section 6)
+## 10. Experience goals (draft, for Matt to confirm)
+
+These are how the game should *feel* to play, not what's in it (framework P6). Every build is
+checked against them, and they stay the same from round to round unless Matt changes them on
+purpose (logged in the decision log).
+
+1. **Being a worm feels strange and real.**
+2. **I can always tell where I am and what to do next.**
+3. **What I learned changes how I play.**
+4. **Everyone can play.**
+
+## 11. Living artifacts (framework section 6)
 
 | Artifact | Where | Status |
 |---|---|---|
 | Strategy record | This file, section 1 | Done |
-| Experience goals | `docs/codev/experience-goals.md` | **To create.** Matt sets 3 or 4, written as feelings |
+| Experience goals | This file, section 10 | **Draft.** Matt to confirm |
 | Rules of thumb (vetted claims) | `src/content/` (in-game facts with source IDs) and each version doc's fact table | Exists |
 | Idea log | `docs/codev/idea-log.md` | To create, starting with V3's designs |
 | Decision log | `docs/codev/decision-log.md` | To create. First entries: framework adopted, Strategy A chosen (2026-10-11) |
@@ -156,10 +194,7 @@ Strategy A over-represents motivated students and students with internet at home
 | Architecture note | `CLAUDE.md` | Exists |
 | Participation record | Each version doc's Results, per class period | Exists in the template |
 
-## 11. Open decisions for Matt
+## 12. Open decisions for Matt
 
-1. **Experience goals** (framework P6). These are 3 or 4 short sentences describing how the game
-   should *feel* to play, not what's in it. For example: "Being a worm feels strange and real."
-   "I can always tell where I am and what to do next." "What I learned changes how I play."
-   Students check every new build against them ("Did it feel like this?"). They stay the same
-   from round to round.
+1. **Confirm the experience goals** (section 10), or change any of them.
+2. **Confirm the jobs** (section 3): which five, their names, and how to rotate them.
