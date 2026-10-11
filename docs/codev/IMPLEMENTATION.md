@@ -48,17 +48,17 @@ and no switching back and forth between tabs. (Matt, 2026-10-11)
 - Methods for the intro are being worked out in the "In-game learning intros" thread. Its first
   test topic is predators.
 
-### Rotating jobs (Matt, 2026-10-11; draft)
+### Rotating jobs (Matt, 2026-10-11)
 Every student fills in the same form, but each round they have a **job**: a part of the game to
 watch closely while they play. Jobs rotate every round, so each student tries each one. The jobs
 give quiet students a clear thing to report (P10), make the critique more specific (P6), and
-spread attention across the whole game. Each job ties to an experience goal (section 10).
+spread attention across the whole game.
 
-| Job | What to watch | Experience goal it checks |
-|---|---|---|
-| **Scientist** | Does the game match what we learned? Is anything untrue or missing? | What I learned changes how I play. |
-| **Mechanic** | Do the controls and actions work? Does the new design work the way we designed it? Where did you get stuck or lost? What broke? Could you play on your device? | I can always tell where I am and what to do next. Everyone can play. |
-| **Artist** | How does it look and feel? Does it look like a real forest floor? Can you see everything clearly? Does moving feel like being a worm? | Being a worm feels strange and real. |
+| Job | What to watch |
+|---|---|
+| **Scientist** | Does the game match what we learned? Is anything untrue or missing? |
+| **Mechanic** | Do the controls and actions work? Does the new design work the way we designed it? Where did you get stuck or lost? What broke? Could you play on your device? |
+| **Artist** | How does it look and feel? Does it look like a real forest floor? Can you see everything clearly? Does moving feel like being a worm? |
 
 How it works:
 - **Assignment:** Matt posts the job list in Canvas each round, rotated by a fixed order such as
@@ -87,6 +87,8 @@ choose how much to do: **critique only** (sections 1–2) or **critique plus des
    - Once the build includes a student design: "Does [the design] work the way we designed it?"
      (Yes / Partly / No), with a box for "What's different?"
    - A smiley-face fun rating, read as a trend across versions, never as an absolute score.
+   - **Goal check:** the 4 experience-goal statements (section 10), each answered Yes / Kind
+     of / No. Everyone answers them, whatever their job.
 2. **Vote** (P5). Students rank the round's options: a shortlist of classmates' designs (names
    removed, drawings included, shuffled), and the next topic when one is open. Totals are hidden.
    The section ends with "What would you add or change?"
@@ -168,23 +170,33 @@ Strategy A over-represents motivated students and students with internet at home
 | Instant rollback | Students only get `/vN/` links, so re-post the last version's link, or ship an emergency fix |
 | Released version always playable | Frozen `/vN/` snapshots, which are never rebuilt |
 
-## 10. Experience goals (draft, for Matt to confirm)
+## 10. Experience goals (Matt, 2026-10-11)
 
-These are how the game should *feel* to play, not what's in it (framework P6). Every build is
-checked against them, and they stay the same from round to round unless Matt changes them on
-purpose (logged in the decision log).
+These are how the game should *feel* to play, not what's in it (framework P6). They are mainly
+the yardstick Matt and Claude use to judge ideas and builds, and students never need to learn
+them. They stay the same from round to round unless Matt changes them on purpose (logged in the
+decision log).
 
 1. **Being a worm feels strange and real.**
 2. **I can always tell where I am and what to do next.**
 3. **What I learned changes how I play.**
 4. **Everyone can play.**
 
+**On the form**, every student answers the same 4 statements at the end, whatever their job,
+each as Yes / Kind of / No. This takes about 30 seconds.
+- Being a worm felt strange and real.
+- I could tell where I was and what to do next.
+- What I learned changed how I played.
+- I could play without problems on my device.
+
+The statements never change, so the results show each version's trend (framework P12).
+
 ## 11. Living artifacts (framework section 6)
 
 | Artifact | Where | Status |
 |---|---|---|
 | Strategy record | This file, section 1 | Done |
-| Experience goals | This file, section 10 | **Draft.** Matt to confirm |
+| Experience goals | This file, section 10 | Done |
 | Rules of thumb (vetted claims) | `src/content/` (in-game facts with source IDs) and each version doc's fact table | Exists |
 | Idea log | `docs/codev/idea-log.md` | To create, starting with V3's designs |
 | Decision log | `docs/codev/decision-log.md` | To create. First entries: framework adopted, Strategy A chosen (2026-10-11) |
@@ -195,5 +207,4 @@ purpose (logged in the decision log).
 
 ## 12. Open decisions for Matt
 
-1. **Confirm the experience goals** (section 10), or change any of them.
-2. **Confirm the jobs** (section 3): Scientist, Mechanic and Artist, and how to rotate them.
+None right now.
