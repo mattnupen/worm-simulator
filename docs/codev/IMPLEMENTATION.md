@@ -39,8 +39,16 @@ Each round opens with an **interactive learning intro inside the game**, not a s
 deck. It teaches the background students need for that round's decisions. This means fewer clicks,
 and no switching back and forth between tabs. (Matt, 2026-10-11)
 
-- **How it's made:** Matt gives Claude the next round's topic. Claude researches it with sources,
-  builds the intro, and Matt approves or adjusts it before release.
+- **Research agent (Matt, 2026-10-11):** as soon as students choose a round's topic, Claude
+  starts a separate research agent on it, before any building.
+  - The agent finds facts from trusted sources: the Minnesota DNR, the University of Minnesota,
+    Great Lakes Worm Watch, and peer-reviewed studies.
+  - It writes each fact in plain words a 6th grader can read, with its source and link, and marks
+    anything it couldn't confirm.
+  - It saves the notes to `docs/codev/research/<topic>.md`.
+  - The in-game intro, the form's fact question and `src/content/` use only facts from those
+    notes.
+  - Claude then builds the intro, and Matt approves or adjusts it before release.
 - Every fact in it goes through `src/content/` with a source ID (`CLAUDE.md` non-negotiables).
   Where possible, it teaches through play rather than walls of text (P7).
 - The game shows a short reminder to fill in the round's Google Form. The reminder is text only,
@@ -109,7 +117,10 @@ non-negotiables).
 Each round follows the framework's cycle (section 4). Students vote on a topic, they learn it in
 the game's intro, they design for it on the form, the design is built, and they critique it.
 
-- **Topics are chosen by students' vote.** Predators is the current pick (2026-10-11).
+- **Topics are chosen by students' vote.**
+- **V3 (Predators) is the first round run this way.**
+- **Simple language:** everything students read or hear (the in-game intro, form questions,
+  Canvas posts, the changelog) stays simple enough for a 6th grader. (Matt, 2026-10-11)
 - **V4 works like V3:** it's built around a new topic students voted on.
 - The order of topics and the dates are in `roadmap.md`. The roadmap needs updating to match.
 
