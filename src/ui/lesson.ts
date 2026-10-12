@@ -2,7 +2,7 @@ import './lesson.css';
 import { el, button, menu, type Button } from './dom';
 import { icon } from './icons';
 import type { Shell } from './shell';
-import { SOURCES, sourceName } from '../content/sources';
+import { SOURCES, type SourceId } from '../content/sources';
 import { GAME_CHOICE_PREFIX, shown, type Line } from '../content/text';
 import type { Cue, Lesson, LessonStep, More, Photo, Video } from '../content/lessons/lesson';
 import { PHOTO_URLS } from '../content/lessons/photos';
@@ -33,13 +33,18 @@ export interface LessonActions {
  *
  * A `sense` step plays like a film shot: the card fades out, black bars close in at the top and
  * bottom, the cue plays over the open forest with its sound, and the scene's words show as
- * captions in the bottom bar. Then the card fades back with the question. "Skip" ends it at once,
- * and "Play it again" replays it. No flashing: one slow shadow, or thumps under 3 a second. Under
- * reduced motion the card stays and the cue is a still picture.
+ * captions in the bottom bar. When it ends, the bar's "Skip" becomes "Next" and waits for the
+ * student; then the card fades back with the question. "Play it again" replays it. No flashing:
+ * one slow shadow, or thumps under 3 a second. Under reduced motion the card stays and the cue is
+ * a still picture.
  *
- * Questions are real radio buttons (like the Graphics menu). Once a guess is in, the option
- * scientists found is marked "Correct", with a tick, and the guess "Your guess" (never by colour
- * alone). Photos open bigger when tapped; "Tell me more" opens a panel with more to read.
+ * Next is always there, so students know where to go; on a step that asks something it is grayed
+ * out until they answer, with a line that says what to do first (never colour alone).
+ *
+ * Questions are real radio buttons (like the Graphics menu); the pick keeps its thick outline and
+ * filled dot. Once a guess is in, the option scientists found is marked "Correct", with a tick.
+ * Photos open bigger when tapped; "Tell me more" opens a panel with more to read. Sources stay off
+ * the card: one "Sources" button lists, as links, where this page's facts and photos come from.
  */
 export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void {
   const cue = cueLayer(shell.root);
@@ -73,14 +78,15 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
     const next = button(last ? 'Start crawling' : 'Next', 'play', 'primary', () => (last ? leave(a.onCrawl) : go(at + 1)));
     const here = at;
     const moreBtn = step.kind !== 'mission' && step.more ? moreButton(shell.root, step.more) : null;
+    const hint = el('p', waitHint(step), 'next-hint');
     const onAnswer = (): void => {
-      // First answer on this step: Next (and Tell me more) appear. Focus stays put, so the
-      // reveal can be read.
+      // First answer on this step: Next wakes up, and Tell me more appears. Focus stays put, so
+      // the reveal can be read.
       if (answered.has(here)) return;
       answered.add(here);
-      next.el.hidden = false;
+      next.el.disabled = false;
+      hint.hidden = true;
       if (moreBtn) moreBtn.hidden = false;
-      next.el.scrollIntoView?.({ block: 'nearest' });
     };
     const ctx: BodyCtx = {
       root: shell.root, at, onAnswer, replay: () => startScene(true),
@@ -89,10 +95,14 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
     opened.set(at, ctx.opened);
     const body = stepBody(step, ctx);
     const waits = !last && interactive(step) && !answered.has(at);
-    next.el.hidden = waits;
+    next.el.disabled = waits;
+    hint.hidden = !waits;
     if (moreBtn) moreBtn.hidden = waits;
     const nav: Button[] = [next];
     if (at > 0) nav.push(button('Back', 'back', 'secondary', () => go(at - 1)));
+    // Next and Back stay in view at the bottom of the card, with the line saying why Next waits.
+    const foot = el('div', '', 'lesson-foot');
+    foot.append(hint, menu(...nav));
 
     const tools = el('div', '', 'lesson-tools');
     if (reader.available()) {
@@ -111,6 +121,11 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
       snd.el.classList.add('btn-small');
       tools.append(snd.el);
     }
+    if (step.kind !== 'mission') {
+      const src = button('Sources', 'external', 'secondary', () => sourcesDialog(shell.root, panel(), src.el));
+      src.el.classList.add('btn-small');
+      tools.append(src.el);
+    }
     const exit = button('Back to start', 'home', 'secondary', () => leave(a.onStart));
     exit.el.classList.add('btn-small');
     tools.append(exit.el);
@@ -120,8 +135,8 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
       heading,
       ...body,
       ...(moreBtn ? [moreBtn] : []),
-      menu(...nav),
       tools,
+      foot,
     ]);
     if (step.kind === 'sense') startScene(!watched.has(at));
     else cue.clear();
@@ -145,7 +160,8 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
     }
     const here = at;
     panel()?.setAttribute('data-phase', 'watch');
-    sceneTimer = window.setTimeout(() => endScene(), cueMs(step.cue));
+    // The scene waits for the student: when it ends, Skip becomes Next.
+    sceneTimer = window.setTimeout(() => cue.done(), cueMs(step.cue));
     // While the card is hidden, the caption bar holds focus (its Skip button).
     cue.focusSkip();
     watchedAt = here;
@@ -198,6 +214,11 @@ export function closeLesson(root: HTMLElement): void {
 
 function interactive(step: LessonStep): boolean {
   return step.kind === 'predict' || step.kind === 'sense' || step.kind === 'meet';
+}
+
+/** Beside a grayed-out Next: what to do first, in words. */
+function waitHint(step: LessonStep): string {
+  return step.kind === 'meet' ? `Find out about all ${step.cards.length} animals to go on.` : 'Pick an answer to go on.';
 }
 
 /** Leaf pips for the steps; the words ("Step 2 of 8") are for screen readers only. */
@@ -255,8 +276,8 @@ function stepBody(step: LessonStep, c: BodyCtx): HTMLElement[] {
 }
 
 /**
- * A question as a set of radio buttons. Any pick reveals what scientists found; then the option
- * scientists found is marked "Correct" and the pick "Your guess". A new pick moves "Your guess".
+ * A question as a set of radio buttons. Any pick reveals what scientists found, and the option
+ * scientists found is marked "Correct". The pick shows by its outline and filled dot.
  */
 function choose(step: Extract<LessonStep, { kind: 'predict' | 'sense' }>, c: BodyCtx): HTMLElement[] {
   const set = el('fieldset', '', 'choices lesson-choices');
@@ -267,16 +288,14 @@ function choose(step: Extract<LessonStep, { kind: 'predict' | 'sense' }>, c: Bod
   const head = readable(el('p', 'What scientists found', 'reveal-head'));
   found.append(head, ...(step.kind === 'sense' && step.photo ? [photo(c.root, step.photo)] : []), ...step.reveal.map((l) => line(l)));
   const labels: HTMLLabelElement[] = [];
-  const mark = (pick: number): void => {
+  const mark = (): void => {
     labels.forEach((lab, i) => {
       const tags = lab.querySelector('.choice-tags') as HTMLElement;
-      tags.replaceChildren();
-      if (i === step.answer) {
+      if (i === step.answer && !tags.childElementCount) {
         const t = el('span', '', 'choice-tag correct');
         t.append(icon('check', 'tag-icon'), el('span', 'Correct'));
         tags.append(t);
       }
-      if (i === pick) tags.append(el('span', 'Your guess', 'choice-tag guess'));
     });
     found.hidden = false;
   };
@@ -288,7 +307,7 @@ function choose(step: Extract<LessonStep, { kind: 'predict' | 'sense' }>, c: Bod
     input.value = String(i);
     input.addEventListener('change', () => {
       c.picks.set(c.at, i);
-      mark(i);
+      mark();
       c.onAnswer();
     });
     const words = el('span', '', 'choice-words');
@@ -300,16 +319,23 @@ function choose(step: Extract<LessonStep, { kind: 'predict' | 'sense' }>, c: Bod
   const pick = c.picks.get(c.at);
   if (pick !== undefined) {
     (labels[pick].querySelector('input') as HTMLInputElement).checked = true;
-    mark(pick);
+    mark();
   } else {
     found.hidden = true;
   }
   return [set, found];
 }
 
-/** Photo cards: tap "Find out" on each to read its fact. Next shows once every card is open. */
+/**
+ * One row per animal: a small photo, its name, and "Find out", which shows its fact in place. A
+ * count says how many are found; Next wakes up once every card is open.
+ */
 function meet(step: Extract<LessonStep, { kind: 'meet' }>, c: BodyCtx): HTMLElement[] {
   const intro = readable(el('p', step.intro, 'lead lesson-question'));
+  const count = el('p', '', 'meet-count');
+  count.setAttribute('aria-live', 'polite');
+  const tally = (): void => { count.textContent = `Found ${c.opened.size} of ${step.cards.length}`; };
+  tally();
   const list = el('ul', '', 'meet-list');
   step.cards.forEach((card, i) => {
     const li = el('li', '', 'meet-card');
@@ -319,6 +345,8 @@ function meet(step: Extract<LessonStep, { kind: 'meet' }>, c: BodyCtx): HTMLElem
       c.opened.add(i);
       find.el.hidden = true;
       fact.hidden = false;
+      li.classList.add('found');
+      tally();
       if (c.opened.size === step.cards.length) c.onAnswer();
     };
     const find = button('Find out', 'leaf', 'secondary', open);
@@ -327,39 +355,83 @@ function meet(step: Extract<LessonStep, { kind: 'meet' }>, c: BodyCtx): HTMLElem
     const isOpen = c.opened.has(i);
     find.el.hidden = isOpen;
     fact.hidden = !isOpen;
-    li.append(photo(c.root, card.photo, true), name, find.el, fact);
+    li.classList.toggle('found', isOpen);
+    const words = el('div', '', 'meet-words');
+    words.append(name, find.el, fact);
+    li.append(photo(c.root, card.photo, true), words);
     list.append(li);
   });
-  return [intro, list];
+  return [intro, count, list];
 }
 
-/** One line as the player sees it; a fact names its source underneath, a game choice is labelled. */
+/**
+ * One line as the player sees it; a game choice is labelled. A fact carries its source id, and the
+ * Sources list (sourcesDialog) names every source shown on the page, so the card stays clean.
+ */
 function line(l: Line, className = ''): HTMLElement {
   const p = el('p', '', `lesson-line ${className}`.trim());
   if (l.kind === 'gameChoice') p.append(el('strong', GAME_CHOICE_PREFIX.trimEnd()), ' ', l.text);
   else p.textContent = shown(l);
   readable(p);
-  if (l.kind !== 'fact') return p;
-  const wrap = el('div', '', 'fact');
-  const src = el('p', '', 'source');
-  src.append(el('span', 'Source: ', 'sr-only'));
-  if (LESSON_LINKS) {
-    const link = el('a', sourceName(l.source));
-    link.href = SOURCES[l.source].url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.append(el('span', ' (opens in a new tab)', 'sr-only'));
-    src.append(link);
-  } else {
-    src.append(sourceName(l.source));
+  if (l.kind === 'fact') p.dataset.source = l.source;
+  return p;
+}
+
+/** A source as a link to its page (a new tab), or its name where links are off. */
+function sourceLink(id: SourceId): HTMLElement {
+  const s = SOURCES[id];
+  if (!LESSON_LINKS) return el('span', `${s.title} (${s.publisher})`);
+  const link = el('a', s.title);
+  link.href = s.url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.append(el('span', ' (opens in a new tab)', 'sr-only'));
+  const out = el('span');
+  out.append(link, ` (${s.publisher})`);
+  return out;
+}
+
+/** The sources of the facts, and the credits of the photos, that `scope` shows right now. */
+function shownSources(scope: Element): { facts: SourceId[]; credits: string[] } {
+  const visible = (e: Element): boolean => e.getClientRects().length > 0;
+  const facts = new Set<SourceId>();
+  for (const e of scope.querySelectorAll<HTMLElement>('[data-source]')) if (visible(e)) facts.add(e.dataset.source as SourceId);
+  const credits = new Set<string>();
+  for (const e of scope.querySelectorAll<HTMLElement>('[data-credit]')) if (visible(e)) credits.add(e.dataset.credit ?? '');
+  return { facts: [...facts], credits: [...credits] };
+}
+
+/** A short list of sources (and photo credits), as at the end of a book. */
+function sourceList(facts: readonly SourceId[], credits: readonly string[]): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  if (facts.length) {
+    const ul = el('ul', '', 'source-list');
+    for (const id of facts) {
+      const li = el('li');
+      li.append(sourceLink(id));
+      ul.append(li);
+    }
+    out.push(el('p', 'Where the facts come from', 'source-head'), ul);
   }
-  wrap.append(p, src);
-  return wrap;
+  if (credits.length) {
+    const ul = el('ul', '', 'source-list');
+    for (const t of credits) ul.append(el('li', t));
+    out.push(el('p', 'Photos', 'source-head'), ul);
+  }
+  return out;
+}
+
+/** "Sources": every source and photo credit on the page as the student sees it now. */
+function sourcesDialog(root: HTMLElement, panel: HTMLElement | null, from: HTMLElement): void {
+  const { facts, credits } = panel ? shownSources(panel) : { facts: [], credits: [] };
+  const body = sourceList(facts, credits);
+  if (!facts.length) body.unshift(el('p', 'Answer the question first: the sources come with what scientists found.'));
+  openDialog(root, 'sources-dialog', 'Sources for this page', body, from);
 }
 
 /**
- * A real photo with its credit underneath (the license asks for the credit). Tapping it opens a
- * bigger view. `compact` leaves the name off (a card that already shows it).
+ * A real photo with the animal's name underneath. Tapping it opens a bigger view with its credit.
+ * `compact` leaves the name off (a card that already shows it).
  */
 function photo(root: HTMLElement, p: Photo, compact = false): HTMLElement {
   const fig = el('figure', '', 'lesson-photo');
@@ -375,21 +447,30 @@ function photo(root: HTMLElement, p: Photo, compact = false): HTMLElement {
     const big = document.createElement('img');
     big.src = PHOTO_URLS[p.file];
     big.alt = p.alt;
+    // Tapping the big photo closes it too, like tapping outside the panel.
+    big.addEventListener('click', () => big.closest('dialog')?.close());
     const cap = el('p', p.credit, 'photo-credit');
     openDialog(root, 'photo-dialog', p.name, [big, cap], zoom);
   });
-  const cap = el('figcaption', '');
-  if (!compact) cap.append(el('span', p.name, 'photo-name'));
-  cap.append(el('span', p.credit, 'photo-credit'));
-  fig.append(zoom, cap);
+  // The credit its license asks for is in the bigger view and in Sources, not on the card.
+  fig.dataset.credit = `${p.name}: ${p.credit}`;
+  fig.append(zoom);
+  if (!compact) fig.append(el('figcaption', p.name, 'photo-name'));
   return fig;
 }
 
-/** "Tell me more": opens a panel with more to read (and a video, where links are on). */
+/**
+ * "Tell me more: <its title>": opens a panel with more to read, a video where links are on, and
+ * the panel's sources at the end.
+ */
 function moreButton(root: HTMLElement, more: More): HTMLButtonElement {
-  const b = button('Tell me more', 'book', 'secondary', () => {
+  const b = button(`Tell me more: ${more.title}`, 'book', 'secondary', () => {
     const body: HTMLElement[] = more.lines.map((l) => line(l));
     if (LESSON_LINKS && more.video) body.push(video(more.video));
+    const facts = [...new Set(more.lines.flatMap((l) => (l.kind === 'fact' ? [l.source] : [])))];
+    const end = el('div', '', 'more-sources');
+    end.append(...sourceList(facts, []));
+    body.push(end);
     openDialog(root, 'more-dialog', more.title, body, b.el);
   });
   b.el.classList.add('btn-small', 'more-btn');
@@ -462,6 +543,8 @@ interface CueLayer {
   play(c: Cue, captionLines: readonly string[] | null, onSkip: () => void): void;
   watching(): boolean;
   focusSkip(): void;
+  /** The cue has played: Skip becomes Next, and the scene waits for it. */
+  done(): void;
   /** Ends the scene: bars and captions go; the cue picture stays for the rest of the step. */
   endWatch(): void;
   clear(): void;
@@ -496,7 +579,7 @@ function cueLayer(root: HTMLElement): CueLayer {
   }
   const l = layer;
   const b = bar;
-  let skip: HTMLButtonElement | null = null;
+  let skip: Button | null = null;
   return {
     play(c, lines, onSkip) {
       delete l.dataset.cue;
@@ -508,12 +591,17 @@ function cueLayer(root: HTMLElement): CueLayer {
       lines.forEach((t, i) => words.append(el('p', t, i === lines.length - 1 ? 'cue-line now' : 'cue-line')));
       const s = button('Skip', 'play', 'secondary', onSkip);
       s.el.classList.add('btn-small', 'cue-skip');
-      skip = s.el;
+      skip = s;
       b.replaceChildren(words, s.el);
       b.hidden = false;
     },
     watching: () => l.dataset.watch !== undefined,
-    focusSkip() { skip?.focus({ preventScroll: true }); },
+    focusSkip() { skip?.el.focus({ preventScroll: true }); },
+    done() {
+      if (!skip) return;
+      skip.setLabel('Next');
+      skip.el.classList.replace('btn-secondary', 'btn-primary');
+    },
     endWatch() {
       delete l.dataset.watch;
       b.hidden = true;
@@ -530,9 +618,9 @@ function cueLayer(root: HTMLElement): CueLayer {
   };
 }
 
-/** How long each cue plays as a scene (lesson.css), so the card waits for its end. */
+/** How long each cue plays as a scene (lesson.css, lessonSound.ts), so Skip turns to Next at its end. */
 function cueMs(c: Cue): number {
-  return c === 'robin' ? 6400 : c === 'shadow' ? 3800 : 3000;
+  return c === 'robin' ? 8200 : c === 'shadow' ? 5600 : 4200;
 }
 
 function reducedMotion(): boolean {

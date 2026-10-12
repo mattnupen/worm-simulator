@@ -33,7 +33,7 @@ steps, each one of five kinds:
 |---|---|
 | `story` | One big idea in two or three short lines |
 | `predict` | A question with 2–4 answers (radio buttons), then "What scientists found". With `answer`, that option is marked "Correct" after a guess |
-| `sense` | A film-like moment over the forest (`shadow`, `thump` or `robin`): the card fades out, black bars close in, the cue plays with its sound, and the `scene` and cue words show as captions with Skip. Then the card comes back with the question and the reveal |
+| `sense` | A film-like moment over the forest (`shadow`, `thump` or `robin`): the card fades out, black bars close in, the cue plays with its sound, and the `scene` and cue words show as captions with Skip. When the cue ends, Skip becomes Next and waits for the student; then the card comes back with the question and the reveal |
 | `meet` | 2–6 animals as photo cards; "Find out" on each shows its fact (replaced `sort`, which Matt found confusing: it was a quiz where every answer was the same) |
 | `mission` | Always last: "While you play, notice…" and the reminder to vote on the form in Canvas |
 
@@ -62,7 +62,7 @@ Rules a person checks:
 - 6th-grade reading level, short lines, positive wording (P12). The reveal never says "wrong".
 - Framing: the forest *changed*; some species win and some lose. Never "destroyed" or "dying".
 - A cue never flashes (one slow shadow, or thumps under 3 a second), and its words say what happened.
-- Every fact on screen shows its source underneath ("Source: Minnesota DNR").
+- Every fact on screen has its source one tap away: each page's "Sources" button lists the sources of the facts showing, as links, with the photo credits. "Tell me more" lists its sources at the end. (Matt, 2026-10-12: sources under every fact were cluttered and distracting.)
 - No lesson text appears in normal play (the learning unit lives in the lesson, `CLAUDE.md`).
 
 The Start screen shows "Learn: <title>" as the first, main button until the device finishes the

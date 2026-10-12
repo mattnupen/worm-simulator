@@ -31,16 +31,16 @@ export function playCueSound(cue: Cue): void {
   const t = c.currentTime + 0.05;
   switch (cue) {
     case 'thump':
-      // Matches the rings: 0, 0.7 and 1.4 s.
-      for (const at of [0, 0.7, 1.4]) thud(c, out, t + at, 62, 0.42, 1);
+      // Matches the rings: 0, 1 and 2 s.
+      for (const at of [0, 1, 2]) thud(c, out, t + at, 62, 0.42, 1);
       break;
     case 'shadow':
-      whoosh(c, out, t + 0.2, 3.0);
+      whoosh(c, out, t + 0.3, 4.4);
       break;
     case 'robin':
-      whoosh(c, out, t + 0.1, 2.4);
-      // Three hops, landing at the end of each 0.66 s hop after 2.6 s.
-      for (const k of [1, 2, 3]) thud(c, out, t + 2.6 + 0.66 * k - 0.05, 150, 0.16, 0.45);
+      whoosh(c, out, t + 0.1, 3.4);
+      // Three hops, landing at the end of each 0.9 s hop after 3.6 s.
+      for (const k of [1, 2, 3]) thud(c, out, t + 3.6 + 0.9 * k - 0.05, 150, 0.16, 0.45);
       break;
   }
 }
