@@ -44,10 +44,17 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
       if (step.kind === 'sense') {
         await expect(page.locator(`.cue[data-cue="${step.cue}"]`)).toHaveCount(1);
         await expect(card(page).getByText(step.cueText)).toBeVisible();
+        // A scene plays first: its question joins the card when the cue ends.
+        if (step.scene) await expect(button(page, step.options[0])).toBeHidden();
       }
       await button(page, step.options[0]).click();
       await expect(button(page, `${step.options[0]} (your guess)`)).toHaveAttribute('aria-pressed', 'true');
       await expect(card(page).getByText('What scientists found')).toBeVisible();
+      // Real photos show with their credit (predict: above the question; sense: in the reveal).
+      if (step.photo) {
+        await expect(card(page).getByRole('img', { name: step.photo.alt })).toBeVisible();
+        await expect(card(page).getByText(step.photo.credit)).toBeVisible();
+      }
       const fact = step.reveal.find((l) => l.kind === 'fact');
       if (fact && fact.kind === 'fact') {
         await expect(card(page).getByText(shown(fact))).toBeVisible();
