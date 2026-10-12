@@ -37,8 +37,8 @@ nightcrawlers. A student design where our nightcrawler escapes upward can only s
 "Game choice". Nightcrawlers really escape by pulling back down.
 
 **Mission while you play** (on the crawl card and the lesson's last page, Matt 2026-10-12):
-"Mission: Which predators are hunting in this forest, and how does your worm sense them and escape
-being eaten?"
+"Mission: Think about which predators are hunting in this forest, and how your worm senses them
+and escapes being eaten."
 
 ## What's new in this build
 This matches the "Coming next" entry in `CHANGELOG.md`.

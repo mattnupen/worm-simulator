@@ -24,8 +24,8 @@ How to write an entry (for Matt and Claude):
   woodcock, the star-nosed mole, the shrew, the garter snake, the American toad and the red-backed
   salamander. Watch a robin hunt, feel the ground shake, and make guesses.
 - At the end of the lesson, the game reminds you to fill in this week's form in Canvas.
-- While you crawl, your **mission** shows at the top: which predators are hunting in this forest,
-  and how does your worm sense them and escape being eaten? The controls line is shorter too.
+- While you crawl, your **mission** shows at the top: think about which predators are hunting in
+  this forest, and how your worm senses them and escapes being eaten. The controls line is shorter too.
 - **Settings** (on the Start screen and when you pause) has Sound on or off and the Graphics
   choices. The Speed test button is gone from the Start screen.
 
