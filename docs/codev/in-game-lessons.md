@@ -31,9 +31,9 @@ steps, each one of five kinds:
 | Step | What students see |
 |---|---|
 | `story` | One big idea in two or three short lines |
-| `predict` | A question with 2–4 answers, then "What scientists found" |
-| `sense` | A cue over the forest (`shadow`, `thump` or `robin`), told in words too, then a question and the reveal. With a `scene`, it opens like a film: black bars, a slim card with the scene's words, and the cue; the question joins when the cue ends |
-| `sort` | 2–6 cards to tap into one of two groups; each card then shows its fact |
+| `predict` | A question with 2–4 answers (radio buttons), then "What scientists found". With `answer`, that option is marked "Correct" after a guess |
+| `sense` | A film-like moment over the forest (`shadow`, `thump` or `robin`): the card fades out, black bars close in, the cue plays with its sound, and the `scene` and cue words show as captions with Skip. Then the card comes back with the question and the reveal |
+| `meet` | 2–6 animals as photo cards; "Find out" on each shows its fact (replaced `sort`, which Matt found confusing: it was a quiz where every answer was the same) |
 | `mission` | Always last: "While you play, notice…" and the reminder to vote on the form in Canvas |
 
 Any `story`, `predict` or `sense` step and any `sort` card can carry a **real photo** (`photo`), with
@@ -41,6 +41,13 @@ its name and credit under it. A `predict` shows it above the question; a `sense`
 reveal, because there the animal is the answer. Photos live in `src/content/lessons/photos/`, under
 about 90 KB each, and `photos.ts` lists them. Never AI-made (Matt, 2026-10-12); in-game art, like the
 robin in the scene, is fine.
+
+Any step but the mission can have **"Tell me more"** (`more`): a bigger panel of extra sourced facts
+for students who want to read on, and optionally a video. Videos and clickable sources show only when
+`LESSON_LINKS` in `src/ui/lesson.ts` is on, because the game's rule is that Canvas holds all links
+(Matt decides; asked 2026-10-12). Photos open bigger when tapped. Read aloud lights up the line and
+word it is reading, and its button turns into Stop. Sound effects are made on the device (Web
+Audio), never downloaded, and a "Sound on/off" button sits beside them.
 
 Rules the build checks (`tests/unit/lessons.test.ts`):
 - every claim is a `fact` line naming a source in `src/content/sources.ts`, marked `verified`;

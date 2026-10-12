@@ -9,6 +9,8 @@ export interface Source {
   /** The page's title, as the publisher gives it. */
   readonly title: string;
   readonly publisher: string;
+  /** A short name for tight spaces, like under a lesson fact ("All About Birds"). */
+  readonly short?: string;
   readonly url: string;
   /** When it was last checked: YYYY-MM-DD. */
   readonly checked: string;
@@ -36,12 +38,19 @@ export type SourceId =
   | 'mndnr-shrews'
   | 'mndnr-garter-snake'
   | 'mndnr-american-toad'
-  | 'adw-red-backed-salamander';
+  | 'adw-red-backed-salamander'
+  | 'msu-robins-hear'
+  | 'journeynorth-robin-tug'
+  | 'allaboutbirds-woodcock'
+  | 'scott-2023'
+  | 'mndnr-redbelly-snake'
+  | 'uw-ground-beetles';
 
 export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'mndnr-humus': {
     title: 'Humus Types',
     publisher: 'Minnesota DNR, Division of Forestry',
+    short: 'Minnesota DNR',
     url: 'https://files.dnr.state.mn.us/forestry/ecssilviculture/forms_worksheet/humus-types.pdf',
     checked: '2026-10-04',
   },
@@ -54,30 +63,35 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'wormwatch-forest': {
     title: 'About the Forest',
     publisher: 'Great Lakes Worm Watch, University of Minnesota Duluth',
+    short: 'Great Lakes Worm Watch',
     url: 'https://wormwatch.d.umn.edu/forest-ecology-and-worms/forest-ecology/about-forest',
     checked: '2026-10-04',
   },
   'wormwatch-soil': {
     title: 'Soil and Worms',
     publisher: 'Great Lakes Worm Watch, University of Minnesota Duluth',
+    short: 'Great Lakes Worm Watch',
     url: 'https://wormwatch.d.umn.edu/forest-ecology-and-worms/soil-and-forest-floor/soil-and-worms',
     checked: '2026-10-04',
   },
   'wormwatch-ecogroups': {
     title: 'Earthworm Ecological Groups',
     publisher: 'Great Lakes Worm Watch, University of Minnesota Duluth',
+    short: 'Great Lakes Worm Watch',
     url: 'https://wormwatch.d.umn.edu/worm-id/earthworm-ecological-groups',
     checked: '2026-10-07',
   },
   'wormwatch-vertebrates': {
     title: 'Vertebrate Animals',
     publisher: 'Great Lakes Worm Watch, University of Minnesota Duluth',
+    short: 'Great Lakes Worm Watch',
     url: 'https://wormwatch.d.umn.edu/forest-ecology-and-worms/animals/vertebrate-animals',
     checked: '2026-10-04',
   },
   'wormwatch-invertebrates': {
     title: 'Macroinvertebrate Animals',
     publisher: 'Great Lakes Worm Watch, University of Minnesota Duluth',
+    short: 'Great Lakes Worm Watch',
     url: 'https://wormwatch.d.umn.edu/forest-ecology-and-worms/animals/macroinvertebrate-animals',
     checked: '2026-10-04',
   },
@@ -90,6 +104,7 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'hale-2005': {
     title: 'Exotic European earthworm invasion dynamics in northern hardwood forests of Minnesota, USA',
     publisher: 'Hale, Frelich, Reich and Pastor, Ecological Applications (2005)',
+    short: 'Hale and others (2005)',
     url: 'https://esajournals.onlinelibrary.wiley.com/doi/abs/10.1890/03-5345',
     checked: '2026-10-04',
   },
@@ -102,6 +117,7 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'allaboutbirds-robin': {
     title: 'American Robin Life History',
     publisher: 'Cornell Lab of Ornithology, All About Birds',
+    short: 'All About Birds',
     url: 'https://www.allaboutbirds.org/guide/American_Robin/lifehistory',
     checked: '2026-10-11',
   },
@@ -114,6 +130,7 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'adw-woodcock': {
     title: 'Scolopax minor (American woodcock)',
     publisher: 'Animal Diversity Web, University of Michigan',
+    short: 'Animal Diversity Web',
     url: 'https://animaldiversity.org/accounts/Scolopax_minor/',
     checked: '2026-10-11',
   },
@@ -126,24 +143,28 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'adw-star-nosed-mole': {
     title: 'Condylura cristata (star-nosed mole)',
     publisher: 'Animal Diversity Web, University of Michigan',
+    short: 'Animal Diversity Web',
     url: 'https://animaldiversity.org/accounts/Condylura_cristata/',
     checked: '2026-10-11',
   },
   'csu-nightcrawlers': {
     title: 'Nightcrawlers',
     publisher: 'Colorado State University, Arthropods of Colorado',
+    short: 'Colorado State University',
     url: 'https://webdoc.agsci.colostate.edu/bspm/arthropodsofcolorado/Nightcrawlers.pdf',
     checked: '2026-10-11',
   },
   'nuutinen-2014': {
     title: 'Dew-worms in white nights',
     publisher: 'Nuutinen and others, Soil Biology and Biochemistry (2014)',
+    short: 'Nuutinen and others (2014)',
     url: 'https://knowledge.lancashire.ac.uk/id/eprint/13694/',
     checked: '2026-10-11',
   },
   'catania-2008': {
     title: 'Worm grunting, fiddling, and charming',
     publisher: 'Catania, PLoS ONE (2008)',
+    short: 'Catania (2008)',
     url: 'https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0003472',
     checked: '2026-10-11',
   },
@@ -168,7 +189,53 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'adw-red-backed-salamander': {
     title: 'Plethodon cinereus (Eastern Red-backed Salamander)',
     publisher: 'Animal Diversity Web, University of Michigan',
+    short: 'Animal Diversity Web',
     url: 'https://animaldiversity.org/accounts/Plethodon_cinereus/',
     checked: '2026-10-12',
   },
+  'msu-robins-hear': {
+    title: 'Can robins hear worms?',
+    publisher: 'Montana State University Library, Acoustic Atlas',
+    short: 'Montana State University',
+    url: 'https://www.lib.montana.edu/acoustic-atlas/acoustic-atlas-blog/posts/can-robins-hear-worms.html',
+    checked: '2026-10-12',
+  },
+  'journeynorth-robin-tug': {
+    title: 'Robin: Tugging Out Worms',
+    publisher: 'Journey North',
+    url: 'https://journeynorth.org/tm/robin/tug_out_worms2.html',
+    checked: '2026-10-12',
+  },
+  'allaboutbirds-woodcock': {
+    title: 'American Woodcock Life History',
+    publisher: 'Cornell Lab of Ornithology, All About Birds',
+    short: 'All About Birds',
+    url: 'https://www.allaboutbirds.org/guide/American_Woodcock/lifehistory',
+    checked: '2026-10-12',
+  },
+  'scott-2023': {
+    title: 'Non-native earthworms increase the abundance and diet quality of a common woodland salamander in its northern range',
+    publisher: 'Scott, Bradley and Bourgault, Biological Invasions (2023)',
+    short: 'Scott and others (2023)',
+    url: 'https://link.springer.com/article/10.1007/s10530-023-03168-3',
+    checked: '2026-10-12',
+  },
+  'mndnr-redbelly-snake': {
+    title: 'Redbelly Snake',
+    publisher: 'Minnesota DNR',
+    url: 'https://www.dnr.state.mn.us/reptiles_amphibians/redbellysnake.html',
+    checked: '2026-10-12',
+  },
+  'uw-ground-beetles': {
+    title: 'Ground Beetles (Carabidae)',
+    publisher: 'University of Wisconsin–Madison Extension',
+    short: 'UW–Madison Extension',
+    url: 'https://hort.extension.wisc.edu/articles/ground-beetles/',
+    checked: '2026-10-12',
+  },
 };
+
+/** The name to show under a fact: the short name if the source has one. */
+export function sourceName(id: SourceId): string {
+  return SOURCES[id].short ?? SOURCES[id].publisher;
+}

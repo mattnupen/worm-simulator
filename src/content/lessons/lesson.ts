@@ -10,22 +10,35 @@ import { type Line } from '../text';
  * The steps, in the order a lesson usually uses them:
  * - `story`: one big idea, two or three short lines.
  * - `predict`: a question first, then what scientists found. Every guess is welcome: the reveal
- *   never says "wrong", it says what is true and why (P12: positive wording).
+ *   never says "wrong", it says what is true and why (P12: positive wording). When one option is
+ *   what scientists found (`answer`), it is marked once the player has guessed.
  * - `sense`: a worm's-eye moment over the live forest. A cue plays (a shadow passes, the ground
  *   thumps), the player picks what the worm does, then the reveal. The cue is always also told in
  *   words, so it never relies on sight or motion alone (accessibility).
- * - `sort`: tap each card into one of two groups; each card then shows its fact.
+ * - `meet`: a few animals as photo cards; tap "Find out" on each to read its fact. No sorting and
+ *   no trick question (Matt, 2026-10-12: the sort felt like a quiz with an obvious answer).
+ * Any step but the mission can have `more`: a "Tell me more" panel with extra sourced facts for
+ * students who want to read on. Nothing in it is needed for the round.
  * - `mission`: what to notice while playing, and the reminder to vote on the form in Canvas. The
  *   game never links to the form (no network at runtime, CLAUDE.md).
  */
 export type LessonStep =
-  | { readonly kind: 'story'; readonly title: string; readonly lines: readonly Line[]; readonly photo?: Photo }
+  | {
+    readonly kind: 'story';
+    readonly title: string;
+    readonly lines: readonly Line[];
+    readonly photo?: Photo;
+    readonly more?: More;
+  }
   | {
     readonly kind: 'predict';
     readonly title: string;
     readonly question: string;
     readonly options: readonly string[];
+    /** The option scientists found, if one is (an index into `options`). */
+    readonly answer?: number;
     readonly reveal: readonly Line[];
+    readonly more?: More;
     /** Shown above the question (the guess is about the animal, so students see it first). */
     readonly photo?: Photo;
   }
@@ -34,25 +47,29 @@ export type LessonStep =
     readonly title: string;
     readonly cue: Cue;
     /**
-     * A cinematic opening: the card steps aside for a caption strip and letterbox bars while the
-     * cue plays, then the card comes back with the question. The words of the scene and the cue
-     * are always on screen, so nothing relies on watching the animation.
+     * The scene's opening words. Every sense step plays like a film shot: the card fades out, black
+     * bars close in, and the scene and cue words show as captions in the bottom bar while the cue
+     * plays; then the card fades back with the question. The words are always shown, so nothing
+     * relies on watching the animation or hearing the sound.
      */
     readonly scene?: string;
     /** What happened, in words (shown and read with the cue). */
     readonly cueText: string;
     readonly question: string;
     readonly options: readonly string[];
+    /** The option scientists found, if one is (an index into `options`). */
+    readonly answer?: number;
     readonly reveal: readonly Line[];
+    readonly more?: More;
     /** Shown with the reveal: the real animal. */
     readonly photo?: Photo;
   }
   | {
-    readonly kind: 'sort';
+    readonly kind: 'meet';
     readonly title: string;
-    readonly question: string;
-    readonly groups: readonly [string, string];
-    readonly cards: readonly SortCard[];
+    readonly intro: string;
+    readonly cards: readonly MeetCard[];
+    readonly more?: More;
   }
   | {
     readonly kind: 'mission';
@@ -83,13 +100,28 @@ export interface Photo {
   readonly credit: string;
 }
 
-export interface SortCard {
+export interface MeetCard {
   readonly name: string;
-  readonly photo?: Photo;
-  /** Which of the step's two groups it belongs in. */
-  readonly group: 0 | 1;
-  /** Shown once the card is placed, whichever group was picked. */
+  readonly photo: Photo;
+  /** Shown when the player taps "Find out". */
   readonly fact: Line;
+}
+
+/**
+ * "Tell me more": a bigger panel to read on. Lines follow the same rules as the step (every claim
+ * sourced). `video` is a suggested video page; it is shown only where the build allows outside
+ * links (see docs/codev/in-game-lessons.md).
+ */
+export interface More {
+  readonly title: string;
+  readonly lines: readonly Line[];
+  readonly video?: Video;
+}
+
+export interface Video {
+  readonly title: string;
+  readonly channel: string;
+  readonly url: string;
 }
 
 export interface Lesson {
@@ -127,19 +159,23 @@ export function lessonLines(lesson: Lesson): Record<string, Line> {
         s.reveal.forEach((l, j) => at(`reveal.${j}`, l));
         if (s.photo) at('photo', ui(s.photo.name));
         break;
-      case 'sort':
-        at('question', ui(s.question));
-        s.groups.forEach((g, j) => at(`group.${j}`, ui(g)));
+      case 'meet':
+        at('intro', ui(s.intro));
         s.cards.forEach((c, j) => {
           at(`card.${j}`, ui(c.name));
           at(`card.${j}.fact`, c.fact);
-          if (c.photo) at(`card.${j}.photo`, ui(c.photo.name));
+          at(`card.${j}.photo`, ui(c.photo.name));
         });
         break;
       case 'mission':
         at('notice', s.notice);
         at('reminder', s.reminder);
         break;
+    }
+    if (s.kind !== 'mission' && s.more) {
+      at('more.title', ui(s.more.title));
+      s.more.lines.forEach((l, j) => at(`more.${j}`, l));
+      if (s.more.video) at('more.video', ui(s.more.video.title));
     }
   });
   return out;

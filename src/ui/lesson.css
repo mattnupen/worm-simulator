@@ -5,7 +5,11 @@
   left: var(--edge); bottom: var(--edge-y); width: min(720px, calc(100vw - 32px));
   max-height: calc(100dvh - var(--edge-y) - 16px);
 }
-.lesson-progress { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.lesson-progress { display: flex; align-items: center; justify-content: flex-start; gap: 12px; margin-bottom: 10px; }
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
 .lesson-progress .pips { margin: 0; gap: 6px; }
 .lesson-progress .pip { width: 28px; height: 10px; }
 .lesson-progress .pip.here { background: linear-gradient(90deg, #f4b244, #e07a26); }
@@ -15,9 +19,25 @@
 .panel .lesson-line + .lesson-line, .panel .fact + .fact, .panel .lesson-line + .fact,
 .panel .fact + .lesson-line { margin-top: 10px; }
 .lesson-question { font-weight: 700; margin-top: 4px !important; }
-.lesson-options { display: grid; gap: 10px; margin-top: 12px; }
-.lesson-options .btn { justify-content: flex-start; text-align: left; font-size: 21px; min-height: 52px; }
-.lesson-options .btn[aria-pressed="true"] { background: #fff3cf; border-width: 4px; }
+.lesson-question:focus { outline: none; }
+/* Questions: real radio buttons, like the Graphics menu (parchment.css .choice), a little slimmer. */
+.lesson-choices { margin-top: 8px; gap: 8px; }
+.lesson-choices legend { padding: 0; margin-bottom: 8px; }
+.lesson-choices .choice { min-height: 54px; padding: 8px 14px; border-width: 2px; }
+.lesson-choices .choice:has(input:checked) { border-width: 3px; }
+.lesson-choices .choice-name { font-size: 21px; font-weight: 700; }
+.lesson-choices .choice-words { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.choice-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.choice-tags:empty { display: none; }
+/* Marked after a guess, in words and a shape (never colour alone). */
+.choice-tag {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 10px; border-radius: 99px;
+  font-size: 18px; font-weight: 800; line-height: 1.5;
+}
+.choice-tag.correct { background: #dcebc9; border: 2px solid var(--moss); color: #1f3a0e; }
+.choice-tag.guess { border: 2px dashed var(--ink-soft); color: var(--ink-soft); }
+.tag-icon { display: inline-flex; width: 18px; height: 18px; }
+.tag-icon svg { width: 100%; height: 100%; }
 .btn.btn-small { min-height: 48px; font-size: 19px; padding: 6px 14px; width: auto; }
 .btn-small .btn-icon { width: 22px; height: 22px; }
 .lesson-tools { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 14px; }
@@ -31,10 +51,23 @@
 }
 .reveal[hidden] { display: none; }
 .reveal-head { font-weight: 800; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px !important; }
-.source { font-size: 18px; color: var(--ink-soft); font-style: italic; margin-top: 2px !important; }
+.source { font-size: 18px; color: var(--ink-soft); font-style: italic; text-align: right; margin-top: 0 !important; }
+.source a { color: #1d4f8c; text-decoration: underline; text-underline-offset: 3px; }
+.source a:focus-visible, .more-video:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; }
 
 /* Real photos (lesson.ts photo()): the animal, its name, and the credit its license asks for. */
 .lesson-photo { margin: 12px 0 4px; }
+/* Tap a photo for a bigger view (lesson.ts openDialog). */
+.photo-zoom {
+  position: relative; display: block; margin: 0 auto; padding: 0; border: 0; background: none;
+  cursor: zoom-in; border-radius: 12px;
+}
+.photo-zoom:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
+.zoom-icon {
+  position: absolute; right: 8px; bottom: 8px; width: 36px; height: 36px; padding: 6px; box-sizing: border-box;
+  border-radius: 50%; background: rgba(255, 250, 234, 0.92); color: var(--ink); border: 2px solid var(--bark-dark);
+}
+.zoom-icon svg { width: 100%; height: 100%; display: block; }
 .lesson-photo img {
   /* The whole photo, never cropped (an animal's head must not be cut off). */
   display: block; max-width: 100%; width: auto; height: auto; max-height: min(260px, 32dvh);
@@ -43,38 +76,55 @@
 .lesson-photo figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; margin-top: 4px; }
 .photo-name { font-weight: 800; }
 .photo-credit { font-size: 18px; color: var(--ink-soft); font-style: italic; }
-.sort-card:has(.lesson-photo) { display: grid; grid-template-columns: 180px 1fr; gap: 0 14px; align-items: start; }
-.sort-card:has(.lesson-photo) .lesson-photo { grid-row: 1 / span 3; margin: 0; }
-.sort-card .lesson-photo img { max-height: 150px; }
-.sort-card .lesson-photo .photo-name { display: none; } /* the card's own name says it */
-@media (max-width: 560px) {
-  .sort-card:has(.lesson-photo) { grid-template-columns: 1fr; }
-  .sort-card:has(.lesson-photo) .lesson-photo { grid-row: auto; margin-bottom: 6px; }
-}
 .reveal .lesson-photo { margin-top: 4px; }
 
 /* Steps hide parts until they're needed (a scene's question, Next): stronger than any display. */
 .panel[data-state="lesson"] [hidden] { display: none !important; }
 
-/* A scene step while it plays: a slim card with just the scene's words, so the forest shows. */
-.panel[data-state="lesson"][data-phase="watch"] { width: min(500px, calc(100vw - 32px)); }
+/* A scene while it plays: the card fades out so the whole forest shows, then fades back. */
+.panel[data-state="lesson"] { transition: opacity 0.45s ease, visibility 0s; }
+.panel[data-state="lesson"][data-phase="watch"] {
+  opacity: 0; visibility: hidden; transition: opacity 0.45s ease, visibility 0s linear 0.45s;
+}
 .scene-line { font-style: italic; }
 
 /* Sense steps: what happened, in words, beside its icon. */
 .cue-caption { display: flex; align-items: center; gap: 12px; font-weight: 700; margin-bottom: 10px !important; }
-.cue-icon, .mission-icon, .sort-icon { flex: none; width: 34px; height: 34px; color: var(--accent); }
-.cue-icon svg, .mission-icon svg, .sort-icon svg { width: 100%; height: 100%; display: block; }
+.cue-icon, .mission-icon { flex: none; width: 34px; height: 34px; color: var(--accent); }
+.cue-icon svg, .mission-icon svg { width: 100%; height: 100%; display: block; }
 
-/* Sort: one row per animal. */
-.sort-list { list-style: none; padding: 0; margin: 12px 0 0 !important; display: grid; gap: 10px; }
-.sort-card { padding: 10px 14px; border: 2px solid rgba(90, 56, 24, 0.45); border-radius: 14px; background: rgba(255, 251, 241, 0.7); }
-.sort-name { font-weight: 800; }
-.sort-picks { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
-.sort-picks[hidden], .sort-result[hidden] { display: none; }
-.sort-result { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin-top: 6px; align-items: start; }
-.sort-result > :not(.sort-icon) { grid-column: 2; }
-.sort-icon { grid-row: 1 / span 3; width: 28px; height: 28px; }
-.sort-verdict { font-weight: 700; }
+/* Meet: photo cards, two across where there's room. */
+.meet-list { list-style: none; padding: 0; margin: 12px 0 0 !important; display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.meet-card { padding: 10px 12px; border: 2px solid rgba(90, 56, 24, 0.45); border-radius: 14px; background: rgba(255, 251, 241, 0.7); display: grid; gap: 6px; align-content: start; }
+.meet-card .lesson-photo { margin: 0; }
+.meet-card .lesson-photo img { max-height: 150px; }
+.meet-name { font-weight: 800; }
+.meet-card .btn { justify-self: start; }
+
+/* "Tell me more" and the photo view: a parchment panel over a dimmed screen. */
+.more-btn { margin-top: 14px; }
+.lesson-dialog {
+  box-sizing: border-box; width: min(820px, calc(100vw - 24px)); max-height: calc(100dvh - 24px);
+  padding: 18px 22px 22px; border: 3px solid var(--bark-dark); border-radius: 20px;
+  color: var(--ink); font-size: 20px; line-height: 1.45;
+  background: linear-gradient(180deg, var(--parchment-hi), var(--parchment));
+  box-shadow: 0 20px 60px rgba(20, 10, 2, 0.6);
+}
+.lesson-dialog::backdrop { background: rgba(14, 8, 2, 0.72); }
+.dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.dialog-title { margin: 0; font-family: var(--font-display); font-size: 30px; line-height: 1.15; }
+.dialog-body > * + * { margin-top: 12px; }
+.dialog-body p { margin: 0; }
+.photo-dialog img { display: block; max-width: 100%; max-height: calc(100dvh - 190px); margin: 0 auto; border-radius: 12px; }
+.photo-dialog .photo-credit { text-align: right; }
+.more-video {
+  display: inline-flex; align-items: center; gap: 8px; font-weight: 800; color: #1d4f8c;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* Read aloud: the line being read is lit, and the word too where the browser can. */
+.reading { background: rgba(255, 214, 110, 0.38); border-radius: 6px; box-shadow: 0 0 0 4px rgba(255, 214, 110, 0.38); }
+::highlight(lesson-word) { background-color: #ffcf4d; color: #1d1206; }
 
 .mission-line { display: flex; align-items: flex-start; gap: 12px; }
 .mission-line + .mission-line { margin-top: 14px !important; }
@@ -101,23 +151,38 @@
 .cue[data-cue="thump"] .cue-ring:nth-child(4) { animation-delay: 1.4s; }
 @keyframes cue-ring { 0% { opacity: 0.95; transform: scale(0.3); } 100% { opacity: 0; transform: scale(1.8); } }
 
-/* The robin scene (6.2 s, cueMs in lesson.ts): black bars close in like a film; its shadow passes
-   (0 to 2.6 s); it hops in from the right, three hops 0.66 s apart (2.6 to 4.6 s); then it stops
-   and tips its head to look (5 s). It stays standing there for the rest of the step. */
-.cue[data-cue="robin"]::before, .cue[data-cue="robin"]::after {
-  content: ''; position: absolute; left: 0; right: 0; height: 9vh; background: #0d0905;
+/* A scene (data-watch): black bars close in like a film, and the words show as captions on the
+   bottom bar, with Skip. */
+.cue[data-watch]::before, .cue[data-watch]::after {
+  content: ''; position: absolute; left: 0; right: 0; background: #0d0905;
   animation: cue-bar 0.6s ease-out both;
 }
-.cue[data-cue="robin"]::before { top: 0; transform-origin: top; }
-.cue[data-cue="robin"]::after { bottom: 0; transform-origin: bottom; }
+.cue[data-watch]::before { top: 0; height: 9vh; transform-origin: top; }
+.cue[data-watch]::after { bottom: 0; height: max(18vh, 120px); transform-origin: bottom; }
 @keyframes cue-bar { from { transform: scaleY(0); } }
+.cue-captions {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; box-sizing: border-box;
+  min-height: max(18vh, 120px); padding: 12px max(16px, 4vw);
+  display: flex; align-items: center; justify-content: center; gap: 24px;
+  color: #fff7e2; animation: cue-fade 0.6s ease-out both;
+}
+.cue-captions[hidden] { display: none; }
+.cue-words { max-width: 860px; text-align: center; }
+.cue-line { margin: 0; font-size: 21px; font-style: italic; color: #e8dcc0; }
+.cue-line.now { font-size: 24px; font-style: normal; font-weight: 800; color: #fff7e2; }
+.cue-skip { flex: none; }
+@keyframes cue-fade { from { opacity: 0; } }
+
+/* The robin scene (6.4 s with its pause, cueMs in lesson.ts): its shadow passes (0 to 2.6 s); it
+   hops in from the right, three hops 0.66 s apart (2.6 to 4.6 s); then it stops and tips its head
+   to look (5 s). It stays standing there for the rest of the step. */
 .cue[data-cue="robin"] .cue-shadow {
   display: block; position: absolute; top: 18%; left: 100vw; width: 60vmax; height: 40vmax;
   background: radial-gradient(closest-side, rgba(10, 6, 2, 0.65), rgba(10, 6, 2, 0.45) 55%, rgba(10, 6, 2, 0));
   animation: cue-pass 2.6s cubic-bezier(0.45, 0, 0.55, 1) both;
 }
 .cue[data-cue="robin"] .cue-robin {
-  display: block; position: absolute; right: 6vw; bottom: 10vh; width: min(46vmin, 380px);
+  display: block; position: absolute; right: 6vw; bottom: 19vh; width: min(42vmin, 340px);
   animation: robin-in 1.98s linear 2.6s both;
 }
 .cue-robin svg { display: block; width: 100%; height: auto; overflow: visible; }
@@ -134,12 +199,12 @@
   /* The robin stands still, already looking; no shadow, no bars sliding. */
   .cue[data-cue="robin"] .cue-shadow { display: none; }
   .cue[data-cue="robin"] .cue-robin, .cue[data-cue="robin"] .cue-robin svg,
-  .cue[data-cue="robin"]::before, .cue[data-cue="robin"]::after { animation: none; }
   .cue[data-cue="robin"] .robin-head { animation: none; transform: rotate(16deg); }
   /* A still picture: the shadow rests over the middle, one ring shows. The words say the rest. */
   .cue[data-cue="shadow"] .cue-shadow { left: calc(50% - 30vmax); }
   .cue[data-cue="thump"] .cue-ring:nth-child(2) { opacity: 0.9; transform: scale(1.1); }
 }
 @media (max-width: 560px) {
-  .lesson-progress .pips { display: none; }
+  .lesson-progress .pip { width: 18px; }
+  .cue-captions { flex-direction: column; gap: 8px; }
 }

@@ -24,7 +24,7 @@ const card = (page: Page) => page.getByRole('region', { name: `Lesson: ${lesson.
 test.skip(!CURRENT_LESSON, 'this build has no lesson');
 
 test('a new device: the lesson comes first, plays through by keyboard, and then Crawl comes first', async ({ page, context }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(150_000);
   const errors = watchErrors(page);
   const outside: string[] = [];
   page.on('request', (r) => { if (!/^(file|data|blob):/.test(r.url())) outside.push(r.url()); });
@@ -33,39 +33,74 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
   await expect(button(page, LEARN)).toBeFocused();
   await page.keyboard.press('Enter');
 
+  let zoomed = false;
   for (const [i, step] of lesson.steps.entries()) {
-    await expect(card(page)).toBeVisible();
-    await expect(card(page).getByText(`Step ${i + 1} of ${lesson.steps.length}`)).toBeVisible();
-    await expect(card(page).getByRole('heading', { name: step.title })).toBeFocused();
+    await expect(card(page)).toHaveCount(1);
+    await expect(page.locator('.pip.here')).toHaveCount(1);
+    await expect(card(page).getByRole('heading', { name: step.title })).toHaveCount(1);
     const next = button(page, i === lesson.steps.length - 1 ? 'Start crawling' : 'Next');
+    if (step.kind === 'sense') {
+      // A scene: the card fades out, and the words show as captions over the black bar with Skip.
+      await expect(page.locator(`.cue[data-cue="${step.cue}"]`)).toHaveCount(1);
+      const captions = page.locator('.cue-captions');
+      await expect(captions.getByText(step.cueText)).toBeVisible();
+      await expect(card(page)).toBeHidden();
+      await expect(button(page, 'Skip')).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(captions).toBeHidden();
+      await expect(card(page).getByText(step.question)).toBeFocused();
+    } else {
+      await expect(card(page).getByRole('heading', { name: step.title })).toBeFocused();
+    }
     if (step.kind === 'predict' || step.kind === 'sense') {
       // Next waits for a guess; any guess reveals what scientists found, with its source.
       await expect(next).toBeHidden();
-      if (step.kind === 'sense') {
-        await expect(page.locator(`.cue[data-cue="${step.cue}"]`)).toHaveCount(1);
-        await expect(card(page).getByText(step.cueText)).toBeVisible();
-        // A scene plays first: its question joins the card when the cue ends.
-        if (step.scene) await expect(button(page, step.options[0])).toBeHidden();
+      const guess = step.answer === undefined ? 0 : (step.answer + 1) % step.options.length;
+      await card(page).getByRole('radio', { name: step.options[guess] }).check();
+      const guessed = card(page).locator('label.choice', { hasText: step.options[guess] });
+      await expect(guessed.getByText('Your guess')).toBeVisible();
+      if (step.answer !== undefined) {
+        // The option scientists found is marked, in words.
+        await expect(card(page).locator('label.choice', { hasText: step.options[step.answer] }).getByText('Correct')).toBeVisible();
       }
-      await button(page, step.options[0]).click();
-      await expect(button(page, `${step.options[0]} (your guess)`)).toHaveAttribute('aria-pressed', 'true');
       await expect(card(page).getByText('What scientists found')).toBeVisible();
-      // Real photos show with their credit (predict: above the question; sense: in the reveal).
+      const fact = step.reveal.find((l) => l.kind === 'fact');
+      if (fact && fact.kind === 'fact') {
+        await expect(card(page).getByText(shown(fact))).toBeVisible();
+        await expect(card(page).getByText(SOURCES[fact.source].short ?? SOURCES[fact.source].publisher).first()).toBeVisible();
+      }
       if (step.photo) {
         await expect(card(page).getByRole('img', { name: step.photo.alt })).toBeVisible();
         await expect(card(page).getByText(step.photo.credit)).toBeVisible();
       }
-      const fact = step.reveal.find((l) => l.kind === 'fact');
-      if (fact && fact.kind === 'fact') {
-        await expect(card(page).getByText(shown(fact))).toBeVisible();
-        await expect(card(page).getByText(`Source: ${SOURCES[fact.source].publisher}`).first()).toBeVisible();
-      }
-    } else if (step.kind === 'sort') {
+    } else if (step.kind === 'meet') {
       await expect(next).toBeHidden();
       for (const c of step.cards) {
-        await button(page, `${c.name}: ${step.groups[0]}`).click();
+        await button(page, `Find out: ${c.name}`).click();
         await expect(card(page).getByText(shown(c.fact))).toBeVisible();
       }
+    }
+    // Any photo opens bigger, and Esc closes only that view.
+    const zoom = card(page).getByRole('button', { name: /^Show a bigger photo: / }).first();
+    if (!zoomed && await zoom.count()) {
+      zoomed = true;
+      await zoom.click();
+      const view = page.getByRole('dialog');
+      await expect(view).toBeVisible();
+      await expect(view.getByRole('img')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(view).toHaveCount(0);
+      await expect(card(page)).toBeVisible();
+      await expect(zoom).toBeFocused();
+    }
+    if (step.kind !== 'mission' && step.more) {
+      await button(page, 'Tell me more').click();
+      const more = page.getByRole('dialog', { name: step.more.title });
+      await expect(more).toBeVisible();
+      await expect(button(page, 'Close')).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(more).toHaveCount(0);
+      await expect(button(page, 'Tell me more')).toBeFocused();
     }
     await expect(next).toBeVisible();
     await next.focus();
@@ -87,15 +122,16 @@ test('Back returns to the last step with its answer kept; Esc and Back to start 
   await page.goto(PAGE + '?lesson=1');
   await expect(card(page)).toBeVisible();
   const firstAsk = lesson.steps.findIndex((s) => s.kind === 'predict' || s.kind === 'sense');
-  for (const s of lesson.steps.slice(0, firstAsk)) {
-    if (s.kind === 'sort') for (const c of s.cards) await button(page, `${c.name}: ${s.groups[c.group]}`).click();
-    await button(page, 'Next').click();
-  }
+  for (let i = 0; i < firstAsk; i++) await button(page, 'Next').click();
   const step = lesson.steps[firstAsk] as Extract<typeof lesson.steps[number], { kind: 'predict' | 'sense' }>;
-  await button(page, step.options[1]).click();
+  if (step.kind === 'sense') await button(page, 'Skip').click();
+  await card(page).getByRole('radio', { name: step.options[1] }).check();
   await button(page, 'Next').click();
+  if (lesson.steps[firstAsk + 1].kind === 'sense') await button(page, 'Skip').click();
   await button(page, 'Back').click();
-  // The answer is kept: Next shows and the reveal is open.
+  // The answer is kept, and a watched scene doesn't play again as a scene.
+  await expect(card(page)).toBeVisible();
+  await expect(card(page).getByRole('radio', { name: step.options[1] })).toBeChecked();
   await expect(button(page, 'Next')).toBeVisible();
   await expect(card(page).getByText('What scientists found')).toBeVisible();
   await page.keyboard.press('Escape');

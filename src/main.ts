@@ -416,6 +416,8 @@ function start(renderer: THREE.WebGLRenderer): void {
   // Esc or P pauses and resumes; Esc also leaves the Graphics screen, the lesson and Vote.
   window.addEventListener('keydown', (e) => {
     if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    // An open panel (the lesson's photo or "Tell me more") takes Esc for itself.
+    if (document.querySelector('dialog[open]')) return;
     const pauseKey = e.code === 'Escape' || e.code === 'KeyP';
     if (state.screen === 'crawl' && pauseKey) dispatch({ type: 'pause' });
     else if (state.screen === 'pause' && pauseKey) dispatch({ type: 'resume' });

@@ -37,6 +37,7 @@ export const PREDATORS: Lesson = {
       cueText: 'A shadow sweeps over you. Then hop, hop, hop… stop. Something big is standing very still, right next to you.',
       question: 'It found you without touching the ground. How?',
       options: ['By looking and listening', 'By smelling you', 'By feeling the ground shake'],
+      answer: 0,
       reveal: [
         {
           kind: 'fact',
@@ -45,6 +46,24 @@ export const PREDATORS: Lesson = {
           verified: true,
         },
       ],
+      more: {
+        title: 'How robins hunt',
+        lines: [
+          {
+            kind: 'fact',
+            text: 'In an experiment, robins could find hidden worms just by listening. They found fewer when they couldn\'t hear.',
+            source: 'msu-robins-hear',
+            verified: true,
+          },
+          {
+            kind: 'fact',
+            text: 'A worm holds on with tiny bristles called setae, so a robin has to tug hard to pull it out.',
+            source: 'journeynorth-robin-tug',
+            verified: true,
+          },
+        ],
+        video: { title: 'Nature\'s Tug of War: Bird vs. Worm', channel: 'NEWS CENTER Maine', url: 'https://www.youtube.com/watch?v=suvWIkHZdeo' },
+      },
       photo: {
         file: 'robin',
         name: 'American robin',
@@ -57,6 +76,7 @@ export const PREDATORS: Lesson = {
       title: 'The worm-eating bird',
       question: 'This is a woodcock. It lives in the woods of northeastern Minnesota. How much of its food do you think is earthworms?',
       options: ['Just a little', 'About half, or even more', 'None at all'],
+      answer: 1,
       reveal: [
         {
           kind: 'fact',
@@ -71,6 +91,24 @@ export const PREDATORS: Lesson = {
           verified: true,
         },
       ],
+      more: {
+        title: 'How woodcocks hunt',
+        lines: [
+          {
+            kind: 'fact',
+            text: 'The tip of a woodcock\'s bill can bend, so it can grab a worm deep in the soil.',
+            source: 'allaboutbirds-woodcock',
+            verified: true,
+          },
+          {
+            kind: 'fact',
+            text: 'Woodcocks sometimes rock back and forth as they walk. The shaking may make worms move underground.',
+            source: 'allaboutbirds-woodcock',
+            verified: true,
+          },
+        ],
+        video: { title: 'American Woodcock foraging', channel: 'Cornell Lab of Ornithology', url: 'https://www.youtube.com/watch?v=swHtEAEfGXM' },
+      },
       photo: {
         file: 'woodcock',
         name: 'American woodcock',
@@ -82,9 +120,29 @@ export const PREDATORS: Lesson = {
       kind: 'sense',
       title: 'Something is digging',
       cue: 'thump',
+      scene: 'You are a nightcrawler, resting at the top of your burrow.',
       cueText: 'The ground shakes under you: thump, thump, thump.',
-      question: 'You are a nightcrawler with your tail in your burrow. What do you do?',
+      question: 'What do you do?',
       options: ['Zip back down my burrow', 'Crawl up and out', 'Stay perfectly still'],
+      answer: 0,
+      more: {
+        title: 'Shaking the ground',
+        lines: [
+          {
+            kind: 'fact',
+            text: 'Wood turtles and herring gulls shake the ground to make worms come up.',
+            source: 'catania-2008',
+            verified: true,
+          },
+          {
+            kind: 'fact',
+            text: 'In Florida, people collect bait worms by rubbing a stake stuck in the ground. Scientists found this feels like a digging mole, so the worms flee up.',
+            source: 'catania-2008',
+            verified: true,
+          },
+        ],
+        video: { title: 'This weird trick will help you summon an army of worms', channel: 'TED-Ed', url: 'https://www.youtube.com/watch?v=RDA64eUoxag' },
+      },
       photo: {
         file: 'mole',
         name: 'Star-nosed mole',
@@ -113,14 +171,29 @@ export const PREDATORS: Lesson = {
       ],
     },
     {
-      kind: 'sort',
-      title: 'Who else hunts worms?',
-      question: 'Birds and moles aren\'t the only hunters. For each animal, guess: does it eat worms?',
-      groups: ['Eats worms', 'Does not eat worms'],
+      kind: 'meet',
+      title: 'More worm hunters',
+      intro: 'Birds and moles aren\'t the only hunters. Tap "Find out" to meet four more.',
+      more: {
+        title: 'Even more worm eaters',
+        lines: [
+          {
+            kind: 'fact',
+            text: 'The redbelly snake lives all over Minnesota. It eats insects, earthworms and slugs.',
+            source: 'mndnr-redbelly-snake',
+            verified: true,
+          },
+          {
+            kind: 'fact',
+            text: 'Many ground beetles hunt at night, and earthworms are common prey for them.',
+            source: 'uw-ground-beetles',
+            verified: true,
+          },
+        ],
+      },
       cards: [
         {
           name: 'Northern short-tailed shrew',
-          group: 0,
           photo: {
             file: 'shrew',
             name: 'Northern short-tailed shrew',
@@ -136,7 +209,6 @@ export const PREDATORS: Lesson = {
         },
         {
           name: 'Common garter snake',
-          group: 0,
           photo: {
             file: 'garter-snake',
             name: 'Common garter snake',
@@ -152,7 +224,6 @@ export const PREDATORS: Lesson = {
         },
         {
           name: 'American toad',
-          group: 0,
           photo: {
             file: 'toad',
             name: 'American toad',
@@ -168,7 +239,6 @@ export const PREDATORS: Lesson = {
         },
         {
           name: 'Red-backed salamander',
-          group: 0,
           photo: {
             file: 'salamander',
             name: 'Eastern red-backed salamander',
@@ -188,9 +258,11 @@ export const PREDATORS: Lesson = {
       kind: 'sense',
       title: 'Safe time to feed',
       cue: 'shadow',
+      scene: 'You stretch out of your burrow, looking for a leaf to eat.',
       cueText: 'A bird\'s shadow passes over the leaves.',
       question: 'When do you think nightcrawlers come up to feed?',
       options: ['On sunny afternoons', 'On dark, damp nights', 'Any time at all'],
+      answer: 1,
       reveal: [
         {
           kind: 'fact',
@@ -222,8 +294,56 @@ export const PREDATORS: Lesson = {
           source: 'wormwatch-vertebrates',
           verified: true,
         },
+        {
+          kind: 'fact',
+          text: 'Adult salamanders can eat worms, a new food that can help them have more young.',
+          source: 'wormwatch-vertebrates',
+          verified: true,
+        },
+        {
+          kind: 'fact',
+          text: 'But worms also eat the damp layer of fallen leaves where salamanders hide and hunt.',
+          source: 'scott-2023',
+          verified: true,
+        },
         { kind: 'ui', text: 'Some species win and some lose.' },
       ],
+      more: {
+        title: 'Worms and salamanders',
+        lines: [
+          {
+            kind: 'fact',
+            text: 'Salamanders have no lungs. They breathe through their skin, which has to stay damp.',
+            source: 'wormwatch-vertebrates',
+            verified: true,
+          },
+          {
+            kind: 'fact',
+            text: 'The leaf layer keeps the ground damp and gives salamanders cover. Worms eat that layer, so the forest floor gets thinner.',
+            source: 'scott-2023',
+            verified: true,
+          },
+          {
+            kind: 'fact',
+            text: 'Young salamanders can\'t eat worms. The tiny bugs they eat can drop a lot when worms move in.',
+            source: 'wormwatch-vertebrates',
+            verified: true,
+          },
+          {
+            kind: 'fact',
+            text: 'In Quebec, Canada, forests with more worms had more salamanders, and bigger ones. Worms were most of their food there.',
+            source: 'scott-2023',
+            verified: true,
+          },
+          {
+            kind: 'fact',
+            text: 'So scientists are still working it out: in some forests worms help salamanders, and in others they hurt them.',
+            source: 'wormwatch-vertebrates',
+            verified: true,
+          },
+        ],
+        video: { title: 'All Minnesota worms are invasive, but which ones do you need to worry about?', channel: 'WCCO - CBS Minnesota', url: 'https://www.youtube.com/watch?v=uc4WfLa4vsk' },
+      },
     },
     {
       kind: 'mission',
