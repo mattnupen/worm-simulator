@@ -348,7 +348,7 @@ export const PREDATORS: Lesson = {
     {
       kind: 'mission',
       title: 'Your mission',
-      notice: { kind: 'ui', text: 'As you play, think: Which animals in this forest hunt worms? How could your worm sense them and get away?' },
+      notice: { kind: 'ui', text: 'Mission: Which predators are hunting in this forest, and how does your worm sense them and escape being eaten?' },
       reminder: { kind: 'ui', text: 'After you play, your last quest is to vote in the Google Form from Canvas.' },
     },
   ],
