@@ -17,9 +17,11 @@ How to write an entry (for Matt and Claude):
 
 ### New
 - The Start screen shows which version you are playing: V3 · Predators.
-- **Learn: Who eats worms?** The first button on the Start screen opens a short lesson about the
-  animals that hunt worms: the robin, the woodcock and the star-nosed mole. Sort the hunters, make
-  guesses, and feel the ground shake. You can play it again any time from the Start screen.
+- **Three steps on the Start screen: Learn, Play, Vote.** Do them in order. Each one unlocks
+  after the one before.
+- **Learn: Who eats worms?** Meet the animals that hunt worms, with real photos: the robin, the
+  woodcock, the star-nosed mole, the shrew, the garter snake, the American toad and the red-backed
+  salamander. Watch a robin hunt, feel the ground shake, and make guesses.
 - At the end of the lesson, the game reminds you to fill in this week's form in Canvas.
 
 ### Because you voted
