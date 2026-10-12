@@ -2,14 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { VERSION, VERSION_LABEL, VERSION_META } from '../../src/version';
 
 describe('version', () => {
-  it('is V2 · Underground', () => {
-    expect(VERSION).toEqual({ number: 2, name: 'Underground' });
-    expect(VERSION_LABEL).toBe('V2 · Underground');
+  it('is V3 · Predators', () => {
+    expect(VERSION).toEqual({ number: 3, name: 'Predators' });
+    expect(VERSION_LABEL).toBe('V3 · Predators');
   });
 
   it('has a whole number from 1 and a short name of at most 4 words (docs/codev/README.md)', () => {
     expect(Number.isInteger(VERSION.number) && VERSION.number >= 1).toBe(true);
-    // CLAUDE.md asks for 2 to 4 words; Matt named V2 "Underground" (one word) in the approved spec.
+    // CLAUDE.md asks for 2 to 4 words; one word is fine when Matt picks it ("Underground", "Predators").
     const words = VERSION.name.trim().split(/\s+/);
     expect(words.length).toBeGreaterThanOrEqual(1);
     expect(words.length).toBeLessThanOrEqual(4);
@@ -20,6 +20,6 @@ describe('version', () => {
   });
 
   it('stamps the build with a meta tag the release script reads', () => {
-    expect(VERSION_META).toBe('<meta name="wormsim-version" content="V2 · Underground">');
+    expect(VERSION_META).toBe('<meta name="wormsim-version" content="V3 · Predators">');
   });
 });

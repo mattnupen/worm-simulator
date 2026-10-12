@@ -9,11 +9,14 @@ import type { PresetId } from '../render/graphics';
  *   pause --Graphics--> graphics
  *   pause --Back to start--> start
  *   start --Speed test--> speedTest --done--> results --Back to start--> start
+ *   start --Learn--> lesson --Start crawling--> crawl
+ *   lesson --Back to start/Esc--> start
  */
-export type Screen = 'start' | 'crawl' | 'pause' | 'graphics' | 'speedTest' | 'results';
+export type Screen = 'start' | 'crawl' | 'pause' | 'graphics' | 'speedTest' | 'results' | 'lesson';
 
 export type ScreenEvent =
   | { type: 'crawl' }
+  | { type: 'lesson' }
   | { type: 'pause' }
   | { type: 'hidden' }
   | { type: 'resume' }
@@ -34,15 +37,19 @@ export interface ScreenState {
   readonly applied: boolean;
 }
 
-export function initialScreens(openSpeedTest = false): ScreenState {
-  return { screen: openSpeedTest ? 'speedTest' : 'start', graphicsFrom: 'start', recommended: null, applied: false };
+/** `openLesson`: ?lesson=1, straight into the lesson (previews and screenshots). */
+export function initialScreens(openSpeedTest = false, openLesson = false): ScreenState {
+  const screen: Screen = openSpeedTest ? 'speedTest' : openLesson ? 'lesson' : 'start';
+  return { screen, graphicsFrom: 'start', recommended: null, applied: false };
 }
 
 /** The next state, or `s` itself (same object) when the event does not apply. */
 export function transition(s: ScreenState, e: ScreenEvent): ScreenState {
   switch (e.type) {
     case 'crawl':
-      return s.screen === 'start' ? { ...s, screen: 'crawl' } : s;
+      return s.screen === 'start' || s.screen === 'lesson' ? { ...s, screen: 'crawl' } : s;
+    case 'lesson':
+      return s.screen === 'start' ? { ...s, screen: 'lesson' } : s;
     case 'pause':
     case 'hidden':
       return s.screen === 'crawl' ? { ...s, screen: 'pause' } : s;
@@ -55,7 +62,7 @@ export function transition(s: ScreenState, e: ScreenEvent): ScreenState {
     case 'back':
       return s.screen === 'graphics' ? { ...s, screen: s.graphicsFrom } : s;
     case 'toStart':
-      return s.screen === 'pause' || s.screen === 'results' || s.screen === 'speedTest'
+      return s.screen === 'pause' || s.screen === 'results' || s.screen === 'speedTest' || s.screen === 'lesson'
         ? { ...s, screen: 'start' }
         : s;
     case 'speedTest':

@@ -89,3 +89,25 @@ describe('screens', () => {
     for (const [s, e] of cases) expect(transition(s, e)).toBe(s);
   });
 });
+
+describe('screens: the in-game lesson', () => {
+  it('start -> Learn -> lesson -> Start crawling -> crawl', () => {
+    const lesson = run(start, { type: 'lesson' });
+    expect(lesson.screen).toBe('lesson');
+    expect(run(lesson, { type: 'crawl' }).screen).toBe('crawl');
+  });
+
+  it('lesson -> Back to start (or Esc) -> start; opens straight on it with ?lesson=1', () => {
+    expect(run(start, { type: 'lesson' }, { type: 'toStart' }).screen).toBe('start');
+    expect(initialScreens(false, true).screen).toBe('lesson');
+    expect(initialScreens(true, true).screen).toBe('speedTest');
+  });
+
+  it('the lesson does not pause, and opens only from Start', () => {
+    const lesson = run(start, { type: 'lesson' });
+    expect(transition(lesson, { type: 'hidden' })).toBe(lesson);
+    expect(transition(lesson, { type: 'pause' })).toBe(lesson);
+    const crawling = run(start, { type: 'crawl' });
+    expect(transition(crawling, { type: 'lesson' })).toBe(crawling);
+  });
+});

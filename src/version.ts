@@ -4,7 +4,7 @@
  * the built page as VERSION_META, which `npm run release` checks before it freezes a snapshot.
  * Bump both for the next version's first commit.
  */
-export const VERSION = { number: 2, name: 'Underground' } as const;
+export const VERSION = { number: 3, name: 'Predators' } as const;
 
 /** "V2 · Underground": the Start-screen label, slides, form, Canvas post and changelog all use it. */
 export const VERSION_LABEL = `V${VERSION.number} · ${VERSION.name}`;

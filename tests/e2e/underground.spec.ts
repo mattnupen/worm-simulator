@@ -104,6 +104,12 @@ async function recordPlaces(page: Page): Promise<() => Promise<Seen[]>> {
   return () => page.evaluate(() => (window as unknown as { __seen: Seen[] }).__seen);
 }
 
+// These tests play as a returning student who has finished this version's lesson, so Crawl comes
+// first on Start. The lesson's own flow, on a new device, is tests/e2e/lesson.spec.ts.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
+});
+
 test('keyboard only: dig down, dig around, switch the camera, pause, come up', async ({ page }) => {
   test.setTimeout(180_000);
   const errors = watchErrors(page);

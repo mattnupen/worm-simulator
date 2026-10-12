@@ -13,6 +13,19 @@ How to write an entry (for Matt and Claude):
   "## VN · Name (YYYY-MM-DD)" and start a new "Coming next" above it.
 -->
 
+## Coming next: V3 · Predators
+
+### New
+- The Start screen shows which version you are playing: V3 · Predators.
+- **Learn: Who eats worms?** The first button on the Start screen opens a short lesson about the
+  animals that hunt worms: the robin, the woodcock and the star-nosed mole. Sort the hunters, make
+  guesses, and feel the ground shake. You can play it again any time from the Start screen.
+- At the end of the lesson, the game reminds you to fill in this week's form in Canvas.
+
+### Because you voted
+- You picked **predators** as the next topic, so V3 is all about them. This week you get to design
+  how a predator should work in the game. The best design gets built into V4.
+
 ## V2 · Underground (2026-10-08)
 
 ### New

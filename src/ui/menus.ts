@@ -6,20 +6,28 @@ import { TEXT, shown } from '../content/text';
 
 export interface StartActions { onCrawl(): void; onGraphics(): void; onSpeedTest(): void }
 
+/** This version's lesson on Start: its button, and whether this device has finished it. */
+export interface StartLesson { title: string; done: boolean; onLesson(): void }
+
 /**
  * Start: the parchment title card over the live forest. `fromGraphics`: back from the Graphics
- * screen, so focus returns to its button (Crawl otherwise).
+ * screen, so focus returns to its button. Otherwise focus goes to the first button: the lesson
+ * while it is unfinished (it comes first and is the main button), Crawl once it is done (the
+ * lesson stays below, to look at again).
  */
-export function showStart(shell: Shell, a: StartActions, fromGraphics = false): void {
-  const crawl = button('Crawl', 'play', 'primary', a.onCrawl);
+export function showStart(shell: Shell, a: StartActions, fromGraphics = false, lesson?: StartLesson): void {
+  const first = !!lesson && !lesson.done;
+  const crawl = button('Crawl', 'play', first ? 'secondary' : 'primary', a.onCrawl);
   const graphics = button('Graphics', 'sliders', 'secondary', a.onGraphics);
+  const learn = lesson ? button(`Learn: ${lesson.title}`, 'eye', first ? 'primary' : 'secondary', lesson.onLesson) : null;
+  const buttons = learn ? (first ? [learn, crawl] : [crawl, learn]) : [crawl];
   shell.show('start', 'Start', [
     cardHead('A forest floor in fall'),
     el('p', 'You are an earthworm under the leaves of a northern forest.', 'lead'),
-    menu(crawl, graphics, button('Speed test', 'gauge', 'secondary', a.onSpeedTest)),
+    menu(...buttons, graphics, button('Speed test', 'gauge', 'secondary', a.onSpeedTest)),
     el('p', VERSION_LABEL, 'version'),
   ]);
-  (fromGraphics ? graphics : crawl).el.focus();
+  (fromGraphics ? graphics : buttons[0]).el.focus();
 }
 
 /**

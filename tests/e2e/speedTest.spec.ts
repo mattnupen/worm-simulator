@@ -6,6 +6,12 @@ import { PRESETS } from '../../src/render/graphics';
 
 const PAGE = pathToFileURL(path.resolve('dist/index.html')).href + '?quick=1';
 
+// These tests play as a returning student who has finished this version's lesson, so Crawl comes
+// first on Start. The lesson's own flow, on a new device, is tests/e2e/lesson.spec.ts.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
+});
+
 test('runs the speed test offline from a file with zero network requests', async ({ page, context }) => {
   const outside: string[] = [];
   page.on('request', (r) => {
@@ -41,8 +47,8 @@ test('ships a CSP that blocks connections', async ({ page }) => {
 test('the speed test starts from the keyboard alone', async ({ page }) => {
   await page.goto(PAGE);
   await expect(page.getByRole('button', { name: 'Crawl' })).toBeFocused();
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
+  // Crawl, the finished lesson, Graphics, then Speed test.
+  for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Speed test', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
   const start = page.getByRole('button', { name: 'Start speed test' });

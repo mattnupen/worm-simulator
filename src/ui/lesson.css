@@ -1,0 +1,84 @@
+/* The in-game lesson (lesson.ts): a wide parchment card bottom-left over the live forest, with the
+   same rules as every card: 18px+ text, 7:1 ink, 4px focus rings, 48px+ targets, no flashing,
+   motion off under reduced motion. */
+.panel[data-state="lesson"] {
+  left: var(--edge); bottom: var(--edge-y); width: min(720px, calc(100vw - 32px));
+  max-height: calc(100dvh - var(--edge-y) - 16px);
+}
+.lesson-progress { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.lesson-progress .pips { margin: 0; gap: 6px; }
+.lesson-progress .pip { width: 28px; height: 10px; }
+.lesson-progress .pip.here { background: linear-gradient(90deg, #f4b244, #e07a26); }
+.lesson-title { margin-bottom: 12px !important; }
+.lesson-title:focus { outline: none; }
+.lesson-title:focus-visible { outline: 4px solid var(--focus); outline-offset: 4px; }
+.panel .lesson-line + .lesson-line, .panel .fact + .fact, .panel .lesson-line + .fact,
+.panel .fact + .lesson-line { margin-top: 10px; }
+.lesson-question { font-weight: 700; margin-top: 4px !important; }
+.lesson-options { display: grid; gap: 10px; margin-top: 12px; }
+.lesson-options .btn { justify-content: flex-start; text-align: left; font-size: 21px; min-height: 52px; }
+.lesson-options .btn[aria-pressed="true"] { background: #fff3cf; border-width: 4px; }
+.btn.btn-small { min-height: 48px; font-size: 19px; padding: 6px 14px; width: auto; }
+.btn-small .btn-icon { width: 22px; height: 22px; }
+.lesson-tools { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+.panel[data-state="lesson"] .menu { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 18px; }
+.panel[data-state="lesson"] .menu .btn[hidden] { display: none; }
+
+/* What scientists found: a framed note, like a field-guide inset. */
+.reveal {
+  margin-top: 14px; padding: 12px 16px; border-radius: 14px;
+  border: 2px solid rgba(90, 56, 24, 0.55); background: rgba(255, 251, 241, 0.85);
+}
+.reveal[hidden] { display: none; }
+.reveal-head { font-weight: 800; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px !important; }
+.source { font-size: 18px; color: var(--ink-soft); font-style: italic; margin-top: 2px !important; }
+
+/* Sense steps: what happened, in words, beside its icon. */
+.cue-caption { display: flex; align-items: center; gap: 12px; font-weight: 700; margin-bottom: 10px !important; }
+.cue-icon, .mission-icon, .sort-icon { flex: none; width: 34px; height: 34px; color: var(--accent); }
+.cue-icon svg, .mission-icon svg, .sort-icon svg { width: 100%; height: 100%; display: block; }
+
+/* Sort: one row per animal. */
+.sort-list { list-style: none; padding: 0; margin: 12px 0 0 !important; display: grid; gap: 10px; }
+.sort-card { padding: 10px 14px; border: 2px solid rgba(90, 56, 24, 0.45); border-radius: 14px; background: rgba(255, 251, 241, 0.7); }
+.sort-name { font-weight: 800; }
+.sort-picks { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.sort-picks[hidden], .sort-result[hidden] { display: none; }
+.sort-result { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin-top: 6px; align-items: start; }
+.sort-result > :not(.sort-icon) { grid-column: 2; }
+.sort-icon { grid-row: 1 / span 3; width: 28px; height: 28px; }
+.sort-verdict { font-weight: 700; }
+
+.mission-line { display: flex; align-items: flex-start; gap: 12px; }
+.mission-line + .mission-line { margin-top: 14px !important; }
+
+/* ---------- The cue layer: under the card, over the forest ---------- */
+.cue { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+.cue > * { display: none; }
+/* A bird's shadow: one slow pass from right to left, so it crosses the open scene before it
+   reaches the card (no flashing). */
+.cue[data-cue="shadow"] .cue-shadow {
+  display: block; position: absolute; top: 14%; left: 100vw; width: 60vmax; height: 40vmax;
+  background: radial-gradient(closest-side, rgba(10, 6, 2, 0.65), rgba(10, 6, 2, 0.45) 55%, rgba(10, 6, 2, 0));
+  animation: cue-pass 3.4s cubic-bezier(0.45, 0, 0.55, 1) both;
+}
+@keyframes cue-pass { to { transform: translateX(calc(-100vw - 60vmax)); } }
+/* Thumps: three rings spreading from the ground, 0.7 s apart (under 3 a second). */
+.cue[data-cue="thump"] .cue-ring {
+  display: block; position: absolute; left: 50%; top: 62%; width: 40vmin; height: 16vmin;
+  margin: -8vmin 0 0 -20vmin; border-radius: 50%; border: 6px solid rgba(255, 244, 214, 0.85);
+  box-shadow: 0 0 0 3px rgba(40, 20, 4, 0.5); opacity: 0;
+  animation: cue-ring 1.4s ease-out both;
+}
+.cue[data-cue="thump"] .cue-ring:nth-child(3) { animation-delay: 0.7s; }
+.cue[data-cue="thump"] .cue-ring:nth-child(4) { animation-delay: 1.4s; }
+@keyframes cue-ring { 0% { opacity: 0.95; transform: scale(0.3); } 100% { opacity: 0; transform: scale(1.8); } }
+
+@media (prefers-reduced-motion: reduce) {
+  /* A still picture: the shadow rests over the middle, one ring shows. The words say the rest. */
+  .cue[data-cue="shadow"] .cue-shadow { left: calc(50% - 30vmax); }
+  .cue[data-cue="thump"] .cue-ring:nth-child(2) { opacity: 0.9; transform: scale(1.1); }
+}
+@media (max-width: 560px) {
+  .lesson-progress .pips { display: none; }
+}
