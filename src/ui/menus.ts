@@ -3,7 +3,7 @@ import { el, button, cardHead, menu, type Button } from './dom';
 import { icon } from './icons';
 import type { Shell } from './shell';
 import { VERSION_LABEL } from '../version';
-import { TEXT, shown } from '../content/text';
+import { TEXT, shown, type Line } from '../content/text';
 import { PLAY_GOAL_SECONDS, type Quest, type QuestId } from '../game/quests';
 
 export interface StartActions { onCrawl(): void; onGraphics(): void; onSpeedTest(): void }
@@ -100,13 +100,23 @@ export function showVote(shell: Shell, onVoted: () => void, onStart: () => void)
  * Crawl: a small hint card, the controls then "look, don't eat" (the surface has mushrooms and
  * puffballs; parent spec 5). Focus rests on it so Space and arrows press no button.
  */
-export function showCrawl(shell: Shell): void {
+/**
+ * The crawl card on the surface: the controls, then `think` (the round's lesson question to think
+ * about while playing, Matt 2026-10-12) when there is one, then "look, don't eat".
+ */
+export function showCrawl(shell: Shell, think?: Line): void {
   const hint = el('p', '', 'hint');
   hint.append(
     icon('drive', 'hint-icon'),
     el('span', shown(TEXT.crawlHint)),
   );
-  shell.show('crawl', 'Crawling', [hint, el('p', shown(TEXT.lookDontEat), 'hint-safety')]);
+  const lines = [hint];
+  if (think) {
+    const q = el('p', '', 'hint hint-think');
+    q.append(icon('eye', 'hint-icon'), el('span', shown(think)));
+    lines.push(q);
+  }
+  shell.show('crawl', 'Crawling', [...lines, el('p', shown(TEXT.lookDontEat), 'hint-safety')]);
   shell.panel.focus({ preventScroll: true });
 }
 

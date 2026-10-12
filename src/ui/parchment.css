@@ -222,6 +222,8 @@ canvas { display: block; }
 .hint-icon svg { width: 100%; height: 100%; }
 /* "Mushrooms and puffballs: look, don't eat." (content/text.ts lookDontEat), last on both hint cards. */
 .panel .hint-safety { margin-top: 8px; font-size: 18px; }
+/* The round's question to think about while crawling (menus.ts showCrawl), under the controls. */
+.panel .hint-think { margin-top: 10px; align-items: flex-start; }
 
 /* ---------- Small screens ---------- */
 @media (max-height: 640px) {

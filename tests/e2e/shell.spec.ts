@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { TEXT, shown } from '../../src/content/text';
+import { CURRENT_LESSON } from '../../src/content/lessons';
 
 const PAGE = pathToFileURL(path.resolve('dist/index.html')).href;
 /** The speed test with 1.5 s phases, for tests that only need it to run. */
@@ -42,6 +43,9 @@ test('keyboard only: crawl, pause with Esc, resume, reach Graphics and back to s
   await expect(crawling(page)).toBeVisible();
   // The crawl card: the controls, then "look, don't eat" last (the surface has mushrooms; parent spec 5).
   await expect(crawling(page).locator('p').last()).toHaveText(shown(TEXT.lookDontEat));
+  // The lesson's question to think about while playing sits under the controls (Matt, 2026-10-12).
+  const mission = CURRENT_LESSON?.steps.find((st) => st.kind === 'mission');
+  if (mission?.kind === 'mission') await expect(crawling(page).locator('.hint-think')).toHaveText(shown(mission.notice));
   await expect(button(page, 'Pause')).toBeVisible();
   await page.keyboard.down('ArrowUp');
   await page.waitForTimeout(400);

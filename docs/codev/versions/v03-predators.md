@@ -47,8 +47,9 @@ This matches the "Coming next" entry in `CHANGELOG.md`.
   hunting scene, a guess about how much of a woodcock's food is worms, the ground thumping as a
   star-nosed mole digs, a sort of four more hunters (shrew, garter snake, American toad, red-backed
   salamander), when nightcrawlers come up safely, and how the forest changed. It ends with a
-  reminder to fill in the form from Canvas (text only; the game has no links). Built in the
-  "In-game learning intros" thread (PR #4).
+  reminder to fill in the form from Canvas. Each page has a Sources button that links out, and
+  "Tell me more" panels can hold a YouTube video. Built in the "In-game learning intros" thread
+  (PRs #4, #7 and #12).
 - No predator hunts the worm yet. Students design how one should work on this form, and the
   winning design is built into V4.
 - Everything from V2 is still there: dig down, the soil layers, tunnels, castings, Wide and Close
