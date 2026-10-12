@@ -57,6 +57,13 @@ Each job is a lens on the student's own idea:
 - **Simple words** a 6th grader reads easily. One idea per question. Positive wording.
 - **Multiple-choice answers cover every case** with no gaps or overlaps (5 to 10, then more than
   10, never a missing "less than 5").
+- **Mostly multiple choice, one paragraph** (Matt, 2026-10-12). Too many paragraph questions
+  wear students out. Each design question is multiple choice or checkboxes with an "Other: ____"
+  box. Build the choices from the lesson's facts, so a pick also shows what the student learned.
+  Then ask one paragraph, "Tell us your idea", with a sentence starter. The drawing covers how it
+  looks.
+- **Votes over many options are "pick 2" checkboxes,** not a ranking grid. Use response
+  validation, "Select exactly" 2.
 - **Every design question asks for evidence** (P3): a "How do you know?" line, or a sentence
   starter such as "The worm would ___ because ___." Starters come out over the rounds.
 - **The check question uses only facts** from `docs/codev/research/<topic>.md`, and its answer is
