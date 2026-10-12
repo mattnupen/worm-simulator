@@ -78,6 +78,8 @@ How it works:
   shape every round (P12).
 - **Results:** each job's answers are tallied separately, so the Friday summary reads like a
   report from each team.
+- **Skipping jobs:** Matt can run a round without jobs (V3, 2026-10-12). Everyone then gets the
+  same questions, one per lens (`form-guide.md`, "Rounds without jobs").
 - **In the game (optional):** the in-game intro can end with "This round, look out for…" for each
   job, as text only.
 

@@ -4,6 +4,12 @@ Deliberate choices about how Worm Simulator applies `FRAMEWORK.md`, newest first
 what was decided, who decided, and why (framework P15). Product decisions from each round's vote
 live in that version's doc.
 
+## 2026-10-12: V3 runs without jobs (Matt)
+- **Decided:** students weren't given jobs for V3. Everyone answers the same form, with one
+  question from each job's lens and no branching. Jobs stay in `IMPLEMENTATION.md` for later
+  rounds, and Matt decides each round whether to use them.
+- **Why:** Matt didn't divide students into roles this week.
+
 ## 2026-10-12: The form collects designs, not ratings (Matt)
 - **Decided:** each round's form treats students as experts on the topic they just learned. It
   asks what to add, how it should work, and how they know. It no longer asks students to rate the
