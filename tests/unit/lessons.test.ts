@@ -25,18 +25,30 @@ describe('in-game lessons: science honesty and shape', () => {
     }
   });
 
-  it('questions have 2 to 4 options and a reveal; sorts have 2 to 6 cards', () => {
+  it('questions have 2 to 4 options, a reveal, and an answer that is one of them; meets have 2 to 6 cards', () => {
     for (const l of ALL_LESSONS) {
       for (const s of l.steps) {
         if (s.kind === 'predict' || s.kind === 'sense') {
           expect(s.options.length).toBeGreaterThanOrEqual(2);
           expect(s.options.length).toBeLessThanOrEqual(4);
           expect(s.reveal.length).toBeGreaterThan(0);
+          if (s.answer !== undefined) {
+            expect(Number.isInteger(s.answer) && s.answer >= 0 && s.answer < s.options.length, s.title).toBe(true);
+          }
         }
-        if (s.kind === 'sort') {
+        if (s.kind === 'meet') {
           expect(s.cards.length).toBeGreaterThanOrEqual(2);
           expect(s.cards.length).toBeLessThanOrEqual(6);
         }
+      }
+    }
+  });
+
+  it('"Tell me more" panels hold at least one sourced fact', () => {
+    for (const l of ALL_LESSONS) {
+      for (const s of l.steps) {
+        if (s.kind === 'mission' || !s.more) continue;
+        expect(s.more.lines.some((x) => x.kind === 'fact'), `${l.id}: ${s.title}`).toBe(true);
       }
     }
   });

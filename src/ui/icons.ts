@@ -80,14 +80,22 @@ const ICONS = {
   form: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
       stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/>
     <path d="M7.5 8.5l1.5 1.5 2.5-3M13.5 9h3.5M7.5 15l1.5 1.5 2.5-3M13.5 15.5h3.5"/></svg>`,
-  /** Sorting cards: up (first group) and down (second group). */
-  up: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
-      stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5M6 11l6-6 6 6"/></svg>`,
-  down: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
-      stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15M6 13l6 6 6-6"/></svg>`,
-  /** A turn-around arrow: "Look again" on a sorted card (a different shape from the tick). */
-  turn: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
-      stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg>`,
+  /** Read aloud while it plays: a stop square. */
+  stop: `<svg ${SVG} viewBox="0 0 24 24" fill="currentColor"><rect x="5.5" y="5.5" width="13" height="13" rx="2"/></svg>`,
+  /** Sound off: the speaker with a cross. */
+  mute: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+      stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h4l5-4.5v14l-5-4.5H4z" fill="currentColor"/>
+    <path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></svg>`,
+  /** "Tell me more": an open book. */
+  book: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+      stroke-linejoin="round"><path d="M12 6.5C9.5 4.8 6.5 4.5 3 5v13c3.5-.5 6.5-.2 9 1.5 2.5-1.7 5.5-2 9-1.5V5c-3.5-.5-6.5-.2-9 1.5z"/>
+    <path d="M12 6.5v13"/></svg>`,
+  /** A link that opens in a new tab: an arrow out of a box. */
+  external: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+      stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>`,
+  /** Close a panel: a cross. */
+  close: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"
+      stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`,
   /** A padlock: a quest that is not open yet. */
   lock: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
       stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="currentColor"/>
