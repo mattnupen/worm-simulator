@@ -145,7 +145,7 @@ export const PREDATORS: Lesson = {
       kind: 'mission',
       title: 'Your mission',
       notice: { kind: 'ui', text: 'While you play, notice: where could your worm hide from a robin, a woodcock or a mole?' },
-      reminder: { kind: 'ui', text: 'Then open the Google Form from Canvas to vote and share your design ideas.' },
+      reminder: { kind: 'ui', text: 'After you play, your last quest is to vote in the Google Form from Canvas.' },
     },
   ],
 };

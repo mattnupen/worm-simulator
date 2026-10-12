@@ -47,8 +47,9 @@ test('ships a CSP that blocks connections', async ({ page }) => {
 test('the speed test starts from the keyboard alone', async ({ page }) => {
   await page.goto(PAGE);
   await expect(page.getByRole('button', { name: 'Crawl' })).toBeFocused();
-  // Crawl, the finished lesson, Graphics, then Speed test.
-  for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
+  // Crawl, then Graphics (Vote is still locked), then Speed test.
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Speed test', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
   const start = page.getByRole('button', { name: 'Start speed test' });

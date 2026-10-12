@@ -1,0 +1,40 @@
+/* The round's quests on Start (menus.ts): three numbered rows, each with its state in words and an
+   icon (a number, a tick or a lock), never colour alone. Same rules as every card: 18px+ text,
+   7:1 ink, 48px+ targets. */
+.quests { list-style: none; padding: 0; margin: 18px 0 0 !important; display: grid; gap: 10px; }
+.quest {
+  display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "mark words btn";
+  gap: 6px 12px; align-items: center; padding: 10px 12px;
+  border: 2px solid rgba(90, 56, 24, 0.45); border-radius: 14px; background: rgba(255, 251, 241, 0.7);
+}
+.quest-next { border-color: var(--bark-dark); border-width: 3px; background: #fff3cf; }
+.quest-mark {
+  grid-area: mark; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
+  border: 2px solid var(--bark); font-weight: 800; font-size: 19px; background: var(--parchment-hi);
+}
+.quest-icon { display: block; width: 22px; height: 22px; }
+.quest-icon svg { width: 100%; height: 100%; display: block; }
+.quest-done .quest-mark { color: var(--moss); }
+.quest-locked .quest-mark { color: var(--ink-soft); }
+.quest-words { grid-area: words; min-width: 0; }
+.quest-name { font-weight: 800; font-size: 18px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+.quest-status { font-size: 18px; color: var(--ink-soft); }
+.quest .btn { grid-area: btn; width: auto; max-width: 270px; min-height: 52px; font-size: 19px; padding: 6px 14px; }
+.btn:disabled { cursor: not-allowed; filter: none; transform: none; box-shadow: none; border-style: dashed; background: var(--parchment-lo); }
+.menu-row { grid-template-columns: 1fr 1fr; margin-top: 14px !important; }
+.menu-row .btn { min-height: 52px; font-size: 19px; }
+.vote-note { margin-top: 10px !important; }
+.panel[data-state="start"] { width: min(640px, calc(100vw - 32px)); }
+.panel[data-state="vote"] {
+  left: var(--edge); bottom: var(--edge-y); width: min(540px, calc(100vw - 32px));
+  max-height: calc(100dvh - var(--edge-y) - 16px);
+}
+@media (max-width: 560px) {
+  /* Narrow: the button goes under its words, full width. */
+  .quest { grid-template-columns: auto 1fr; grid-template-areas: "mark words" "btn btn"; padding: 10px 12px 12px; }
+  .quest .btn { width: 100%; max-width: none; }
+}
+@media (max-height: 820px) {
+  /* The quests matter more than the one-line welcome on a short screen. */
+  .panel[data-state="start"] .lead { display: none; }
+}
