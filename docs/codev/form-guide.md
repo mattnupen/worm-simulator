@@ -18,7 +18,7 @@ About 10 minutes, and it works on a phone. Only the play-time and job questions 
 | 1 | **Start** | Everyone | How long did you play? |
 | 2 | **You're the expert** | Everyone | One check question on the topic, then the design: *what* to add, *how it should work*, *how the worm senses it or acts on it*, and *how do you know*. Last, "What was your job this round?", which branches. |
 | 3 | **Your job** | Branches by job | Two questions that look at the student's own design through their job (below). |
-| 4 | **Show us** | Everyone | Optional drawing. One line for anything broken or confusing (it feeds the bug list, never the vote). |
+| 4 | **The game** | Everyone | Short multiple-choice questions on controls, how it runs, how it looks, and what to fix first, then one line for anything broken or confusing. These feed the fix list and bug list, never the vote. (V3 puts the optional drawing at the end of section 2.) |
 | 5 | **Vote** | Everyone | Rank the options: classmates' designs from last round (from V4 on), and the next topic when one is open. |
 
 From the round after a student design is built, section 2 also asks **"Does [the design] work the
@@ -52,7 +52,8 @@ Each job is a lens on the student's own idea:
 - **Only ask what we'll use.** Each question names where its answers go: the design shortlist, the
   bug list, the next topic, or the version doc's Results. Cut anything that goes nowhere.
 - **No feelings or rating grids** (Matt, 2026-10-12): no "How did VN feel?", no experience-goal
-  grid, no fun rating. Matt and Claude judge builds against the experience goals themselves
+  grid, no fun rating. Concrete questions about controls, speed and visuals are fine (Matt,
+  2026-10-12): they point at something we can fix. Matt and Claude judge builds against the experience goals themselves
   (`IMPLEMENTATION.md`, section 10).
 - **Simple words** a 6th grader reads easily. One idea per question. Positive wording.
 - **Multiple-choice answers cover every case** with no gaps or overlaps (5 to 10, then more than
