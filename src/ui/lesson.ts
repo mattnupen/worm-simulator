@@ -4,16 +4,17 @@ import { icon } from './icons';
 import type { Shell } from './shell';
 import { SOURCES, sourceName } from '../content/sources';
 import { GAME_CHOICE_PREFIX, shown, type Line } from '../content/text';
-import type { Cue, Lesson, LessonStep, More, Photo } from '../content/lessons/lesson';
+import type { Cue, Lesson, LessonStep, More, Photo, Video } from '../content/lessons/lesson';
 import { PHOTO_URLS } from '../content/lessons/photos';
+import { youTubeId } from '../content/lessons/lesson';
 import { playCueSound, setSoundEnabled, soundEnabled, stopCueSound } from './lessonSound';
 
 /**
- * Whether a lesson may show links that open a page in a new browser tab (sources and "Tell me
- * more" videos). Off: the game shows no links at all ("Canvas holds all links", CLAUDE.md). Matt
- * decides; the game itself never loads anything either way.
+ * Whether lessons show sources as links (new tab) and play "Tell me more" videos in the panel
+ * (YouTube's privacy-enhanced player, youtube-nocookie.com, which the CSP allows as a frame). Matt
+ * turned these on (2026-10-12) when he dropped the offline rule. Off: no links and no video.
  */
-export const LESSON_LINKS = false;
+export const LESSON_LINKS = true;
 
 export interface LessonActions {
   /** The last step's "Start crawling". */
@@ -388,20 +389,43 @@ function photo(root: HTMLElement, p: Photo, compact = false): HTMLElement {
 function moreButton(root: HTMLElement, more: More): HTMLButtonElement {
   const b = button('Tell me more', 'book', 'secondary', () => {
     const body: HTMLElement[] = more.lines.map((l) => line(l));
-    if (LESSON_LINKS && more.video) {
-      const v = el('a', '', 'more-video');
-      v.href = more.video.url;
-      v.target = '_blank';
-      v.rel = 'noopener noreferrer';
-      v.append(icon('external', 'tag-icon'), el('span', `Watch: ${more.video.title} (${more.video.channel})`),
-        el('span', ' (opens in a new tab)', 'sr-only'));
-      body.push(v);
-    }
+    if (LESSON_LINKS && more.video) body.push(video(more.video));
     openDialog(root, 'more-dialog', more.title, body, b.el);
   });
   b.el.classList.add('btn-small', 'more-btn');
   return b.el;
 }
+
+/**
+ * A YouTube video in the panel, through the privacy-enhanced player (no cookies until it plays). It
+ * loads only when the panel opens, and closing the panel removes it, so it stops. A plain link
+ * opens it on YouTube too, for a school network or browser that blocks the player.
+ */
+function video(v: Video): HTMLElement {
+  const wrap = el('div', '', 'more-video');
+  const id = youTubeId(v.url);
+  if (id) {
+    const frame = document.createElement('iframe');
+    frame.src = `https://www.youtube-nocookie.com/embed/${id}?rel=0`;
+    frame.title = `Video: ${v.title}`;
+    frame.allow = 'encrypted-media; picture-in-picture; fullscreen';
+    frame.allowFullscreen = true;
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.loading = 'lazy';
+    const box = el('div', '', 'video-box');
+    box.append(frame);
+    wrap.append(box);
+  }
+  const link = el('a', '', 'video-link');
+  link.href = v.url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.append(icon('external', 'tag-icon'), el('span', `Open on YouTube: ${v.title} (${v.channel})`),
+    el('span', ' (opens in a new tab)', 'sr-only'));
+  wrap.append(link);
+  return wrap;
+}
+
 
 /**
  * A modal panel over the lesson (a real <dialog>: Esc and Close shut it, focus stays inside, and

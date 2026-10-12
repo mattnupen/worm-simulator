@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ALL_LESSONS, CURRENT_LESSON } from '../../src/content/lessons';
-import { lessonLines, type Lesson } from '../../src/content/lessons/lesson';
+import { lessonLines, youTubeId, type Lesson } from '../../src/content/lessons/lesson';
 import { lineProblems } from '../../src/content/text';
 
 describe('in-game lessons: science honesty and shape', () => {
@@ -49,6 +49,8 @@ describe('in-game lessons: science honesty and shape', () => {
       for (const s of l.steps) {
         if (s.kind === 'mission' || !s.more) continue;
         expect(s.more.lines.some((x) => x.kind === 'fact'), `${l.id}: ${s.title}`).toBe(true);
+        // A video must be a YouTube page the panel can embed.
+        if (s.more.video) expect(youTubeId(s.more.video.url), s.more.video.url).toMatch(/^[\w-]{11}$/);
       }
     }
   });
@@ -63,5 +65,12 @@ describe('in-game lessons: science honesty and shape', () => {
       ],
     } as unknown as Lesson;
     expect(lineProblems(lessonLines(bad))).toEqual(['0.reveal.0: unknown source "my-blog"', '1.reminder: empty']);
+  });
+
+  it('youTubeId reads watch and short links, and nothing else', () => {
+    expect(youTubeId('https://www.youtube.com/watch?v=RDA64eUoxag')).toBe('RDA64eUoxag');
+    expect(youTubeId('https://www.youtube.com/watch?list=x&v=RDA64eUoxag')).toBe('RDA64eUoxag');
+    expect(youTubeId('https://youtu.be/RDA64eUoxag')).toBe('RDA64eUoxag');
+    expect(youTubeId('https://evil.example/watch?v=RDA64eUoxag')).toBeNull();
   });
 });
