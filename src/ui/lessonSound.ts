@@ -1,8 +1,8 @@
 import type { Cue } from '../content/lessons/lesson';
 
 /**
- * Sound effects for the lesson's cues, made on the device with Web Audio (no sound files, nothing
- * downloaded: no network at runtime, CLAUDE.md). A thump is a low, short drum hit; a passing
+ * Sound effects for the lesson's cues, made on the device with Web Audio (no sound files to load
+ * or bundle). A thump is a low, short drum hit; a passing
  * shadow is a soft rush of air that moves from right to left; the robin's hops are light taps.
  * The timings match the animations in lesson.css. Sound only adds to a cue: its words are always
  * on screen, so a student with the sound off misses nothing.

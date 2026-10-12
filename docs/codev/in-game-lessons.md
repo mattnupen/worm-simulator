@@ -1,13 +1,14 @@
 # In-game lessons: teaching each round's topic inside the game
 
-**Status:** prototype (2026-10-11), first topic "Who eats worms?" (predators). Waiting on Matt's
-review before it joins a version.
+**Status:** part of V3 · Predators (Matt, 2026-10-12), first topic "Who eats worms?" (predators).
 
 Each round starts with a short learning step on the topic students will design for next
 (framework P1, "learn first"). Until now that step was Google Slides in Canvas. Matt asked to move
 it into the game: fewer clicks and less back and forth for students, and more engaging. The
 Google Form stays the place to vote, opened from Canvas. The game only *reminds* students to vote;
-it never links to the form, because the game makes no network connections (`CLAUDE.md`).
+it never links to the form. Lesson sources are links that open in a new tab, and "Tell me more"
+panels can embed a YouTube video (youtube-nocookie.com), since Matt dropped the offline rule on
+2026-10-12. The game's own code still sends no data (`connect-src 'none'`).
 
 ## Ways we could teach it (brainstorm)
 
