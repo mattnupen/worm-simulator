@@ -194,6 +194,9 @@ test('going down and coming up compiles no shader, offline, with zero network re
 test('touch: the Action button digs down, switches the view and comes up; the joystick steers underground', async ({ browser }) => {
   test.setTimeout(180_000);
   const context = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 360, height: 640 } });
+  // Its own context, so the beforeEach above doesn't reach it: mark the lesson done here too, or
+  // Crawl stays locked behind Learn.
+  await context.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
   const page = await context.newPage();
   const errors = watchErrors(page);
   await page.goto(PAGE);
