@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mulberry32 } from '../core/random';
 import { createPropMaterial } from '../render/propMaterial';
 import { MeshWriter } from './meshWriter';
-import { writeMushrooms, writeSedge } from './propGeometry';
+import { writeSedge } from './propGeometry';
 
 /** Extra clutter items around the worm on Ultra. */
 export const NEAR_CLUTTER_COUNT = 40;
@@ -11,11 +11,12 @@ export const NEAR_CLUTTER_COUNT = 40;
 const FLAT = (): number => 0;
 
 /**
- * Ultra's "extra clutter near the worm": small sedge tufts and mushroom clusters written once
+ * Ultra's "extra clutter near the worm": small sedge tufts written once
  * in local space (on flat ground at the origin), each with a home in the wrap tile (aWrap). The
  * prop shader's WRAP path places the copy nearest the worm on the rendered ground, shrinks it
  * away from 3.5 to 4.5 m and from the worm's body, so the CPU does nothing as the worm moves.
- * One draw; hidden below Ultra.
+ * One draw; hidden below Ultra. No mushrooms: small clusters shrinking away as the worm reached
+ * them read as the worm making them vanish (Matt, 2026-10-12, V3).
  */
 export function buildNearClutter(count = NEAR_CLUTTER_COUNT, seed = 41): THREE.Mesh {
   const w = new MeshWriter('aProp', 4);
@@ -24,8 +25,7 @@ export function buildNearClutter(count = NEAR_CLUTTER_COUNT, seed = 41): THREE.M
   for (let k = 0; k < count; k++) {
     const first = w.vertexCount;
     const scale = 0.5 + rng() * 0.4;
-    if (rng() < 0.7) writeSedge(w, 0, 0, scale, rng, FLAT);
-    else writeMushrooms(w, 0, 0, scale, rng, FLAT);
+    writeSedge(w, 0, 0, scale, rng, FLAT);
     const hx = rng();
     const hz = rng();
     for (let v = first; v < w.vertexCount; v++) homes.push(hx, hz);

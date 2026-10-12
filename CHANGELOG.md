@@ -28,6 +28,10 @@ How to write an entry (for Matt and Claude):
 - You picked **predators** as the next topic, so V3 is all about them. This week you get to design
   how a predator should work in the game. The best design gets built into V4.
 
+### Fixed
+- On the highest graphics setting, little mushroom clumps near your worm used to shrink and
+  vanish as it crawled up to them. They're gone now, so nothing disappears in front of you.
+
 ## V2 · Underground (2026-10-08)
 
 ### New
