@@ -12,7 +12,7 @@ Lots of animals in a Minnesota forest eat earthworms. A worm has no eyes, ears, 
 it has to sense danger and get away fast.
 
 Full research with exact quotes: `docs/codev/research/predators.md` (30 facts, checked
-2026-10-11). These are the 11 the in-game lesson shows (`src/content/lessons/predators.ts`):
+2026-10-11). These are the facts the in-game lesson shows (`src/content/lessons/predators.ts`):
 
 | Fact shown to students | Source | Status |
 |---|---|---|
@@ -27,23 +27,28 @@ Full research with exact quotes: `docs/codev/research/predators.md` (30 facts, c
 | In one study, light at night cut the number of nightcrawlers coming up by about half. | Nuutinen et al. 2014 | Checked 2026-10-11 |
 | Robins depend on earthworms; where worms spread, robins could spread too. | Minnesota Breeding Bird Atlas, *American Robin* | Checked 2026-10-11 |
 | Worms may help salamanders in some ways and hurt them in others. | Great Lakes Worm Watch, *Vertebrate Animals* | Checked 2026-10-11 |
+| Shrews live all over Minnesota and eat insects, earthworms and even small mammals. | Minnesota DNR, *Shrews* | Checked 2026-10-11 |
+| Garter snakes eat frogs, toads, salamanders, earthworms, insects and fish. | Minnesota DNR, *Common Garter Snake* | Checked 2026-10-11 |
+| The American toad is Minnesota's most common toad and eats insects, worms and snails. | Minnesota DNR, *American toad* | Checked 2026-10-11 |
+| Red-backed salamanders eat spiders, insects, snails, earthworms and other small animals. | MN Herpetological Society; ADW | Checked 2026-10-11 |
 
 **Watch out (for design ideas):** the "worms flee up from a mole" study used a Florida worm, not
 nightcrawlers. A student design where our nightcrawler escapes upward can only ship labelled
 "Game choice". Nightcrawlers really escape by pulling back down.
 
-**While you play, notice…** Where could your worm hide from a robin, a woodcock or a mole? (The
+**While you play, notice…** Where could your worm hide from the hunters you met in the lesson? (The
 lesson's last card says this too.)
 
 ## What's new in this build
 This matches the "Coming next" entry in `CHANGELOG.md`.
 - The Start screen says **V3 · Predators**.
-- **Predators lesson "Who eats worms?":** the Start screen's first button is now **Learn: Who
-  eats worms?**. It's 7 short, hands-on cards: sort the hunters by how they find worms, guess how
-  much of a woodcock's food is worms, feel the ground thump and choose what to do, and so on. It
-  ends with a reminder to fill in the form from Canvas (text only; the game has no links). After a
-  student finishes, Crawl moves to the top and the lesson stays below it to replay. Built in the
-  "In-game learning intros" thread (PR #4); screenshots in `docs/codev/lessons/predators/`.
+- **Start-screen quest list:** 1 Learn, 2 Play, 3 Vote. Each step unlocks after the one before it.
+- **Predators lesson "Who eats worms?"** (8 steps, with real photos of each animal): a robin
+  hunting scene, a guess about how much of a woodcock's food is worms, the ground thumping as a
+  star-nosed mole digs, a sort of four more hunters (shrew, garter snake, American toad, red-backed
+  salamander), when nightcrawlers come up safely, and how the forest changed. It ends with a
+  reminder to fill in the form from Canvas (text only; the game has no links). Built in the
+  "In-game learning intros" thread (PR #4).
 - No predator hunts the worm yet. Students design how one should work on this form, and the
   winning design is built into V4.
 - Everything from V2 is still there: dig down, the soil layers, tunnels, castings, Wide and Close
@@ -193,6 +198,10 @@ one week. True of real worms and predators, or call it a "game choice".
 - American robin
 - American woodcock
 - Star-nosed mole
+- Northern short-tailed shrew
+- Common garter snake
+- American toad
+- Red-backed salamander
 - Other: ____
 
 **D2. How should it work in the game?** (Paragraph)
@@ -227,7 +236,7 @@ build next.
 > You picked predators! This week you learn about the animals that eat worms, then design one
 > for the game.
 >
-> 1. Play V3: https://wormsimulator.com/v3/ and press **Learn: Who eats worms?** first
+> 1. Play V3: https://wormsimulator.com/v3/ and start with step 1, **Learn**
 > 2. Check your job for this round: [JOB LIST]
 > 3. Fill out the form: [FORM LINK]
 >
