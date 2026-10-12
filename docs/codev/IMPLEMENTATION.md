@@ -51,8 +51,8 @@ and no switching back and forth between tabs. (Matt, 2026-10-11)
   - Claude then builds the intro, and Matt approves or adjusts it before release.
 - Every fact in it goes through `src/content/` with a source ID (`CLAUDE.md` non-negotiables).
   Where possible, it teaches through play rather than walls of text (P7).
-- The game shows a short reminder to fill in the round's Google Form. The reminder is text only,
-  never a link, because the game stays offline.
+- The game shows a short reminder to fill in the round's Google Form from Canvas. Links out are
+  allowed (Matt, 2026-10-12), so it can link to the form too.
 - Methods for the intro are being worked out in the "In-game learning intros" thread. Its first
   test topic is predators.
 
@@ -166,7 +166,8 @@ Strategy A over-represents motivated students and students with internet at home
 
 - Students fill in forms with their school Google accounts. Drawing uploads need sign-in anyway.
 - Claude only ever sees de-identified data. Raw exports stay in `codev-raw/` on Matt's computer.
-- The game stays offline, with no accounts, analytics or tracking (`CLAUDE.md`).
+- The game has no accounts, analytics or tracking, and its code can't send data anywhere
+  (`CLAUDE.md`). Links out and embedded YouTube videos (youtube-nocookie.com) are allowed.
 - **Matt to confirm:** district sign-off and the note to families. Delete the form responses
   after the finale.
 

@@ -63,7 +63,9 @@ site, so they share saved settings (see CLAUDE.md, "One origin, shared saves").
   others) often block *newly registered* or *uncategorized* domains.
   If wormsimulator.com is blocked, ask district IT to allowlist `wormsimulator.com` (and
   `www.wormsimulator.com`). Doing this a week ahead avoids a surprise on class day.
-- The page makes no network requests after it loads, so it keeps working if the Wi-Fi drops.
+- The game itself makes no network requests after it loads, so it keeps working if the Wi-Fi
+  drops. Only links students click and embedded YouTube videos (youtube-nocookie.com) go online.
+  If YouTube is blocked at school, the videos won't play but the game still works.
 
 ## Cost
 
