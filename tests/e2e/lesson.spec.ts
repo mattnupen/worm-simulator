@@ -18,6 +18,7 @@ function watchErrors(page: Page): string[] {
   return errors;
 }
 
+const escape = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 const card = (page: Page) => page.getByRole('region', { name: `Lesson: ${lesson.title}` });
 
@@ -27,7 +28,10 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
   test.setTimeout(150_000);
   const errors = watchErrors(page);
   const outside: string[] = [];
-  page.on('request', (r) => { if (!/^(file|data|blob):/.test(r.url())) outside.push(r.url()); });
+  // The game itself loads nothing from outside; only an opened "Tell me more" video does.
+  page.on('request', (r) => {
+    if (!/^(file|data|blob):/.test(r.url()) && r.frame() === page.mainFrame()) outside.push(r.url());
+  });
   await context.setOffline(true);
   await page.goto(PAGE);
   await expect(button(page, LEARN)).toBeFocused();
@@ -67,7 +71,10 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
       const fact = step.reveal.find((l) => l.kind === 'fact');
       if (fact && fact.kind === 'fact') {
         await expect(card(page).getByText(shown(fact))).toBeVisible();
-        await expect(card(page).getByText(SOURCES[fact.source].short ?? SOURCES[fact.source].publisher).first()).toBeVisible();
+        // The source is a link to its page, opening in a new tab.
+        const src = card(page).getByRole('link', { name: new RegExp(`^${escape(SOURCES[fact.source].short ?? SOURCES[fact.source].publisher)}`) }).first();
+        await expect(src).toHaveAttribute('href', SOURCES[fact.source].url);
+        await expect(src).toHaveAttribute('target', '_blank');
       }
       if (step.photo) {
         await expect(card(page).getByRole('img', { name: step.photo.alt })).toBeVisible();
@@ -98,6 +105,11 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
       const more = page.getByRole('dialog', { name: step.more.title });
       await expect(more).toBeVisible();
       await expect(button(page, 'Close')).toBeFocused();
+      if (step.more.video) {
+        // The video plays in the panel (YouTube's privacy-enhanced player), with a link as well.
+        await expect(more.locator('iframe[src^="https://www.youtube-nocookie.com/embed/"]')).toHaveCount(1);
+        await expect(more.getByRole('link', { name: new RegExp(`^Open on YouTube`) })).toHaveAttribute('target', '_blank');
+      }
       await page.keyboard.press('Enter');
       await expect(more).toHaveCount(0);
       await expect(button(page, 'Tell me more')).toBeFocused();

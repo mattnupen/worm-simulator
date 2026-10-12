@@ -43,9 +43,11 @@ about 90 KB each, and `photos.ts` lists them. Never AI-made (Matt, 2026-10-12); 
 robin in the scene, is fine.
 
 Any step but the mission can have **"Tell me more"** (`more`): a bigger panel of extra sourced facts
-for students who want to read on, and optionally a video. Videos and clickable sources show only when
-`LESSON_LINKS` in `src/ui/lesson.ts` is on, because the game's rule is that Canvas holds all links
-(Matt decides; asked 2026-10-12). Photos open bigger when tapped. Read aloud lights up the line and
+for students who want to read on, and optionally a YouTube video. Matt dropped the offline rule
+(2026-10-12), so sources are links that open in a new tab, and the video plays in the panel through
+YouTube's privacy-enhanced player (youtube-nocookie.com, allowed by the CSP's `frame-src`), with an
+"Open on YouTube" link for networks that block the player. `LESSON_LINKS` in `src/ui/lesson.ts`
+turns both off again. Watch every video before it ships. Photos open bigger when tapped. Read aloud lights up the line and
 word it is reading, and its button turns into Stop. Sound effects are made on the device (Web
 Audio), never downloaded, and a "Sound on/off" button sits beside them.
 

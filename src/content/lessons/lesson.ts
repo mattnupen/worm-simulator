@@ -121,7 +121,14 @@ export interface More {
 export interface Video {
   readonly title: string;
   readonly channel: string;
+  /** The video's YouTube page (youtube.com/watch?v=… or youtu.be/…). */
   readonly url: string;
+}
+
+/** The video id from a youtube.com/watch?v= or youtu.be/ link, or null. */
+export function youTubeId(url: string): string | null {
+  const m = /^https:\/\/(?:www\.youtube\.com\/watch\?(?:.*&)?v=|youtu\.be\/)([\w-]{11})/.exec(url);
+  return m ? m[1] : null;
 }
 
 export interface Lesson {

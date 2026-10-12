@@ -53,7 +53,7 @@
 .reveal-head { font-weight: 800; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px !important; }
 .source { font-size: 18px; color: var(--ink-soft); font-style: italic; text-align: right; margin-top: 0 !important; }
 .source a { color: #1d4f8c; text-decoration: underline; text-underline-offset: 3px; }
-.source a:focus-visible, .more-video:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; }
+.source a:focus-visible, .video-link:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; }
 
 /* Real photos (lesson.ts photo()): the animal, its name, and the credit its license asks for. */
 .lesson-photo { margin: 12px 0 4px; }
@@ -117,9 +117,12 @@
 .dialog-body p { margin: 0; }
 .photo-dialog img { display: block; max-width: 100%; max-height: calc(100dvh - 190px); margin: 0 auto; border-radius: 12px; }
 .photo-dialog .photo-credit { text-align: right; }
-.more-video {
-  display: inline-flex; align-items: center; gap: 8px; font-weight: 800; color: #1d4f8c;
-  text-decoration: underline; text-underline-offset: 3px;
+.more-video { display: grid; gap: 8px; }
+.video-box { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #120b04; border: 3px solid var(--bark-dark); }
+.video-box iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.video-link {
+  display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: #1d4f8c;
+  text-decoration: underline; text-underline-offset: 3px; justify-self: end; text-align: right;
 }
 
 /* Read aloud: the line being read is lit, and the word too where the browser can. */
