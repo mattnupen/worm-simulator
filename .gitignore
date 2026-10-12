@@ -11,3 +11,11 @@ codev-raw/
 
 # Matt's large reference photos (kept locally; notes in docs/codev/research/)
 reference images/
+
+# Secrets: API keys (e.g. FAL_KEY for fal.ai art) live in environment variables or a local
+# .env file, never in the repo. The repo is public.
+.env
+.env.*
+*.pem
+*.key
+.claude/settings.local.json
