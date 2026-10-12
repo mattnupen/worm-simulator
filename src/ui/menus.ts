@@ -96,27 +96,34 @@ export function showVote(shell: Shell, onVoted: () => void, onStart: () => void)
   voted.el.focus();
 }
 
+/** A touch screen with no hover (the Action prompt's own test, hud.css): the touch controls line. */
+const TOUCH = '(hover: none) and (pointer: coarse)';
+
 /**
- * Crawl: a small hint card, the controls then "look, don't eat" (the surface has mushrooms and
- * puffballs; parent spec 5). Focus rests on it so Space and arrows press no button.
+ * The crawl card on the surface (Matt, 2026-10-12): the short controls line (the touch line on a
+ * touch screen), then `mission`, the round's lesson mission, when there is one, with a flag.
+ * Focus rests on it so Space and arrows press no button.
  */
-/**
- * The crawl card on the surface: the controls, then `think` (the round's lesson question to think
- * about while playing, Matt 2026-10-12) when there is one, then "look, don't eat".
- */
-export function showCrawl(shell: Shell, think?: Line): void {
+export function showCrawl(shell: Shell, mission?: Line): void {
+  const touch = typeof matchMedia === 'function' && matchMedia(TOUCH).matches;
   const hint = el('p', '', 'hint');
   hint.append(
     icon('drive', 'hint-icon'),
-    el('span', shown(TEXT.crawlHint)),
+    el('span', shown(touch ? TEXT.crawlHintTouch : TEXT.crawlHint)),
   );
   const lines = [hint];
-  if (think) {
+  if (mission) {
     const q = el('p', '', 'hint hint-think');
-    q.append(icon('eye', 'hint-icon'), el('span', shown(think)));
+    // "Mission:" in bold, so it stands apart from the question.
+    const text = shown(mission);
+    const words = el('span');
+    const label = /^Mission:/.exec(text)?.[0];
+    if (label) words.append(el('strong', label), text.slice(label.length));
+    else words.textContent = text;
+    q.append(icon('flag', 'hint-icon'), words);
     lines.push(q);
   }
-  shell.show('crawl', 'Crawling', [...lines, el('p', shown(TEXT.lookDontEat), 'hint-safety')]);
+  shell.show('crawl', 'Crawling', lines);
   shell.panel.focus({ preventScroll: true });
 }
 

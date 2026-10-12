@@ -41,8 +41,9 @@ test('keyboard only: crawl, pause with Esc, resume, reach Graphics and back to s
   await expect(button(page, 'Crawl')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(crawling(page)).toBeVisible();
-  // The crawl card: the controls, then "look, don't eat" last (the surface has mushrooms; parent spec 5).
-  await expect(crawling(page).locator('p').last()).toHaveText(shown(TEXT.lookDontEat));
+  // The crawl card (Matt, 2026-10-12): the short controls line, then the mission. No mushroom line.
+  await expect(crawling(page).locator('p').first()).toHaveText(shown(TEXT.crawlHint));
+  await expect(crawling(page).locator('p')).toHaveCount(CURRENT_LESSON ? 2 : 1);
   // The lesson's question to think about while playing sits under the controls (Matt, 2026-10-12).
   const mission = CURRENT_LESSON?.steps.find((st) => st.kind === 'mission');
   if (mission?.kind === 'mission') await expect(crawling(page).locator('.hint-think')).toHaveText(shown(mission.notice));
