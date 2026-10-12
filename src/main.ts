@@ -102,6 +102,8 @@ function start(renderer: THREE.WebGLRenderer): void {
   // camera stays >= 0.5 above the litter and 2.6 behind the worm, so nothing it normally looks
   // at comes within 0.2 of the lens.
   const camera = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
+  /** The round's question to think about while crawling: the lesson's own "notice" line. */
+  const playQuestion = CURRENT_LESSON?.steps.find((s): s is Extract<typeof s, { kind: 'mission' }> => s.kind === 'mission')?.notice;
   const crawl = new Crawl();
   const world = buildWorld(crawl);
   const keyboard = new KeyboardInput();
@@ -253,7 +255,7 @@ function start(renderer: THREE.WebGLRenderer): void {
         });
       case 'crawl':
         shownCard = cardNow();
-        return shownCard === 0 ? showCrawl(shell) : showUnderground(shell, shownCard === 1);
+        return shownCard === 0 ? showCrawl(shell, playQuestion) : showUnderground(shell, shownCard === 1);
       case 'pause':
         return showPause(shell, {
           onResume: () => dispatch({ type: 'resume' }),
