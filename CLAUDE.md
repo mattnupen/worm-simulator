@@ -93,7 +93,9 @@ holds what that means for the code and the repo.
 - **Versions are small:** one headline change plus fixes (framework P8). If an idea won't fit
   one version, ship the smallest meaningful slice. Specs and plans still go in
   `docs/superpowers/` and name the version they serve.
-- **Each build shows its version** as a small label on the Start screen, such as "V2 · First Bite".
+- **Each build shows its version** on the Start screen under the title, such as "Version 3 · Predators"
+  (`VERSION_TITLE` in `src/version.ts`). The Start screen's "Versions" list shows every round
+  ("Round N: Name" and one sentence, linking to `/vN/`); add the new round to `ROUNDS` there.
 - **Versioned URLs.** Each released version is a frozen single-file snapshot served at
   `/vN/`. A snapshot is never rebuilt or edited, except for an emergency fix noted in its
   version doc. The root `/` follows `main` as Matt's preview, and students only get version links.
@@ -105,7 +107,7 @@ holds what that means for the code and the repo.
   ignore unknown fields. Never repurpose an existing save key.
 - **Release checklist for a version:**
   1. unit tests, e2e tests and perf gates pass;
-  2. the Start-screen label (`src/version.ts`) shows the new number and name;
+  2. the Start screen (`src/version.ts`) shows the new number and name, and `ROUNDS` has the new round;
   3. merge to `main`, push, and Matt checks the root build;
   4. once Matt approves: the "Coming next" changelog entry becomes "VN · Name (date)", then
      `npm run release -- N`, commit and push `releases/vN/index.html` with the changelog, tag the

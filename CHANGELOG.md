@@ -16,7 +16,8 @@ How to write an entry (for Matt and Claude):
 ## Coming next: V3 · Predators
 
 ### New
-- The Start screen shows which version you are playing: V3 · Predators.
+- The Start screen says **Version 3 · Predators** under the title. Tap **Versions** at the bottom
+  to see every round and open an older one.
 - **Three steps on the Start screen: Learn, Play, Vote.** Do them in order. Each one unlocks
   after the one before.
 - **Learn: Who eats worms?** Meet the animals that hunt worms, with real photos: the robin, the

@@ -2,7 +2,8 @@ import './quests.css';
 import { el, button, cardHead, menu, type Button } from './dom';
 import { icon } from './icons';
 import type { Shell } from './shell';
-import { VERSION_LABEL } from '../version';
+import { VERSION_TITLE } from '../version';
+import { openVersions } from './versionsDialog';
 import { TEXT, shown, type Line } from '../content/text';
 import { PLAY_GOAL_SECONDS, type Quest, type QuestId } from '../game/quests';
 
@@ -34,10 +35,10 @@ const BEFORE: Record<QuestId, string> = { learn: '', play: 'Learn', vote: 'Play'
  */
 export function showStart(shell: Shell, a: StartActions, fromGraphics = false, round?: StartRound): void {
   const graphics = button('Settings', 'sliders', 'secondary', a.onSettings);
-  const head = [cardHead('A forest floor in fall'), el('p', 'You are an earthworm under the leaves of a northern forest.', 'lead')];
+  const head = [cardHead(VERSION_TITLE), el('p', 'You are an earthworm under the leaves of a northern forest.', 'lead')];
   if (!round) {
     const crawl = button('Crawl', 'play', 'primary', a.onCrawl);
-    shell.show('start', 'Start', [...head, menu(crawl, graphics), el('p', VERSION_LABEL, 'version')]);
+    shell.show('start', 'Start', [...head, menu(crawl, graphics), versionsLink(shell)]);
     (fromGraphics ? graphics : crawl).el.focus();
     return;
   }
@@ -66,10 +67,24 @@ export function showStart(shell: Shell, a: StartActions, fromGraphics = false, r
   });
   const tools = el('div', '', 'menu menu-row');
   tools.append(graphics.el);
-  shell.show('start', 'Start', [...head, list, tools, el('p', VERSION_LABEL, 'version')]);
+  shell.show('start', 'Start', [...head, list, tools, versionsLink(shell)]);
   // Every quest done: Crawl leads (play on as long as you like).
   const first: Button = fromGraphics ? graphics : focus ?? crawl ?? graphics;
   first.el.focus();
+}
+
+/**
+ * "Versions", bottom right of Start (Matt, 2026-10-12): a link-styled button that opens the list of
+ * rounds (versionsDialog.ts). It comes after the menu in the focus order.
+ */
+function versionsLink(shell: Shell): HTMLParagraphElement {
+  const p = el('p', '', 'version');
+  const b = el('button', 'Versions', 'versions-link');
+  b.type = 'button';
+  b.setAttribute('aria-haspopup', 'dialog');
+  b.addEventListener('click', () => openVersions(shell.root, b));
+  p.append(b);
+  return p;
 }
 
 function status(q: Quest, minutes: number): string {
