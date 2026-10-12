@@ -50,6 +50,9 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
       await expect(captions.getByText(step.cueText)).toBeVisible();
       await expect(card(page)).toBeHidden();
       await expect(button(page, 'Skip')).toBeFocused();
+      // It plays to its end, then waits: Skip becomes Next, still focused.
+      await expect(captions.getByRole('button', { name: 'Next' })).toBeFocused({ timeout: 15_000 });
+      await expect(card(page)).toBeHidden();
       await page.keyboard.press('Enter');
       await expect(captions).toBeHidden();
       await expect(card(page).getByText(step.question)).toBeFocused();
@@ -57,12 +60,15 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
       await expect(card(page).getByRole('heading', { name: step.title })).toBeFocused();
     }
     if (step.kind === 'predict' || step.kind === 'sense') {
-      // Next waits for a guess; any guess reveals what scientists found, with its source.
-      await expect(next).toBeHidden();
+      // Next is there but grayed out until a guess, and says so; any guess reveals what
+      // scientists found.
+      await expect(next).toBeDisabled();
+      await expect(card(page).getByText('Pick an answer to go on.')).toBeVisible();
       const guess = step.answer === undefined ? 0 : (step.answer + 1) % step.options.length;
       await card(page).getByRole('radio', { name: step.options[guess] }).check();
-      const guessed = card(page).locator('label.choice', { hasText: step.options[guess] });
-      await expect(guessed.getByText('Your guess')).toBeVisible();
+      await expect(next).toBeEnabled();
+      await expect(card(page).getByText('Pick an answer to go on.')).toBeHidden();
+      await expect(card(page).getByText('Your guess')).toHaveCount(0);
       if (step.answer !== undefined) {
         // The option scientists found is marked, in words.
         await expect(card(page).locator('label.choice', { hasText: step.options[step.answer] }).getByText('Correct')).toBeVisible();
@@ -71,23 +77,34 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
       const fact = step.reveal.find((l) => l.kind === 'fact');
       if (fact && fact.kind === 'fact') {
         await expect(card(page).getByText(shown(fact))).toBeVisible();
-        // The source is a link to its page, opening in a new tab.
-        const src = card(page).getByRole('link', { name: new RegExp(`^${escape(SOURCES[fact.source].short ?? SOURCES[fact.source].publisher)}`) }).first();
+        // Sources stay off the card: the Sources panel links each one, opening in a new tab,
+        // with the photo credits.
+        await expect(card(page).getByRole('link')).toHaveCount(0);
+        await button(page, 'Sources').click();
+        const list = page.getByRole('dialog', { name: 'Sources for this page' });
+        const src = list.getByRole('link', { name: new RegExp(`^${escape(SOURCES[fact.source].title)}`) });
         await expect(src).toHaveAttribute('href', SOURCES[fact.source].url);
         await expect(src).toHaveAttribute('target', '_blank');
+        if (step.photo) await expect(list.getByText(step.photo.credit, { exact: false })).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(list).toHaveCount(0);
       }
       if (step.photo) {
         await expect(card(page).getByRole('img', { name: step.photo.alt })).toBeVisible();
-        await expect(card(page).getByText(step.photo.credit)).toBeVisible();
+        await expect(card(page).getByText(step.photo.credit)).toHaveCount(0);
       }
     } else if (step.kind === 'meet') {
-      await expect(next).toBeHidden();
+      await expect(next).toBeDisabled();
+      await expect(card(page).getByText(`Found 0 of ${step.cards.length}`)).toBeVisible();
       for (const c of step.cards) {
         await button(page, `Find out: ${c.name}`).click();
         await expect(card(page).getByText(shown(c.fact))).toBeVisible();
       }
+      await expect(card(page).getByText(`Found ${step.cards.length} of ${step.cards.length}`)).toBeVisible();
+      await expect(next).toBeEnabled();
     }
-    // Any photo opens bigger, and Esc closes only that view.
+    // Any photo opens bigger, with its credit. Esc closes only that view, and so does a tap on
+    // the big photo.
     const zoom = card(page).getByRole('button', { name: /^Show a bigger photo: / }).first();
     if (!zoomed && await zoom.count()) {
       zoomed = true;
@@ -95,13 +112,19 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
       const view = page.getByRole('dialog');
       await expect(view).toBeVisible();
       await expect(view.getByRole('img')).toBeVisible();
+      await expect(view.getByText(/iNaturalist|Wikimedia|CC /).first()).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(view).toHaveCount(0);
       await expect(card(page)).toBeVisible();
       await expect(zoom).toBeFocused();
+      await zoom.click();
+      await view.getByRole('img').click();
+      await expect(view).toHaveCount(0);
+      await expect(zoom).toBeFocused();
     }
     if (step.kind !== 'mission' && step.more) {
-      await button(page, 'Tell me more').click();
+      const tell = button(page, `Tell me more: ${step.more.title}`);
+      await tell.click();
       const more = page.getByRole('dialog', { name: step.more.title });
       await expect(more).toBeVisible();
       await expect(button(page, 'Close')).toBeFocused();
@@ -112,7 +135,7 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
       }
       await page.keyboard.press('Enter');
       await expect(more).toHaveCount(0);
-      await expect(button(page, 'Tell me more')).toBeFocused();
+      await expect(tell).toBeFocused();
     }
     await expect(next).toBeVisible();
     await next.focus();
@@ -144,7 +167,7 @@ test('Back returns to the last step with its answer kept; Esc and Back to start 
   // The answer is kept, and a watched scene doesn't play again as a scene.
   await expect(card(page)).toBeVisible();
   await expect(card(page).getByRole('radio', { name: step.options[1] })).toBeChecked();
-  await expect(button(page, 'Next')).toBeVisible();
+  await expect(button(page, 'Next')).toBeEnabled();
   await expect(card(page).getByText('What scientists found')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(button(page, LEARN)).toBeFocused();

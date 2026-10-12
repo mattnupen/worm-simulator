@@ -1,13 +1,14 @@
 # In-game lessons: teaching each round's topic inside the game
 
-**Status:** prototype (2026-10-11), first topic "Who eats worms?" (predators). Waiting on Matt's
-review before it joins a version.
+**Status:** part of V3 · Predators (Matt, 2026-10-12), first topic "Who eats worms?" (predators).
 
 Each round starts with a short learning step on the topic students will design for next
 (framework P1, "learn first"). Until now that step was Google Slides in Canvas. Matt asked to move
 it into the game: fewer clicks and less back and forth for students, and more engaging. The
 Google Form stays the place to vote, opened from Canvas. The game only *reminds* students to vote;
-it never links to the form, because the game makes no network connections (`CLAUDE.md`).
+it never links to the form. Lesson sources are links that open in a new tab, and "Tell me more"
+panels can embed a YouTube video (youtube-nocookie.com), since Matt dropped the offline rule on
+2026-10-12. The game's own code still sends no data (`connect-src 'none'`).
 
 ## Ways we could teach it (brainstorm)
 
@@ -32,7 +33,7 @@ steps, each one of five kinds:
 |---|---|
 | `story` | One big idea in two or three short lines |
 | `predict` | A question with 2–4 answers (radio buttons), then "What scientists found". With `answer`, that option is marked "Correct" after a guess |
-| `sense` | A film-like moment over the forest (`shadow`, `thump` or `robin`): the card fades out, black bars close in, the cue plays with its sound, and the `scene` and cue words show as captions with Skip. Then the card comes back with the question and the reveal |
+| `sense` | A film-like moment over the forest (`shadow`, `thump` or `robin`): the card fades out, black bars close in, the cue plays with its sound, and the `scene` and cue words show as captions with Skip. When the cue ends, Skip becomes Next and waits for the student; then the card comes back with the question and the reveal |
 | `meet` | 2–6 animals as photo cards; "Find out" on each shows its fact (replaced `sort`, which Matt found confusing: it was a quiz where every answer was the same) |
 | `mission` | Always last: "While you play, notice…" and the reminder to vote on the form in Canvas |
 
@@ -61,7 +62,7 @@ Rules a person checks:
 - 6th-grade reading level, short lines, positive wording (P12). The reveal never says "wrong".
 - Framing: the forest *changed*; some species win and some lose. Never "destroyed" or "dying".
 - A cue never flashes (one slow shadow, or thumps under 3 a second), and its words say what happened.
-- Every fact on screen shows its source underneath ("Source: Minnesota DNR").
+- Every fact on screen has its source one tap away: each page's "Sources" button lists the sources of the facts showing, as links, with the photo credits. "Tell me more" lists its sources at the end. (Matt, 2026-10-12: sources under every fact were cluttered and distracting.)
 - No lesson text appears in normal play (the learning unit lives in the lesson, `CLAUDE.md`).
 
 The Start screen shows "Learn: <title>" as the first, main button until the device finishes the
