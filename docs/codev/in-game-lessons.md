@@ -50,8 +50,8 @@ YouTube's privacy-enhanced player (youtube-nocookie.com, allowed by the CSP's `f
 "Open on YouTube" link for networks that block the player. `LESSON_LINKS` in `src/ui/lesson.ts`
 turns both off again. Watch every video before it ships. Photos open bigger when tapped. Read aloud lights up the line and
 word it is reading, and its button turns into Stop. Sound effects are made on the device (Web
-Audio), never downloaded. There is no sound button (Matt, 2026-10-12): the device's volume
-controls it, and the cue's words are always on screen.
+Audio), never downloaded. The lesson has no sound button: Settings > Sound (On or Off) turns the
+cue sounds on or off (Matt, 2026-10-12), and the cue's words are always on screen.
 
 Rules the build checks (`tests/unit/lessons.test.ts`):
 - every claim is a `fact` line naming a source in `src/content/sources.ts`, marked `verified`;
