@@ -17,51 +17,59 @@ The big idea in one sentence, at a 6th-grade reading level.
 
 ## What's new in this build
 This matches the version's `CHANGELOG.md` entry.
-- What changed because of last version's votes ("You said, we did").
+- What students designed and ranked that's in this build ("You said, we built").
 - The new feature for this version's topic.
 - Bugs fixed.
 - New settings or toggles, and where to find them.
 
-## Ballot
-### Design vote (Q5): <question>
-| Option (as students read it) | What we'd build | In the build as a toggle? |
-|---|---|---|
-| A | | |
-| B | | |
+## In-game learning intro (`IMPLEMENTATION.md`, section 3)
+The topic, how the intro teaches it in play, and the facts it uses (each in the fact table above
+and in `src/content/`). Matt approves it before release.
 
-### Next topic (Q7)
-Three topics from `topics.md`, each with sources and prerequisites checked.
+## The form (`IMPLEMENTATION.md`, section 3)
+### 1. Critique VN
+The standard questions. If this build includes a student design, name it here: "Does
+<design> work the way we designed it?"
 
-### Ideas from last version (Q8)
-Themes from VN−1's write-ins, each vetted.
+### 2. Vote: shortlist from VN−1's designs (and the next topic, if one is open)
+3 to 4 designs, with names removed, drawings included, and shuffled. Each is a testable bet: "If
+we do X, we expect Y to change" (`FRAMEWORK.md`, P5).
 
-## Paste-ready form
-Write out Q1–Q10, following `README.md`, with the exact wording and options.
+| Design (as students read it) | Merged from | What we'd build | The bet | Facts checked against |
+|---|---|---|---|---|
+| A | | | | |
+| B | | | | |
 
-## Slides draft
-1. You said, we did: …
-2. Topic slides: text, image idea, alt text, sources.
-3. While you play, notice…
-4. What's new and how to play.
-5. Fill out the form.
+### 3. Design for <this round's topic> (optional)
+The prompts, the sentence starters for this round (they come out over the rounds), and the
+constraints shown to students.
+
+### Paste-ready form
+Write out every question with its exact wording and options.
+
+## "You said, we built" (Monday, 1–2 minutes)
+What students said and designed, what was built, and what wasn't built and why.
 
 ## Canvas announcement
-A short paste-ready post with the slides, build link and form link, plus the due date.
+A short paste-ready post with the build link and the form link, plus the due date.
 
 ---
 
 ## Results (filled in after the form closes)
 - **Turnout:** n responses, about X% of students. Access problems: …
 - **Fact check:** X% correct. Most common wrong answer: …
-- **How well the game showed the topic:** average …
-- **Design vote:** A x%, B y%, Other z%. Close call? …
-- **Next topic:** …
-- **Ideas from last version:** …
-- **Write-in themes (new):** theme (count), …
+- **Works as designed? (section 1):** Yes / Partly / No %, and what's different …
+- **Vote (section 2):** each design's rank score per class period, then combined with the periods weighted equally.
+- **New designs (section 3):** count, grouped into themes, and the proposed shortlist for the next form …
+- **Stuck points, likes and wishes:** themes (count) …
 - **Bugs and confusion:** …
-- **Fun:** average …
+- **Fun:** % per answer, compared with last version …
+- **Goal check:** Yes / Kind of / No % for each of the 4 statements, compared with last version …
+- **By job:** Scientist, Mechanic and Artist findings …
+- **Participation:** responses per class period …
 
 ## Decisions
 - Ships in VN+1: …
-- Topic for VN+2: …
-- Runoffs, vetoes and reasons: …
+- Shortlist for the next form: …
+- Matt's reasoning, especially where it isn't the top vote: …
+- Ideas not built, and why: …
