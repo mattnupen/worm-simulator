@@ -11,3 +11,17 @@ export const VERSION_LABEL = `V${VERSION.number} · ${VERSION.name}`;
 
 /** Injected into the built page's <head> (vite.config.ts). scripts/releaseLib.mjs parses it. */
 export const VERSION_META = `<meta name="wormsim-version" content="${VERSION_LABEL}">`;
+
+/** "Version 3 · Predators": the Start card's line under the title (Matt, 2026-10-12). */
+export const VERSION_TITLE = `Version ${VERSION.number} · ${VERSION.name}`;
+
+/**
+ * Every major version (one per round), oldest first, for the Start screen's Versions list (Matt,
+ * 2026-10-12). Add the next round's entry with its first commit. Each opens its frozen snapshot
+ * at /vN/; the one being played is marked instead of linked. Simple words for 6th graders.
+ */
+export const ROUNDS: readonly { number: number; name: string; about: string }[] = [
+  { number: 1, name: 'True Size', about: 'See the forest at its real size next to your 15 cm worm.' },
+  { number: 2, name: 'Underground', about: 'Dig down through the soil layers and make your own tunnels.' },
+  { number: 3, name: 'Predators', about: 'Learn which animals hunt worms, then design a predator for the game.' },
+];

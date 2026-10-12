@@ -42,7 +42,7 @@ being eaten?"
 
 ## What's new in this build
 This matches the "Coming next" entry in `CHANGELOG.md`.
-- The Start screen says **V3 · Predators**.
+- The Start screen says **Version 3 · Predators** under the title, and **Versions** opens the list of rounds.
 - **Start-screen quest list:** 1 Learn, 2 Play, 3 Vote. Each step unlocks after the one before it.
 - **Predators lesson "Who eats worms?"** (8 steps, with real photos of each animal): a robin
   hunting scene, a guess about how much of a woodcock's food is worms, the ground thumping as a
