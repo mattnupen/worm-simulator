@@ -36,8 +36,9 @@ Full research with exact quotes: `docs/codev/research/predators.md` (30 facts, c
 nightcrawlers. A student design where our nightcrawler escapes upward can only ship labelled
 "Game choice". Nightcrawlers really escape by pulling back down.
 
-**While you play, notice…** Where could your worm hide from the hunters you met in the lesson? (The
-lesson's last card says this too.)
+**Mission while you play** (on the crawl card and the lesson's last page, Matt 2026-10-12):
+"Mission: Which predators are hunting in this forest, and how does your worm sense them and escape
+being eaten?"
 
 ## What's new in this build
 This matches the "Coming next" entry in `CHANGELOG.md`.
@@ -62,10 +63,9 @@ This matches the "Coming next" entry in `CHANGELOG.md`.
   say what wasn't built yet and why. Nothing from V2's votes is in V3: V3 was a short build.
 
 ## The form
-The form follows `IMPLEMENTATION.md`, section 3: the job question, 1 or 2 questions for that job,
-the shared questions, the vote, the optional design section, and the 4-statement goal check.
-There is no student design in this build yet, so "Does it work the way we designed it?" starts in
-V4's form.
+Written with `docs/codev/form-guide.md` (Matt, 2026-10-12). Students just learned about predators
+in the game, so they are the experts: the form collects their design for how a predator should
+work in the game. V3 has no predator yet, so nothing asks students to judge one.
 
 ### Vote: what should we learn about next?
 Students rank three topics. The winner is the topic students learn and design for on V4's form,
@@ -78,124 +78,53 @@ something we'll build if it wins.**
 | Skin that senses light: worms have no eyes, but their skin can feel light | A "worm view", and your worm hides from bright sun | Nothing new | Hess (parent spec 5) |
 | Breathing through wet skin: what happens when a worm dries out | A moisture meter, sunny gaps and damp spots | Nothing new | UMN Extension (skin-breathing line still needs a source) |
 
-### Design for predators (optional section)
-Constraints shown to students: one new thing, small enough to build in one week, true of real
-worms or called a "game choice".
+### Where each answer goes
+| Questions | Goes to |
+|---|---|
+| Q1 | Turnout and access in Results |
+| Q2 (check) | Fact check in Results; a "myth or fact?" moment on Monday if many miss it |
+| Q3–Q6, job questions, drawing | The predator design shortlist for V4's form |
+| Q7 (job) | Sorts the job answers in Results |
+| Q8 (broken or confusing) | `docs/codev/bugs.md` |
+| Q9 | The next topic |
 
 ## Paste-ready form
 **Title:** Worm Simulator V3 · Predators: Feedback
 
-**Description:** Thanks for helping build Worm Simulator! This takes about 10 minutes. Parts 1 and
-2 are for everyone. Part 3 is extra: design a predator for the game if you want to. Your answers
+**Description:** You learned about the animals that hunt worms. Now you're the expert! Help us
+design how a predator should work in Worm Simulator. This takes about 10 minutes. Your ideas
 decide what we build next.
 
 **Settings:**
 - Turn on "Collect email addresses" only if Canvas credit needs it. That column stays in
   `codev-raw/` and never goes into the repo.
-- Make Q1 and Q2 required, and everything else optional.
-- Use sections (the "Add section" button) so each job only sees its own questions. "Go to section
-  based on answer" is in the three-dot menu of Q2 and of the "design?" question.
+- Make Q1 and Q7 required, and everything else optional.
+- Use sections (the "Add section" button). Q7 sends each job to its own section.
+- To grade Q2, turn the form into a quiz (Settings → "Make this a quiz") and mark the answer.
 
 ---
 
 **Section 1: Start**
 
-**Q1. Were you able to play V3?** (Multiple choice, required)
-- Yes
-- It wouldn't load
-- I didn't have time
-
-**Q2. What was your job this round?** (Multiple choice, required)
-Help text: Your job is posted in Canvas.
-- Scientist → go to Section 2
-- Mechanic → go to Section 3
-- Artist → go to Section 4
+**Q1. How long did you play V3?** (Multiple choice, required)
+- None
+- Less than 5 minutes
+- 5 to 10 minutes
+- More than 10 minutes
 
 ---
 
-**Section 2: Scientist** (then go to Section 5)
-Description: Scientists check if the game matches what we learned.
+**Section 2: You're the expert**
+Description: Design how a predator should hunt your worm in the game. Rules: one new thing. Small
+enough to build in one week. True of real worms and predators, or call it a "game choice".
 
-**S1. Did the game match what you learned about predators and worms?** (Multiple choice)
-- Yes
-- Kind of
-- No
-
-**S2. What was wrong or missing?** (Paragraph)
-Help text: Try this: "The game shows ___, but real worms ___."
-
----
-
-**Section 3: Mechanic** (then go to Section 5)
-Description: Mechanics check if the controls and buttons work.
-
-**M1. What did you play on?** (Multiple choice)
-- School Chromebook
-- Phone or tablet
-- Other computer
-
-**M2. What broke, or where did you get stuck or lost?** (Paragraph)
-Help text: Tell us what you were doing when it happened.
-
----
-
-**Section 4: Artist** (then go to Section 5)
-Description: Artists check how the game looks and feels.
-
-**A1. Did the forest floor look real?** (Multiple choice)
-- Yes
-- Kind of
-- No
-
-**A2. What looked great? What was hard to see?** (Paragraph)
-
----
-
-**Section 5: Everyone (Part 1)**
-
-**Q3. Did you get stuck anywhere? Where?** (Short answer)
-
-**Q4. I like…** (Short answer)
-
-**Q5. I wish…** (Short answer)
-
-**Q6. When a nightcrawler feels the ground shake, what does it do?** (Multiple choice, one
-correct. To grade it, turn the form into a quiz in Settings and mark the answer.)
+**Q2. When a nightcrawler feels the ground shake, what does it do?** (Multiple choice, one correct)
 - Zips back down its burrow ← correct
 - Crawls up and out of the ground
 - Stays perfectly still
 - Rolls up into a ball
 
-**Q7. How fun was V3?** (Linear scale 1 to 5)
-- 1 = 😞 Not fun
-- 5 = 😄 Super fun
-
----
-
-**Section 6: Vote (Part 2)**
-
-**Q8. What should we learn about next? Rank them.** (Multiple choice grid)
-Help text: Pick 1 for your favorite. Use each number once.
-- Rows:
-  - Growing up: the band on an adult worm, and cocoons
-  - Skin that senses light: worms have no eyes, but their skin can feel light
-  - Breathing through wet skin: what happens when a worm dries out
-- Columns: 1st, 2nd, 3rd
-- Turn on "Limit to one response per column".
-
-**Q9. What would you add or change in the game?** (Paragraph)
-
-**Q10. Do you want to design a predator for the game?** (Multiple choice)
-- Yes, take me to Part 3 → go to Section 7
-- No, I'm done → go to Section 8
-
----
-
-**Section 7: Design a predator (Part 3, extra)**
-Description: Your design could be built into V4! Rules: one new thing. Small enough to build in
-one week. True of real worms and predators, or call it a "game choice".
-
-**D1. Which predator should hunt your worm in the game?** (Multiple choice)
+**Q3. Which predator should hunt your worm in the game?** (Multiple choice)
 - American robin
 - American woodcock
 - Star-nosed mole
@@ -205,30 +134,78 @@ one week. True of real worms and predators, or call it a "game choice".
 - Red-backed salamander
 - Other: ____
 
-**D2. How should it work in the game?** (Paragraph)
-Help text: Try this: "The ___ would ___. My worm could stay safe by ___."
+**Q4. How does it hunt worms?** (Paragraph)
+Help text: Try this: "The ___ finds worms by ___."
 
-**D3. How do you know? Where did you learn it?** (Paragraph)
+**Q5. How does your worm know it's coming, and how does it get away?** (Paragraph)
+Help text: Try this: "My worm feels ___, so it ___."
+
+**Q6. How do you know? Where did you learn it?** (Paragraph)
 Help text: Try this: "In the game I learned ___." or "I saw ___."
 
-**D4. Add a drawing (optional).** (File upload: images only, 1 file, up to 10 MB)
-Help text: No names or faces in your drawing, please. You can also hand a paper drawing to your
-teacher.
+**Q7. What was your job this round?** (Multiple choice, required)
+Help text: Your job is posted in Canvas.
+- Scientist → go to Section 3
+- Mechanic → go to Section 4
+- Artist → go to Section 5
+
+(Google Forms can only branch on a question in the same section, so the job question comes last
+in Section 2. "Go to section based on answer" is in Q7's three-dot menu.)
 
 ---
 
-**Section 8: Last part (everyone)**
+**Section 3: Scientist** (then go to Section 6)
+Description: Scientists make sure the game is true.
 
-**Q11. How did V3 feel?** (Multiple choice grid)
+**S1. What is one true thing about your predator that the game must show?** (Paragraph)
+Help text: Try this: "Real ___ really ___."
+
+**S2. What should we be careful not to get wrong?** (Paragraph)
+
+---
+
+**Section 4: Mechanic** (then go to Section 6)
+Description: Mechanics figure out how it plays.
+
+**M1. What does the player do when the predator comes? Which keys or buttons?** (Paragraph)
+
+**M2. What makes it fair, so you can win or lose?** (Paragraph)
+Help text: Try this: "You get caught if ___. You stay safe if ___."
+
+---
+
+**Section 5: Artist** (then go to Section 6)
+Description: Artists decide how it looks and sounds.
+
+**A1. What should the predator look and sound like?** (Paragraph)
+
+**A2. How would a player notice it's coming before they see it?** (Paragraph)
+Help text: Think about shadows, sounds and the ground shaking.
+
+---
+
+**Section 6: Show us**
+
+**D1. Draw your predator design (optional).** (File upload: images only, 1 file, up to 10 MB)
+Help text: No names or faces in your drawing, please. You can also hand a paper drawing to your
+teacher.
+
+**Q8. Did anything break or confuse you in V3?** (Short answer)
+
+---
+
+**Section 7: Vote**
+
+**Q9. What should we learn about next? Rank them.** (Multiple choice grid)
+Help text: Pick 1 for your favorite. Use each number once.
 - Rows:
-  - Being a worm felt strange and real.
-  - I could tell where I was and what to do next.
-  - What I learned changed how I played.
-  - I could play without problems on my device.
-- Columns: Yes, Kind of, No
-- Turn on "Require a response in each row" only if you want everyone to answer all four.
+  - Growing up: the band on an adult worm, and cocoons
+  - Skin that senses light: worms have no eyes, but their skin can feel light
+  - Breathing through wet skin: what happens when a worm dries out
+- Columns: 1st, 2nd, 3rd
+- Turn on "Limit to one response per column".
 
-**Confirmation message (Settings → Presentation):** Thanks! Your answers help decide what we
+**Confirmation message (Settings → Presentation):** Thanks, expert! Your ideas help decide what we
 build next.
 
 ## Canvas announcement
@@ -246,18 +223,15 @@ build next.
 ---
 
 ## Results (filled in after the form closes)
-- **Turnout:** n responses, about X% of students. Access problems (Q1): …
-- **Fact check (Q6):** X% correct. Most common wrong answer: …
-- **Vote (Q8):** each topic's rank score per class period, then combined with the periods
+- **Turnout:** n responses, about X% of students. Play time (Q1): % per answer …
+- **Fact check (Q2):** X% correct. Most common wrong answer: …
+- **Predator picks (Q3):** count per predator …
+- **Predator designs (Q4–Q6, drawings):** count, grouped into themes, and the proposed shortlist
+  for V4's form …
+- **By job:** Scientist (S1, S2), Mechanic (M1, M2) and Artist (A1, A2) ideas …
+- **Broken or confusing (Q8):** themes (count), copied to the bug list …
+- **Vote (Q9):** each topic's rank score per class period, then combined with the periods
   weighted equally.
-- **Predator designs (Section 7):** count, grouped into themes, and the proposed shortlist for
-  V4's form …
-- **Stuck points, likes and wishes (Q3–Q5):** themes (count) …
-- **Ideas (Q9):** themes (count) …
-- **Fun (Q7):** % per answer …
-- **Goal check (Q11):** Yes / Kind of / No % for each statement. This is the first one, so it
-  sets the starting line.
-- **By job:** Scientist (S1, S2), Mechanic (M1, M2) and Artist (A1, A2) findings …
 - **Participation:** responses per class period …
 
 ## Decisions
