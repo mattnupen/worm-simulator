@@ -31,6 +31,10 @@ build against their design (P6).
 - **What was your job this round?** Scientist / Mechanic / Artist (your job is posted in Canvas).
   It goes last in section 2: Google Forms only branches on a question in the same section.
 
+### Rounds without jobs
+Matt may skip jobs for a round (V3 had none). Then drop the job question and section 3, so the form
+has no branching, and give everyone one short question from each lens instead (V3's Q5 to Q8).
+
 ### Jobs look at the design, not just the build
 Each job is a lens on the student's own idea:
 
