@@ -13,7 +13,7 @@ How to write an entry (for Matt and Claude):
   "## VN · Name (YYYY-MM-DD)" and start a new "Coming next" above it.
 -->
 
-## Coming next: V3 · Predators
+## V3 · Predators (2026-10-12)
 
 ### New
 - The Start screen says **Version 3 · Predators** under the title. Tap **Versions** at the bottom

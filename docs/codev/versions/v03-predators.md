@@ -1,7 +1,7 @@
 # V3 · Predators
 
 - **Live:** 2026-10-12 (Mon). **Form closes:** 2026-10-15 (Thu night).
-- **Build:** https://wormsimulator.com/v3/ (commit: fill in at release)
+- **Build:** https://wormsimulator.com/v3/ (built from main at e6e2d95, frozen 2026-10-12, tag `v3`)
 - **Topic chosen by:** students (the first student-chosen topic). V3 is the first round run the
   Strategy A way (`IMPLEMENTATION.md`): students learn the topic in the game, then design for it
   on the form. The predator they design is built in V4.
