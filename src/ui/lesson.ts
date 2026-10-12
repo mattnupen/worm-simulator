@@ -4,7 +4,8 @@ import { icon } from './icons';
 import type { Shell } from './shell';
 import { SOURCES } from '../content/sources';
 import { GAME_CHOICE_PREFIX, shown, type Line } from '../content/text';
-import type { Cue, Lesson, LessonStep } from '../content/lessons/lesson';
+import type { Cue, Lesson, LessonStep, Photo } from '../content/lessons/lesson';
+import { PHOTO_URLS } from '../content/lessons/photos';
 
 export interface LessonActions {
   /** The last step's "Start crawling". */
@@ -22,11 +23,19 @@ export interface LessonActions {
  * screen reader reads it, and the panel is aria-live like every other card. A `sense` step plays
  * its cue on a full-screen layer under the card (no flashing: one slow shadow, or thumps under
  * 3 a second; a still picture under reduced motion), and its words say what happened.
+ *
+ * A `sense` step with a `scene` opens like a film shot: the card shrinks to the scene's words, black
+ * bars close in at the top and bottom, and the cue plays across the open forest. When it ends (at
+ * once under reduced motion) the question appears in the same card. Nothing is taken away, so
+ * there is nothing to catch in time; "Play it again" replays it.
  */
 export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void {
   const cue = cueLayer(shell.root);
   const answered = new Set<number>();
+  /** Scene steps already watched: going Back to one shows its question straight away. */
+  const watched = new Set<number>();
   let at = 0;
+  let sceneTimer = 0;
 
   const go = (i: number): void => {
     at = i;
@@ -35,6 +44,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
   };
 
   function draw(): void {
+    clearTimeout(sceneTimer);
     const step = lesson.steps[at];
     const last = at === lesson.steps.length - 1;
     if (last) a.onFinish();
@@ -63,19 +73,44 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
     exit.el.classList.add('btn-small');
     tools.append(exit.el);
 
+    const navMenu = menu(...nav);
     shell.show('lesson', `Lesson: ${lesson.title}`, [
       progress(lesson, at),
       heading,
       ...body,
-      menu(...nav),
+      navMenu,
       tools,
     ]);
     if (step.kind === 'sense') cue.play(step.cue); else cue.clear();
+    if (step.kind === 'sense' && step.scene && !watched.has(at)) {
+      // Watch first: only the scene and the cue's words show, then the question joins them.
+      const panel = heading.closest<HTMLElement>('.panel');
+      const later = body.slice(2);
+      // Only what shows now (the reveal stays hidden until a guess).
+      const hideDuring = [...later, navMenu].filter((e) => !e.hidden);
+      for (const e of hideDuring) e.hidden = true;
+      panel?.setAttribute('data-phase', 'watch');
+      const here = at;
+      sceneTimer = window.setTimeout(() => {
+        watched.add(here);
+        panel?.removeAttribute('data-phase');
+        for (const e of hideDuring) e.hidden = false;
+        // The cue's words stay; focus moves to the question so a screen reader reads it next.
+        const q = later.find((e) => e.classList.contains('lesson-question'));
+        if (q) {
+          q.tabIndex = -1;
+          q.focus({ preventScroll: true });
+          q.scrollIntoView?.({ block: 'nearest' });
+        }
+      }, reducedMotion() ? 0 : cueMs(step.cue));
+    } else {
+      heading.closest<HTMLElement>('.panel')?.removeAttribute('data-phase');
+    }
     heading.focus({ preventScroll: true });
   }
 
   /** main.ts closes the lesson (closeLesson) on the screen change. */
-  const leave = (then: () => void): void => then();
+  const leave = (then: () => void): void => { clearTimeout(sceneTimer); then(); };
 
   draw();
 }
@@ -83,6 +118,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
 /** Leaving the lesson (main.ts, on any screen change): the cue layer clears and reading stops. */
 export function closeLesson(root: HTMLElement): void {
   stopSpeaking();
+  root.querySelector<HTMLElement>('.panel[data-phase]')?.removeAttribute('data-phase');
   const layer = root.querySelector<HTMLElement>(':scope > .cue');
   if (layer) delete layer.dataset.cue;
 }
@@ -109,15 +145,21 @@ function stepBody(
 ): HTMLElement[] {
   switch (step.kind) {
     case 'story':
-      return step.lines.map((l) => line(l, 'lead'));
+      return [...step.lines.map((l) => line(l, 'lead')), ...(step.photo ? [photo(step.photo)] : [])];
     case 'predict':
-      return choose(step.question, step.options, step.reveal, answered.has(at), onAnswer);
+      return [
+        ...(step.photo ? [photo(step.photo)] : []),
+        ...choose(step.question, step.options, step.reveal, answered.has(at), onAnswer),
+      ];
     case 'sense': {
+      const scene = el('p', step.scene ?? '', 'lead scene-line');
       const caption = el('p', '', 'cue-caption');
       caption.append(icon(step.cue === 'shadow' ? 'shadow' : 'thump', 'cue-icon'), el('span', step.cueText));
       const again = button('Play it again', 'play', 'secondary', () => cue.play(step.cue));
       again.el.classList.add('btn-small');
-      return [caption, again.el, ...choose(step.question, step.options, step.reveal, answered.has(at), onAnswer)];
+      const asked = choose(step.question, step.options, step.reveal, answered.has(at), onAnswer, step.photo);
+      // The first two are the scene's words (shown while it plays); the rest join after.
+      return step.scene ? [scene, caption, again.el, ...asked] : [caption, again.el, ...asked];
     }
     case 'sort':
       return sort(step, answered.has(at), onAnswer);
@@ -134,6 +176,7 @@ function stepBody(
 /** A question with option buttons. Any pick reveals what scientists found; the pick stays marked. */
 function choose(
   question: string, options: readonly string[], reveal: readonly Line[], already: boolean, onAnswer: () => void,
+  shot?: Photo,
 ): HTMLElement[] {
   const q = el('p', question, 'lead lesson-question');
   const list = el('div', '', 'lesson-options');
@@ -141,7 +184,7 @@ function choose(
   list.setAttribute('aria-label', question);
   const found = el('div', '', 'reveal');
   found.hidden = !already;
-  found.append(el('p', 'What scientists found', 'reveal-head'), ...reveal.map((l) => line(l)));
+  found.append(el('p', 'What scientists found', 'reveal-head'), ...(shot ? [photo(shot)] : []), ...reveal.map((l) => line(l)));
   for (const o of options) {
     const b = button(o, 'leaf', 'secondary', () => {
       for (const other of list.querySelectorAll('button')) other.setAttribute('aria-pressed', 'false');
@@ -189,7 +232,7 @@ function sort(step: Extract<LessonStep, { kind: 'sort' }>, already: boolean, onA
     } else {
       result.hidden = true;
     }
-    li.append(name, picks, result);
+    li.append(...(c.photo ? [photo(c.photo)] : []), name, picks, result);
     list.append(li);
   }
   return [q, list];
@@ -206,6 +249,19 @@ function line(l: Line, className = ''): HTMLElement {
   return wrap;
 }
 
+/** A real photo with its name and credit underneath (the license asks for the credit). */
+function photo(p: Photo): HTMLElement {
+  const fig = el('figure', '', 'lesson-photo');
+  const img = document.createElement('img');
+  img.src = PHOTO_URLS[p.file];
+  img.alt = p.alt;
+  img.decoding = 'async';
+  const cap = el('figcaption', '');
+  cap.append(el('span', p.name, 'photo-name'), el('span', p.credit, 'photo-credit'));
+  fig.append(img, cap);
+  return fig;
+}
+
 // ---------- The cue layer ----------
 
 interface CueLayer { play(c: Cue): void; clear(): void }
@@ -217,6 +273,9 @@ function cueLayer(root: HTMLElement): CueLayer {
     layer = el('div', '', 'cue');
     layer.setAttribute('aria-hidden', 'true');
     layer.append(el('div', '', 'cue-shadow'), el('div', '', 'cue-ring'), el('div', '', 'cue-ring'), el('div', '', 'cue-ring'));
+    const robin = el('div', '', 'cue-robin');
+    robin.innerHTML = ROBIN_SVG;
+    layer.append(robin);
     root.append(layer);
   }
   const l = layer;
@@ -229,6 +288,34 @@ function cueLayer(root: HTMLElement): CueLayer {
     clear() { delete l.dataset.cue; },
   };
 }
+
+/** How long each cue plays (lesson.css), so a scene's question waits for its end. */
+function cueMs(c: Cue): number {
+  return c === 'robin' ? 6200 : c === 'shadow' ? 3400 : 2800;
+}
+
+function reducedMotion(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * The robin as the worm sees it: a game-drawn side view (in-game art, not a teaching picture; the
+ * real photo comes with the reveal). The head is its own group so it can tip to one side.
+ */
+const ROBIN_SVG = `<svg viewBox="0 0 220 200" xmlns="http://www.w3.org/2000/svg">
+  <path d="M30 108 L2 92 L8 104 L0 112 L34 122 Z" fill="#2b2622"/>
+  <ellipse cx="96" cy="118" rx="66" ry="46" fill="#3a3430"/>
+  <path d="M120 84 C160 92 172 128 150 156 C132 170 104 166 92 152 C116 140 126 112 120 84 Z" fill="#c8612a"/>
+  <path d="M52 96 C78 82 110 86 128 104 C104 104 74 110 52 96 Z" fill="#4a423c"/>
+  <path d="M98 160 L94 194 M94 194 L84 198 M94 194 L104 198 M122 158 L126 194 M126 194 L116 198 M126 194 L136 198"
+    stroke="#8a6a3a" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <g class="robin-head">
+    <circle cx="146" cy="66" r="30" fill="#2b2622"/>
+    <path d="M172 60 L208 70 L172 76 Z" fill="#e8b23a"/>
+    <circle cx="156" cy="60" r="7" fill="#f6f1e6"/>
+    <circle cx="157" cy="60" r="3.6" fill="#0d0b0a"/>
+  </g>
+</svg>`;
 
 // ---------- Read aloud ----------
 
@@ -259,7 +346,7 @@ function readText(step: LessonStep, answered: boolean): string {
   const parts: string[] = [step.title];
   switch (step.kind) {
     case 'story': parts.push(...step.lines.map(shown)); break;
-    case 'sense': parts.push(step.cueText);
+    case 'sense': parts.push(...(step.scene ? [step.scene] : []), step.cueText);
     // falls through
     case 'predict':
       parts.push(step.question, ...step.options);

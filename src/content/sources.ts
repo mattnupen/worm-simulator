@@ -32,7 +32,11 @@ export type SourceId =
   | 'adw-star-nosed-mole'
   | 'csu-nightcrawlers'
   | 'nuutinen-2014'
-  | 'catania-2008';
+  | 'catania-2008'
+  | 'mndnr-shrews'
+  | 'mndnr-garter-snake'
+  | 'mndnr-american-toad'
+  | 'adw-red-backed-salamander';
 
 export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'mndnr-humus': {
@@ -142,5 +146,29 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     publisher: 'Catania, PLoS ONE (2008)',
     url: 'https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0003472',
     checked: '2026-10-11',
+  },
+  'mndnr-shrews': {
+    title: 'Shrews',
+    publisher: 'Minnesota DNR',
+    url: 'https://www.dnr.state.mn.us/mammals/shrews.html',
+    checked: '2026-10-12',
+  },
+  'mndnr-garter-snake': {
+    title: 'Common Gartersnake (Thamnophis sirtalis), Snakes and Lizards of Minnesota',
+    publisher: 'Minnesota DNR',
+    url: 'https://files.dnr.state.mn.us/natural_resources/animals/reptiles_amphibians/snakes/gartersnake_fs.pdf',
+    checked: '2026-10-12',
+  },
+  'mndnr-american-toad': {
+    title: 'American toad',
+    publisher: 'Minnesota DNR',
+    url: 'https://www.dnr.state.mn.us/reptiles_amphibians/frogs_toads/toads/american.html',
+    checked: '2026-10-12',
+  },
+  'adw-red-backed-salamander': {
+    title: 'Plethodon cinereus (Eastern Red-backed Salamander)',
+    publisher: 'Animal Diversity Web, University of Michigan',
+    url: 'https://animaldiversity.org/accounts/Plethodon_cinereus/',
+    checked: '2026-10-12',
   },
 };

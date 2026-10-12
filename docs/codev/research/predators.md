@@ -32,11 +32,11 @@ the live page before class. **Used** marks the facts the lesson shows.
 | 13 | Woodcocks rock as they walk, which may make worms move. | Cornell, All About Birds | "The vibrations from this motion may prompt earthworms to move underground…" | medium | |
 | 14 | Star-nosed moles live in wet parts of northern forests; the star has 22 fleshy fingers. | Minnesota DNR, *Moles*; ADW, *Condylura cristata* | "Star-nosed moles live in wet areas of northern forests…" / "Each of the 22 appendages that make up the star…" | high | yes |
 | 15 | The star-nosed mole may have the best sense of touch of any mammal; up to 12 touches a second. | ADW, *Condylura cristata* | "has perhaps the best sense of touch of any mammal"; "as many as 12 objects per second" | high | yes |
-| 16 | Shrews live all over Minnesota and eat earthworms. | Minnesota DNR, *Shrews* | "They eat insects, earthworms, and even small mammals." | high | |
-| 17 | Garter snakes live all over Minnesota and eat earthworms. | Minnesota DNR, *Common Garter Snake* | "Garter snakes eat a varied diet including frogs, small mammals, earthworms and insects." | high | |
+| 16 | Shrews live all over Minnesota and eat earthworms. | Minnesota DNR, *Shrews* | "They eat insects, earthworms, and even small mammals." | high | yes |
+| 17 | Garter snakes live all over Minnesota and eat earthworms. | Minnesota DNR, *Common Garter Snake* | "Garter snakes eat a varied diet including frogs, small mammals, earthworms and insects." | high | yes |
 | 18 | The redbelly snake lives all over Minnesota and eats earthworms and slugs. | Minnesota DNR, *Redbelly Snake* | "The redbelly snake eats insects, earthworms, and slugs." | high | |
-| 19 | The American toad eats worms. | Minnesota DNR, *American toad* | "American toads eat insects, worms and snails." | medium ("worms") | |
-| 20 | The red-backed salamander lives in northeastern Minnesota and eats earthworms. | MN Herpetological Society; ADW, *Plethodon cinereus* | "occurs in a variety of habitats in northeastern Minnesota" / "…ants, earthworms, flies, and larvae." | high | |
+| 19 | The American toad eats worms. | Minnesota DNR, *American toad* | "American toads eat insects, worms and snails." | medium ("worms") | yes |
+| 20 | The red-backed salamander lives in northeastern Minnesota and eats earthworms. | MN Herpetological Society; ADW, *Plethodon cinereus* | "occurs in a variety of habitats in northeastern Minnesota" / "…ants, earthworms, flies, and larvae." | high | yes |
 | 21 | Worms may help salamanders in some ways and hurt them in others. | UMN Great Lakes Worm Watch, *Vertebrate Animals* | "salamanders may be both negatively and positively affected by earthworm invasion." | high | yes |
 | 22 | In Quebec, forests with more worms had more and bigger red-backed salamanders. | Scott, Bradley & Bourgault, *Biological Invasions* (2023) | "non-native earthworms have a net beneficial effect on P. cinereus populations" | high | |
 | 23 | Ovenbirds may nest less successfully where the leaf layer is thinner. | UMN Great Lakes Worm Watch, *Vertebrate Animals* | "ovenbird nesting success declined in relation to declining forest floor thickness." | medium | |
@@ -56,3 +56,29 @@ the live page before class. **Used** marks the facts the lesson shows.
 - Mucus or bad taste as a defence.
 - Worms "feeling light through their skin" (the behaviour, pulling back from light, is sourced; the sense organ isn't).
 - "A baby robin eats 14 feet of earthworms" (an EPA flyer, with no study behind it).
+
+## Photos (real, CC BY 4.0, checked 2026-10-12)
+
+Matt asked for real photos, never AI-made (2026-10-12). All come from iNaturalist, found through
+GBIF's media records (license and creator). Wikimedia, Flickr and the .gov image hosts were blocked
+from the build container, so no public-domain government photos were used. The credit shows on
+screen under each photo. Before release, open each page and check its license.
+
+| Animal | File | Photo page | Credit |
+|---|---|---|---|
+| American robin | `robin.jpg` | https://www.inaturalist.org/photos/484300441 | Emily Bradford |
+| American woodcock | `woodcock.jpg` | https://www.inaturalist.org/photos/56231219 | M. R. Spiegelman |
+| Star-nosed mole | `mole.jpg` | https://www.inaturalist.org/photos/109056756 | Dan MacNeal |
+| Northern short-tailed shrew | `shrew.jpg` | https://www.inaturalist.org/photos/692760573 | Dustin Snider |
+| Common garter snake | `garter-snake.jpg` | https://www.inaturalist.org/photos/277194801 | Daniella Marie |
+| American toad | `toad.jpg` | https://www.inaturalist.org/photos/514919758 | Liren Varghese |
+| Eastern red-backed salamander | `salamander.jpg` | https://www.inaturalist.org/photos/93034829 | Rose Zappa |
+
+Files are in `src/content/lessons/photos/`, each under 90 KB. The mole photo is probably not a live
+animal (nearly every free star-nosed mole photo is a road find); nothing in it shows that.
+
+New sources for facts 16, 17, 19 and 20 (checked 2026-10-12, read through a web reader, so spot-check
+punctuation): Minnesota DNR *Shrews*; Minnesota DNR *Common Gartersnake* fact sheet (PDF: "Frogs,
+toads, salamanders, earthworms, insects and fish"); Minnesota DNR *American toad* ("the most common
+toad in Minnesota"); Animal Diversity Web, *Plethodon cinereus*.
+

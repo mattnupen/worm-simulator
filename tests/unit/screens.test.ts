@@ -111,3 +111,14 @@ describe('screens: the in-game lesson', () => {
     expect(transition(crawling, { type: 'lesson' })).toBe(crawling);
   });
 });
+
+describe('screens: the Vote quest', () => {
+  it('start -> Vote -> vote -> I voted / Back to start / Esc -> start; only from Start', () => {
+    const vote = run(start, { type: 'vote' });
+    expect(vote.screen).toBe('vote');
+    expect(run(vote, { type: 'toStart' }).screen).toBe('start');
+    expect(transition(vote, { type: 'pause' })).toBe(vote);
+    const crawling = run(start, { type: 'crawl' });
+    expect(transition(crawling, { type: 'vote' })).toBe(crawling);
+  });
+});

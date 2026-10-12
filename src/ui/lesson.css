@@ -33,6 +33,33 @@
 .reveal-head { font-weight: 800; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px !important; }
 .source { font-size: 18px; color: var(--ink-soft); font-style: italic; margin-top: 2px !important; }
 
+/* Real photos (lesson.ts photo()): the animal, its name, and the credit its license asks for. */
+.lesson-photo { margin: 12px 0 4px; }
+.lesson-photo img {
+  /* The whole photo, never cropped (an animal's head must not be cut off). */
+  display: block; max-width: 100%; width: auto; height: auto; max-height: min(260px, 32dvh);
+  margin: 0 auto; border-radius: 12px; border: 3px solid rgba(90, 56, 24, 0.6); background: #d9c49a;
+}
+.lesson-photo figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; margin-top: 4px; }
+.photo-name { font-weight: 800; }
+.photo-credit { font-size: 18px; color: var(--ink-soft); font-style: italic; }
+.sort-card:has(.lesson-photo) { display: grid; grid-template-columns: 180px 1fr; gap: 0 14px; align-items: start; }
+.sort-card:has(.lesson-photo) .lesson-photo { grid-row: 1 / span 3; margin: 0; }
+.sort-card .lesson-photo img { max-height: 150px; }
+.sort-card .lesson-photo .photo-name { display: none; } /* the card's own name says it */
+@media (max-width: 560px) {
+  .sort-card:has(.lesson-photo) { grid-template-columns: 1fr; }
+  .sort-card:has(.lesson-photo) .lesson-photo { grid-row: auto; margin-bottom: 6px; }
+}
+.reveal .lesson-photo { margin-top: 4px; }
+
+/* Steps hide parts until they're needed (a scene's question, Next): stronger than any display. */
+.panel[data-state="lesson"] [hidden] { display: none !important; }
+
+/* A scene step while it plays: a slim card with just the scene's words, so the forest shows. */
+.panel[data-state="lesson"][data-phase="watch"] { width: min(500px, calc(100vw - 32px)); }
+.scene-line { font-style: italic; }
+
 /* Sense steps: what happened, in words, beside its icon. */
 .cue-caption { display: flex; align-items: center; gap: 12px; font-weight: 700; margin-bottom: 10px !important; }
 .cue-icon, .mission-icon, .sort-icon { flex: none; width: 34px; height: 34px; color: var(--accent); }
@@ -74,7 +101,41 @@
 .cue[data-cue="thump"] .cue-ring:nth-child(4) { animation-delay: 1.4s; }
 @keyframes cue-ring { 0% { opacity: 0.95; transform: scale(0.3); } 100% { opacity: 0; transform: scale(1.8); } }
 
+/* The robin scene (6.2 s, cueMs in lesson.ts): black bars close in like a film; its shadow passes
+   (0 to 2.6 s); it hops in from the right, three hops 0.66 s apart (2.6 to 4.6 s); then it stops
+   and tips its head to look (5 s). It stays standing there for the rest of the step. */
+.cue[data-cue="robin"]::before, .cue[data-cue="robin"]::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 9vh; background: #0d0905;
+  animation: cue-bar 0.6s ease-out both;
+}
+.cue[data-cue="robin"]::before { top: 0; transform-origin: top; }
+.cue[data-cue="robin"]::after { bottom: 0; transform-origin: bottom; }
+@keyframes cue-bar { from { transform: scaleY(0); } }
+.cue[data-cue="robin"] .cue-shadow {
+  display: block; position: absolute; top: 18%; left: 100vw; width: 60vmax; height: 40vmax;
+  background: radial-gradient(closest-side, rgba(10, 6, 2, 0.65), rgba(10, 6, 2, 0.45) 55%, rgba(10, 6, 2, 0));
+  animation: cue-pass 2.6s cubic-bezier(0.45, 0, 0.55, 1) both;
+}
+.cue[data-cue="robin"] .cue-robin {
+  display: block; position: absolute; right: 6vw; bottom: 10vh; width: min(46vmin, 380px);
+  animation: robin-in 1.98s linear 2.6s both;
+}
+.cue-robin svg { display: block; width: 100%; height: auto; overflow: visible; }
+.cue[data-cue="robin"] .cue-robin svg { animation: robin-hop 0.66s ease-out 2.6s 3 both; }
+.cue[data-cue="robin"] .robin-head {
+  transform-box: fill-box; transform-origin: 30% 80%;
+  animation: robin-look 0.7s ease-in-out 5s both;
+}
+@keyframes robin-in { from { transform: translateX(70vw); } to { transform: none; } }
+@keyframes robin-hop { 0%, 100% { transform: none; } 45% { transform: translateY(-14%); } }
+@keyframes robin-look { to { transform: rotate(16deg); } }
+
 @media (prefers-reduced-motion: reduce) {
+  /* The robin stands still, already looking; no shadow, no bars sliding. */
+  .cue[data-cue="robin"] .cue-shadow { display: none; }
+  .cue[data-cue="robin"] .cue-robin, .cue[data-cue="robin"] .cue-robin svg,
+  .cue[data-cue="robin"]::before, .cue[data-cue="robin"]::after { animation: none; }
+  .cue[data-cue="robin"] .robin-head { animation: none; transform: rotate(16deg); }
   /* A still picture: the shadow rests over the middle, one ring shows. The words say the rest. */
   .cue[data-cue="shadow"] .cue-shadow { left: calc(50% - 30vmax); }
   .cue[data-cue="thump"] .cue-ring:nth-child(2) { opacity: 0.9; transform: scale(1.1); }

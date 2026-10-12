@@ -44,10 +44,17 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
       if (step.kind === 'sense') {
         await expect(page.locator(`.cue[data-cue="${step.cue}"]`)).toHaveCount(1);
         await expect(card(page).getByText(step.cueText)).toBeVisible();
+        // A scene plays first: its question joins the card when the cue ends.
+        if (step.scene) await expect(button(page, step.options[0])).toBeHidden();
       }
       await button(page, step.options[0]).click();
       await expect(button(page, `${step.options[0]} (your guess)`)).toHaveAttribute('aria-pressed', 'true');
       await expect(card(page).getByText('What scientists found')).toBeVisible();
+      // Real photos show with their credit (predict: above the question; sense: in the reveal).
+      if (step.photo) {
+        await expect(card(page).getByRole('img', { name: step.photo.alt })).toBeVisible();
+        await expect(card(page).getByText(step.photo.credit)).toBeVisible();
+      }
       const fact = step.reveal.find((l) => l.kind === 'fact');
       if (fact && fact.kind === 'fact') {
         await expect(card(page).getByText(shown(fact))).toBeVisible();
@@ -98,4 +105,48 @@ test('Back returns to the last step with its answer kept; Esc and Back to start 
   await button(page, 'Back to start').click();
   await expect(button(page, LEARN)).toBeFocused();
   expect(errors).toEqual([]);
+});
+
+test('the quests open in order: Learn, then Play, then Vote; "I voted" finishes the round', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto(PAGE);
+  // A new device: only Learn is open. Play (Crawl) and Vote are locked, and say why.
+  await expect(button(page, LEARN)).toBeFocused();
+  await expect(button(page, 'Crawl')).toBeDisabled();
+  await expect(button(page, 'Vote')).toBeDisabled();
+  await expect(page.getByText('Locked: finish Learn first')).toBeVisible();
+  await expect(page.getByText('Locked: finish Play first')).toBeVisible();
+
+  // Learn done, 5 minutes played: Vote is next.
+  await page.evaluate(() => {
+    localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] }));
+    localStorage.setItem('wormsim.quests', JSON.stringify({ version: 1, rounds: { 3: { playSeconds: 300, voted: false } } }));
+  });
+  await page.reload();
+  await expect(button(page, 'Vote')).toBeFocused();
+  await expect(button(page, 'Crawl')).toBeEnabled();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('region', { name: 'Vote' })).toBeVisible();
+  await expect(button(page, 'I voted')).toBeFocused();
+  await page.keyboard.press('Enter');
+  // All done: Crawl leads again, and the vote is remembered.
+  await expect(button(page, 'Crawl')).toBeFocused();
+  await expect(page.getByText('Done. Thanks for voting!')).toBeVisible();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.quests') ?? 'null'));
+  expect(saved.rounds['3']).toEqual({ playSeconds: 300, voted: true });
+  expect(errors).toEqual([]);
+});
+
+test('Play counts real crawling toward its 5 minutes, and keeps it when paused', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
+  await page.goto(PAGE);
+  await expect(page.getByText('0 of 5 minutes played')).toBeVisible();
+  await button(page, 'Crawl').click();
+  await page.waitForTimeout(7000);
+  await page.keyboard.press('Escape');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.quests') ?? 'null'));
+  // Game time, not wall time: a slow software renderer runs fewer steps than 7 s of play.
+  expect(saved.rounds['3'].playSeconds).toBeGreaterThanOrEqual(2);
+  expect(saved.rounds['3'].playSeconds).toBeLessThan(10);
+  expect(saved.rounds['3'].voted).toBe(false);
 });

@@ -24,7 +24,7 @@ import { FPS_CAP, SpeedTestRunner } from './perf/speedTestRunner';
 import { formatContextLostResults, formatNoWebGLResults } from './perf/speedTest';
 import { basicDeviceInfo, deviceInfo } from './perf/device';
 import { createShell } from './ui/shell';
-import { showCrawl, showLost, showPause, showStart } from './ui/menus';
+import { showCrawl, showLost, showPause, showStart, showVote } from './ui/menus';
 import { showGraphics } from './ui/graphicsMenu';
 import { createActionPrompt } from './ui/actionPrompt';
 import { showResult, showRunning, showTestIntro } from './ui/speedTestUi';
@@ -32,6 +32,9 @@ import { showUnderground } from './ui/undergroundHint';
 import { closeLesson, showLesson } from './ui/lesson';
 import { CURRENT_LESSON } from './content/lessons';
 import { lessonDone, markLessonDone } from './save/lessonStore';
+import { loadRound, saveRound } from './save/questStore';
+import { PLAY_GOAL_SECONDS, playMinutes, quests, type QuestProgress } from './game/quests';
+import { VERSION } from './version';
 import { warmShaders } from './render/warmShaders';
 import { createBurrowing } from './underground/burrowing';
 
@@ -82,6 +85,18 @@ function start(renderer: THREE.WebGLRenderer): void {
   // world build, so no frame is ever painted with an empty card. (The no-WebGL path shows its
   // FAIL card just as synchronously, above.) Its buttons only act once run() has finished.
   const store = browserStore();
+  // This round's Play and Vote progress (the quest list on Start; src/game/quests.ts).
+  const progress = loadRound(store, VERSION.number);
+  let playSaved = progress.playSeconds;
+  const saveProgress = (): void => {
+    saveRound(store, VERSION.number, progress);
+    playSaved = progress.playSeconds;
+  };
+  const questProgress = (): QuestProgress => ({
+    learned: !CURRENT_LESSON || lessonDone(store, CURRENT_LESSON.id),
+    playSeconds: progress.playSeconds,
+    voted: progress.voted,
+  });
   draw();
   // Near plane 0.2 (not 0.1) doubles depth precision for the thin, layered leaf litter. The
   // camera stays >= 0.5 above the litter and 2.6 behind the worm, so nothing it normally looks
@@ -176,6 +191,8 @@ function start(renderer: THREE.WebGLRenderer): void {
     const back = e.type === 'back' && state.screen === 'graphics';
     // Leaving the lesson by any way (Esc included): its cue and any reading aloud stop.
     if (state.screen === 'lesson') closeLesson(shell.root);
+    // Leaving play (pause, a hidden tab, back to start): the Play quest's minutes are kept.
+    if (state.screen === 'crawl' && progress.playSeconds !== playSaved) saveProgress();
     state = next;
     // A slow streak from before (or a menu over the scene) must not count against Auto.
     graphics.interruptAuto(performance.now());
@@ -215,10 +232,18 @@ function start(renderer: THREE.WebGLRenderer): void {
           onGraphics: () => dispatch({ type: 'graphics' }),
           onSpeedTest: () => dispatch({ type: 'speedTest' }),
         }, fromGraphics, CURRENT_LESSON ? {
-          title: CURRENT_LESSON.title,
-          done: lessonDone(store, CURRENT_LESSON.id),
+          lessonTitle: CURRENT_LESSON.title,
+          quests: quests(questProgress()),
+          playMinutes: playMinutes(questProgress()),
           onLesson: () => dispatch({ type: 'lesson' }),
+          onVote: () => dispatch({ type: 'vote' }),
         } : undefined);
+      case 'vote':
+        return showVote(shell, () => {
+          progress.voted = true;
+          saveProgress();
+          dispatch({ type: 'toStart' });
+        }, () => dispatch({ type: 'toStart' }));
       case 'lesson':
         if (!CURRENT_LESSON) return;
         return showLesson(shell, CURRENT_LESSON, {
@@ -298,6 +323,11 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (frozen()) game.hold(cmds.action);
     else {
       game.step(dt, cmds.move, cmds.action, runner.running && params.dig);
+      // The Play quest counts real play only: never menus, pauses or the speed test.
+      if (state.screen === 'crawl' && !runner.running && progress.playSeconds < PLAY_GOAL_SECONDS) {
+        progress.playSeconds += dt;
+        if (progress.playSeconds - playSaved >= 5 || progress.playSeconds >= PLAY_GOAL_SECONDS) saveProgress();
+      }
       // ?prompt= shows one kind over the game's own and counts the presses (tests, screenshots).
       if (params.prompt && pressEdge.update(cmds.action)) app.dataset.actionPresses = String(++presses);
       const on = state.screen === 'crawl' && !runner.running && app.dataset.promptOff === undefined;
@@ -383,14 +413,14 @@ function start(renderer: THREE.WebGLRenderer): void {
     }
   });
 
-  // Esc or P pauses and resumes; Esc also leaves the Graphics screen and the lesson.
+  // Esc or P pauses and resumes; Esc also leaves the Graphics screen, the lesson and Vote.
   window.addEventListener('keydown', (e) => {
     if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
     const pauseKey = e.code === 'Escape' || e.code === 'KeyP';
     if (state.screen === 'crawl' && pauseKey) dispatch({ type: 'pause' });
     else if (state.screen === 'pause' && pauseKey) dispatch({ type: 'resume' });
     else if (state.screen === 'graphics' && e.code === 'Escape') dispatch({ type: 'back' });
-    else if (state.screen === 'lesson' && e.code === 'Escape') dispatch({ type: 'toStart' });
+    else if ((state.screen === 'lesson' || state.screen === 'vote') && e.code === 'Escape') dispatch({ type: 'toStart' });
     else return;
     e.preventDefault();
   });

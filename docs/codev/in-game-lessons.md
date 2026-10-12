@@ -32,9 +32,15 @@ steps, each one of five kinds:
 |---|---|
 | `story` | One big idea in two or three short lines |
 | `predict` | A question with 2–4 answers, then "What scientists found" |
-| `sense` | A cue over the forest (`shadow` or `thump`), told in words too, then a question and the reveal |
+| `sense` | A cue over the forest (`shadow`, `thump` or `robin`), told in words too, then a question and the reveal. With a `scene`, it opens like a film: black bars, a slim card with the scene's words, and the cue; the question joins when the cue ends |
 | `sort` | 2–6 cards to tap into one of two groups; each card then shows its fact |
 | `mission` | Always last: "While you play, notice…" and the reminder to vote on the form in Canvas |
+
+Any `story`, `predict` or `sense` step and any `sort` card can carry a **real photo** (`photo`), with
+its name and credit under it. A `predict` shows it above the question; a `sense` shows it in the
+reveal, because there the animal is the answer. Photos live in `src/content/lessons/photos/`, under
+about 90 KB each, and `photos.ts` lists them. Never AI-made (Matt, 2026-10-12); in-game art, like the
+robin in the scene, is fine.
 
 Rules the build checks (`tests/unit/lessons.test.ts`):
 - every claim is a `fact` line naming a source in `src/content/sources.ts`, marked `verified`;
@@ -88,6 +94,8 @@ The prototype's choices are marked *(now)*. Answers go here once Matt decides.
 1. **When the lesson shows:** the first, main button on Start until it's finished *(now)*; required
    before the first crawl; or an optional button.
 2. **Length:** about 7 steps *(now)*; or shorter, 4–5 steps.
-3. **Pictures:** the live forest behind the card, with icons only *(now)*; simple drawn
-   silhouettes of each animal; or fal.ai art (inside the $5 cap).
+3. **Pictures:** decided (Matt, 2026-10-12): real photos and videos, never AI-made, except in-game
+   art. Matt tried the first lesson and found it boring and confusing, and couldn't picture a
+   woodcock. So the lesson now opens with a cinematic robin encounter and shows a real photo of
+   every animal (option A on his decision card).
 4. **Review format:** a preview link plus screenshots *(now)*; or also a printable lesson script.
