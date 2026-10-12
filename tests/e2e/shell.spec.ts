@@ -59,12 +59,12 @@ test('keyboard only: crawl, pause with Esc, resume, reach Graphics and back to s
   await page.keyboard.press('KeyP');
   await expect(button(page, 'Resume')).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(button(page, 'Graphics')).toBeFocused();
+  await expect(button(page, 'Settings')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(radio(page, 'Auto')).toBeFocused();
   await page.keyboard.press('Escape');
-  // Focus returns to the button that opened Graphics.
-  await expect(button(page, 'Graphics')).toBeFocused();
+  // Focus returns to the button that opened Settings.
+  await expect(button(page, 'Settings')).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(button(page, 'Back to start')).toBeFocused();
   await page.keyboard.press('Enter');
@@ -72,28 +72,24 @@ test('keyboard only: crawl, pause with Esc, resume, reach Graphics and back to s
   expect(errors).toEqual([]);
 });
 
-test('keyboard only: from Start reach Graphics, Speed test and Crawl; Esc leaves Graphics', async ({ page }) => {
+test('keyboard only: from Start reach Settings and Crawl; Esc leaves Settings', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto(QUICK);
   await expect(button(page, 'Crawl')).toBeFocused();
   // Vote is still locked (a disabled button), so Tab goes on to Graphics.
   await page.keyboard.press('Tab');
-  await expect(button(page, 'Graphics')).toBeFocused();
+  await expect(button(page, 'Settings')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(radio(page, 'Auto')).toBeChecked();
   await page.keyboard.press('ArrowDown');
   await expect(radio(page, 'Low')).toBeChecked();
   await expect(radio(page, 'Low')).toBeFocused();
   await page.keyboard.press('Escape');
-  await expect(button(page, 'Graphics')).toBeFocused();
+  await expect(button(page, 'Settings')).toBeFocused();
 
-  await page.keyboard.press('Tab');
-  await expect(button(page, 'Speed test')).toBeFocused();
-  await page.keyboard.press('Enter');
-  await expect(button(page, 'Start speed test')).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(button(page, 'Back to start')).toBeFocused();
-  await page.keyboard.press('Enter');
+  // No Speed test button on Start (Matt, 2026-10-12): it opens with ?speedtest=1.
+  await expect(button(page, 'Speed test')).toHaveCount(0);
+  await page.keyboard.press('Shift+Tab');
   await expect(button(page, 'Crawl')).toBeFocused();
 
   await page.keyboard.press('Enter');
@@ -184,7 +180,7 @@ test('switching presets live during Crawl (Low, Ultra, High and more) causes no 
   await startCrawling(page);
   for (const name of ['Low', 'Ultra', 'High', 'Medium', 'Ultra', 'Auto']) {
     await button(page, 'Pause').click();
-    await button(page, 'Graphics').click();
+    await button(page, 'Settings').click();
     await radio(page, name).check();
     await expect(radio(page, name)).toBeChecked();
     await button(page, 'Back').click();
@@ -210,9 +206,8 @@ test('the fps tag shows with ?fps=1 and during the speed test, and is hidden oth
   await startCrawling(page);
   await expect(page.locator('.fps')).toContainText('fps', { timeout: 5000 });
 
-  await page.goto(QUICK);
+  await page.goto(QUICK + '&speedtest=1');
   await expect(page.locator('.fps')).toBeHidden();
-  await button(page, 'Speed test').click();
   await button(page, 'Start speed test').click();
   await expect(page.getByTestId('running')).toBeVisible();
   await expect(page.locator('.fps')).toContainText('fps, quality', { timeout: 5000 });
@@ -248,17 +243,17 @@ test('a crash while crawling shows the Something went wrong card with a Reload b
   await expect(button(page, 'Reload the page')).toBeFocused();
 });
 
-test('the Graphics screen\'s Back button returns focus to the Graphics button that opened it', async ({ page }) => {
+test('the Settings screen\'s Back button returns focus to the Settings button that opened it', async ({ page }) => {
   await page.goto(PAGE);
-  await button(page, 'Graphics').click();
+  await button(page, 'Settings').click();
   await button(page, 'Back').click();
-  await expect(button(page, 'Graphics')).toBeFocused();
+  await expect(button(page, 'Settings')).toBeFocused();
   await startCrawling(page);
   await button(page, 'Pause').click();
   await expect(button(page, 'Resume')).toBeFocused();
-  await button(page, 'Graphics').click();
+  await button(page, 'Settings').click();
   await button(page, 'Back').click();
-  await expect(button(page, 'Graphics')).toBeFocused();
+  await expect(button(page, 'Settings')).toBeFocused();
 });
 
 test('no World scale in V2: the Start menu has no such button, and a V1 save with one still loads and keeps it', async ({ page }) => {
@@ -268,7 +263,7 @@ test('no World scale in V2: the Start menu has no such button, and a V1 save wit
   await page.goto(PAGE + '?scale=hybrid');
   await expect(button(page, 'Crawl')).toBeFocused();
   await expect(page.getByRole('button', { name: /World scale/ })).toHaveCount(0);
-  await button(page, 'Graphics').click();
+  await button(page, 'Settings').click();
   await expect(radio(page, 'Low')).toBeChecked();
   await radio(page, 'Medium').check();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
@@ -305,7 +300,7 @@ test('changing presets, once each has been shown, compiles no shader, offline, w
   expect(before).toBeGreaterThan(0);
   for (const name of ['Low', 'Medium', 'High', 'Ultra']) {
     await button(page, 'Pause').click();
-    await button(page, 'Graphics').click();
+    await button(page, 'Settings').click();
     await radio(page, name).check();
     await button(page, 'Back').click();
     await button(page, 'Resume').click();
@@ -316,4 +311,18 @@ test('changing presets, once each has been shown, compiles no shader, offline, w
   expect(await compiles()).toBe(before);
   expect(outside).toEqual([]);
   expect(errors).toEqual([]);
+});
+
+test('Settings has Sound on or off, saved only once switched', async ({ page }) => {
+  await page.goto(PAGE);
+  await button(page, 'Settings').click();
+  await expect(page.getByRole('region', { name: 'Settings' })).toBeVisible();
+  await expect(radio(page, 'On')).toBeChecked();
+  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
+  expect((await saved())?.sound).toBeUndefined();
+  await radio(page, 'Off').check();
+  await expect.poll(async () => (await saved())?.sound).toBe(false);
+  await page.reload();
+  await button(page, 'Settings').click();
+  await expect(radio(page, 'Off')).toBeChecked();
 });

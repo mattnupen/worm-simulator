@@ -6,7 +6,7 @@ import { VERSION_LABEL } from '../version';
 import { TEXT, shown, type Line } from '../content/text';
 import { PLAY_GOAL_SECONDS, type Quest, type QuestId } from '../game/quests';
 
-export interface StartActions { onCrawl(): void; onGraphics(): void; onSpeedTest(): void }
+export interface StartActions { onCrawl(): void; onSettings(): void }
 
 /**
  * The round's quests on Start (src/game/quests.ts): Learn, Play, Vote, in that order. Learn opens
@@ -29,15 +29,15 @@ const BEFORE: Record<QuestId, string> = { learn: '', play: 'Learn', vote: 'Play'
  * each a numbered row with its state in words and an icon (never colour alone): done (a tick, and
  * it can be done again), next (the main button, which gets focus) or locked (a lock and a disabled
  * button: "Finish Learn first"). Without a round, Crawl leads as before. `fromGraphics`: back from
- * the Graphics screen, so focus returns to its button.
+ * the Settings screen, so focus returns to its button. The speed test has no button (Matt,
+ * 2026-10-12): it opens with ?speedtest=1.
  */
 export function showStart(shell: Shell, a: StartActions, fromGraphics = false, round?: StartRound): void {
-  const graphics = button('Graphics', 'sliders', 'secondary', a.onGraphics);
-  const speed = button('Speed test', 'gauge', 'secondary', a.onSpeedTest);
+  const graphics = button('Settings', 'sliders', 'secondary', a.onSettings);
   const head = [cardHead('A forest floor in fall'), el('p', 'You are an earthworm under the leaves of a northern forest.', 'lead')];
   if (!round) {
     const crawl = button('Crawl', 'play', 'primary', a.onCrawl);
-    shell.show('start', 'Start', [...head, menu(crawl, graphics, speed), el('p', VERSION_LABEL, 'version')]);
+    shell.show('start', 'Start', [...head, menu(crawl, graphics), el('p', VERSION_LABEL, 'version')]);
     (fromGraphics ? graphics : crawl).el.focus();
     return;
   }
@@ -65,7 +65,7 @@ export function showStart(shell: Shell, a: StartActions, fromGraphics = false, r
     list.append(li);
   });
   const tools = el('div', '', 'menu menu-row');
-  tools.append(graphics.el, speed.el);
+  tools.append(graphics.el);
   shell.show('start', 'Start', [...head, list, tools, el('p', VERSION_LABEL, 'version')]);
   // Every quest done: Crawl leads (play on as long as you like).
   const first: Button = fromGraphics ? graphics : focus ?? crawl ?? graphics;
@@ -120,12 +120,12 @@ export function showCrawl(shell: Shell, think?: Line): void {
   shell.panel.focus({ preventScroll: true });
 }
 
-export interface PauseActions { onResume(): void; onGraphics(): void; onStart(): void }
+export interface PauseActions { onResume(): void; onSettings(): void; onStart(): void }
 
-/** Paused. `fromGraphics`: back from the Graphics screen, so focus returns to its button. */
+/** Paused. `fromGraphics`: back from the Settings screen, so focus returns to its button. */
 export function showPause(shell: Shell, a: PauseActions, fromGraphics = false): void {
   const resume = button('Resume', 'play', 'primary', a.onResume);
-  const graphics = button('Graphics', 'sliders', 'secondary', a.onGraphics);
+  const graphics = button('Settings', 'sliders', 'secondary', a.onSettings);
   shell.show('pause', 'Paused', [
     el('h1', 'Paused', 'screen-title'),
     menu(resume, graphics, button('Back to start', 'home', 'secondary', a.onStart)),

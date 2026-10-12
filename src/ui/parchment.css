@@ -154,7 +154,7 @@ canvas { display: block; }
   outline: 4px solid var(--focus); outline-offset: 4px;
 }
 
-/* ---------- Graphics: big radio rows ---------- */
+/* ---------- Settings (Sound, Graphics): big radio rows ---------- */
 .choices { border: 0; margin: 0; padding: 0; display: grid; gap: 10px; }
 .choices legend { margin-bottom: 12px; }
 .choice {
@@ -170,6 +170,10 @@ canvas { display: block; }
 .choice-name { font-size: 22px; font-weight: 800; }
 .choice-desc { font-size: 18px; color: var(--ink-soft); }
 .choices .lead { margin-bottom: 4px !important; }
+/* Settings: a heading per group, and Sound's two choices side by side. */
+.settings-legend { font-size: 22px; font-weight: 800; padding: 0; margin: 14px 0 8px !important; }
+.choices-row { grid-template-columns: 1fr 1fr; }
+.choices-row legend { grid-column: 1 / -1; }
 
 /* ---------- Running: quest-tracker card, top-left so the worm stays clear ---------- */
 .running-label { font-size: 24px; font-weight: 800; line-height: 1.2; margin-top: 4px !important; }

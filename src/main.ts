@@ -19,13 +19,14 @@ import { buildWorld } from './game/world';
 import { Crawl } from './game/crawl';
 import { AUTO_DRIVE_MOVE } from './game/drive';
 import { scaledLeafCount } from './surface/leafScale';
-import { browserStore } from './save/settingsStore';
+import { browserStore, loadSettings, updateSettings } from './save/settingsStore';
 import { FPS_CAP, SpeedTestRunner } from './perf/speedTestRunner';
 import { formatContextLostResults, formatNoWebGLResults } from './perf/speedTest';
 import { basicDeviceInfo, deviceInfo } from './perf/device';
 import { createShell } from './ui/shell';
 import { showCrawl, showLost, showPause, showStart, showVote } from './ui/menus';
-import { showGraphics } from './ui/graphicsMenu';
+import { showSettings } from './ui/settingsMenu';
+import { setSoundEnabled } from './ui/lessonSound';
 import { createActionPrompt } from './ui/actionPrompt';
 import { showResult, showRunning, showTestIntro } from './ui/speedTestUi';
 import { showUnderground } from './ui/undergroundHint';
@@ -85,6 +86,9 @@ function start(renderer: THREE.WebGLRenderer): void {
   // world build, so no frame is ever painted with an empty card. (The no-WebGL path shows its
   // FAIL card just as synchronously, above.) Its buttons only act once run() has finished.
   const store = browserStore();
+  /** Sound effects on or off (Settings), as saved. */
+  let sound = loadSettings(store).sound;
+  setSoundEnabled(sound);
   // This round's Play and Vote progress (the quest list on Start; src/game/quests.ts).
   const progress = loadRound(store, VERSION.number);
   let playSaved = progress.playSeconds;
@@ -231,8 +235,7 @@ function start(renderer: THREE.WebGLRenderer): void {
       case 'start':
         return showStart(shell, {
           onCrawl: () => dispatch({ type: 'crawl' }),
-          onGraphics: () => dispatch({ type: 'graphics' }),
-          onSpeedTest: () => dispatch({ type: 'speedTest' }),
+          onSettings: () => dispatch({ type: 'graphics' }),
         }, fromGraphics, CURRENT_LESSON ? {
           lessonTitle: CURRENT_LESSON.title,
           quests: quests(questProgress()),
@@ -259,14 +262,22 @@ function start(renderer: THREE.WebGLRenderer): void {
       case 'pause':
         return showPause(shell, {
           onResume: () => dispatch({ type: 'resume' }),
-          onGraphics: () => dispatch({ type: 'graphics' }),
+          onSettings: () => dispatch({ type: 'graphics' }),
           onStart: () => dispatch({ type: 'toStart' }),
         }, fromGraphics);
       case 'graphics':
-        return showGraphics(shell, graphics.choice, (c) => {
-          graphics.choose(c);
-          applyActive();
-        }, () => dispatch({ type: 'back' }));
+        // The Settings screen (the 'graphics' screen state, kept from when it held Graphics only).
+        return showSettings(shell, { graphics: graphics.choice, sound }, {
+          onGraphics: (c) => {
+            graphics.choose(c);
+            applyActive();
+          },
+          onSound: (on) => {
+            sound = updateSettings(store, { sound: on }).sound;
+            setSoundEnabled(sound);
+          },
+          onBack: () => dispatch({ type: 'back' }),
+        });
       case 'speedTest':
         return showTestIntro(shell, () => runner.start(), () => dispatch({ type: 'toStart' }));
       case 'results':

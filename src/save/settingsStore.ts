@@ -24,6 +24,8 @@ import { DEFAULT_UNDERGROUND_VIEW, type UndergroundView } from '../underground/m
  * who has switched the view has a stored pick, and a later class vote that changes the default
  * will not reach that device. When a vote needs to, store the default in effect with each pick and
  * ignore a pick made under an older default (not built: V2 has no such vote yet).
+ *
+ * Sound (V3, Settings) is stored the same way: only once the player switches it.
  */
 export const SETTINGS_KEY = 'wormsim.settings';
 
@@ -34,6 +36,8 @@ export interface Settings {
   autoSettled: PresetId | null;
   /** The underground camera (V2 spec 7). Stored only once the player switches it. */
   undergroundView: UndergroundView;
+  /** Sound effects on or off (Settings, Matt 2026-10-12). Stored only once the player switches it. */
+  sound: boolean;
 }
 
 export function isUndergroundView(v: unknown): v is UndergroundView {
@@ -41,7 +45,7 @@ export function isUndergroundView(v: unknown): v is UndergroundView {
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
-  version: 1, graphics: 'auto', autoSettled: null, undergroundView: DEFAULT_UNDERGROUND_VIEW,
+  version: 1, graphics: 'auto', autoSettled: null, undergroundView: DEFAULT_UNDERGROUND_VIEW, sound: true,
 });
 
 /** The two Storage methods we use, so tests can pass a fake. */
@@ -81,6 +85,7 @@ function resolve(o: Record<string, unknown> | null): Settings {
     graphics: isChoice(o.graphics) ? o.graphics : DEFAULT_SETTINGS.graphics,
     autoSettled: isPresetId(o.autoSettled) && AUTO_ORDER.includes(o.autoSettled) ? o.autoSettled : null,
     undergroundView: isUndergroundView(o.undergroundView) ? o.undergroundView : DEFAULT_UNDERGROUND_VIEW,
+    sound: typeof o.sound === 'boolean' ? o.sound : DEFAULT_SETTINGS.sound,
   };
 }
 
@@ -116,6 +121,7 @@ export function saveSettings(store: KeyValueStore | null, s: Settings): boolean 
     if (isUndergroundView(kept?.undergroundView) || s.undergroundView !== DEFAULT_UNDERGROUND_VIEW) {
       fields.undergroundView = s.undergroundView;
     }
+    if (typeof kept?.sound === 'boolean' || s.sound !== DEFAULT_SETTINGS.sound) fields.sound = s.sound;
     return write(store, kept ?? {}, fields);
   } catch {
     return false;
@@ -152,6 +158,7 @@ export function updateSettings(store: KeyValueStore | null, patch: Partial<Omit<
   if (patch.undergroundView !== undefined || isUndergroundView(kept?.undergroundView)) {
     fields.undergroundView = next.undergroundView;
   }
+  if (patch.sound !== undefined || typeof kept?.sound === 'boolean') fields.sound = next.sound;
   write(store, kept ?? {}, fields);
   return next;
 }

@@ -22,7 +22,7 @@ describe('the underground camera setting (spec 7)', () => {
     expect(loadSettings(null).undergroundView).toBe('wide');
     expect(loadSettings(memoryStore({ version: 1, graphics: 'low', autoSettled: null })).undergroundView).toBe('wide');
     const v1 = loadSettings(memoryStore({ version: 1, graphics: 'low', autoSettled: null, scale: 'hybrid' }));
-    expect(v1).toEqual({ version: 1, graphics: 'low', autoSettled: null, undergroundView: 'wide' });
+    expect(v1).toEqual({ version: 1, graphics: 'low', autoSettled: null, undergroundView: 'wide', sound: true });
   });
 
   it('reads an unknown or garbage stored view as the default', () => {
@@ -67,12 +67,12 @@ describe('the underground camera setting (spec 7)', () => {
   it('an undefined field in a patch changes nothing: the settings keep their values and type', () => {
     const store = memoryStore({ version: 1, graphics: 'low', autoSettled: 'medium', undergroundView: 'close' });
     const got = updateSettings(store, { graphics: undefined, undergroundView: undefined, autoSettled: undefined });
-    expect(got).toEqual({ version: 1, graphics: 'low', autoSettled: 'medium', undergroundView: 'close' });
+    expect(got).toEqual({ version: 1, graphics: 'low', autoSettled: 'medium', undergroundView: 'close', sound: true });
     expect(store.raw()).toMatchObject({ graphics: 'low', autoSettled: 'medium', undergroundView: 'close' });
     // Never pinned by an undefined view, and a null autoSettled is still a value.
     const fresh = memoryStore({ version: 1, graphics: 'auto', autoSettled: 'low' });
     expect(updateSettings(fresh, { undergroundView: undefined, autoSettled: null })).toEqual({
-      version: 1, graphics: 'auto', autoSettled: null, undergroundView: 'wide',
+      version: 1, graphics: 'auto', autoSettled: null, undergroundView: 'wide', sound: true,
     });
     expect(fresh.raw()).not.toHaveProperty('undergroundView');
     expect(updateSettings(null, { graphics: undefined }).graphics).toBe(DEFAULT_SETTINGS.graphics);
