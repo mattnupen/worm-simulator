@@ -92,8 +92,9 @@ lesson is written.
 | Q1 | Turnout and access in Results |
 | Q2 (check) | Fact check in Results; a "myth or fact?" moment on Monday if many miss it |
 | Q3–Q8, drawing | The predator design shortlist for V4's form (Q4–Q7 are counted; Q8 and the drawings add the detail) |
-| Q9 (broken or confusing) | `docs/codev/bugs.md` |
-| Q10 | The next topic |
+| Q9–Q13 (the game) | Fix and polish list in Results; slow-running answers go with the Chromebook check |
+| Q14 (broken or confusing) | `docs/codev/bugs.md` |
+| Q15 | The next topic |
 
 ## Paste-ready form
 No jobs this round (Matt, 2026-10-12): everyone answers the same questions, and the form has no
@@ -173,20 +174,54 @@ Help text: Think back to the lesson in the game.
 **Q8. Tell us your idea.** (Paragraph)
 Help text: Try this: "The ___ finds worms by ___. My worm gets away by ___. I know because ___."
 
----
-
-**Section 3: Show us**
-
 **D1. Draw your predator (optional).** (File upload: images only, 1 file, up to 10 MB)
 Help text: No names or faces in your drawing. You can also give a paper drawing to your teacher.
 
-**Q9. Did anything break or confuse you in V3?** (Short answer)
+---
+
+**Section 3: The game**
+Description: Now tell us about playing the game.
+
+**Q9. How easy were the controls?** (Multiple choice)
+- Easy
+- OK
+- Hard
+- I didn't play
+
+**Q10. What was hard to do?** (Checkboxes: pick all that fit)
+- Moving and turning
+- Digging down and coming back up
+- Seeing where I was going
+- Knowing what to do next
+- Nothing was hard
+- Other: ____
+
+**Q11. How did the game run on your Chromebook?** (Multiple choice)
+- Smooth
+- A little slow
+- Very slow or choppy
+- I didn't play
+
+**Q12. How did the game look?** (Multiple choice)
+- Easy to see
+- Some things were hard to see
+- It was too dark or too bright
+- Other: ____
+
+**Q13. What should we make better first?** (Multiple choice)
+- The controls
+- How it looks
+- How fast it runs
+- More things to do
+- Other: ____
+
+**Q14. Did anything break or confuse you?** (Short answer)
 
 ---
 
 **Section 4: Vote**
 
-**Q10. What should we learn about next? Pick 2.** (Checkboxes)
+**Q15. What should we learn about next? Pick 2.** (Checkboxes)
 - Eating: what do worms eat?
 - Getting hurt: how worms survive injuries
 - Worm senses: how worms feel, smell and sense light
@@ -219,8 +254,9 @@ build next.
 - **Predator picks (Q3):** count per predator …
 - **Predator designs (Q4–Q8, drawings):** count, grouped into themes, and the proposed shortlist
   for V4's form …
-- **Broken or confusing (Q9):** themes (count), copied to the bug list …
-- **Vote (Q10):** each topic's pick count per class period, then combined with the periods
+- **The game (Q9–Q13):** % per answer, and the top "make better first" pick …
+- **Broken or confusing (Q14):** themes (count), copied to the bug list …
+- **Vote (Q15):** each topic's pick count per class period, then combined with the periods
   weighted equally.
 - **Participation:** responses per class period …
 
