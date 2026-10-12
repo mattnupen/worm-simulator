@@ -68,29 +68,38 @@ in the game, so they are the experts: the form collects their design for how a p
 work in the game. V3 has no predator yet, so nothing asks students to judge one.
 
 ### Vote: what should we learn about next?
-Students rank three topics. The winner is the topic students learn and design for on V4's form,
-and it gets built in V5. **Matt: check each option before the form goes out. Every option must be
-something we'll build if it wins.**
+Students pick 2 of Matt's 7 topics (Matt, 2026-10-12). Picking 2 is easier than ranking 7. The
+most-picked topic is the one students learn and design for on V4's form, and it gets built in V5.
+The rest stay in `topics.md` for later rounds. **Matt: every option must be something we'll build
+if it wins.**
 
-| Topic (as students read it) | What it would add | Needs first | Sources (`topics.md`) |
-|---|---|---|---|
-| Growing up: cocoons and the band on grown-up worms | The band (clitellum) shows when your worm is full grown, and you leave cocoons | Eating and growing (in the dig) | UMN Extension |
-| Sensing light: worms have no eyes, but their skin can feel light | A "worm view", and your worm hides from bright sun | Nothing new | Hess (parent spec 5) |
-| Breathing through skin: what happens when a worm dries out | A moisture meter, sunny gaps and damp spots | Nothing new | UMN Extension (skin-breathing line still needs a source) |
+| Topic (as students read it) | Rows in `topics.md` | Source status |
+|---|---|---|
+| Eating: what do worms eat? | First bite | sourced |
+| Getting hurt: how worms survive injuries | Getting hurt (new) | needs source |
+| Worm senses: how worms feel, smell and sense light | Skin that senses light; Following your nose | sourced |
+| Natural dangers: rain, drying out and winter | Breathing through skin; Racing the frost; Rain (new) | needs source (parts) |
+| Life cycle: cocoons and growing up | Growing up | sourced |
+| Different places: worms in forests, fields and gardens | Different places (new) | needs source |
+| Different kinds of worms: nightcrawlers, jumping worms and more | Three kinds of worms; Jumping worms | sourced |
+
+A topic that still needs a source can be on the vote. Its sources are found before its round's
+lesson is written.
 
 ### Where each answer goes
 | Questions | Goes to |
 |---|---|
 | Q1 | Turnout and access in Results |
 | Q2 (check) | Fact check in Results; a "myth or fact?" moment on Monday if many miss it |
-| Q3–Q8, drawing | The predator design shortlist for V4's form |
+| Q3–Q8, drawing | The predator design shortlist for V4's form (Q4–Q7 are counted; Q8 and the drawings add the detail) |
 | Q9 (broken or confusing) | `docs/codev/bugs.md` |
 | Q10 | The next topic |
 
 ## Paste-ready form
 No jobs this round (Matt, 2026-10-12): everyone answers the same questions, and the form has no
-branching. Q5 to Q8 cover what the jobs would have asked: how it plays, how it looks and sounds,
-and how we know it's true.
+branching. Most design questions are multiple choice with an "Other" box. The choices come from
+the lesson's facts, so picking one also shows what a student learned. Q8 is the one paragraph,
+for the student's own idea in their words. The drawing shows how it looks.
 
 **Title:** Worm Simulator V3 · Predators
 
@@ -136,19 +145,33 @@ real animals. If it isn't, we will call it a "game choice".
 - Red-backed salamander
 - Other: ____
 
-**Q4. How does it find worms?** (Paragraph)
-Help text: Try this: "The ___ finds worms by ___."
+**Q4. How does it find worms?** (Checkboxes: pick all that fit)
+Help text: Think back to the lesson in the game.
+- It looks for them
+- It listens for them
+- It feels for them with its nose or body
+- It shakes the ground to make worms move
+- Other: ____
 
-**Q5. How does your worm know it is coming? How does it get away?** (Paragraph)
-Help text: Try this: "My worm feels ___, so it ___."
+**Q5. How does your worm know it is coming?** (Checkboxes: pick all that fit)
+- It feels the ground shake
+- It feels something touch it
+- It notices the light change
+- Other: ____
 
-**Q6. What does it look and sound like?** (Paragraph)
+**Q6. How does your worm get away?** (Multiple choice)
+- It goes back down its hole fast
+- It hides under leaves
+- It stays still
+- Other: ____
 
-**Q7. When does the predator win, and when does your worm get away?** (Paragraph)
-Help text: Try this: "The worm gets caught if ___. It is safe if ___."
+**Q7. What happens if the predator catches your worm?** (Multiple choice)
+- Game over: start again
+- The worm gets hurt but keeps going
+- Other: ____
 
-**Q8. How do you know? Where did you learn it?** (Paragraph)
-Help text: Try this: "In the game I learned ___." or "I saw ___."
+**Q8. Tell us your idea.** (Paragraph)
+Help text: Try this: "The ___ finds worms by ___. My worm gets away by ___. I know because ___."
 
 ---
 
@@ -163,14 +186,16 @@ Help text: No names or faces in your drawing. You can also give a paper drawing 
 
 **Section 4: Vote**
 
-**Q10. What should we learn about next? Rank them.** (Multiple choice grid)
-Help text: Put 1 next to your favorite. Use each number once.
-- Rows:
-  - Growing up: cocoons and the band on grown-up worms
-  - Sensing light: worms have no eyes, but their skin can feel light
-  - Breathing through skin: what happens when a worm dries out
-- Columns: 1st, 2nd, 3rd
-- Turn on "Limit to one response per column".
+**Q10. What should we learn about next? Pick 2.** (Checkboxes)
+- Eating: what do worms eat?
+- Getting hurt: how worms survive injuries
+- Worm senses: how worms feel, smell and sense light
+- Natural dangers: rain, drying out and winter
+- Life cycle: cocoons and growing up
+- Different places: worms in forests, fields and gardens
+- Different kinds of worms: nightcrawlers, jumping worms and more
+- Turn on response validation (the three-dot menu): "Select exactly" 2. Error text: "Please pick
+  2."
 
 **Confirmation message (Settings → Presentation):** Thanks, expert! Your ideas help choose what we
 build next.
@@ -195,7 +220,7 @@ build next.
 - **Predator designs (Q4–Q8, drawings):** count, grouped into themes, and the proposed shortlist
   for V4's form …
 - **Broken or confusing (Q9):** themes (count), copied to the bug list …
-- **Vote (Q10):** each topic's rank score per class period, then combined with the periods
+- **Vote (Q10):** each topic's pick count per class period, then combined with the periods
   weighted equally.
 - **Participation:** responses per class period …
 

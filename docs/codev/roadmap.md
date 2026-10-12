@@ -6,6 +6,10 @@ the game, design for it on the form, and the design is built in the next version
 (eating and Moisture) goes back to the topic pool. The table below is the original plan; redo the
 weeks after V3 on Friday.
 
+**Update (2026-10-12):** Matt set 7 topics for the coming rounds: eating, injured and survival,
+worm senses, natural dangers, life cycle, different ecosystems and different types of worms
+(`topics.md`). V3's form asks students to pick 2.
+
 Written 2026-10-04. It will change as students vote and as we learn, so update it each Friday.
 
 **Goal for the 8 weeks:** students try both of the game's big modes early. These are the 3D forest

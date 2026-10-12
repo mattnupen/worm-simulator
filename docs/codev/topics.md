@@ -28,6 +28,23 @@ Status values: `pool` (can go on a ballot) · `needs source` · `blocked` (prere
 | Three kinds of worms (Underground) | Litter, topsoil and deep-burrowing groups; the topsoil worm eats soil | Side-view cross-section reached by digging down from the forest floor: free dig, tunnels, castings (first slice) | none | Great Lakes Worm Watch; UMN Extension | chosen (V2) |
 | Down the burrow | Worms move between the leaf litter and the soil | Dig down from the forest floor into the cross-section and back | none | Great Lakes Worm Watch | chosen (V2, with Underground) |
 | The mole | Northern Minnesota's star-nosed mole lives in wet areas of northern forests and finds worms with the tentacles on its nose; in the game, its digging vibrations warn the worm, which flees up | Mole warn → strike → leave in the cross-section | Underground | MN DNR, *Moles* (range and diet, found 2026-10-08); ScienceDaily (worm grunting, unchecked) | on ballot (V2) |
+| Getting hurt | How a worm survives an injury, such as regrowing a lost tail end | To be designed | none | none yet | needs source |
+| Rain | Why worms come up when it rains | To be designed | none | none yet | needs source |
+| Different places | Worms in forests, fields and gardens, and how each place changes | To be designed | none | none yet | needs source |
 | Jumping worms | The newest invader | Chapter 4 (later) | Three kinds of worms | UMN Jumping Worm handbook | blocked |
+
+## Matt's topic list for V4–V7 (2026-10-12)
+Matt set these 7 topics for the coming rounds. V3's form asks students to pick 2. Each one groups
+rows from the table above:
+
+| Matt's topic | Rows above |
+|---|---|
+| Eating | First bite |
+| Injured and survival | Getting hurt |
+| Worm senses | Skin that senses light; Following your nose; Feeling vibrations: the robin |
+| Natural dangers (rain, winter and more) | Breathing through skin; Racing the frost; Rain |
+| Life cycle | Growing up |
+| Different ecosystems | Different places |
+| Different types of worms | Three kinds of worms; Jumping worms |
 
 Add vetted student topic ideas here as new rows, and credit the class period in the version doc.
