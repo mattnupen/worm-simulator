@@ -9,19 +9,10 @@ import type { Cue } from '../content/lessons/lesson';
  */
 let ctx: AudioContext | null = null;
 let current: GainNode | null = null;
-let enabled = true;
-
-export function soundEnabled(): boolean { return enabled; }
-
-export function setSoundEnabled(on: boolean): void {
-  enabled = on;
-  if (!on) stopCueSound();
-}
 
 /** Plays the cue's sounds from now. Quietly does nothing where Web Audio is missing or blocked. */
 export function playCueSound(cue: Cue): void {
   stopCueSound();
-  if (!enabled) return;
   const c = audio();
   if (!c) return;
   const out = c.createGain();

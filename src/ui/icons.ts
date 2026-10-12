@@ -82,10 +82,6 @@ const ICONS = {
     <path d="M7.5 8.5l1.5 1.5 2.5-3M13.5 9h3.5M7.5 15l1.5 1.5 2.5-3M13.5 15.5h3.5"/></svg>`,
   /** Read aloud while it plays: a stop square. */
   stop: `<svg ${SVG} viewBox="0 0 24 24" fill="currentColor"><rect x="5.5" y="5.5" width="13" height="13" rx="2"/></svg>`,
-  /** Sound off: the speaker with a cross. */
-  mute: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
-      stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h4l5-4.5v14l-5-4.5H4z" fill="currentColor"/>
-    <path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></svg>`,
   /** "Tell me more": an open book. */
   book: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
       stroke-linejoin="round"><path d="M12 6.5C9.5 4.8 6.5 4.5 3 5v13c3.5-.5 6.5-.2 9 1.5 2.5-1.7 5.5-2 9-1.5V5c-3.5-.5-6.5-.2-9 1.5z"/>
