@@ -15,10 +15,9 @@ graphics setting suits it. It takes about 30 seconds.
 
 ## Open the speed test
 
-Either way works:
-
-- **From the menu:** on the start screen, choose **Speed test**.
-- **With a link:** add `?speedtest=1` to the end of the address (for example
+- **From the menu (V1 and V2 only):** on the start screen, choose **Speed test**. From V3 on, the
+  Start screen has no Speed test button (Matt, 2026-10-12), so use the link.
+- **With a link (every version):** add `?speedtest=1` to the end of the address (for example
   `wormsimulator.com/?speedtest=1`) and press Enter. The game opens straight on the speed test.
 
 ## Run it

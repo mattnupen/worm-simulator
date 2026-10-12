@@ -25,14 +25,14 @@ describe('settings store', () => {
   });
 
   it('defaults to Auto with nothing settled', () => {
-    expect(DEFAULT_SETTINGS).toEqual({ version: 1, graphics: 'auto', autoSettled: null, undergroundView: 'wide' });
+    expect(DEFAULT_SETTINGS).toEqual({ version: 1, graphics: 'auto', autoSettled: null, undergroundView: 'wide', sound: true });
     expect(loadSettings(memory())).toEqual(DEFAULT_SETTINGS);
     expect(loadSettings(null)).toEqual(DEFAULT_SETTINGS);
   });
 
   it('round-trips what it saves', () => {
     const store = memory();
-    const s = { version: 1, graphics: 'ultra', autoSettled: 'medium', undergroundView: 'close' } as const;
+    const s = { version: 1, graphics: 'ultra', autoSettled: 'medium', undergroundView: 'close', sound: false } as const;
     expect(saveSettings(store, s)).toBe(true);
     expect(JSON.parse(store.data[SETTINGS_KEY])).toEqual(s);
     expect(loadSettings(store)).toEqual(s);
@@ -40,13 +40,13 @@ describe('settings store', () => {
 
   it('reads a Step 1a save, keeping its graphics', () => {
     expect(loadSettings(stored({ version: 1, graphics: 'high', autoSettled: 'medium' })))
-      .toEqual({ version: 1, graphics: 'high', autoSettled: 'medium', undergroundView: 'wide' });
+      .toEqual({ version: 1, graphics: 'high', autoSettled: 'medium', undergroundView: 'wide', sound: true });
   });
 
   it('reads a V1 save with a World scale: the scale is ignored (V2 is real size only)', () => {
     for (const scale of ['classic', 'hybrid', 'true', 'giant', 7]) {
       expect(loadSettings(stored({ version: 1, graphics: 'low', autoSettled: 'low', scale })))
-        .toEqual({ version: 1, graphics: 'low', autoSettled: 'low', undergroundView: 'wide' });
+        .toEqual({ version: 1, graphics: 'low', autoSettled: 'low', undergroundView: 'wide', sound: true });
     }
   });
 
@@ -64,6 +64,16 @@ describe('settings store', () => {
     expect(JSON.parse(fresh.data[SETTINGS_KEY])).toEqual({ version: 1, graphics: 'low', autoSettled: null });
   });
 
+  it('stores Sound only once the player switches it, and keeps it on later writes', () => {
+    const store = memory();
+    updateSettings(store, { graphics: 'low' });
+    expect(JSON.parse(store.data[SETTINGS_KEY]).sound).toBeUndefined();
+    expect(updateSettings(store, { sound: false }).sound).toBe(false);
+    updateSettings(store, { graphics: 'high' });
+    expect(JSON.parse(store.data[SETTINGS_KEY])).toEqual({ version: 1, graphics: 'high', autoSettled: null, sound: false });
+    expect(loadSettings(stored({ version: 1, graphics: 'low', autoSettled: null, sound: 'loud' })).sound).toBe(true);
+  });
+
   it('falls back to defaults on corrupt JSON', () => {
     expect(loadSettings(memory({ [SETTINGS_KEY]: '{not json' }))).toEqual(DEFAULT_SETTINGS);
     expect(loadSettings(memory({ [SETTINGS_KEY]: 'null' }))).toEqual(DEFAULT_SETTINGS);
@@ -77,7 +87,7 @@ describe('settings store', () => {
   it('replaces unknown field values with their defaults', () => {
     expect(loadSettings(stored({ version: 1, graphics: 'extreme', autoSettled: 'ultra' }))).toEqual(DEFAULT_SETTINGS);
     expect(loadSettings(stored({ version: 1, graphics: 'low', autoSettled: 42 })))
-      .toEqual({ version: 1, graphics: 'low', autoSettled: null, undergroundView: 'wide' });
+      .toEqual({ version: 1, graphics: 'low', autoSettled: null, undergroundView: 'wide', sound: true });
   });
 
   it('keeps fields it does not know when it saves (a later version\'s)', () => {
@@ -90,7 +100,7 @@ describe('settings store', () => {
 
   it('updateSettings changes only what it is given', () => {
     const store = stored({ version: 1, graphics: 'low', autoSettled: 'medium', later: 1 });
-    expect(updateSettings(store, { graphics: 'ultra' })).toEqual({ version: 1, graphics: 'ultra', autoSettled: 'medium', undergroundView: 'wide' });
+    expect(updateSettings(store, { graphics: 'ultra' })).toEqual({ version: 1, graphics: 'ultra', autoSettled: 'medium', undergroundView: 'wide', sound: true });
     expect(updateSettings(store, { autoSettled: 'low' }).graphics).toBe('ultra');
     expect(JSON.parse(store.data[SETTINGS_KEY])).toEqual({
       version: 1, graphics: 'ultra', autoSettled: 'low', later: 1,

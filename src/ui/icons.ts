@@ -72,6 +72,10 @@ const ICONS = {
   /** Thumps: rings spreading through the ground. */
   thump: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
       stroke-linecap="round"><path d="M2 6h20"/><path d="M9 11a3 2 0 0 0 6 0M5.5 14.5a6.5 4.5 0 0 0 13 0M2.5 18a9.5 6 0 0 0 19 0"/></svg>`,
+  /** A flag on a pole: the round's mission (the crawl card, Matt 2026-10-12). */
+  flag: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+      stroke-linecap="round" stroke-linejoin="round"><path d="M5 22V3"/>
+    <path d="M5 4h13l-3.5 4.5L18 13H5z" fill="currentColor"/></svg>`,
   /** An eye: "While you play, notice…". */
   eye: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
       stroke-linejoin="round"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/>

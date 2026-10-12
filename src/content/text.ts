@@ -18,7 +18,9 @@ export type Line =
 export const GAME_CHOICE_PREFIX = 'Game choice: ';
 
 export const TEXT = {
-  crawlHint: { kind: 'ui', text: 'Crawl with the arrow keys, W A S D, or the joystick. Press Esc or P to pause.' },
+  /** The crawl card's controls line (Matt, 2026-10-12: short). Arrow keys and Esc still work too. */
+  crawlHint: { kind: 'ui', text: 'Move with the W A S D keys. P to pause.' },
+  crawlHintTouch: { kind: 'ui', text: 'Move with the joystick. Tap Pause to stop.' },
   digDown: { kind: 'ui', text: 'Dig down' },
   comeUp: { kind: 'ui', text: 'Come up' },
   viewWide: { kind: 'ui', text: 'Wide view' },
@@ -44,8 +46,6 @@ export const TEXT = {
     verified: true,
   },
   burrowChoice: { kind: 'gameChoice', text: 'In the game you can dig any way you like.' },
-  /** Parent spec 5: any fungus shown carries "Look, don't eat." (last line of both hint cards). */
-  lookDontEat: { kind: 'ui', text: "Mushrooms and puffballs: look, don't eat." },
 } as const satisfies Record<string, Line>;
 
 export type TextKey = keyof typeof TEXT;

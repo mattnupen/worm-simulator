@@ -24,8 +24,7 @@ test('runs the speed test offline from a file with zero network requests', async
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 
   await context.setOffline(true);
-  await page.goto(PAGE);
-  await page.getByRole('button', { name: 'Speed test', exact: true }).click();
+  await page.goto(PAGE + '&speedtest=1');
   await page.getByRole('button', { name: 'Start speed test' }).click();
   await expect(page.getByTestId('running')).toBeVisible();
   await expect(page.getByTestId('result')).toContainText('fps average', { timeout: 30_000 });
@@ -45,13 +44,8 @@ test('ships a CSP that blocks connections', async ({ page }) => {
 });
 
 test('the speed test starts from the keyboard alone', async ({ page }) => {
-  await page.goto(PAGE);
-  await expect(page.getByRole('button', { name: 'Crawl' })).toBeFocused();
-  // Crawl, then Graphics (Vote is still locked), then Speed test.
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
-  await expect(page.getByRole('button', { name: 'Speed test', exact: true })).toBeFocused();
-  await page.keyboard.press('Enter');
+  // Start has no Speed test button (Matt, 2026-10-12): ?speedtest=1 opens it.
+  await page.goto(PAGE + '&speedtest=1');
   const start = page.getByRole('button', { name: 'Start speed test' });
   await expect(start).toBeFocused();
   await page.keyboard.press('Enter');
@@ -89,27 +83,6 @@ test('the report\'s Leaves line is the litter plus detail leaves actually drawn 
   const litter = scaledLeafCount(Math.round(PRESETS.medium.litter * density));
   const detail = scaledLeafCount(Math.round(PRESETS.medium.detail * density));
   expect(leaves).toBe(litter + detail);
-});
-
-test('a speed test opened after crawling runs (it starts from the spawn, see Crawl.reset)', async ({ page }) => {
-  const errors: string[] = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('GPU stall')) errors.push(m.text()); });
-  await page.goto(PAGE);
-  await page.getByRole('button', { name: 'Crawl', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Crawling' })).toBeVisible();
-  await page.keyboard.down('ArrowUp');
-  await page.keyboard.down('ArrowRight');
-  await page.waitForTimeout(2000);
-  await page.keyboard.up('ArrowRight');
-  await page.keyboard.up('ArrowUp');
-  await page.getByRole('button', { name: 'Pause', exact: true }).click();
-  await page.getByRole('button', { name: 'Back to start', exact: true }).click();
-  await page.getByRole('button', { name: 'Speed test', exact: true }).click();
-  await page.getByRole('button', { name: 'Start speed test' }).click();
-  await expect(page.getByTestId('running')).toBeVisible();
-  await expect(page.getByTestId('result')).toContainText('fps average', { timeout: 30_000 });
-  expect(errors).toEqual([]);
 });
 
 test('the speed test digs underground with ?dig=1 and says so (the perf gates\' underground run)', async ({ page }) => {

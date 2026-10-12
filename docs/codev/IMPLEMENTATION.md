@@ -57,60 +57,52 @@ and no switching back and forth between tabs. (Matt, 2026-10-11)
   test topic is predators.
 
 ### Rotating jobs (Matt, 2026-10-11)
-Every student fills in the same form, but each round they have a **job**: a part of the game to
-watch closely while they play. Jobs rotate every round, so each student tries each one. The jobs
-give quiet students a clear thing to report (P10), make the critique more specific (P6), and
-spread attention across the whole game.
+Every student fills in the same form, but each round they have a **job**: a lens for looking at
+their own design for the round's topic (Matt, 2026-10-12). Jobs rotate every round, so each
+student tries each one. The jobs give quiet students a clear thing to say (P10), make designs
+more specific (P2, P3), and spread attention across the whole game.
 
-| Job | What to watch |
+| Job | Lens on the design |
 |---|---|
-| **Scientist** | Does the game match what we learned? Is anything untrue or missing? |
-| **Mechanic** | Do the controls and actions work? Does the new design work the way we designed it? Where did you get stuck or lost? What broke? Could you play on your device? |
-| **Artist** | How does it look and feel? Does it look like a real forest floor? Can you see everything clearly? Does moving feel like being a worm? |
+| **Scientist** | Is it true? What must the game show, and what must it not get wrong? |
+| **Mechanic** | How does it play? What does the player do, and what makes it fair? |
+| **Artist** | How does it look and sound? How would a player notice it? |
 
 How it works:
 - **Assignment:** Matt posts the job list in Canvas each round, rotated by a fixed order such as
   seat or roster position, so every student has each job once every three rounds. Each class
   period gets about a third of its students in each job. The list stays
   in Canvas and never goes into the repo (P14).
-- **On the form:** the first question is "My job this round." The form then branches to 1 or 2
-  questions for that job, and every student also answers the shared critique questions. The form
-  keeps the same shape every round (P12).
+- **On the form:** "What was your job this round?" comes at the end of the expert section and
+  branches to two questions for that job (`docs/codev/form-guide.md`). The form keeps the same
+  shape every round (P12).
 - **Results:** each job's answers are tallied separately, so the Friday summary reads like a
   report from each team.
 - **In the game (optional):** the in-game intro can end with "This round, look out for…" for each
   job, as text only.
 
 ### The form (from the class Canvas page)
-One Google Form per version, titled "Worm Simulator VN · <Name>: Feedback". It keeps the same
-sections every time, takes about 10 minutes, and works on a phone (P10, P11, P12). Students
-choose how much to do: **critique only** (sections 1–2) or **critique plus design** (sections 1–3)
-(P11).
+One Google Form per version, titled "Worm Simulator VN · <Name>: Feedback". It takes about 10
+minutes and works on a phone (P10, P11, P12). Its shape, rules and checklist are in
+`docs/codev/form-guide.md` (Matt, 2026-10-12).
 
-1. **Critique VN** (P6, P12). The same questions every time, after "My job this round" and that
-   job's questions:
-   - Could you play VN? (Yes / It wouldn't load / I didn't have time)
-   - Did you get stuck? Where?
-   - I like… / I wish…
-   - Once the build includes a student design: "Does [the design] work the way we designed it?"
-     (Yes / Partly / No), with a box for "What's different?"
-   - A smiley-face fun rating, read as a trend across versions, never as an absolute score.
-   - **Goal check:** the 4 experience-goal statements (section 10), each answered Yes / Kind
-     of / No. Everyone answers them, whatever their job.
-2. **Vote** (P5). Students rank the round's options: a shortlist of classmates' designs (names
-   removed, drawings included, shuffled), and the next topic when one is open. Totals are hidden.
-   The section ends with "What would you add or change?"
-3. **Design for the round's topic** (P2, P3). This section is optional, and it builds on what the
-   in-game intro taught.
-   - What should we add? How should it work in the game?
-   - How do you know? Where did you learn it?
-   - Sentence starters come out over the rounds.
-   - Optional drawing upload, or a paper drawing that Matt photographs.
-   - A reminder: "No names or faces in your drawing" (P14).
+Students have just learned the round's topic, so they are the experts: the form collects their
+designs (what to add, how it should work, and how they know) (P1, P2, P3). The sections are:
 
-Constraints shown to students in section 3 (P2): one new thing per design, it has to fit one week's
-build, and it has to be true of real worms or labelled as a game choice (`CLAUDE.md`
-non-negotiables).
+1. **Start:** how long did you play?
+2. **You're the expert:** one check question, the design questions, then the job question, which
+   branches.
+3. **Your job:** two questions that look at the student's design through their job.
+4. **Show us:** an optional drawing, and anything broken or confusing (for the bug list, P9).
+5. **Vote** (P5): classmates' designs from last round (names removed, drawings included,
+   shuffled, totals hidden), and the next topic when one is open.
+
+From the round after a student design is built, the expert section adds "Does [the design] work
+the way we designed it?" (Yes / Partly / No, and "What's different?") (P6). There are no feelings
+or rating grids: no goal check and no fun rating (Matt, 2026-10-12).
+
+Constraints shown to students (P2): one new thing per design, it has to fit one week's build, and
+it has to be true of real worms or labelled as a game choice (`CLAUDE.md` non-negotiables).
 
 ## 4. How a round runs
 
@@ -194,14 +186,9 @@ decision log).
 3. **What I learned changes how I play.**
 4. **Everyone can play.**
 
-**On the form**, every student answers the same 4 statements at the end, whatever their job,
-each as Yes / Kind of / No. This takes about 30 seconds.
-- Being a worm felt strange and real.
-- I could tell where I was and what to do next.
-- What I learned changed how I played.
-- I could play without problems on my device.
-
-The statements never change, so the results show each version's trend (framework P12).
+Students don't rate the goals on the form (Matt, 2026-10-12). Matt and Claude judge each build
+against them, from playtests and from the form's design and bug answers. This departs from
+framework P6 on purpose (`decision-log.md`).
 
 ## 11. Living artifacts (framework section 6)
 
@@ -211,7 +198,7 @@ The statements never change, so the results show each version's trend (framework
 | Experience goals | This file, section 10 | Done |
 | Rules of thumb (vetted claims) | `src/content/` (in-game facts with source IDs) and each version doc's fact table | Exists |
 | Idea log | `docs/codev/idea-log.md` | To create, starting with V3's designs |
-| Decision log | `docs/codev/decision-log.md` | To create. First entries: framework adopted, Strategy A chosen (2026-10-11) |
+| Decision log | `docs/codev/decision-log.md` | Exists |
 | Bug list | `docs/codev/bugs.md` | To create, from each form's "stuck" answers and playtests |
 | Changelog | `CHANGELOG.md` | Exists |
 | Architecture note | `CLAUDE.md` | Exists |

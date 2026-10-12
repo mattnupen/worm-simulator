@@ -26,12 +26,19 @@ This matches the version's `CHANGELOG.md` entry.
 The topic, how the intro teaches it in play, and the facts it uses (each in the fact table above
 and in `src/content/`). Matt approves it before release.
 
-## The form (`IMPLEMENTATION.md`, section 3)
-### 1. Critique VN
-The standard questions. If this build includes a student design, name it here: "Does
-<design> work the way we designed it?"
+## The form (`docs/codev/form-guide.md`)
+Students are the experts on this round's topic: the form collects their designs. Follow the
+guide's shape and rules, and fill in the parts below.
 
-### 2. Vote: shortlist from VN−1's designs (and the next topic, if one is open)
+### You're the expert: designing for <this round's topic>
+The check question (from the research notes), the design prompts with this round's sentence
+starters, and the constraints shown to students. If this build includes a student design, add
+"Does <design> work the way we designed it?" here.
+
+### Your job: the two questions for each job
+How Scientists, Mechanics and Artists look at this round's design.
+
+### Vote: shortlist from VN−1's designs (and the next topic, if one is open)
 3 to 4 designs, with names removed, drawings included, and shuffled. Each is a testable bet: "If
 we do X, we expect Y to change" (`FRAMEWORK.md`, P5).
 
@@ -40,9 +47,8 @@ we do X, we expect Y to change" (`FRAMEWORK.md`, P5).
 | A | | | | |
 | B | | | | |
 
-### 3. Design for <this round's topic> (optional)
-The prompts, the sentence starters for this round (they come out over the rounds), and the
-constraints shown to students.
+### Where each answer goes
+One row per question: the shortlist, the bug list, the next topic, or Results.
 
 ### Paste-ready form
 Write out every question with its exact wording and options.
@@ -56,16 +62,13 @@ A short paste-ready post with the build link and the form link, plus the due dat
 ---
 
 ## Results (filled in after the form closes)
-- **Turnout:** n responses, about X% of students. Access problems: …
+- **Turnout:** n responses, about X% of students. Play time: % per answer …
 - **Fact check:** X% correct. Most common wrong answer: …
-- **Works as designed? (section 1):** Yes / Partly / No %, and what's different …
-- **Vote (section 2):** each design's rank score per class period, then combined with the periods weighted equally.
-- **New designs (section 3):** count, grouped into themes, and the proposed shortlist for the next form …
-- **Stuck points, likes and wishes:** themes (count) …
-- **Bugs and confusion:** …
-- **Fun:** % per answer, compared with last version …
-- **Goal check:** Yes / Kind of / No % for each of the 4 statements, compared with last version …
-- **By job:** Scientist, Mechanic and Artist findings …
+- **Works as designed?:** Yes / Partly / No %, and what's different …
+- **Vote:** each design's rank score per class period, then combined with the periods weighted equally.
+- **New designs:** count, grouped into themes, and the proposed shortlist for the next form …
+- **By job:** Scientist, Mechanic and Artist ideas …
+- **Broken or confusing:** themes (count), copied to the bug list …
 - **Participation:** responses per class period …
 
 ## Decisions
