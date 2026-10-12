@@ -7,7 +7,7 @@ import { GAME_CHOICE_PREFIX, shown, type Line } from '../content/text';
 import type { Cue, Lesson, LessonStep, More, Photo, Video } from '../content/lessons/lesson';
 import { PHOTO_URLS } from '../content/lessons/photos';
 import { youTubeId } from '../content/lessons/lesson';
-import { playCueSound, setSoundEnabled, soundEnabled, stopCueSound } from './lessonSound';
+import { playCueSound, stopCueSound } from './lessonSound';
 
 /**
  * Whether lessons show sources as links (new tab) and play "Tell me more" videos in the panel
@@ -109,17 +109,6 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
       const read = button('Read aloud', 'speaker', 'secondary', () => reader.toggle(heading.closest('.panel'), read));
       read.el.classList.add('btn-small');
       tools.append(read.el);
-    }
-    if (step.kind === 'sense') {
-      const snd = button(soundEnabled() ? 'Sound on' : 'Sound off', soundEnabled() ? 'speaker' : 'mute', 'secondary', () => {
-        setSoundEnabled(!soundEnabled());
-        snd.setLabel(soundEnabled() ? 'Sound on' : 'Sound off');
-        snd.el.querySelector('.btn-icon')?.replaceWith(icon(soundEnabled() ? 'speaker' : 'mute', 'btn-icon'));
-        snd.el.setAttribute('aria-pressed', String(soundEnabled()));
-      });
-      snd.el.setAttribute('aria-pressed', String(soundEnabled()));
-      snd.el.classList.add('btn-small');
-      tools.append(snd.el);
     }
     if (step.kind !== 'mission') {
       const src = button('Sources', 'external', 'secondary', () => sourcesDialog(shell.root, panel(), src.el));
