@@ -256,7 +256,7 @@ function stepBody(step: LessonStep, c: BodyCtx): HTMLElement[] {
       return meet(step, c);
     case 'mission': {
       const notice = el('p', '', 'mission-line');
-      notice.append(icon('eye', 'mission-icon'), readable(el('span', shown(step.notice))));
+      notice.append(icon('flag', 'mission-icon'), readable(el('span', shown(step.notice))));
       const reminder = el('p', '', 'mission-line');
       reminder.append(icon('form', 'mission-icon'), readable(el('span', shown(step.reminder))));
       return [notice, reminder];
