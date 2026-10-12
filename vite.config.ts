@@ -3,7 +3,9 @@ import type { Plugin } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import { VERSION_META } from './src/version.js';
 
-// Blocks every outside connection. Nothing the student does can leave the device.
+// The game's code can't connect anywhere (connect-src 'none'), so it sends no data. The one outside
+// site the page may frame is YouTube's no-cookie player, for lesson videos (Matt, 2026-10-12). Links
+// out are not limited by the CSP; they open in a new tab.
 export const CSP = [
   "default-src 'none'",
   "script-src 'unsafe-inline'",
@@ -13,6 +15,7 @@ export const CSP = [
   'font-src data:',
   'worker-src blob:',
   "connect-src 'none'",
+  'frame-src https://www.youtube-nocookie.com',
   "base-uri 'none'",
   "form-action 'none'",
 ].join('; ');

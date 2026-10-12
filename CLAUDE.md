@@ -58,8 +58,11 @@ Step 0 build side by side rather than absolute fps.
   input method works.
 - **Chromebook performance.** Every graphics preset passes the perf gates. Real 30 fps on student
   Chromebooks.
-- **No network at runtime.** The CSP blocks every outside connection. The game never links to
-  the form or collects data. Canvas holds all links.
+- **No tracking (Matt, 2026-10-12).** The game collects no data: no accounts, analytics or
+  tracking, and the CSP blocks the game's own code from connecting anywhere (`connect-src 'none'`).
+  Links out are fine (sources, "tell me more" pages, the round's form): they open in a new tab.
+  YouTube videos may be embedded from `www.youtube-nocookie.com`, the one outside site the CSP
+  lets the page frame (`frame-src`). Everything else still works with no internet.
 - **Student privacy.** See "Feedback data" below. Keep the school's name out of all docs.
 
 ## Co-development
@@ -126,7 +129,7 @@ After the form closes, it also holds the results and the decisions.
 **Learning happens in the game (Matt, 2026-10-11).** Each round opens with an interactive
 in-game learning intro on the round's topic. Claude researches the topic and drafts the intro,
 and Matt approves or adjusts it. Every fact goes through `src/content/` with a source. The game
-reminds students to fill in the form from Canvas, as text only and never a link. See
+reminds students to fill in the form from Canvas. See
 `docs/codev/IMPLEMENTATION.md`, section 3.
 
 ### Feedback data (framework P14)
