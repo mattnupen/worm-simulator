@@ -219,8 +219,12 @@ test('the quests open in order: Learn, then Play, then Vote; "I voted" finishes 
   await expect(button(page, 'Crawl')).toBeEnabled();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('region', { name: 'Vote' })).toBeVisible();
-  await expect(button(page, 'I voted')).toBeFocused();
-  await page.keyboard.press('Enter');
+  // "Open the form" leads: the round's Google Form, in a new tab.
+  const form = page.getByRole('link', { name: /Open the form/ });
+  await expect(form).toBeFocused();
+  await expect(form).toHaveAttribute('href', /^https:\/\/docs\.google\.com\/forms\//);
+  await expect(form).toHaveAttribute('target', '_blank');
+  await button(page, 'I voted').click();
   // All done: Crawl leads again, and the vote is remembered.
   await expect(button(page, 'Crawl')).toBeFocused();
   await expect(page.getByText('Done. Thanks for voting!')).toBeVisible();

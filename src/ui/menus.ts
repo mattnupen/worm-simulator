@@ -2,7 +2,7 @@ import './quests.css';
 import { el, button, cardHead, menu, type Button } from './dom';
 import { icon } from './icons';
 import type { Shell } from './shell';
-import { VERSION_TITLE } from '../version';
+import { FORM_URL, VERSION_TITLE } from '../version';
 import { openVersions } from './versionsDialog';
 import { TEXT, shown, type Line } from '../content/text';
 import { PLAY_GOAL_SECONDS, type Quest, type QuestId } from '../game/quests';
@@ -93,22 +93,29 @@ function status(q: Quest, minutes: number): string {
   if (q.id === 'play') {
     return q.state === 'done' ? 'Done. Keep playing any time.' : `${minutes} of ${PLAY_GOAL_SECONDS / 60} minutes played`;
   }
-  return q.state === 'done' ? 'Done. Thanks for voting!' : 'Vote in the Google Form from Canvas';
+  return q.state === 'done' ? 'Done. Thanks for voting!' : 'Vote in the Google Form';
 }
 
 /**
- * Vote: the third quest. The game never links to the form or sees it (no network at runtime,
- * CLAUDE.md), so the student opens it from Canvas and then says so here.
+ * Vote: the third quest. "Open the form" links to this round's Google Form in a new tab (Matt,
+ * 2026-10-13). The game never sees the answers, so the student comes back and taps "I voted".
  */
 export function showVote(shell: Shell, onVoted: () => void, onStart: () => void): void {
-  const voted = button('I voted', 'check', 'primary', onVoted);
+  const form = el('a', '', 'btn btn-primary');
+  form.href = FORM_URL;
+  form.target = '_blank';
+  form.rel = 'noopener noreferrer';
+  form.append(icon('external', 'btn-icon'), el('span', 'Open the form', 'btn-label'), el('span', ' (opens in a new tab)', 'sr-only'));
+  const voted = button('I voted', 'check', 'secondary', onVoted);
+  const actions = menu(voted, button('Back to start', 'home', 'secondary', onStart));
+  actions.prepend(form);
   shell.show('vote', 'Vote', [
     el('h1', 'Quest 3 · Vote', 'screen-title'),
-    el('p', 'Open the Google Form from Canvas. Vote, and share your design ideas for the game.', 'lead'),
+    el('p', 'Open the Google Form. Vote, and share your design ideas for the game.', 'lead'),
     el('p', 'When you have sent the form, come back and tap "I voted".', 'vote-note'),
-    menu(voted, button('Back to start', 'home', 'secondary', onStart)),
+    actions,
   ]);
-  voted.el.focus();
+  form.focus();
 }
 
 /** A touch screen with no hover (the Action prompt's own test, hud.css): the touch controls line. */

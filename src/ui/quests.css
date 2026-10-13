@@ -38,3 +38,4 @@
   /* The quests matter more than the one-line welcome on a short screen. */
   .panel[data-state="start"] .lead { display: none; }
 }
+a.btn { text-decoration: none; }
