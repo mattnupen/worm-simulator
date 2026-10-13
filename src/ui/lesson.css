@@ -49,6 +49,13 @@
   border: 2px solid rgba(90, 56, 24, 0.55); background: rgba(255, 251, 241, 0.85);
 }
 .reveal[hidden] { display: none; }
+/* Guess first: nothing is revealed on the step; the mission shows the guess and the answer. */
+.guess-hint, .guess-later { font-size: 19px; font-style: italic; }
+.guess-later[hidden] { display: none; }
+.guess-recap { margin-bottom: 12px; }
+.guess-pick, .guess-answer { font-size: 20px; font-weight: 700; }
+.guess-answer { display: flex; align-items: center; gap: 6px; }
+.guess-form { font-size: 18px; font-style: italic; margin-top: 8px !important; }
 .reveal-head { font-weight: 800; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px !important; }
 /* Sources: listed in a panel (the Sources button, and the end of Tell me more), not on the card. */
 .source-head { font-weight: 800; font-size: 18px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }

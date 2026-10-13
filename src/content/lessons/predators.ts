@@ -17,6 +17,28 @@ export const PREDATORS: Lesson = {
   title: 'Who eats worms?',
   steps: [
     {
+      // The round's form asks this same question again, word for word (docs/codev/versions/v03-predators.md).
+      kind: 'guess',
+      title: 'Guess first!',
+      question: 'Early in the morning, a nightcrawler is partly out of its burrow. A robin hops close. What does the nightcrawler do?',
+      options: ['It pulls back down its burrow fast', 'It crawls out and wiggles away', 'It stays still on top of the ground'],
+      answer: 0,
+      reveal: [
+        {
+          kind: 'fact',
+          text: 'When a nightcrawler is disturbed, it pulls back down into its burrow very fast.',
+          source: 'csu-nightcrawlers',
+          verified: true,
+        },
+        {
+          kind: 'fact',
+          text: 'In a Florida forest, a different kind of worm does the opposite: it crawls up out of the ground when a mole digs nearby.',
+          source: 'catania-2008',
+          verified: true,
+        },
+      ],
+    },
+    {
       kind: 'story',
       title: 'A new snack in the forest',
       lines: [
