@@ -182,10 +182,10 @@ Help text: No names or faces in your drawing. You can also give a paper drawing 
 **Section 3: The game**
 Description: Now tell us about playing the game.
 
-**Q9. How easy were the controls?** (Multiple choice)
-- Easy
-- OK
-- Hard
+**Q9. What happened when you used the controls?** (Multiple choice)
+- I went where I wanted right away
+- I figured them out after a few tries
+- I got stuck or went the wrong way a lot
 - I didn't play
 
 **Q10. What was hard to do?** (Checkboxes: pick all that fit)
@@ -196,22 +196,28 @@ Description: Now tell us about playing the game.
 - Nothing was hard
 - Other: ____
 
-**Q11. How did the game run on your Chromebook?** (Multiple choice)
-- Smooth
-- A little slow
-- Very slow or choppy
+**Q11. How did the game move on your Chromebook?** (Multiple choice)
+- Smooth, like a video
+- Jumpy once in a while
+- Jumpy most of the time, so it was hard to play
+- It didn't load
 - I didn't play
 
-**Q12. How did the game look?** (Multiple choice)
-- Easy to see
-- Some things were hard to see
-- It was too dark or too bright
+**Q12. What was hard to see?** (Checkboxes: pick all that fit)
+- My worm
+- Where I could go or dig
+- The words on the screen
+- Everything was too dark
+- Everything was too bright
+- Nothing, I could see everything
 - Other: ____
 
-**Q13. What should we make better first?** (Multiple choice)
-- The controls
-- How it looks
-- How fast it runs
+**Q13. What should we fix or add first?** (Multiple choice)
+- How the worm moves
+- Digging
+- How the camera follows the worm
+- How the forest looks
+- Making it less jumpy
 - More things to do
 - Other: ____
 

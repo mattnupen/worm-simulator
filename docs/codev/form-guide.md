@@ -63,6 +63,10 @@ Each job is a lens on the student's own idea:
   box. Build the choices from the lesson's facts, so a pick also shows what the student learned.
   Then ask one paragraph, "Tell us your idea", with a sentence starter. The drawing covers how it
   looks.
+- **Choices describe what happened, not a rating** (Matt, 2026-10-13). "Easy / OK / Hard" means
+  something different to each student. Write choices a student can check against what they did or
+  saw: "I went where I wanted right away", "I got stuck or went the wrong way a lot", "Jumpy most
+  of the time".
 - **Votes over many options are "pick 2" checkboxes,** not a ranking grid. Use response
   validation, "Select exactly" 2.
 - **Every design question asks for evidence** (P3): a "How do you know?" line, or a sentence
