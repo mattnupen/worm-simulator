@@ -23,8 +23,8 @@ import { type Line } from '../text';
  *   (a pretest: guessing first helps students learn it). Nothing is revealed on the step; the
  *   mission step shows the student's guess beside what scientists found, so they can report their
  *   guess on the round's form. The form asks the same question again (docs/codev/in-game-lessons.md).
- * - `mission`: what to notice while playing, and the reminder to vote on the form in Canvas. The
- *   game never links to the form (no network at runtime, CLAUDE.md).
+ * - `mission`: what to notice while playing, and the reminder to vote on the round's form, which
+ *   the Vote quest links to (FORM_URL, src/version.ts).
  */
 export type LessonStep =
   | {

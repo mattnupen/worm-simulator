@@ -276,3 +276,6 @@ build next.
   same question again (research: "Pre and post topic questions" in the project's research folder).
   `/v3/` was re-cut with `npm run release -- 3 --emergency-fix`. Students who opened V3 before
   this didn't see the guess; the form's "I didn't guess, or I don't remember" answer covers them.
+- **Emergency fix 2 (2026-10-13).** Matt asked for the form link in the game. The Vote quest now
+  has an "Open the form" button that opens this round's Google Form in a new tab, so students no
+  longer have to find it in Canvas. `/v3/` was re-cut again with `npm run release -- 3 --emergency-fix`.

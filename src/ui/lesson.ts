@@ -371,7 +371,7 @@ function recap(g: NonNullable<BodyCtx['guess']>): HTMLElement {
   const found = el('p', '', 'guess-answer');
   found.append(icon('check', 'tag-icon'), readable(el('span', `Scientists found: ${g.step.options[g.step.answer]}`)));
   box.append(found, ...g.step.reveal.map((l) => line(l)));
-  box.append(readable(el('p', 'The form in Canvas will ask what you guessed first.', 'guess-form')));
+  box.append(readable(el('p', 'The form will ask what you guessed first.', 'guess-form')));
   return box;
 }
 

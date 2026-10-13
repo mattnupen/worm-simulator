@@ -6,6 +6,13 @@
  */
 export const VERSION = { number: 3, name: 'Predators' } as const;
 
+/**
+ * This round's Google Form (Matt, 2026-10-13): the Vote quest links to it, in a new tab. Set it
+ * for each round once Matt shares the form; the game only opens it and never sees the answers.
+ */
+export const FORM_URL =
+  'https://docs.google.com/forms/d/e/1FAIpQLSfgTEm9FWml-DPfnpGdSpS1is1pRVaB4mIzLUSRyx8T-yU-0Q/viewform?usp=header';
+
 /** "V2 · Underground": the Start-screen label, slides, form, Canvas post and changelog all use it. */
 export const VERSION_LABEL = `V${VERSION.number} · ${VERSION.name}`;
 
