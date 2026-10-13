@@ -31,6 +31,7 @@ steps, each one of five kinds:
 
 | Step | What students see |
 |---|---|
+| `guess` | Optional, and only first: "Guess first!", one question asked before anything is taught. A pick reveals nothing; the mission step shows "You guessed: …" beside "Scientists found: …" and its facts. The round's form asks the student which guess they picked, then asks the same question again, so Matt can compare before and after (research: `/mnt/project-files/research/reports/`, "Pre and post topic questions"). Write it from the topic's best-sourced fact, with its most tempting myth as one option. The guess is never stored or sent |
 | `story` | One big idea in two or three short lines |
 | `predict` | A question with 2–4 answers (radio buttons), then "What scientists found". With `answer`, that option is marked "Correct" after a guess |
 | `sense` | A film-like moment over the forest (`shadow`, `thump` or `robin`): the card fades out, black bars close in, the cue plays with its sound, and the `scene` and cue words show as captions with Skip. When the cue ends, Skip becomes Next and waits for the student; then the card comes back with the question and the reveal |
@@ -56,7 +57,7 @@ cue sounds on or off (Matt, 2026-10-12), and the cue's words are always on scree
 Rules the build checks (`tests/unit/lessons.test.ts`):
 - every claim is a `fact` line naming a source in `src/content/sources.ts`, marked `verified`;
 - questions, answers and card names make no claim (a claim goes in a fact line);
-- 3 to 8 steps, ending on the one mission step;
+- 3 to 8 teaching steps, ending on the one mission step, plus at most one `guess` step, which comes first;
 - each lesson has at least one sourced fact.
 
 Rules a person checks:

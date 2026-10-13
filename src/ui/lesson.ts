@@ -41,6 +41,10 @@ export interface LessonActions {
  * Next is always there, so students know where to go; on a step that asks something it is grayed
  * out until they answer, with a line that says what to do first (never colour alone).
  *
+ * A lesson may open with "Guess first!" (a `guess` step): the pick shows nothing yet, and the
+ * mission step shows it beside what scientists found, so students can report their first guess on
+ * the round's form. The guess lives only on this card, like every other pick.
+ *
  * Questions are real radio buttons (like the Graphics menu); the pick keeps its thick outline and
  * filled dot. Once a guess is in, the option scientists found is marked "Correct", with a tick.
  * Photos open bigger when tapped; "Tell me more" opens a panel with more to read. Sources stay off
@@ -61,6 +65,13 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
   /** The step whose scene is playing, so its end can focus that step's question. */
   let watchedAt = -1;
 
+  /** The opening guess and the student's pick, for the mission step's recap. */
+  const guessed = (): BodyCtx['guess'] => {
+    const i = lesson.steps.findIndex((s) => s.kind === 'guess');
+    const step = lesson.steps[i];
+    return step?.kind === 'guess' ? { step, pick: picks.get(i) } : undefined;
+  };
+
   const go = (i: number): void => {
     at = i;
     draw();
@@ -77,7 +88,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
     readable(heading);
     const next = button(last ? 'Start crawling' : 'Next', 'play', 'primary', () => (last ? leave(a.onCrawl) : go(at + 1)));
     const here = at;
-    const moreBtn = step.kind !== 'mission' && step.more ? moreButton(shell.root, step.more) : null;
+    const moreBtn = step.more ? moreButton(shell.root, step.more) : null;
     const hint = el('p', waitHint(step), 'next-hint');
     const onAnswer = (): void => {
       // First answer on this step: Next wakes up, and Tell me more appears. Focus stays put, so
@@ -90,7 +101,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
     };
     const ctx: BodyCtx = {
       root: shell.root, at, onAnswer, replay: () => startScene(true),
-      picks, opened: opened.get(at) ?? new Set(), answered: answered.has(at),
+      picks, opened: opened.get(at) ?? new Set(), answered: answered.has(at), guess: guessed(),
     };
     opened.set(at, ctx.opened);
     const body = stepBody(step, ctx);
@@ -110,7 +121,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
       read.el.classList.add('btn-small');
       tools.append(read.el);
     }
-    if (step.kind !== 'mission') {
+    if (step.kind !== 'mission' || ctx.guess) {
       const src = button('Sources', 'external', 'secondary', () => sourcesDialog(shell.root, panel(), src.el));
       src.el.classList.add('btn-small');
       tools.append(src.el);
@@ -202,7 +213,7 @@ export function closeLesson(root: HTMLElement): void {
 }
 
 function interactive(step: LessonStep): boolean {
-  return step.kind === 'predict' || step.kind === 'sense' || step.kind === 'meet';
+  return step.kind === 'guess' || step.kind === 'predict' || step.kind === 'sense' || step.kind === 'meet';
 }
 
 /** Beside a grayed-out Next: what to do first, in words. */
@@ -231,10 +242,14 @@ interface BodyCtx {
   readonly picks: Map<number, number>;
   readonly opened: Set<number>;
   readonly answered: boolean;
+  /** The lesson's opening guess, if it has one, and the student's pick (shown on the mission). */
+  readonly guess?: { readonly step: Extract<LessonStep, { kind: 'guess' }>; readonly pick: number | undefined };
 }
 
 function stepBody(step: LessonStep, c: BodyCtx): HTMLElement[] {
   switch (step.kind) {
+    case 'guess':
+      return guessBody(step, c);
     case 'story':
       return [...step.lines.map((l) => line(l, 'lead')), ...(step.photo ? [photo(c.root, step.photo)] : [])];
     case 'predict':
@@ -259,7 +274,7 @@ function stepBody(step: LessonStep, c: BodyCtx): HTMLElement[] {
       notice.append(icon('flag', 'mission-icon'), readable(el('span', shown(step.notice))));
       const reminder = el('p', '', 'mission-line');
       reminder.append(icon('form', 'mission-icon'), readable(el('span', shown(step.reminder))));
-      return [notice, reminder];
+      return [...(c.guess ? [recap(c.guess)] : []), notice, reminder];
     }
   }
 }
@@ -313,6 +328,51 @@ function choose(step: Extract<LessonStep, { kind: 'predict' | 'sense' }>, c: Bod
     found.hidden = true;
   }
   return [set, found];
+}
+
+/**
+ * "Guess first!": the same radio buttons as any question, but a pick reveals nothing yet. The
+ * answer waits for the mission step, after the lesson has taught it.
+ */
+function guessBody(step: Extract<LessonStep, { kind: 'guess' }>, c: BodyCtx): HTMLElement[] {
+  const set = el('fieldset', '', 'choices lesson-choices');
+  const legend = el('legend', step.question, 'lead lesson-question');
+  readable(legend);
+  set.append(legend);
+  const later = readable(el('p', 'Got it! You will find out at the end of Learn.', 'guess-later'));
+  later.setAttribute('aria-live', 'polite');
+  step.options.forEach((o, i) => {
+    const lab = el('label', '', 'choice');
+    const input = el('input');
+    input.type = 'radio';
+    input.name = `lesson-q-${c.at}`;
+    input.value = String(i);
+    input.checked = c.picks.get(c.at) === i;
+    input.addEventListener('change', () => {
+      c.picks.set(c.at, i);
+      later.hidden = false;
+      c.onAnswer();
+    });
+    const words = el('span', '', 'choice-words');
+    words.append(readable(el('span', o, 'choice-name')));
+    lab.append(input, words);
+    set.append(lab);
+  });
+  later.hidden = !c.picks.has(c.at);
+  const hint = readable(el('p', 'Just guess. Nobody sees your answer.', 'guess-hint'));
+  return [hint, set, later];
+}
+
+/** On the mission: the student's first guess, then what scientists found, with its facts. */
+function recap(g: NonNullable<BodyCtx['guess']>): HTMLElement {
+  const box = el('div', '', 'reveal guess-recap');
+  box.append(readable(el('p', 'Your first guess', 'reveal-head')));
+  box.append(readable(el('p', `You guessed: ${g.pick === undefined ? 'no guess' : g.step.options[g.pick]}`, 'guess-pick')));
+  const found = el('p', '', 'guess-answer');
+  found.append(icon('check', 'tag-icon'), readable(el('span', `Scientists found: ${g.step.options[g.step.answer]}`)));
+  box.append(found, ...g.step.reveal.map((l) => line(l)));
+  box.append(readable(el('p', 'The form in Canvas will ask what you guessed first.', 'guess-form')));
+  return box;
 }
 
 /**

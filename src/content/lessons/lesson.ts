@@ -19,10 +19,25 @@ import { type Line } from '../text';
  *   no trick question (Matt, 2026-10-12: the sort felt like a quiz with an obvious answer).
  * Any step but the mission can have `more`: a "Tell me more" panel with extra sourced facts for
  * students who want to read on. Nothing in it is needed for the round.
+ * - `guess`: optional, and only as the first step. One question asked before anything is taught
+ *   (a pretest: guessing first helps students learn it). Nothing is revealed on the step; the
+ *   mission step shows the student's guess beside what scientists found, so they can report their
+ *   guess on the round's form. The form asks the same question again (docs/codev/in-game-lessons.md).
  * - `mission`: what to notice while playing, and the reminder to vote on the form in Canvas. The
  *   game never links to the form (no network at runtime, CLAUDE.md).
  */
 export type LessonStep =
+  | {
+    readonly kind: 'guess';
+    readonly title: string;
+    readonly question: string;
+    readonly options: readonly string[];
+    /** The option scientists found (an index into `options`). */
+    readonly answer: number;
+    /** Shown on the mission step, beside the student's guess. */
+    readonly reveal: readonly Line[];
+    readonly more?: never;
+  }
   | {
     readonly kind: 'story';
     readonly title: string;
@@ -76,6 +91,7 @@ export type LessonStep =
     readonly title: string;
     readonly notice: Line;
     readonly reminder: Line;
+    readonly more?: never;
   };
 
 /**
@@ -155,6 +171,11 @@ export function lessonLines(lesson: Lesson): Record<string, Line> {
       case 'story':
         s.lines.forEach((l, j) => at(`line.${j}`, l));
         if (s.photo) at('photo', ui(s.photo.name));
+        break;
+      case 'guess':
+        at('question', ui(s.question));
+        s.options.forEach((o, j) => at(`option.${j}`, ui(o)));
+        s.reveal.forEach((l, j) => at(`reveal.${j}`, l));
         break;
       case 'sense':
         at('cueText', ui(s.cueText));

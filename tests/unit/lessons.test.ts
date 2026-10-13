@@ -16,8 +16,10 @@ describe('in-game lessons: science honesty and shape', () => {
 
   it('each lesson is short, ends on its mission, and teaches with at least one sourced fact', () => {
     for (const l of ALL_LESSONS) {
-      expect(l.steps.length, l.id).toBeGreaterThanOrEqual(3);
-      expect(l.steps.length, l.id).toBeLessThanOrEqual(8);
+      // The opening "Guess first!" doesn't count toward the 3 to 8 teaching steps.
+      const teaching = l.steps.filter((s) => s.kind !== 'guess');
+      expect(teaching.length, l.id).toBeGreaterThanOrEqual(3);
+      expect(teaching.length, l.id).toBeLessThanOrEqual(8);
       expect(l.steps[l.steps.length - 1].kind, l.id).toBe('mission');
       expect(l.steps.filter((s) => s.kind === 'mission'), l.id).toHaveLength(1);
       const facts = Object.values(lessonLines(l)).filter((x) => x.kind === 'fact');
@@ -28,7 +30,7 @@ describe('in-game lessons: science honesty and shape', () => {
   it('questions have 2 to 4 options, a reveal, and an answer that is one of them; meets have 2 to 6 cards', () => {
     for (const l of ALL_LESSONS) {
       for (const s of l.steps) {
-        if (s.kind === 'predict' || s.kind === 'sense') {
+        if (s.kind === 'guess' || s.kind === 'predict' || s.kind === 'sense') {
           expect(s.options.length).toBeGreaterThanOrEqual(2);
           expect(s.options.length).toBeLessThanOrEqual(4);
           expect(s.reveal.length).toBeGreaterThan(0);
@@ -41,6 +43,19 @@ describe('in-game lessons: science honesty and shape', () => {
           expect(s.cards.length).toBeLessThanOrEqual(6);
         }
       }
+    }
+  });
+
+  it('a "Guess first!" step comes first, at most once, with a sourced reveal for the mission', () => {
+    for (const l of ALL_LESSONS) {
+      const at = l.steps.flatMap((s, i) => (s.kind === 'guess' ? [i] : []));
+      expect(at.length, l.id).toBeLessThanOrEqual(1);
+      if (!at.length) continue;
+      expect(at[0], l.id).toBe(0);
+      const g = l.steps[0];
+      if (g.kind !== 'guess') continue;
+      expect(Number.isInteger(g.answer) && g.answer >= 0 && g.answer < g.options.length).toBe(true);
+      expect(g.reveal.some((x) => x.kind === 'fact'), l.id).toBe(true);
     }
   });
 

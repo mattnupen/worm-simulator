@@ -59,7 +59,24 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
     } else {
       await expect(card(page).getByRole('heading', { name: step.title })).toBeFocused();
     }
-    if (step.kind === 'predict' || step.kind === 'sense') {
+    if (step.kind === 'guess') {
+      // Guess first: Next waits for a pick, and the pick reveals nothing yet.
+      await expect(next).toBeDisabled();
+      await expect(card(page).getByText('Pick an answer to go on.')).toBeVisible();
+      await card(page).getByRole('radio', { name: step.options[(step.answer + 1) % step.options.length] }).check();
+      await expect(next).toBeEnabled();
+      await expect(card(page).getByText('You will find out at the end of Learn.', { exact: false })).toBeVisible();
+      await expect(card(page).getByText('What scientists found')).toHaveCount(0);
+      await expect(card(page).getByText('Correct')).toHaveCount(0);
+    } else if (step.kind === 'mission' && lesson.steps[0].kind === 'guess') {
+      // The mission shows the first guess beside what scientists found, for the form.
+      const g = lesson.steps[0];
+      await expect(card(page).getByText(`You guessed: ${g.options[(g.answer + 1) % g.options.length]}`)).toBeVisible();
+      await expect(card(page).getByText(`Scientists found: ${g.options[g.answer]}`)).toBeVisible();
+      const fact = g.reveal.find((l) => l.kind === 'fact');
+      if (fact && fact.kind === 'fact') await expect(card(page).getByText(shown(fact))).toBeVisible();
+      await expect(button(page, 'Sources')).toBeVisible();
+    } else if (step.kind === 'predict' || step.kind === 'sense') {
       // Next is there but grayed out until a guess, and says so; any guess reveals what
       // scientists found.
       await expect(next).toBeDisabled();
@@ -122,7 +139,7 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
       await expect(view).toHaveCount(0);
       await expect(zoom).toBeFocused();
     }
-    if (step.kind !== 'mission' && step.more) {
+    if (step.more) {
       const tell = button(page, `Tell me more: ${step.more.title}`);
       await tell.click();
       const more = page.getByRole('dialog', { name: step.more.title });
@@ -156,6 +173,10 @@ test('Back returns to the last step with its answer kept; Esc and Back to start 
   const errors = watchErrors(page);
   await page.goto(PAGE + '?lesson=1');
   await expect(card(page)).toBeVisible();
+  // Answer the opening guess, if there is one, to reach the first teaching question.
+  if (lesson.steps[0].kind === 'guess') {
+    await card(page).getByRole('radio', { name: lesson.steps[0].options[0] }).check();
+  }
   const firstAsk = lesson.steps.findIndex((s) => s.kind === 'predict' || s.kind === 'sense');
   for (let i = 0; i < firstAsk; i++) await button(page, 'Next').click();
   const step = lesson.steps[firstAsk] as Extract<typeof lesson.steps[number], { kind: 'predict' | 'sense' }>;
