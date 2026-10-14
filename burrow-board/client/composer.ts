@@ -1,5 +1,5 @@
 import { LIMITS, answerName, type Board, type Card, type CardInput } from '../shared/model.ts';
-import { $, $$, api, esc } from './api.ts';
+import { $, $$, api, esc, href } from './api.ts';
 
 /**
  * The guided Think card (brief section 6): the step-by-step part that used to be the Google Form.
@@ -67,7 +67,7 @@ export function openComposer(o: ComposerOptions) {
   if (edit?.imageId) {
     const im = new Image();
     im.onload = () => { ctx.drawImage(im, 0, 0, pad.width, pad.height); dirty = true; };
-    im.src = `/api/img/${edit.imageId}`;
+    im.src = href(`api/img/${edit.imageId}`);
   }
   const p = (e: PointerEvent): [number, number] => {
     const r = pad.getBoundingClientRect();

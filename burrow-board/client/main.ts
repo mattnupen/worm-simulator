@@ -1,13 +1,13 @@
 import type { Me } from '../shared/model.ts';
-import { $, api, esc, go, toast } from './api.ts';
+import { $, api, esc, go, here, href, toast } from './api.ts';
 import { showBoard } from './board.ts';
 import { showAreas, showLogin, showSetup, showTeacherHome } from './teacher.ts';
 
 /**
- * Burrow Board's pages:
- * - /            join (class code and period), then the board students should open;
- * - /b/<board>   a round's board;
- * - /teacher     the teacher view (boards, settings); /teacher/b/<board> setup; …/areas the area builder.
+ * Burrow Board's pages, all under wormsimulator.com/burrow/:
+ * - /burrow/          sign in, then the board students should open;
+ * - /burrow/v3        a round's board (the board's link name);
+ * - /burrow/teacher   the teacher view; /burrow/teacher/b/<board> setup; …/areas the area builder.
  */
 const app = document.getElementById('app')!;
 
@@ -15,7 +15,7 @@ async function route() {
   const root = document.createElement('div');
   root.style.display = 'contents';
   app.replaceChildren(root);
-  const path = location.pathname;
+  const path = here();
   let me: Me;
   try {
     me = await api<Me>('GET', '/me');
@@ -32,48 +32,40 @@ async function route() {
       return await showTeacherHome(root);
     } catch (e) { toast((e as Error).message); return; }
   }
-  const b = /^\/b\/([^/]+)\/?$/.exec(path);
+  const b = /^\/([^/]+)\/?$/.exec(path);
   if (b) {
-    if (!me.student && !me.teacher) return showJoin(root, me, decodeURIComponent(b[1]));
+    if (!me.student && !me.teacher) return showSignIn(root);
     return showBoard(root, decodeURIComponent(b[1]), me);
   }
   if (me.teacher && !me.student) return go('/teacher');
-  if (!me.student) return showJoin(root, me, null);
-  if (me.current) return go(`/b/${me.current}`);
+  if (!me.student) return showSignIn(root);
+  if (me.current) return go(`/${me.current}`);
   root.innerHTML = `<div class="page center"><div class="sheet narrow"><h1>Burrow Board</h1>
-    <p>Hi, <b>${esc(me.student.nickname)}</b>! There's no board open right now. Check back when your teacher says it's time.</p></div></div>`;
+    <p>Hi, <b>${esc(me.student.name)}</b>! There's no board open right now. Check back when your teacher says it's time.</p>
+    <div><button class="btn ghost" id="signOut">Sign out</button></div></div></div>`;
+  $('#signOut').onclick = async () => { await api('POST', '/logout'); void route(); };
 }
 
-function showJoin(root: HTMLElement, me: Me, next: string | null) {
-  let period = 0;
-  root.innerHTML = `<div class="page center"><form class="sheet narrow" id="join">
+function showSignIn(root: HTMLElement) {
+  root.innerHTML = `<div class="page center"><form class="sheet narrow" id="signin">
     <h1>Burrow Board</h1>
     <p>Share your ideas for Worm Simulator, and build on other students' ideas.</p>
-    <label class="field" for="code">Class code<input id="code" autocomplete="off" autocapitalize="characters" required placeholder="From your teacher"></label>
-    <div class="field"><span id="pl">Your class period</span><div class="periods" role="group" aria-labelledby="pl">
-      ${me.periods.map((p) => `<button type="button" data-p="${p}" aria-pressed="false">${p}</button>`).join('')}</div></div>
-    <p class="small muted">You'll get a fun nickname. Don't use your real name anywhere on the board.</p>
+    <label class="field" for="user">Username<input id="user" autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="Like bluehawk32"></label>
+    <label class="field" for="pass">Password<input id="pass" type="password" autocomplete="current-password" autocapitalize="none" required></label>
+    <p class="small muted">Your teacher gives you these. Don't share them.</p>
     <p class="err" id="err" role="alert" hidden></p>
-    <button class="btn">Join</button>
-    <a class="small" href="/teacher">Teacher sign-in</a>
+    <button class="btn">Sign in</button>
+    <a class="small" href="${href('teacher')}">Teacher sign-in</a>
   </form></div>`;
-  root.addEventListener('click', (e) => {
-    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-p]');
-    if (!b) return;
-    period = Number(b.dataset.p);
-    for (const x of root.querySelectorAll('[data-p]')) x.setAttribute('aria-pressed', String(x === b));
-  });
-  $('#join').addEventListener('submit', async (e) => {
+  $('#signin').addEventListener('submit', async (e) => {
     e.preventDefault();
     const err = $('#err');
-    if (!period) { err.textContent = 'Pick your class period.'; err.hidden = false; return; }
     try {
-      const r = await api<{ nickname: string }>('POST', '/join', { code: $<HTMLInputElement>('#code').value, period });
-      toast(`Welcome, ${r.nickname}!`);
-      if (next) route(); else go('/');
+      await api('POST', '/login', { username: $<HTMLInputElement>('#user').value, password: $<HTMLInputElement>('#pass').value });
+      void route();
     } catch (x) { err.textContent = (x as Error).message; err.hidden = false; }
   });
-  $<HTMLInputElement>('#code').focus();
+  $<HTMLInputElement>('#user').focus();
 }
 
 addEventListener('popstate', () => void route());

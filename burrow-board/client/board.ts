@@ -2,7 +2,7 @@ import {
   OTHER_AREA, STATUS_LABELS, answerName, areaOfCards, boardAreas, shuffleKey,
   type Area, type BoardState, type Card, type Me, type Note, type Status,
 } from '../shared/model.ts';
-import { $, ago, api, esc, go, toast } from './api.ts';
+import { $, ago, api, esc, go, href, toast } from './api.ts';
 import { openComposer } from './composer.ts';
 
 /**
@@ -27,7 +27,7 @@ export async function showBoard(root: HTMLElement, slug: string, me: Me) {
     return;
   }
   const teacher = me.teacher;
-  const seed = me.student?.nickname ?? 'teacher';
+  const seed = me.student?.username ?? 'teacher';
   let hl = 'all', selected: number | null = null, view = { x: 40, y: 30, k: 1 }, mode: 'board' | 'list' = innerWidth < 640 ? 'list' : 'board';
   let tidy = new Map<number, { x: number; y: number }>();
   let firstFit = true;
@@ -144,7 +144,7 @@ export async function showBoard(root: HTMLElement, slug: string, me: Me) {
   function cardHTML(c: Card) {
     const d = countDesc(c.id), n = notesOf(c.id).length;
     const per = c.period;
-    return `${c.imageId ? `<img class="thumb" src="/api/img/${esc(c.imageId)}" alt="" loading="lazy">` : ''}
+    return `${c.imageId ? `<img class="thumb" src="${href('api/img/')}${esc(c.imageId)}" alt="" loading="lazy">` : ''}
       <h3>${esc(c.title)}</h3>
       <div class="row">
         ${c.kind === 'example' ? '<span class="tag ex">Example</span>' : `<span class="tag p${per ?? ''}"><span class="dot"></span>${who(c)}</span>`}
@@ -177,7 +177,7 @@ export async function showBoard(root: HTMLElement, slug: string, me: Me) {
     document.title = `${b.title} · Burrow Board`;
     $('#who').innerHTML = teacher
       ? '<b>Teacher</b>'
-      : me.student ? `<span class="long">You are</span> <b>${esc(me.student.nickname)}</b> · Period ${me.student.period} <button class="linkbtn small" id="notMe">Not you?</button>` : '';
+      : me.student ? `<span class="long">You are</span> <b>${esc(me.student.name)}</b> · Period ${me.student.period} <button class="linkbtn small" id="signOut">Sign out</button>` : '';
     $<HTMLButtonElement>('#newBtn').hidden = !state.canPost || gated();
     $<HTMLButtonElement>('#factsBtn').hidden = !b.facts.length || gated();
     $('#viewBtn').textContent = mode === 'board' ? 'List view' : 'Board view';
@@ -337,7 +337,7 @@ export async function showBoard(root: HTMLElement, slug: string, me: Me) {
         <h2>${esc(c.title)}</h2>
         <div class="rowline"><span class="tag">${esc(area?.name ?? '')}</span>${isRoot && c.choice === 'other' ? `<span class="small muted">"${esc(answerName(state.board, c))}"</span>` : ''}${c.nickname && c.kind !== 'example' && c.period != null ? `<span class="small muted">by ${esc(c.nickname)}</span>` : ''}</div>
         ${c.status ? `<div><span class="tag st-${c.status}">${STATUS_LABELS[c.status]}${c.statusNote ? `: ${esc(c.statusNote)}` : ''}</span></div>` : ''}
-        ${c.imageId ? `<img class="big" src="/api/img/${esc(c.imageId)}" alt="Picture for ${esc(c.title)}">` : ''}
+        ${c.imageId ? `<img class="big" src="${href('api/img/')}${esc(c.imageId)}" alt="Picture for ${esc(c.title)}">` : ''}
         ${sec('What they changed', c.changed)}
         ${c.twist ? `<div class="small"><b>Twist:</b> ${esc(c.twist)}</div>` : ''}
         ${sec('What the player does', c.does)}
@@ -501,9 +501,8 @@ export async function showBoard(root: HTMLElement, slug: string, me: Me) {
   });
   $('#toolsBtn')?.addEventListener('click', () => go(`/teacher/b/${slug}`));
   root.addEventListener('click', async (e) => {
-    if ((e.target as HTMLElement).id === 'notMe') {
-      if (!confirm('Start fresh as a new student on this device? You won\'t be able to change the ideas you posted from here.')) return;
-      await api('POST', '/leave');
+    if ((e.target as HTMLElement).id === 'signOut') {
+      await api('POST', '/logout');
       go('/');
     }
   });

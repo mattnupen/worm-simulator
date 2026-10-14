@@ -4,22 +4,33 @@ import { dirname } from 'node:path';
 
 /**
  * Everything Burrow Board keeps, in one SQLite file (DATA_DIR/board.db on Render's disk). What it
- * stores is kept small on purpose (framework P14): a random nickname and class period per student,
- * their cards, notes and pictures, and timestamps. No names, emails, IP addresses or analytics.
+ * stores is kept small on purpose (framework P14): per student a username, an optional nickname
+ * the teacher sets, a password hash and a class period; their cards, notes and pictures; and
+ * timestamps. No real names, emails, IP addresses or analytics.
  * "Delete everything" in the teacher view empties every table.
  */
 export function openDb(file: string): DatabaseSync {
   if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
+  // Before teacher-made logins (2026-10-14) students joined with a class code; only test boards
+  // ever used that, so its table is simply replaced.
+  const cols = db.prepare("SELECT name FROM pragma_table_info('students')").all() as { name: string }[];
+  if (cols.some((c) => c.name === 'token_hash')) db.exec('DROP TABLE students');
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS students (
       id TEXT PRIMARY KEY,
-      token_hash TEXT NOT NULL UNIQUE,
-      nickname TEXT NOT NULL,
+      username TEXT NOT NULL UNIQUE,
+      pass_hash TEXT NOT NULL,
+      nickname TEXT NOT NULL DEFAULT '',
       period INTEGER NOT NULL,
+      created INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS student_sessions (
+      token_hash TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
       created INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS teacher_sessions (token_hash TEXT PRIMARY KEY, created INTEGER NOT NULL);
@@ -95,5 +106,5 @@ export function setSetting(db: DatabaseSync, key: string, value: string): void {
 
 /** Empties every table: the teacher's "Delete everything" (P14: delete responses at project end). */
 export function wipe(db: DatabaseSync): void {
-  db.exec('DELETE FROM notes; DELETE FROM cards; DELETE FROM images; DELETE FROM boards; DELETE FROM students; DELETE FROM teacher_sessions; DELETE FROM settings; VACUUM;');
+  db.exec('DELETE FROM notes; DELETE FROM cards; DELETE FROM images; DELETE FROM boards; DELETE FROM student_sessions; DELETE FROM students; DELETE FROM teacher_sessions; DELETE FROM settings; VACUUM;');
 }

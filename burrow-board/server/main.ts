@@ -15,8 +15,13 @@ if (!teacherPassword && !production) {
 }
 
 const db = openDb(join(dataDir, 'board.db'));
-const handle = createApp({ db, teacherPassword, secure: production, staticDir: join(here, '..', 'dist') });
+const handle = createApp({
+  db, teacherPassword, secure: production, staticDir: join(here, '..', 'dist'),
+  basePath: '/burrow',
+  // wormsimulator.com passes /burrow/… through to this service (render.yaml).
+  publicOrigins: (process.env.PUBLIC_ORIGINS ?? 'https://wormsimulator.com,https://www.wormsimulator.com').split(',').map((s) => s.trim()).filter(Boolean),
+});
 const port = Number(process.env.PORT ?? 8787);
 createServer((req, res) => void handle(req, res)).listen(port, () => {
-  console.log(`Burrow Board on http://localhost:${port}`);
+  console.log(`Burrow Board on http://localhost:${port}/burrow/`);
 });

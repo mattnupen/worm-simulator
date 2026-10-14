@@ -67,7 +67,49 @@ site, so they share saved settings (see CLAUDE.md, "One origin, shared saves").
   drops. Only links students click and embedded YouTube videos (youtube-nocookie.com) go online.
   If YouTube is blocked at school, the videos won't play but the game still works.
 
+## Burrow Board at wormsimulator.com/burrow/
+
+Burrow Board (`burrow-board/`) is a separate Render service called `burrow-board`, defined in
+`render.yaml`. It's a small Node server with a 1 GB disk that holds every board in one file. The
+game's static site passes `wormsimulator.com/burrow/…` through to it (the `routes` in
+`render.yaml`), so students only ever see wormsimulator.com. Round boards live at
+`wormsimulator.com/burrow/v4`, `/burrow/v5` and so on.
+
+### One-time setup (Matt)
+
+1. **Add a payment card** if Render doesn't have one: Dashboard → your avatar → **Billing**. The
+   board costs about $7.25 a month ($7 for an always-on Starter service, $0.25 for the disk).
+2. **Create the service.** Once the Burrow Board pull request is merged, open the Dashboard →
+   **Blueprints** → the worm-simulator Blueprint. If it shows changes waiting, click
+   **Manual Sync** and approve. Render creates `burrow-board` and its disk, then builds it (a few
+   minutes).
+3. **Set the teacher password.** Open the `burrow-board` service → **Environment** →
+   `TEACHER_PASSWORD` → type a password only you know → **Save Changes**. Render restarts the
+   service. Never put this password in the repo.
+4. **Check the service's address.** At the top of the `burrow-board` page Render shows an address
+   like `https://burrow-board.onrender.com`. If it's different (for example
+   `burrow-board-a1b2.onrender.com`), tell Claude, which updates the two `routes` lines in
+   `render.yaml`.
+5. **Try it:** open `https://wormsimulator.com/burrow/teacher` and sign in with your teacher
+   password. If `/burrow` doesn't load, the board also works at the service's own address plus
+   `/burrow/`, while Claude looks into it.
+
+### Each round
+
+In the teacher view: make the round's board (Round 4 makes `/burrow/v4`), set it up, and tick
+"This is the board students open". Make student logins once (Student logins → Make logins and
+download CSV), print or share the CSV privately, and hand each student their login.
+
+### Good to know
+
+- Deploys of a service with a disk restart it, so the board is down for about a minute while a
+  new version starts. Merge board changes outside class time.
+- Render takes a daily snapshot of the disk. To get the data out, use **Export for Claude** on
+  each board.
+- At the end of the project, **Delete everything** in the teacher view, then delete the
+  `burrow-board` service in Render to stop the charge.
+
 ## Cost
 
-Render static sites are free. Custom domains are included in the free (Hobby) workspace. The only
-cost is the domain registration itself.
+Render static sites are free. Custom domains are included in the free (Hobby) workspace. The game
+itself only costs the domain registration. Burrow Board adds about $7.25 a month while it runs.

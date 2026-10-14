@@ -1,6 +1,6 @@
 /**
  * Fills a local board with made-up sample ideas, so Burrow Board can be tried before any student
- * uses it: `npm run seed`, then `npm run dev` (or `npm start` after a build). Class code SAMPLE-1.
+ * uses it: `npm run seed`, then `npm run dev` (or `npm start` after a build). Every sample login's password is "sample".
  * Never run it on the real site: it adds a board called "Sample · Predators".
  * The sample ideas and sketches come from the prototype; the facts are copied word for word from
  * the game's Predators lesson (src/content/lessons/predators.ts) with their sources.
@@ -9,11 +9,12 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { openDb, setSetting } from '../server/db.ts';
+import { hashPassword } from '../server/accounts.ts';
 import { DEFAULT_TWISTS } from '../shared/model.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const db = openDb(join(process.env.DATA_DIR ?? join(here, '..', 'data'), 'board.db'));
-const slug = 'sample-predators';
+const slug = 'sample';
 db.prepare('DELETE FROM boards WHERE slug = ?').run(slug);
 
 const S = (inner: string) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"><rect width="300" height="200" fill="#fff"/><g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="4">${inner}</g></svg>`;
@@ -47,12 +48,17 @@ const now = Date.now();
 db.prepare('INSERT INTO boards (slug, title, topic, question, choices, facts, twists, phase, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
   slug, 'Sample · Predators', 'Predators', 'Which predator is your idea about?', JSON.stringify(choices), JSON.stringify(facts), JSON.stringify(DEFAULT_TWISTS), 'open', now,
 );
-setSetting(db, 'class_code', 'SAMPLE-1');
 setSetting(db, 'periods', '[1,3,5]');
 setSetting(db, 'current', slug);
 
-const people = { a: [1, 'Swift Fox 21'], b: [3, 'Calm Heron 47'], c: [5, 'Lucky Loon 63'], d: [1, 'Bold Birch 18'], e: [5, 'Zippy Otter 85'], f: [3, 'Quiet Owl 32'] } as const;
+const people = { a: [1, 'swiftfox21'], b: [3, 'calmheron47'], c: [5, 'luckyloon63'], d: [1, 'boldbirch18'], e: [5, 'zippyotter85'], f: [3, 'quietowl32'] } as const;
 type P = keyof typeof people;
+// Sample logins: the six who wrote the sample ideas, and three that haven't posted (tester1, 3, 5).
+const pass = hashPassword('sample');
+const login = db.prepare('INSERT OR REPLACE INTO students (id, username, pass_hash, nickname, period, created) VALUES (?, ?, ?, ?, ?, ?)');
+for (const [p, [period, user]] of Object.entries(people)) login.run(`sample-${p}`, user, pass, '', period, Date.now());
+for (const period of [1, 3, 5]) login.run(`sample-t${period}`, `tester${period}`, pass, '', period, Date.now());
+db.prepare("UPDATE students SET nickname = 'Robin Fan' WHERE id = 'sample-a'").run();
 const img = (k?: string) => {
   if (!k) return null;
   const id = randomBytes(12).toString('hex');
@@ -83,4 +89,4 @@ add('fish', null, 'e', 'other', 'Trout at the creek', 'If you wash into the cree
 add('fish2', null, 'b', 'other', 'Flood to the river', 'Big rain pushes you toward the river and the fish.', { mins: 15, other: 'fish' });
 db.prepare("INSERT INTO notes (card_id, author, period, nickname, text, created) VALUES (?, 'sample-d', 1, 'Bold Birch 18', 'What if it only works in the daytime?', ?)").run(ids.shadow, now);
 db.prepare("INSERT INTO notes (card_id, author, period, nickname, text, created) VALUES (?, 'teacher', NULL, 'Teacher', 'Great myth to check in the next lesson. Is it true?', ?)").run(ids.split, now);
-console.log('Sample board ready: class code SAMPLE-1, periods 1, 3 and 5.');
+console.log('Sample board ready at /burrow/sample. Logins tester1, tester3 and tester5 (password "sample") haven\'t posted yet.');

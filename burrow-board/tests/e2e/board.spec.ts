@@ -1,17 +1,18 @@
 import { expect, test, type Page } from '@playwright/test';
 
-/** One student's whole first visit: join, think first, post a drawn idea, see the board, dig. */
-async function join(page: Page, period: number) {
-  await page.goto('/');
-  await page.fill('#code', 'sample-1');
-  await page.click(`[data-p="${period}"]`);
-  await page.click('button:text("Join")');
+/** One student's whole first visit: sign in, think first, post a drawn idea, see the board, dig. */
+async function signIn(page: Page, username: string) {
+  await page.goto('/burrow/');
+  await page.fill('#user', username);
+  await page.fill('#pass', 'sample');
+  await page.click('button:text("Sign in")');
 }
 
 test('a student thinks first, posts a drawing, then digs from another idea', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await join(page, 3);
+  await signIn(page, 'tester3');
+  await expect(page).toHaveURL(/\/burrow\/sample$/);
   await expect(page.locator('#gate')).toBeVisible();
   await expect(page.locator('.card')).toHaveCount(0);
 
@@ -39,7 +40,9 @@ test('a student thinks first, posts a drawing, then digs from another idea', asy
   // two "Something else: fish" answers in the sample, plus this one, make a Fish area
   await expect(page.locator('.zone', { hasText: 'Fish' })).toBeVisible();
 
-  await page.locator('.card', { hasText: 'Robin shadow warning' }).click();
+  // keyboard: the card may sit off screen on the whiteboard
+  await page.locator('.card', { hasText: 'Robin shadow warning' }).focus();
+  await page.keyboard.press('Enter');
   await expect(page.locator('#panel')).toBeVisible();
   await expect(page.locator('#panel [data-edit]')).toHaveCount(0); // not mine: no Change button
   await page.click('[data-dig2]');
@@ -56,21 +59,32 @@ test('a student thinks first, posts a drawing, then digs from another idea', asy
   expect(errors).toEqual([]);
 });
 
-test('the teacher signs in, sees every answer and exports the board', async ({ page }) => {
-  await page.goto('/teacher');
+test('the teacher signs in, makes logins, sees every answer and exports the board', async ({ page }) => {
+  await page.goto('/burrow/teacher');
   await page.fill('#pw', 'pw');
   await page.click('button:text("Sign in")');
   await expect(page.getByText('Round boards')).toBeVisible();
-  await page.click('[data-areas="sample-predators"]');
+  await page.fill('#genCount', '3');
+  const dl = page.waitForEvent('download');
+  await page.click('button:text("Make logins and download CSV")');
+  const csv = await (await dl).createReadStream().then(async (st) => { let t = ''; for await (const c of st) t += c; return t; });
+  expect(csv.split('\r\n')).toHaveLength(4);
+  expect(csv).toMatch(/^period,username,password/);
+  // the teacher's nickname for swiftfox21 shows on the board
+  await page.goto('/burrow/sample');
+  await page.locator('.card', { hasText: 'Woodcock probe attack' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#panel')).toContainText('by Robin Fan');
+  await page.goto('/burrow/teacher/b/sample/areas');
   await expect(page.locator('table.areas')).toContainText('Birds');
-  const res = await page.request.get('/api/boards/sample-predators/export');
+  const res = await page.request.get('/burrow/api/boards/sample/export');
   expect(res.status()).toBe(200);
   expect(res.headers()['content-type']).toBe('application/zip');
 });
 
 test('the list view works for keyboard and small screens', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
-  await join(page, 1);
+  await signIn(page, 'tester1');
   await page.click('#gateBtn');
   await page.check('input[name="choice"][value="birds"]');
   await page.click('button:text("Next")');

@@ -1,8 +1,8 @@
 import {
   DEFAULT_TWISTS, OTHER_AREA, PHASES, answerKey, slugify, suggestAreas,
-  type Area, type Board, type BoardState, type Choice, type Fact,
+  loginsCsv, type Area, type Board, type BoardState, type Choice, type Fact, type Student,
 } from '../shared/model.ts';
-import { $, api, esc, go, reroute, toast } from './api.ts';
+import { $, api, esc, go, href, reroute, toast } from './api.ts';
 import { LESSON_FACTS } from './lessonFacts.ts';
 
 /** The teacher view: sign in, the list of round boards, settings, round setup and the area builder. */
@@ -13,7 +13,7 @@ export function showLogin(root: HTMLElement, onDone: () => void) {
     <label class="field" for="pw">Teacher password<input type="password" id="pw" autocomplete="current-password" required></label>
     <p class="err" id="err" role="alert" hidden></p>
     <button class="btn">Sign in</button>
-    <a class="small" href="/">I'm a student</a>
+    <a class="small" href="${href('')}">I'm a student</a>
   </form></div>`;
   $('#f').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -35,62 +35,125 @@ function wireShell(root: HTMLElement) {
 }
 
 // ---------------------------------------------------------------- home
+/** Saves `text` as a file the teacher downloads (the logins CSV). */
+function download(name: string, text: string) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 export async function showTeacherHome(root: HTMLElement) {
-  const [boards, settings] = await Promise.all([
+  const [boards, settings, students] = await Promise.all([
     api<(Board & { cardCount: number })[]>('GET', '/boards'),
-    api<{ classCode: string; periods: number[]; current: string | null }>('GET', '/settings'),
+    api<{ periods: number[]; current: string | null }>('GET', '/settings'),
+    api<Student[]>('GET', '/students'),
   ]);
   const phaseName = (p: string) => PHASES.find((x) => x.id === p)?.name ?? p;
+  const nextRound = Math.max(0, ...boards.map((b) => Number(/^v(\d+)$/.exec(b.slug)?.[1] ?? 0))) + 1;
+  const periodOpts = settings.periods.map((p) => `<option value="${p}">Period ${p}</option>`).join('');
+  const boardLink = (slug: string) => `${location.origin}${href(slug)}`;
   root.innerHTML = shell(`
     <section class="sheet">
-      <div class="rowline"><h1 class="grow">Round boards</h1><button class="btn" id="newBoard">+ New round board</button></div>
+      <h1>Round boards</h1>
       ${boards.length ? `<ul class="list">${boards.map((b) => `<li>
         <div class="grow"><b>${esc(b.title)}</b> ${settings.current === b.slug ? '<span class="pill on">Students open this one</span>' : ''}
-          <div class="small muted">${phaseName(b.phase)} · ${b.cardCount} ${b.cardCount === 1 ? 'card' : 'cards'}</div></div>
+          <div class="small muted">${esc(boardLink(b.slug))} · ${phaseName(b.phase)} · ${b.cardCount} ${b.cardCount === 1 ? 'card' : 'cards'}</div></div>
         <button class="btn ghost small" data-open="${esc(b.slug)}">Open board</button>
         <button class="btn ghost small" data-setup="${esc(b.slug)}">Setup</button>
         <button class="btn ghost small" data-areas="${esc(b.slug)}">Areas</button>
-        <a class="btn ghost small" href="/api/boards/${esc(b.slug)}/export" download>Export for Claude</a>
+        <a class="btn ghost small" href="${href(`api/boards/${esc(b.slug)}/export`)}" download>Export for Claude</a>
       </li>`).join('')}</ul>` : '<p class="muted">No boards yet. Make one for the next round.</p>'}
+      <form class="rowline" id="newBoard">
+        <label class="field" for="nbRound">Round<input id="nbRound" type="number" min="1" max="99" value="${nextRound}" style="width:90px"></label>
+        <label class="field grow" for="nbName">Board name<input id="nbName" maxlength="80" placeholder="Round ${nextRound} · Topic"></label>
+        <button class="btn" style="align-self:flex-end">+ New round board</button>
+      </form>
+      <p class="small muted">A board for Round 4 lives at ${esc(boardLink('v4'))}.</p>
     </section>
+
+    <section class="sheet">
+      <h2>Student logins</h2>
+      <p class="small muted">Make usernames and passwords, download them as a CSV, and hand them out. Write each student's name next to their login in your own copy; the board never stores real names. Passwords are shown only in the CSV, so keep it private. A nickname you set is shown on the board instead of the username. Use a fun nickname, not a full name.</p>
+      <form class="rowline" id="gen">
+        <label class="field" for="genPeriod">Period<select id="genPeriod" class="plain">${periodOpts}</select></label>
+        <label class="field" for="genCount">How many<input id="genCount" type="number" min="1" max="60" value="30" style="width:90px"></label>
+        <button class="btn" style="align-self:flex-end">Make logins and download CSV</button>
+      </form>
+      ${students.length ? `<table class="areas"><thead><tr><th><input type="checkbox" id="allSt" aria-label="Select all logins"></th><th>Period</th><th>Username</th><th>Nickname on the board</th><th>Cards</th><th></th></tr></thead><tbody>
+        ${students.map((st) => `<tr>
+          <td><input type="checkbox" data-sel="${esc(st.id)}" aria-label="Select ${esc(st.username)}"></td>
+          <td>${st.period}</td><td><code>${esc(st.username)}</code></td>
+          <td><span class="rowline"><input class="plain" data-nick="${esc(st.id)}" maxlength="30" value="${esc(st.nickname)}" placeholder="(shows the username)" aria-label="Nickname for ${esc(st.username)}"><button class="btn ghost small" data-savenick="${esc(st.id)}">Save</button></span></td>
+          <td>${st.cards}</td>
+          <td><button class="btn ghost small" data-delst="${esc(st.id)}">Delete</button></td></tr>`).join('')}
+      </tbody></table>
+      <div class="rowline"><button class="btn ghost" id="resetSel">New passwords for selected, and download CSV</button></div>` : '<p class="muted">No logins yet.</p>'}
+    </section>
+
     <form class="sheet" id="settings">
-      <h2>Class settings</h2>
-      <p class="small muted">Students go to <b>${esc(location.origin)}</b>, type the class code, and pick their period. They get a random nickname. No names or emails are stored.</p>
-      <div class="rowline">
-        <label class="field grow" for="code">Class code<input id="code" value="${esc(settings.classCode)}" maxlength="24" autocomplete="off"></label>
-        <label class="field grow" for="periods">Class periods (numbers, with commas)<input id="periods" value="${esc(settings.periods.join(', '))}"></label>
-      </div>
-      <div><button class="btn">Save settings</button></div>
+      <h2>Class periods</h2>
+      <label class="field" for="periods">Your class periods (numbers, with commas)<input id="periods" value="${esc(settings.periods.join(', '))}"></label>
+      <div><button class="btn ghost">Save periods</button></div>
     </form>
     <form class="sheet danger-zone" id="wipe">
       <h2>Delete everything</h2>
-      <p class="small">At the end of the project, delete every board, idea, drawing and nickname (framework P14). This can't be undone. Export any boards you want to keep first.</p>
+      <p class="small">After Round 8, delete every board, idea, drawing and login (framework P14). This can't be undone. Export any boards you want to keep first.</p>
       <label class="field" for="wipeIn">Type DELETE EVERYTHING to confirm<input id="wipeIn" autocomplete="off"></label>
       <div><button class="btn danger">Delete everything</button></div>
     </form>`);
   wireShell(root);
-  $('#newBoard').onclick = async () => {
-    const title = prompt('Name the board (for example "Round 4 · Predators")');
-    if (!title?.trim()) return;
+  $('#newBoard').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const n = Number($<HTMLInputElement>('#nbRound').value);
+    const title = $<HTMLInputElement>('#nbName').value.trim() || `Round ${n}`;
     try {
-      const b = await api<Board>('POST', '/boards', { title, twists: DEFAULT_TWISTS });
+      const b = await api<Board>('POST', '/boards', { title, slug: `v${n}`, twists: DEFAULT_TWISTS });
       go(`/teacher/b/${b.slug}`);
     } catch (x) { toast((x as Error).message); }
-  };
-  root.addEventListener('click', (e) => {
-    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-open],[data-setup],[data-areas]');
+  });
+  $('#gen').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const period = Number($<HTMLSelectElement>('#genPeriod').value);
+    try {
+      const made = await api<{ username: string; password: string; period: number }[]>('POST', '/students/generate', { period, count: Number($<HTMLInputElement>('#genCount').value) });
+      download(`burrow-logins-period-${period}.csv`, loginsCsv(made));
+      toast(`Made ${made.length} logins. The CSV is downloading.`);
+      reroute();
+    } catch (x) { toast((x as Error).message); }
+  });
+  root.addEventListener('click', async (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-open],[data-setup],[data-areas],[data-savenick],[data-delst],#resetSel,#allSt');
     if (!t) return;
-    if (t.dataset.open) go(`/b/${t.dataset.open}`);
+    if (t.dataset.open) go(`/${t.dataset.open}`);
     if (t.dataset.setup) go(`/teacher/b/${t.dataset.setup}`);
     if (t.dataset.areas) go(`/teacher/b/${t.dataset.areas}/areas`);
+    if (t.id === 'allSt') for (const c of root.querySelectorAll<HTMLInputElement>('[data-sel]')) c.checked = (t as HTMLInputElement).checked;
+    try {
+      if (t.dataset.savenick) {
+        await api('PATCH', `/students/${t.dataset.savenick}`, { nickname: $<HTMLInputElement>(`[data-nick="${CSS.escape(t.dataset.savenick)}"]`).value });
+        toast('Saved.');
+      }
+      if (t.dataset.delst) {
+        if (!confirm('Delete this login? Their cards stay on the boards under their username.')) return;
+        await api('DELETE', `/students/${t.dataset.delst}`);
+        reroute();
+      }
+      if (t.id === 'resetSel') {
+        const ids = [...root.querySelectorAll<HTMLInputElement>('[data-sel]:checked')].map((c) => c.dataset.sel!);
+        if (!ids.length) { toast('Tick the logins that need a new password.'); return; }
+        if (!confirm(`Make new passwords for ${ids.length} ${ids.length === 1 ? 'login' : 'logins'}? Their old passwords stop working.`)) return;
+        const out = await api<{ username: string; password: string; period: number }[]>('POST', '/students/reset', { ids });
+        download('burrow-new-passwords.csv', loginsCsv(out));
+        toast('New passwords made. The CSV is downloading.');
+      }
+    } catch (x) { toast((x as Error).message); }
   });
   $('#settings').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
-      await api('PATCH', '/settings', {
-        classCode: $<HTMLInputElement>('#code').value,
-        periods: $<HTMLInputElement>('#periods').value.split(/[\s,]+/).filter(Boolean).map(Number),
-      });
+      await api('PATCH', '/settings', { periods: $<HTMLInputElement>('#periods').value.split(/[\s,]+/).filter(Boolean).map(Number) });
       toast('Saved.');
       reroute();
     } catch (x) { toast((x as Error).message); }
@@ -196,7 +259,7 @@ export async function showSetup(root: HTMLElement, slug: string) {
     if (t.dataset.rc) { readChoices(); choices.splice(Number(t.dataset.rc), 1); drawChoices(); }
     if (t.id === 'addFact') { readFacts(); facts.push({ id: `own-${Date.now().toString(36)}`, text: '', sourceTitle: '' }); drawFacts(); }
     if (t.dataset.rf) { readFacts(); facts = facts.filter((f) => f.id !== t.dataset.rf); drawFacts(); }
-    if (t.id === 'openB') go(`/b/${slug}`);
+    if (t.id === 'openB') go(`/${slug}`);
     if (t.id === 'areasB') go(`/teacher/b/${slug}/areas`);
     if (t.id === 'importB') {
       const from = $<HTMLSelectElement>('#from').value;
@@ -284,7 +347,7 @@ export async function showAreas(root: HTMLElement, slug: string) {
   draw();
   root.addEventListener('click', async (e) => {
     const t = e.target as HTMLElement;
-    if (t.id === 'openB') go(`/b/${slug}`);
+    if (t.id === 'openB') go(`/${slug}`);
     if (t.id === 'addA') { readNames(); const name = prompt('Name the new area'); if (name?.trim()) { areas.push({ id: `a-${slugify(name)}-${Date.now().toString(36)}`, name: name.trim(), keys: [] }); draw(); } }
     if (t.dataset.ar) { readNames(); areas.splice(Number(t.dataset.ar), 1); draw(); }
     if (t.id === 'suggest') { areas = suggestAreas(state.board.choices, roots); draw(); }

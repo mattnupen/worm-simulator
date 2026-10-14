@@ -84,6 +84,7 @@ export interface Card {
   parentId: number | null;
   kind: CardKind;
   period: number | null;
+  /** Who made it: the student's nickname if the teacher set one, else their username. */
   nickname: string;
   mine: boolean;
   /** A choice id, or "other" with `choiceOther` holding the student's own words. */
@@ -119,7 +120,8 @@ export interface Note {
 }
 
 export interface Me {
-  student: { nickname: string; period: number } | null;
+  /** `name` is the teacher-set nickname if there is one, else the username. */
+  student: { name: string; username: string; period: number } | null;
   teacher: boolean;
   periods: number[];
   current: string | null;
@@ -258,14 +260,6 @@ export function answerName(board: Board, card: Pick<Card, 'kind' | 'choice' | 'c
   return board.choices.find((c) => c.id === card.choice)?.name ?? '';
 }
 
-/** A random nickname such as "Swift Robin 42", so no real name is ever stored. */
-const ADJ = ['Swift', 'Brave', 'Quiet', 'Clever', 'Sunny', 'Misty', 'Lucky', 'Bold', 'Gentle', 'Mighty', 'Zippy', 'Calm', 'Curious', 'Happy', 'Sneaky', 'Speedy', 'Wise', 'Jolly', 'Bright', 'Cozy'];
-const NOUN = ['Robin', 'Fox', 'Otter', 'Moose', 'Loon', 'Owl', 'Fern', 'Pine', 'Maple', 'Beetle', 'Badger', 'Heron', 'Wolf', 'Lynx', 'Chickadee', 'Turtle', 'Birch', 'Acorn', 'Chipmunk', 'Toad'];
-export function makeNickname(rand: () => number = Math.random): string {
-  const pick = <T>(a: readonly T[]) => a[Math.floor(rand() * a.length)];
-  return `${pick(ADJ)} ${pick(NOUN)} ${10 + Math.floor(rand() * 90)}`;
-}
-
 /** A small, stable shuffle key, so each student sees ideas in their own mixed-up order (brief 6). */
 export function shuffleKey(seed: string, id: number): number {
   let h = 2166136261;
@@ -276,4 +270,19 @@ export function shuffleKey(seed: string, id: number): number {
 
 export function slugify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'board';
+}
+
+/** The CSV of new logins the teacher downloads. Only this file links a username to a student. */
+export function loginsCsv(rows: readonly { username: string; password: string; period: number }[]): string {
+  return ['period,username,password,student (fill in yourself; keep this file private)', ...rows.map((r) => `${r.period},${r.username},${r.password},`)].join('\r\n');
+}
+
+/** A student login, as the teacher view lists it. */
+export interface Student {
+  id: string;
+  username: string;
+  nickname: string;
+  period: number;
+  cards: number;
+  created: number;
 }

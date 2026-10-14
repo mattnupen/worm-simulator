@@ -4,10 +4,11 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import {
-  DEFAULT_TWISTS, LIMITS, PHASES, STATUS_LABELS, makeNickname, slugify,
-  type Board, type BoardState, type Card, type CardInput, type CardKind, type Me, type Note,
+  DEFAULT_TWISTS, LIMITS, PHASES, STATUS_LABELS, slugify,
+  type Board, type BoardState, type Card, type CardInput, type CardKind, type Me, type Note, type Student,
 } from '../shared/model.ts';
 import { getSetting, setSetting, wipe } from './db.ts';
+import { checkPassword, hashPassword, makePassword, makeUsername } from './accounts.ts';
 import { exportBoard } from './export.ts';
 import { boardFromRow, cardFromRow, noteFromRow, type Row } from './rows.ts';
 
@@ -17,6 +18,13 @@ export interface AppOptions {
   teacherPassword: string;
   /** True on Render (HTTPS): cookies are marked Secure. */
   secure: boolean;
+  /**
+   * Other sites allowed to send changes, such as "https://wormsimulator.com", which passes
+   * wormsimulator.com/burrow/… through to this service (render.yaml). From PUBLIC_ORIGINS.
+   */
+  publicOrigins?: string[];
+  /** Where the board lives on wormsimulator.com: "/burrow". Requests may come with or without it. */
+  basePath?: string;
   /** The built page (dist/). Absent in tests. */
   staticDir?: string;
   now?: () => number;
@@ -31,6 +39,8 @@ class HttpError extends Error {
 }
 
 const STUDENT_COOKIE = 'bb_s';
+/** Paths a board's link name can't take, because the page or server uses them. */
+const RESERVED = new Set(['teacher', 'api', 'assets', 'index-html']);
 const TEACHER_COOKIE = 'bb_t';
 const TEACHER = 'teacher';
 
@@ -58,6 +68,10 @@ const TYPES: Record<string, string> = {
   '.json': 'application/json',
   '.webmanifest': 'application/manifest+json',
 };
+
+/** The name shown for an author: their teacher-set nickname, else their username, else the saved name. */
+const DISPLAY = (t: string) => `COALESCE(NULLIF(s.nickname, ''), s.username, ${t}.nickname)`;
+const CARD_SELECT = `SELECT c.*, ${DISPLAY('c')} AS display FROM cards c LEFT JOIN students s ON s.id = c.author`;
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const token = () => randomBytes(24).toString('base64url');
@@ -90,10 +104,8 @@ const str = (v: unknown, max: number, field: string): string => {
 export function createApp(opts: AppOptions) {
   const { db } = opts;
   const now = opts.now ?? Date.now;
-  const joinTries = new Map<string, { n: number; t: number }>();
+  const studentTries = new Map<string, { n: number; t: number }>();
   const loginTries = new Map<string, { n: number; t: number }>();
-
-  if (!getSetting(db, 'class_code', '')) setSetting(db, 'class_code', `WORM-${1000 + Math.floor(Math.random() * 9000)}`);
 
   const periods = (): number[] => JSON.parse(getSetting(db, 'periods', '[1,2,3,4,5,6]')) as number[];
 
@@ -111,17 +123,18 @@ export function createApp(opts: AppOptions) {
       const row = db.prepare('SELECT created FROM teacher_sessions WHERE token_hash = ?').get(sha(c[TEACHER_COOKIE])) as Row | undefined;
       teacher = !!row && now() - Number(row.created) < 12 * 3600_000;
     }
-    let student: { id: string; nickname: string; period: number } | null = null;
+    let student: { id: string; name: string; username: string; period: number } | null = null;
     if (c[STUDENT_COOKIE]) {
-      const row = db.prepare('SELECT id, nickname, period FROM students WHERE token_hash = ?').get(sha(c[STUDENT_COOKIE])) as Row | undefined;
-      if (row) student = { id: String(row.id), nickname: String(row.nickname), period: Number(row.period) };
+      const row = db.prepare('SELECT s.id, s.username, s.nickname, s.period FROM student_sessions x JOIN students s ON s.id = x.student_id WHERE x.token_hash = ?')
+        .get(sha(c[STUDENT_COOKIE])) as Row | undefined;
+      if (row) student = { id: String(row.id), name: String(row.nickname) || String(row.username), username: String(row.username), period: Number(row.period) };
     }
     return { teacher, student, viewer: teacher ? TEACHER : student?.id ?? null };
   }
   type Who = ReturnType<typeof who>;
 
   const needTeacher = (w: Who) => { if (!w.teacher) throw new HttpError(403, 'Only the teacher can do that.'); };
-  const needSomeone = (w: Who) => { if (!w.teacher && !w.student) throw new HttpError(401, 'Join with your class code first.'); };
+  const needSomeone = (w: Who) => { if (!w.teacher && !w.student) throw new HttpError(401, 'Sign in with your username and password first.'); };
 
   function getBoard(slug: string): Board {
     const r = db.prepare('SELECT * FROM boards WHERE slug = ?').get(slug) as Row | undefined;
@@ -133,7 +146,7 @@ export function createApp(opts: AppOptions) {
   /** The board as this viewer may see it (think first, hidden cards, phases). */
   function boardState(board: Board, w: Who): BoardState {
     if (!w.teacher && board.phase === 'setup') throw new HttpError(404, 'This board is not open yet.');
-    const rows = db.prepare('SELECT * FROM cards WHERE board = ? ORDER BY id').all(board.slug) as Row[];
+    const rows = db.prepare(`${CARD_SELECT} WHERE c.board = ? ORDER BY c.id`).all(board.slug) as Row[];
     let cards = rows.map((r) => cardFromRow(r, w.viewer));
     const posted = cards.some((c) => c.mine && c.kind === 'idea' && c.parentId == null);
     let gated = false;
@@ -144,7 +157,7 @@ export function createApp(opts: AppOptions) {
     }
     const ids = new Set(cards.map((c) => c.id));
     const notes = cards.length
-      ? (db.prepare('SELECT n.* FROM notes n JOIN cards c ON c.id = n.card_id WHERE c.board = ? ORDER BY n.id').all(board.slug) as Row[])
+      ? (db.prepare(`SELECT n.*, ${DISPLAY('n')} AS display FROM notes n JOIN cards c ON c.id = n.card_id LEFT JOIN students s ON s.id = n.author WHERE c.board = ? ORDER BY n.id`).all(board.slug) as Row[])
         .map((r) => noteFromRow(r, w.viewer))
         .filter((n) => ids.has(n.cardId) && (w.teacher || !n.hidden || n.mine))
       : [];
@@ -208,17 +221,17 @@ export function createApp(opts: AppOptions) {
     const t = now();
     const r = db.prepare(`INSERT INTO cards (board, parent_id, kind, author, period, nickname, choice, choice_other, fact_ref, title, does, notice, changed, twist, image_id, created, updated)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      slug, parent?.id ?? null, kind, w.viewer!, w.teacher ? null : w.student!.period, w.teacher ? 'Teacher' : w.student!.nickname,
+      slug, parent?.id ?? null, kind, w.viewer!, w.teacher ? null : w.student!.period, w.teacher ? 'Teacher' : w.student!.username,
       // A dig keeps its idea's answer, so it stays in the same area even if the idea is later hidden.
       parent ? parent.choice : f.choice, parent ? parent.choiceOther : f.choice_other ?? '',
       f.fact_ref ?? '', f.title, f.does ?? '', f.notice ?? '', f.changed ?? '', f.twist ?? '', imageId, t, t,
     );
     bump(slug);
-    return cardFromRow(db.prepare('SELECT * FROM cards WHERE id = ?').get(Number(r.lastInsertRowid)) as Row, w.viewer);
+    return cardFromRow(loadCard(Number(r.lastInsertRowid)), w.viewer);
   }
 
   function loadCard(id: number) {
-    const r = db.prepare('SELECT * FROM cards WHERE id = ?').get(id) as Row | undefined;
+    const r = db.prepare(`${CARD_SELECT} WHERE c.id = ?`).get(id) as Row | undefined;
     if (!r) throw new HttpError(404, 'That idea is gone.');
     return r;
   }
@@ -292,9 +305,9 @@ export function createApp(opts: AppOptions) {
       if (Number(n.n) >= LIMITS.notesPerStudent) throw new HttpError(429, 'You have added lots of notes! Try a dig instead.');
     }
     const res = db.prepare('INSERT INTO notes (card_id, author, period, nickname, text, created) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(cardId, w.viewer!, w.teacher ? null : w.student!.period, w.teacher ? 'Teacher' : w.student!.nickname, s, now());
+      .run(cardId, w.viewer!, w.teacher ? null : w.student!.period, w.teacher ? 'Teacher' : w.student!.username, s, now());
     bump(board.slug);
-    return noteFromRow(db.prepare('SELECT * FROM notes WHERE id = ?').get(Number(res.lastInsertRowid)) as Row, w.viewer);
+    return noteFromRow(db.prepare(`SELECT n.*, ${DISPLAY('n')} AS display FROM notes n LEFT JOIN students s ON s.id = n.author WHERE n.id = ?`).get(Number(res.lastInsertRowid)) as Row, w.viewer);
   }
 
   function boardFields(body: Row, partial: boolean): Record<string, string> {
@@ -340,7 +353,7 @@ export function createApp(opts: AppOptions) {
   function importEarlier(slug: string, from: string) {
     const board = getBoard(slug);
     getBoard(from);
-    const rows = db.prepare("SELECT * FROM cards WHERE board = ? AND status = 'parked'").all(from) as Row[];
+    const rows = db.prepare(`${CARD_SELECT} WHERE c.board = ? AND c.status = 'parked'`).all(from) as Row[];
     const t = now();
     for (const r of rows) {
       let img: string | null = null;
@@ -384,8 +397,9 @@ export function createApp(opts: AppOptions) {
     res.end(body === undefined ? '' : JSON.stringify(body));
   }
 
+  const base = (opts.basePath ?? '').replace(/\/+$/, '');
   const cookie = (name: string, value: string, maxAge: number) =>
-    `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${opts.secure ? '; Secure' : ''}`;
+    `${name}=${encodeURIComponent(value)}; Path=${base || '/'}; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${opts.secure ? '; Secure' : ''}`;
 
   function me(w: Who): Me {
     const current = getSetting(db, 'current', '');
@@ -395,7 +409,7 @@ export function createApp(opts: AppOptions) {
       if (b && (w.teacher || b.phase !== 'setup')) cur = current;
     }
     return {
-      student: w.student ? { nickname: w.student.nickname, period: w.student.period } : null,
+      student: w.student ? { name: w.student.name, username: w.student.username, period: w.student.period } : null,
       teacher: w.teacher,
       periods: periods(),
       current: cur,
@@ -412,19 +426,75 @@ export function createApp(opts: AppOptions) {
     if (seg[0] === 'health') return send(res, 200, { ok: true });
     if (seg[0] === 'me' && m === 'GET') return send(res, 200, me(w));
 
-    if (seg[0] === 'join' && m === 'POST') {
-      throttle(joinTries, ip, 10);
-      const code = String(body.code ?? '').trim().toUpperCase();
-      if (!code || code !== getSetting(db, 'class_code', '').toUpperCase()) throw new HttpError(403, 'That class code doesn\'t match. Check with your teacher.');
-      const period = Number(body.period);
-      if (!periods().includes(period)) throw new HttpError(400, 'Pick your class period.');
+    if (seg[0] === 'login' && m === 'POST') {
+      const username = String(body.username ?? '').trim().toLowerCase();
+      throttle(studentTries, ip, 12);
+      throttle(studentTries, `u:${username}`, 8);
+      const row = db.prepare('SELECT id, pass_hash FROM students WHERE username = ?').get(username) as Row | undefined;
+      if (!row || !checkPassword(String(body.password ?? '').trim().toLowerCase(), String(row.pass_hash)))
+        throw new HttpError(403, 'That username and password don\'t match. Check your login card.');
       const t = token();
-      const id = randomBytes(9).toString('hex');
-      db.prepare('INSERT INTO students (id, token_hash, nickname, period, created) VALUES (?, ?, ?, ?, ?)').run(id, sha(t), makeNickname(), period, now());
-      const out = db.prepare('SELECT nickname FROM students WHERE id = ?').get(id) as Row;
-      return send(res, 200, { nickname: out.nickname, period }, { 'Set-Cookie': cookie(STUDENT_COOKIE, t, 180 * 86400) });
+      db.prepare('INSERT INTO student_sessions (token_hash, student_id, created) VALUES (?, ?, ?)').run(sha(t), String(row.id), now());
+      return send(res, 200, { ok: true }, { 'Set-Cookie': cookie(STUDENT_COOKIE, t, 180 * 86400) });
     }
-    if (seg[0] === 'leave' && m === 'POST') return send(res, 200, { ok: true }, { 'Set-Cookie': cookie(STUDENT_COOKIE, '', 0) });
+    if (seg[0] === 'logout' && m === 'POST') {
+      const c = parseCookies(req)[STUDENT_COOKIE];
+      if (c) db.prepare('DELETE FROM student_sessions WHERE token_hash = ?').run(sha(c));
+      return send(res, 200, { ok: true }, { 'Set-Cookie': cookie(STUDENT_COOKIE, '', 0) });
+    }
+
+    if (seg[0] === 'students') {
+      needTeacher(w);
+      const list = (): Student[] => (db.prepare(`SELECT s.*, (SELECT COUNT(*) FROM cards c WHERE c.author = s.id) AS n FROM students s ORDER BY s.period, s.username`).all() as Row[])
+        .map((r) => ({ id: String(r.id), username: String(r.username), nickname: String(r.nickname), period: Number(r.period), cards: Number(r.n), created: Number(r.created) }));
+      if (!seg[1] && m === 'GET') return send(res, 200, list());
+      // Makes `count` new logins for a period. The passwords are sent back this once, for the CSV.
+      if (seg[1] === 'generate' && m === 'POST') {
+        const period = Number(body.period), count = Number(body.count);
+        if (!periods().includes(period)) throw new HttpError(400, 'Pick one of your class periods.');
+        if (!Number.isInteger(count) || count < 1 || count > 60) throw new HttpError(400, 'Make between 1 and 60 logins at a time.');
+        const taken = new Set((db.prepare('SELECT username FROM students').all() as Row[]).map((r) => String(r.username)));
+        const made = [];
+        const ins = db.prepare('INSERT INTO students (id, username, pass_hash, period, created) VALUES (?, ?, ?, ?, ?)');
+        for (let i = 0; i < count; i++) {
+          const username = makeUsername(taken), password = makePassword();
+          ins.run(randomBytes(9).toString('hex'), username, hashPassword(password), period, now());
+          made.push({ username, password, period });
+        }
+        return send(res, 201, made);
+      }
+      if (seg[1] === 'reset' && m === 'POST') {
+        const ids = (Array.isArray(body.ids) ? body.ids : []).map(String);
+        const out = [];
+        for (const id of ids) {
+          const r = db.prepare('SELECT username, period FROM students WHERE id = ?').get(id) as Row | undefined;
+          if (!r) continue;
+          const password = makePassword();
+          db.prepare('UPDATE students SET pass_hash = ? WHERE id = ?').run(hashPassword(password), id);
+          db.prepare('DELETE FROM student_sessions WHERE student_id = ?').run(id);
+          out.push({ username: String(r.username), password, period: Number(r.period) });
+        }
+        return send(res, 200, out);
+      }
+      if (seg[1]) {
+        const r = db.prepare('SELECT id FROM students WHERE id = ?').get(seg[1]) as Row | undefined;
+        if (!r) throw new HttpError(404, 'That login is gone.');
+        if (m === 'PATCH') {
+          if (body.nickname !== undefined) db.prepare('UPDATE students SET nickname = ? WHERE id = ?').run(str(body.nickname, 30, 'The nickname'), seg[1]);
+          if (body.period !== undefined) {
+            if (!periods().includes(Number(body.period))) throw new HttpError(400, 'Pick one of your class periods.');
+            db.prepare('UPDATE students SET period = ? WHERE id = ?').run(Number(body.period), seg[1]);
+          }
+          db.exec('UPDATE boards SET rev = rev + 1');
+          return send(res, 200, list().find((x) => x.id === seg[1]));
+        }
+        if (m === 'DELETE') {
+          // Their cards stay on the boards under their username; only the login goes.
+          db.prepare('DELETE FROM students WHERE id = ?').run(seg[1]);
+          return send(res, 200, { ok: true });
+        }
+      }
+    }
 
     if (seg[0] === 'teacher' && seg[1] === 'login' && m === 'POST') {
       throttle(loginTries, ip, 8);
@@ -445,11 +515,6 @@ export function createApp(opts: AppOptions) {
     if (seg[0] === 'settings') {
       needTeacher(w);
       if (m === 'PATCH') {
-        if (body.classCode !== undefined) {
-          const c = str(body.classCode, 24, 'The class code').toUpperCase();
-          if (c.length < 4) throw new HttpError(400, 'Use at least 4 letters or numbers for the class code.');
-          setSetting(db, 'class_code', c);
-        }
         if (body.periods !== undefined) {
           const ps = (Array.isArray(body.periods) ? body.periods : []).map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < 20);
           if (!ps.length) throw new HttpError(400, 'Add at least one class period.');
@@ -460,7 +525,7 @@ export function createApp(opts: AppOptions) {
           setSetting(db, 'current', body.current ? String(body.current) : '');
         }
       }
-      return send(res, 200, { classCode: getSetting(db, 'class_code', ''), periods: periods(), current: getSetting(db, 'current', '') || null });
+      return send(res, 200, { periods: periods(), current: getSetting(db, 'current', '') || null });
     }
 
     if (seg[0] === 'wipe' && m === 'POST') {
@@ -474,8 +539,12 @@ export function createApp(opts: AppOptions) {
       needTeacher(w);
       if (m === 'POST') {
         const f = boardFields(body, false);
-        let slug = slugify(f.title);
-        for (let i = 2; db.prepare('SELECT 1 FROM boards WHERE slug = ?').get(slug); i++) slug = `${slugify(f.title)}-${i}`;
+        // The board's link: wormsimulator.com/burrow/<slug>, such as "v4" for Round 4.
+        const want = slugify(String(body.slug ?? '') || f.title);
+        if (RESERVED.has(want)) throw new HttpError(400, `"${want}" can't be a board's link name. Try another.`);
+        if (body.slug && db.prepare('SELECT 1 FROM boards WHERE slug = ?').get(want)) throw new HttpError(400, `There's already a board at /${want}.`);
+        let slug = want;
+        for (let i = 2; db.prepare('SELECT 1 FROM boards WHERE slug = ?').get(slug); i++) slug = `${want}-${i}`;
         db.prepare('INSERT INTO boards (slug, title, topic, question, choices, facts, twists, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
           slug, f.title, f.topic ?? '', f.question ?? 'Which group is your idea about?', f.choices ?? '[]', f.facts ?? '[]',
           f.twists ?? JSON.stringify(DEFAULT_TWISTS), now(),
@@ -583,11 +652,13 @@ export function createApp(opts: AppOptions) {
     res.setHeader('X-Frame-Options', 'DENY');
     try {
       const url = new URL(req.url ?? '/', 'http://board.local');
-      const path = url.pathname;
+      let path = url.pathname;
+      if (base && path === base) { res.writeHead(301, { Location: `${base}/` }); return res.end(); }
+      if (base && path.startsWith(`${base}/`)) path = path.slice(base.length);
       if (path === '/api' || path.startsWith('/api/')) {
         // Changes must come from this site's own page (blocks other sites posting with a student's cookie).
         const origin = req.headers.origin;
-        if (req.method !== 'GET' && origin && new URL(origin).host !== req.headers.host) throw new HttpError(403, 'Not allowed.');
+        if (req.method !== 'GET' && origin && new URL(origin).host !== req.headers.host && !(opts.publicOrigins ?? []).includes(origin)) throw new HttpError(403, 'Not allowed.');
         await api(req, res, path, url);
       } else serveStatic(req, res, path);
     } catch (e) {

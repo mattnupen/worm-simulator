@@ -7,10 +7,19 @@ export class ApiError extends Error {
   }
 }
 
+/** Where the board lives: "/burrow/" (vite.config.ts). Every link and call starts with it. */
+export const BASE = import.meta.env.BASE_URL;
+
+/** A path inside the board ("/teacher") as a full link ("/burrow/teacher"). */
+export const href = (path: string) => BASE + path.replace(/^\//, '');
+
+/** This page's path inside the board: "/burrow/v3" gives "/v3". */
+export const here = () => `/${location.pathname.startsWith(BASE) ? location.pathname.slice(BASE.length) : location.pathname.replace(/^\//, '')}`;
+
 export async function api<T = any>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`/api${path}`, {
+    res = await fetch(href(`api${path}`), {
       method,
       headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -55,7 +64,7 @@ export function toast(text: string) {
 }
 
 export function go(path: string) {
-  history.pushState(null, '', path);
+  history.pushState(null, '', href(path));
   dispatchEvent(new PopStateEvent('popstate'));
 }
 

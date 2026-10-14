@@ -10,10 +10,11 @@ import { zip } from './zip.ts';
  * - board.md: every area, then every idea with the ideas dug from it indented under it;
  * - board.json: the same data for scripts;
  * - images/: each card's picture, named by card number.
- * It holds nicknames and class periods only, never anything that names a student (framework P14).
+ * It holds login usernames and class periods only, never anything that names a student (framework P14).
  */
 export function exportBoard(db: DatabaseSync, board: Board): Buffer {
-  const cards = (db.prepare('SELECT * FROM cards WHERE board = ? ORDER BY id').all(board.slug) as Row[]).map((r) => cardFromRow(r, null));
+  // Usernames only, never the nicknames the teacher may set: Claude gets de-identified data (P14).
+  const cards = (db.prepare('SELECT c.*, COALESCE(s.username, c.nickname) AS display FROM cards c LEFT JOIN students s ON s.id = c.author WHERE c.board = ? ORDER BY c.id').all(board.slug) as Row[]).map((r) => cardFromRow(r, null));
   const notes = db.prepare('SELECT n.card_id, n.period, n.nickname, n.text, n.hidden FROM notes n JOIN cards c ON c.id = n.card_id WHERE c.board = ? ORDER BY n.id').all(board.slug) as Row[];
   const images = new Map<string, { mime: string; data: Uint8Array }>();
   for (const c of cards) {
@@ -36,7 +37,7 @@ export function exportBoard(db: DatabaseSync, board: Board): Buffer {
     '',
     `Topic: ${board.topic}. First question: "${board.question}". Phase: ${board.phase}.`,
     `${cards.length} cards, ${notes.length} "I'd add…" notes. Exported ${new Date().toISOString().slice(0, 10)}.`,
-    'Students are shown by class period and random nickname only.',
+    'Students are shown by class period and login username only, never by name.',
     '',
   ];
   const write = (c: Card, depth: number) => {

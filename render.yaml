@@ -13,6 +13,16 @@ services:
     domains:
       # Render adds www.wormsimulator.com automatically and redirects it here.
       - wormsimulator.com
+    routes:
+      # Burrow Board (burrow-board/) runs as its own service below. wormsimulator.com/burrow/… is
+      # passed through to it, so students only ever see wormsimulator.com. If Render gave the
+      # service a different .onrender.com address, change these two lines to match it.
+      - type: rewrite
+        source: /burrow
+        destination: https://burrow-board.onrender.com/burrow/
+      - type: rewrite
+        source: /burrow/*
+        destination: https://burrow-board.onrender.com/burrow/*
     headers:
       # Revalidate on every load so a fix reaches every classroom right away (the file is ~190 kB gzipped).
       - path: /*
@@ -24,3 +34,34 @@ services:
       - path: /*
         name: Referrer-Policy
         value: no-referrer
+
+  # Burrow Board: the idea-sharing app students use each round (burrow-board/README.md). A small
+  # Node server that keeps every board in one SQLite file on a 1 GB disk. A paid plan, because free
+  # services can't have a disk and fall asleep: Starter ($7/month) plus the disk ($0.25/month).
+  - type: web
+    name: burrow-board
+    runtime: node
+    plan: starter
+    branch: main
+    # The page reuses the game's lesson facts in src/content, so it builds from the repo root.
+    buildCommand: cd burrow-board && npm ci --include=dev && npm run build
+    startCommand: cd burrow-board && npm start
+    healthCheckPath: /api/health
+    buildFilter:
+      paths:
+        - burrow-board/**
+        - src/content/**
+    disk:
+      name: burrow-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+      # Set in the Render Dashboard, never in this public repo.
+      - key: TEACHER_PASSWORD
+        sync: false

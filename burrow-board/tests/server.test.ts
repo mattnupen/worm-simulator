@@ -14,9 +14,8 @@ let base = '';
 
 beforeAll(async () => {
   const db = openDb(':memory:');
-  setSetting(db, 'class_code', 'TEST-1');
   setSetting(db, 'periods', '[1,3,5]');
-  server = createServer(createApp({ db, teacherPassword: 'pw', secure: false }));
+  server = createServer(createApp({ db, teacherPassword: 'pw', secure: false, basePath: '/burrow', publicOrigins: ['https://wormsimulator.com'] }));
   await new Promise<void>((r) => server.listen(0, r));
   base = `http://localhost:${(server.address() as AddressInfo).port}`;
 });
@@ -25,10 +24,11 @@ afterAll(() => server.close());
 /** One browser: keeps its own cookie. */
 function client() {
   let cookie = '';
-  return async function call<T = any>(method: string, path: string, body?: unknown): Promise<{ status: number; data: T }> {
+  return async function call<T = any>(method: string, path: string, body?: unknown, extra: Record<string, string> = {}): Promise<{ status: number; data: T }> {
     const res = await fetch(base + path, {
       method,
-      headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) },
+      redirect: 'manual',
+      headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}), ...extra },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const set = res.headers.get('set-cookie');
@@ -39,26 +39,45 @@ function client() {
 }
 
 const teacher = client();
+async function teacherCookie() {
+  const r = await fetch(`${base}/api/teacher/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'pw' }) });
+  return r.headers.get('set-cookie')!.split(';')[0];
+}
 const amy = client();
 const ben = client();
 const late = client();
 
 describe('Burrow Board server', () => {
-  it('needs the class code and a real period to join', async () => {
-    expect((await amy('POST', '/api/join', { code: 'nope', period: 1 })).status).toBe(403);
-    expect((await amy('POST', '/api/join', { code: 'test-1', period: 2 })).status).toBe(400);
-    const ok = await amy('POST', '/api/join', { code: 'test-1', period: 1 });
-    expect(ok.status).toBe(200);
-    expect(ok.data.nickname).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+ \d\d$/);
-    await ben('POST', '/api/join', { code: 'TEST-1', period: 3 });
-    await late('POST', '/api/join', { code: 'TEST-1', period: 5 });
-    expect((await amy('GET', '/api/me')).data.student.period).toBe(1);
-  });
-
+  let logins: { username: string; password: string; period: number }[] = [];
   it('keeps teacher tools behind the password', async () => {
-    expect((await amy('POST', '/api/boards', { title: 'x' })).status).toBe(403);
     expect((await teacher('POST', '/api/teacher/login', { password: 'wrong' })).status).toBe(403);
     expect((await teacher('POST', '/api/teacher/login', { password: 'pw' })).status).toBe(200);
+    expect((await amy('POST', '/api/students/generate', { period: 1, count: 2 })).status).toBe(403);
+  });
+
+  it('the teacher makes logins; students sign in with them', async () => {
+    expect((await teacher('POST', '/api/students/generate', { period: 2, count: 2 })).status).toBe(400);
+    const a = await teacher('POST', '/api/students/generate', { period: 1, count: 1 });
+    const b = await teacher('POST', '/api/students/generate', { period: 3, count: 2 });
+    expect(a.status).toBe(201);
+    logins = [...a.data, ...b.data];
+    expect(logins[0].username).toMatch(/^[a-z]+\d\d$/);
+    expect(logins[0].password).toMatch(/^[a-z]+-[a-z]+-\d\d$/);
+    expect(new Set(logins.map((l) => l.username)).size).toBe(3);
+    // the list never includes passwords
+    expect(JSON.stringify((await teacher('GET', '/api/students')).data)).not.toMatch(/pass/);
+    expect((await amy('POST', '/api/login', { username: logins[0].username, password: 'nope' })).status).toBe(403);
+    expect((await amy('POST', '/api/login', { username: logins[0].username.toUpperCase(), password: logins[0].password })).status).toBe(200);
+    await ben('POST', '/api/login', { username: logins[1].username, password: logins[1].password });
+    await late('POST', '/api/login', { username: logins[2].username, password: logins[2].password });
+    const me = (await amy('GET', '/api/me')).data;
+    expect(me.student).toEqual({ name: logins[0].username, username: logins[0].username, period: 1 });
+  });
+
+  it('works under /burrow and accepts changes sent from wormsimulator.com', async () => {
+    expect((await amy('GET', '/burrow/api/me')).data.student.period).toBe(1);
+    expect((await amy('GET', '/burrow')).status).toBe(301);
+    expect((await amy('POST', '/api/logout', undefined, { Origin: 'https://evil.example' })).status).toBe(403);
   });
 
   let slug = '';
@@ -167,9 +186,31 @@ describe('Burrow Board server', () => {
     expect(((await late('GET', `/api/boards/${slug}/state`)).data as BoardState).gated).toBe(false);
   });
 
+  it('shows the teacher\'s nickname instead of the username, but never exports it', async () => {
+    const list = (await teacher('GET', '/api/students')).data as { id: string; username: string }[];
+    const amyId = list.find((x) => x.username === logins[0].username)!.id;
+    await teacher('PATCH', `/api/students/${amyId}`, { nickname: 'Robin Fan' });
+    const s = (await ben('GET', `/api/boards/${slug}/state`)).data as BoardState;
+    expect(s.cards.find((c) => c.id === amyCard.id)!.nickname).toBe('Robin Fan');
+    expect((await amy('GET', '/api/me')).data.student.name).toBe('Robin Fan');
+    const zip = Buffer.from(await (await fetch(`${base}/api/boards/${slug}/export`, { headers: { Cookie: (await teacherCookie()) } })).arrayBuffer());
+    expect(zip.toString('latin1')).toContain(logins[0].username);
+    expect(zip.toString('latin1')).not.toContain('Robin Fan');
+  });
+
+  it('a password reset stops the old password', async () => {
+    const list = (await teacher('GET', '/api/students')).data as { id: string; username: string }[];
+    const benId = list.find((x) => x.username === logins[1].username)!.id;
+    const out = (await teacher('POST', '/api/students/reset', { ids: [benId] })).data;
+    expect(out[0].password).not.toBe(logins[1].password);
+    expect((await ben('GET', '/api/me')).data.student).toBeNull();
+    expect((await ben('POST', '/api/login', { username: logins[1].username, password: out[0].password })).status).toBe(200);
+  });
+
   it('delete everything empties the store', async () => {
     expect((await teacher('POST', '/api/wipe', { confirm: 'nope' })).status).toBe(400);
     expect((await teacher('POST', '/api/wipe', { confirm: 'DELETE EVERYTHING' })).status).toBe(200);
     expect((await amy('GET', '/api/me')).data.student).toBeNull();
+    expect((await amy('POST', '/api/login', { username: logins[0].username, password: logins[0].password })).status).toBe(403);
   });
 });

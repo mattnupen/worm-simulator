@@ -21,11 +21,14 @@ brief (project files: `codev/burrow-board-next.md`) and `codev/burrow-board-deci
 
 ## How a round works
 
-1. **Setup** (teacher view at `/teacher`): name the board, write the first question and its
+0. **Logins** (once, teacher view at `/burrow/teacher`): make usernames and passwords for each
+   period, like `bluehawk32` / `maple-river-58`, and download them as a CSV. Write students' names
+   next to their logins in your own copy; the board never stores real names. You can set a
+   nickname for any login, and the board then shows it instead of the username.
+1. **Setup** (teacher view): make the round's board (Round 4 lives at `/burrow/v4`), write the first question and its
    starting groups (for example Birds, Mammals…), tick the fact cards to use from the game's
    lesson, and pick "This is the board students open".
-2. **Think:** students go to the board's address, type the class code, pick their period and get
-   a random nickname (like "Swift Robin 42"). They post their own idea first, in four short steps:
+2. **Think:** students go to `wormsimulator.com/burrow/` and sign in with their login. They post their own idea first, in four short steps:
    group, fact, words, picture. They see only their own cards.
 3. **Areas** (teacher view): see every answer to the first question and how many students gave
    it, then save the areas. Until you save, the board suggests them: one per starting group that
@@ -41,11 +44,13 @@ delete it, or move a whole branch to another area.
 
 ## Privacy (framework P14)
 
-- No accounts, no names, no emails. A student is a random nickname and a class period, and a
-  secret cookie lets only that browser change their cards.
+- No real names and no emails. A student is a login the teacher made (a username like
+  `bluehawk32`), a class period and, if the teacher sets one, a nickname. Passwords are stored only
+  as hashes, so a forgotten one gets a new password instead of being looked up.
 - No IP addresses, analytics or trackers are stored, and the page loads nothing from other sites.
-- Pictures are only shown to people who joined with the class code.
-- The export for Claude has nicknames and periods only.
+- Pictures are only shown to people who are signed in.
+- The export for Claude has usernames and periods only, never the nicknames the teacher sets.
+- Everything is kept until Round 8 ends, then deleted.
 - **Delete everything** on the teacher home page empties the whole store.
 
 ## Run it on your computer
@@ -55,8 +60,8 @@ You need Node 22.18 or newer.
 ```bash
 cd burrow-board
 npm install
-npm run seed      # optional: a sample board, class code SAMPLE-1
-npm run dev       # then open http://localhost:5180
+npm run seed      # optional: a sample board; sign in as tester3 / sample
+npm run dev       # then open http://localhost:5180/burrow/
 ```
 
 The local teacher password is `teacher`. Your local board is saved in `burrow-board/data/`
@@ -65,10 +70,17 @@ The local teacher password is `teacher`. Your local board is saved in `burrow-bo
 ```bash
 npm test                                   # server and area tests
 npm run test:e2e                           # builds, then runs the browser tests
-npm run build && npm start                 # the same way Render runs it, on port 8787
+npm run build && npm start                 # the same way Render runs it: http://localhost:8787/burrow/
 ```
 
 ## Hosting on Render
 
-Not set up yet: it waits on Matt's hosting choice (see `codev/burrow-board-decisions.md`). The
-recommended setup is one Render web service in this folder with a small disk for the SQLite file.
+The board runs as its own Render service (`burrow-board` in the repo's `render.yaml`): an
+always-on Starter web service with a 1 GB disk, about $7.25 a month. The game's site passes
+`wormsimulator.com/burrow/…` through to it, so a round's board lives at
+`wormsimulator.com/burrow/v4`. The one-time setup steps are in `docs/hosting.md`, under
+"Burrow Board".
+
+Environment variables: `TEACHER_PASSWORD` (set in the Render Dashboard only), `DATA_DIR` (the
+disk), and `PUBLIC_ORIGINS` (optional; the sites allowed to send changes, by default
+wormsimulator.com).
