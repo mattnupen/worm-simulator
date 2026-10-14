@@ -29,6 +29,7 @@ project.** How Worm Simulator applies it (Strategy A, async form-led co-design) 
 | Latest handoff | newest file in `docs/superpowers/handoff/` |
 | Visual and performance rules (**read before any rendering work**) | `docs/superpowers/visual-quality-brief.md` |
 | Hosting | `docs/hosting.md`, `render.yaml` |
+| Burrow Board (the separate idea-sharing app students use each round) | `burrow-board/README.md` |
 
 ## Commands
 
@@ -90,6 +91,9 @@ holds what that means for the code and the repo.
     them (e.g. store the default in effect with each pick and ignore picks made under an old
     default).
   - Delete the losing modes once a decision is settled, unless Matt decides to keep the choice.
+- **Burrow Board is a separate app** in `burrow-board/` with its own package, server, tests and
+  build. The game only links out to it. Nothing in it may change the game's single-file build or
+  CSP, and its student data rules are in `burrow-board/README.md` (framework P14).
 - **Versions are small:** one headline change plus fixes (framework P8). If an idea won't fit
   one version, ship the smallest meaningful slice. Specs and plans still go in
   `docs/superpowers/` and name the version they serve.

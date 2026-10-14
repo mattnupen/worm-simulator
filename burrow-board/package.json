@@ -1,0 +1,23 @@
+{
+  "name": "burrow-board",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Burrow Board: students share and build on ideas for each Worm Simulator round.",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc --noEmit && vite build",
+    "start": "node --disable-warning=ExperimentalWarning server/main.ts",
+    "seed": "node --disable-warning=ExperimentalWarning scripts/seed.ts",
+    "test": "vitest run",
+    "test:e2e": "npm run build && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.3"
+  }
+}
