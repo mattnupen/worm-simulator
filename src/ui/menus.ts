@@ -72,8 +72,9 @@ export function showStart(shell: Shell, a: StartActions, fromGraphics = false, r
     list.append(li);
   });
   const tools = el('div', '', 'menu menu-row');
-  if (watch) tools.append(watch.el);
+  // Settings first, as before the opening existed, so its place in the Tab order holds.
   tools.append(graphics.el);
+  if (watch) tools.append(watch.el);
   shell.show('start', 'Start', [...head, list, tools, versionsLink(shell)]);
   // Every quest done: Crawl leads (play on as long as you like).
   const first: Button = fromGraphics ? graphics : focus ?? crawl ?? graphics;
