@@ -3,7 +3,7 @@ import { createPropMaterial } from '../render/propMaterial';
 import { leafShape } from '../surface/leafShapes';
 import type { MeshWriter } from '../surface/meshWriter';
 import { box, cylinder, heap, tube, wheel, withGain, writer } from './shapes';
-import { SOIL, KIDS, LEAF } from './script';
+import { CUP, KIDS, LEAF } from './script';
 
 /**
  * The opening's props, built once at load and hidden (src/opening/opening.ts poses them). Three
@@ -31,9 +31,12 @@ const SLEEVE = 0x8a3f33;
 const BOX_GREEN = 0x3f7a62;
 const BOX_LID = 0x356a54;
 const HANDLE = 0x2b2a27;
-const TUB_WHITE = 0xece6d8;
-const LID_RED = 0xc4473a;
+const CUP_WHITE = 0xdfe9ea;
+const LID_TEAL = 0x2aa9c4;
+const LID_TEAL_LIGHT = 0x4fbdd2;
+const LID_PRINT = 0x1d6f86;
 const SOIL_DARK = 0x3a2b1f;
+const SOIL_MID = 0x4d3a29;
 const BAIT = 0xb8705a;
 const MAPLE = 0xd2582f;
 const WHITE = 0xe9e6de;
@@ -182,19 +185,36 @@ export function buildOpeningActors(): OpeningActors {
     box(w, -0.3, 5.7, -2.2, 0.3, 6.3, 2.2, HANDLE);
     box(w, -2.45, 2.6, -0.6, -2.35, 3.6, 0.6, STEEL); // the latch
   });
-  // The bait tub, centred on its middle, axis y, open end (the lid's) at +y.
+  // The night crawler cup (CUP: milky white, a turquoise snap-on lid), centred on its middle, axis y,
+  // open end at +y. Some soil stays inside after the spill.
   const tub = pw.part((w) => {
-    cylinder(w, 0, 0, -1.3, 1.3, 1.25, 16, TUB_WHITE, { bottom: true, top: false }, 1.38);
-    // The soil inside, a little below the rim.
-    cylinder(w, 0, 0, 0.85, 0.95, 1.3, 16, SOIL_DARK, { top: true, bottom: false });
+    cylinder(w, 0, 0, CUP.bottom, CUP.top, CUP.rBottom, 20, CUP_WHITE, { bottom: true, top: false }, CUP.rTop);
+    // The stacking ridge just under the rim.
+    cylinder(w, 0, 0, CUP.top - 0.2, CUP.top - 0.05, CUP.rTop + 0.06, 20, CUP_WHITE, { bottom: false, top: false });
+    // The soil still inside, sunk below the rim.
+    cylinder(w, 0, 0, CUP.bottom + 0.02, CUP.top - 0.45, CUP.rBottom - 0.04, 20, SOIL_DARK, { top: true, bottom: false }, CUP.rTop - 0.12);
   });
-  const lid = pw.part((w) => cylinder(w, 0, 0, -0.15, 0.15, 1.45, 16, LID_RED));
-  // The spilled soil, the bait worms in it, centred on its middle (it grows and shrinks from there).
+  const lid = pw.part((w) => {
+    cylinder(w, 0, 0, -CUP.lidHalf, CUP.lidHalf, CUP.lidR, 20, LID_TEAL);
+    // The raised middle, the round print on it and its white barcode label.
+    cylinder(w, 0, 0, CUP.lidHalf, CUP.lidHalf + 0.06, CUP.lidR - 0.32, 20, LID_TEAL_LIGHT);
+    cylinder(w, -0.55, 0.45, CUP.lidHalf + 0.06, CUP.lidHalf + 0.075, 0.38, 12, LID_PRINT);
+    box(w, 0.05, CUP.lidHalf + 0.06, -0.35, 0.75, CUP.lidHalf + 0.08, 0.05, WHITE);
+  });
+  // The spilled pile, centred on SOIL (it grows and shrinks from there): a big mound against the
+  // cup's mouth (at local z -0.85, the cup lying just behind it), tumbling out into smaller lumps and
+  // crumbs toward +z, with bait worms on it.
   const soil = pw.part((w) => {
-    heap(w, SOIL.width / 2, SOIL.length / 2, SOIL.height, SOIL_DARK, 1.7);
-    tube(w, [[-0.5, -0.9], [-0.2, -0.6], [-0.35, -0.2], [-0.05, 0.1], [0.2, 0.3]], SOIL.height * 0.55, 0.11, BAIT);
-    tube(w, [[0.55, 0.9], [0.35, 1.2], [0.6, 1.45], [0.85, 1.6]], SOIL.height * 0.15, 0.1, BAIT);
-    tube(w, [[-0.75, 1.1], [-0.95, 1.4], [-0.8, 1.75]], SOIL.height * 0.05, 0.09, BAIT);
+    heap(w, 1.3, 0.95, 1.0, SOIL_DARK, 1.7, 0, -0.85);
+    heap(w, 1.05, 0.9, 0.6, SOIL_MID, 0.4, 0.2, 0.3);
+    heap(w, 0.85, 0.7, 0.34, SOIL_DARK, 2.9, -0.25, 1.2);
+    heap(w, 0.32, 0.28, 0.22, SOIL_MID, 3.3, 0.95, 1.65);
+    heap(w, 0.26, 0.24, 0.18, SOIL_DARK, 4.1, -0.95, 0.75);
+    heap(w, 0.22, 0.2, 0.14, SOIL_MID, 5.2, 0.45, 2.15);
+    heap(w, 0.18, 0.16, 0.12, SOIL_DARK, 6.0, -0.6, 2.0);
+    tube(w, [[-1.0, -0.9], [-0.85, -0.5], [-1.05, -0.15], [-0.9, 0.2]], 0.42, 0.11, BAIT);
+    tube(w, [[0.55, 0.5], [0.75, 0.8], [0.6, 1.1], [0.85, 1.35]], 0.32, 0.1, BAIT);
+    tube(w, [[-0.5, 1.45], [-0.75, 1.7], [-0.6, 2.0]], 0.08, 0.09, BAIT);
   });
   // The two folding door panels, on the bus, hinged at their outer edges.
   const doorPanel = (w: MeshWriter): void => {
