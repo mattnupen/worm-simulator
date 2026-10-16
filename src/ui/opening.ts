@@ -1,7 +1,6 @@
 import './opening.css';
-import { el, button, menu } from './dom';
+import { el, button } from './dom';
 import type { Shell } from './shell';
-import { SOURCES } from '../content/sources';
 import { TEXT, shown } from '../content/text';
 import type { Caption } from '../opening/script';
 
@@ -11,7 +10,7 @@ export interface OpeningCaptions {
 }
 
 /**
- * The opening scene's strip at the bottom: the caption now (who speaks, and the words; a sound in
+ * The opening scene's strip at the top (clear of the worm, low in the shot): the caption now (who speaks, and the words; a sound in
  * brackets and italics) and a real Skip button, with its keys named. The card is the shell's
  * aria-live region, so each new caption is read out too.
  */
@@ -32,36 +31,13 @@ export function showOpening(shell: Shell, onSkip: () => void): OpeningCaptions {
       if (c === last) return;
       last = c;
       who.textContent = c?.who === 'kid' ? shown(TEXT.openingKid) : c?.who === 'teacher' ? shown(TEXT.openingTeacher) : '';
-      words.textContent = c ? shown(TEXT[c.line]) : '';
+      const line = c ? TEXT[c.line] : null;
+      words.textContent = line ? shown(line) : '';
       if (c && !c.who) words.dataset.sound = '';
       else delete words.dataset.sound;
+      // The teacher's science lines are sourced facts (src/content/text.ts).
+      if (line?.kind === 'fact') words.dataset.source = line.source;
+      else delete words.dataset.source;
     },
   };
-}
-
-/**
- * After the scene: the bait-worm fact with its source (a link, new tab), then Start crawling.
- * `onReplay` (the preview link) adds "Watch again".
- */
-export function showOpeningFact(shell: Shell, onStart: () => void, onReplay?: () => void): void {
-  const src = SOURCES[TEXT.openingFact.source];
-  const link = el('a', src.title);
-  link.href = src.url;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  link.append(el('span', ' (opens in a new tab)', 'sr-only'));
-  const source = el('p', 'Source: ', 'opening-source');
-  source.append(link, ` (${src.publisher})`);
-  const fact = el('p', shown(TEXT.openingFact), 'opening-fact');
-  fact.dataset.source = TEXT.openingFact.source;
-  const tip = el('p', shown(TEXT.openingTip), 'opening-fact');
-  tip.dataset.source = TEXT.openingTip.source;
-  const start = button(shown(TEXT.openingStart), 'play', 'primary', onStart);
-  shell.show('opening', shown(TEXT.openingFactTitle), [
-    el('h1', shown(TEXT.openingFactTitle), 'screen-title'), fact, tip, source,
-    menu(start, ...(onReplay ? [button(shown(TEXT.openingReplay), 'eye', 'secondary', onReplay)] : [])),
-  ]);
-  // Cleared again by the next screen that is not the opening (main.ts).
-  shell.panel.dataset.phase = 'fact';
-  start.el.focus();
 }

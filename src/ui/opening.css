@@ -1,11 +1,9 @@
-/* The opening scene: a caption strip at the bottom with Skip, then the fact card. */
+/* The opening scene: a caption strip with Skip, at the top so it never covers the worm (low in the
+   shot, Matt 2026-10-16). */
 .panel[data-state="opening"] {
-  left: 50%; transform: translateX(-50%); bottom: var(--edge-y);
+  left: 50%; transform: translateX(-50%); top: var(--edge-y); bottom: auto;
   width: min(780px, calc(100vw - 32px)); padding: 14px 20px 14px 24px;
   display: flex; align-items: center; gap: 18px;
-}
-.panel[data-state="opening"][data-phase="fact"] {
-  display: block; width: min(560px, calc(100vw - 32px)); padding: 24px 28px 26px;
 }
 .opening-caption { flex: 1; min-height: 2.8em; display: flex; flex-direction: column; justify-content: center; }
 .opening-who { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bark); }
@@ -14,9 +12,6 @@
 .opening-words[data-sound] { font-style: italic; }
 .opening-skip { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .opening-keys { font-size: 13px; color: var(--bark); white-space: nowrap; }
-.opening-fact { margin-top: 10px !important; }
-.opening-source { margin-top: 12px !important; font-size: 16px; }
-.panel[data-state="opening"] .menu { margin-top: 18px; }
 @media (max-width: 560px) {
   .panel[data-state="opening"] { left: 16px; right: 16px; transform: none; width: auto; }
   .opening-words { font-size: 19px; }

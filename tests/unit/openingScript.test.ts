@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { pathDistance, sample, sample1, walkFoot, type FootPose } from '../../src/opening/keys';
 import {
   CAPTIONS, EASE_END, EASE_START, KIDS, LID, OPENING_END, RIGHT_HAND, LEFT_HAND, SOIL_SIZE, TEACHER_PATH,
-  TEACHER_YAW, TUB, WORM, captionAt, kidPath, wormPush,
+  TEACHER_YAW, TUB, WORM, captionAt, kidPath, wormMove,
 } from '../../src/opening/script';
 import { TEXT } from '../../src/content/text';
 
@@ -55,9 +55,8 @@ describe('opening keys', () => {
 describe('opening script', () => {
   const inOrder = (keys: readonly (readonly number[])[]): boolean => keys.every((k, i) => i === 0 || k[0] >= keys[i - 1][0]);
 
-  it('is a short scene that eases into play before it ends (Matt: 10 to 15 seconds)', () => {
-    expect(OPENING_END).toBeGreaterThanOrEqual(10);
-    expect(OPENING_END).toBeLessThanOrEqual(15);
+  it('is a short scene that eases into play before it ends (Matt: 20 seconds)', () => {
+    expect(OPENING_END).toBe(20);
     expect(EASE_START).toBeLessThan(EASE_END);
     expect(EASE_END).toBeLessThanOrEqual(OPENING_END);
   });
@@ -84,10 +83,24 @@ describe('opening script', () => {
     expect(captionAt(OPENING_END)).toBeNull();
   });
 
-  it('the worm waits in the tub, then crawls out until its head is past the big leaf', () => {
-    expect(WORM.crawlAt).toBeGreaterThanOrEqual(WORM.showAt);
-    expect(wormPush(WORM.crawlAt - 0.1, 0)).toBe(0);
-    expect(wormPush(WORM.crawlAt, 0)).toBe(WORM.push);
-    expect(wormPush(WORM.crawlAt + 3, WORM.stopZ)).toBe(0);
+  it('the worm waits in the tub, inches out, looks both ways, then crawls until its head is past the big leaf', () => {
+    const m = { x: 0, y: 0 };
+    const first = WORM.moves[0][0];
+    expect(first).toBeGreaterThanOrEqual(WORM.showAt);
+    expect(wormMove(first - 0.1, 0, m)).toEqual({ x: 0, y: 0 });
+    expect(wormMove(first, 0, m).y).toBeGreaterThan(0);
+    // It looks one way and back by the same amount, then turns left (negative x) toward the leaf.
+    const turns = WORM.moves.map(([, , x]) => x).filter((x) => x !== 0);
+    expect(turns[0] + turns[1]).toBeCloseTo(0);
+    expect(turns.reduce((a, b) => a + b, 0)).toBeLessThan(0);
+    const last = WORM.moves[WORM.moves.length - 1];
+    expect(wormMove(last[0] + 1, 0, m).y).toBe(last[1]);
+    expect(Math.abs(m.x)).toBeLessThanOrEqual(WORM.wiggle);
+    expect(wormMove(last[0] + 1, WORM.stopZ, m)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('the teacher says why a loose bait worm matters, with a source (Matt, 2026-10-16)', () => {
+    const facts = CAPTIONS.filter((c) => c.who === 'teacher' && TEXT[c.line].kind === 'fact');
+    expect(facts.length).toBeGreaterThanOrEqual(2);
   });
 });

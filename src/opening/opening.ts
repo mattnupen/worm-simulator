@@ -5,7 +5,7 @@ import { pathDistance, sample, sample1, walkFoot, type FootPose, type Key } from
 import { buildOpeningActors, type OpeningActors, type Part } from './actors';
 import {
   BOX, BUS, CAMERA, EASE_END, EASE_START, HANDS_SHOWN, KIDS, LEAF, LEFT_HAND, LID, OPENING_END, RIGHT_HAND,
-  CUP, SOIL, SOIL_SIZE, TEACHER_PATH, TEACHER_SHOWN, TEACHER_YAW, TUB, TUB_ON_BOX, WORM, kidPath, wormPush,
+  CUP, SOIL, SOIL_SIZE, TEACHER_PATH, TEACHER_SHOWN, TEACHER_YAW, TUB, TUB_ON_BOX, WORM, kidPath, wormMove,
 } from './script';
 
 const M = 23.33;
@@ -66,13 +66,14 @@ export class Opening {
     this.actors.show(true);
   }
 
-  /** Ends the scene now (Skip, or its end): the props go; the leaf stays only if the worm is under it. */
-  stop(headX: number, headZ: number): void {
+  /** Ends the scene now (Skip, or its end): the props go, but the big leaf stays (keepLeaf). */
+  stop(): void {
     this.playing = false;
     this.actors.bus.visible = false;
     this.actors.moving.visible = false;
-    this.leafLeft = Math.hypot(headX - LEAF.x, headZ - LEAF.z) < LEAF.size;
-    this.actors.leaf.visible = this.leafLeft;
+    // The leaf stays (it would vanish in plain view otherwise) until keepLeaf lets it go.
+    this.leafLeft = true;
+    this.actors.leaf.visible = true;
   }
 
   /** The scene has played to its end. */
@@ -85,20 +86,20 @@ export class Opening {
     return !this.playing || this.t >= WORM.showAt;
   }
 
-  /** One simulation step: the clock moves on, and the worm's forward push for the step. */
-  step(dt: number, headZ: number): number {
+  /** One simulation step: the clock moves on, and the worm's move for the step goes in `out`. */
+  step(dt: number, headZ: number, out: { x: number; y: number }): void {
     this.prevT = this.t;
     this.t += dt;
-    return wormPush(this.t, headZ);
+    wormMove(this.t, headZ, out);
   }
 
   /**
-   * After the scene: the big leaf stays until the worm is well away from it (or underground), then
-   * goes for good. One distance check per frame.
+   * After the scene: the big leaf stays until the worm is well away from it (far enough that the
+   * haze hides it going) or underground, then goes for good. One distance check per frame.
    */
   keepLeaf(headX: number, headZ: number, surface: boolean): void {
     if (!this.leafLeft || this.playing) return;
-    if (!surface || Math.hypot(headX - LEAF.x, headZ - LEAF.z) > LEAF.size * 1.6) {
+    if (!surface || Math.hypot(headX - LEAF.x, headZ - LEAF.z) > LEAF.size * 4) {
       this.leafLeft = false;
       this.actors.leaf.visible = false;
     }

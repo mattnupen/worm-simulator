@@ -16,7 +16,7 @@ import { parseParams } from './game/params';
 import { initialScreens, transition, type ScreenEvent, type ScreenState } from './game/screens';
 import { GraphicsControl } from './game/graphicsControl';
 import { buildWorld } from './game/world';
-import { Crawl } from './game/crawl';
+import { Crawl, SPACING, WORM_SEGMENTS } from './game/crawl';
 import { AUTO_DRIVE_MOVE } from './game/drive';
 import { scaledLeafCount } from './surface/leafScale';
 import { browserStore, loadSettings, updateSettings } from './save/settingsStore';
@@ -39,8 +39,8 @@ import { VERSION } from './version';
 import { warmShaders } from './render/warmShaders';
 import { createBurrowing } from './underground/burrowing';
 import { Opening } from './opening/opening';
-import { captionAt } from './opening/script';
-import { showOpening, showOpeningFact, type OpeningCaptions } from './ui/opening';
+import { LIE_YAW, captionAt, wormStart } from './opening/script';
+import { showOpening, type OpeningCaptions } from './ui/opening';
 import { playOpeningSound } from './ui/openingSound';
 import { stopCueSound } from './ui/lessonSound';
 import { markOpeningSeen, openingSeen } from './save/openingStore';
@@ -128,9 +128,8 @@ function start(renderer: THREE.WebGLRenderer): void {
   const { game, cut } = createBurrowing(crawl, world, app, shell.panel, store);
   // The opening scene (src/opening/): its props join the scene now, hidden, so warmShaders sees them.
   const opening = new Opening(world.scene);
-  /** The opening's strip (captions and Skip) while it plays; then its fact card. */
+  /** The opening's strip (captions and Skip) while it plays. */
   let captions: OpeningCaptions | null = null;
-  let openingPhase: 'scene' | 'fact' = 'scene';
   /** ?opening=1 plays it on the first Crawl even when seen (Matt's review); once. */
   let openingForced = params.opening === true;
   const openingMove = { x: 0, y: 0 };
@@ -221,7 +220,6 @@ function start(renderer: THREE.WebGLRenderer): void {
     // Leaving play (pause, a hidden tab, back to start): the Play quest's minutes are kept.
     if (state.screen === 'crawl' && progress.playSeconds !== playSaved) saveProgress();
     if (next.screen === 'opening' && state.screen !== 'opening') beginOpening();
-    if (state.screen === 'opening' && next.screen !== 'opening') delete shell.panel.dataset.phase;
     state = next;
     // A slow streak from before (or a menu over the scene) must not count against Auto.
     graphics.interruptAuto(performance.now());
@@ -267,7 +265,8 @@ function start(renderer: THREE.WebGLRenderer): void {
   function beginOpening(): void {
     crawl.reset();
     game.reset();
-    openingPhase = 'scene';
+    // The worm starts curled in the bait cup, facing out of its mouth (script.ts).
+    crawl.reset(crawl.hero.count, wormStart(WORM_SEGMENTS, SPACING).map((p) => ({ x: p.x, y: 0, z: p.z })), LIE_YAW);
     opening.start();
     world.worm.group.visible = false;
     baseFog.near = sharedLighting.uFogNear.value;
@@ -277,7 +276,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     // ?openingAt=: run the scene to that second now, then hold it there (screenshots).
     if (params.openingAt !== null) {
       while (opening.t < params.openingAt) {
-        openingMove.y = opening.step(1 / 60, crawl.motion.head.z);
+        opening.step(1 / 60, crawl.motion.head.z, openingMove);
         game.step(1 / 60, openingMove, false);
       }
     } else {
@@ -286,25 +285,19 @@ function start(renderer: THREE.WebGLRenderer): void {
     dirty = true;
   }
 
-  /** The scene is over (its end, or Skip): the props go, play's view is back, the fact card shows. */
+  /** The scene is over (its end, or Skip): the props go, play's view is back, and play starts. */
   function endOpeningScene(): void {
     if (!opening.playing) return;
-    opening.stop(crawl.motion.head.x, crawl.motion.head.z);
+    opening.stop();
     stopCueSound();
     world.worm.group.visible = true;
     sharedLighting.uFogNear.value = baseFog.near;
     sharedLighting.uFogFar.value = baseFog.far;
     markOpeningSeen(store, VERSION.number);
-    openingPhase = 'fact';
     captions = null;
     dirty = true;
-    if (state.screen === 'opening') draw();
-  }
-
-  /** The fact card's "Watch again" (preview link): the scene from the top, its strip back. */
-  function replayOpening(): void {
-    beginOpening();
-    draw();
+    // Straight into play (Matt, 2026-10-16: no card between the scene and play).
+    if (state.screen === 'opening') dispatch({ type: 'openingDone' });
   }
 
   function draw(fromGraphics = false): void {
@@ -338,10 +331,6 @@ function start(renderer: THREE.WebGLRenderer): void {
           onFinish: () => markLessonDone(store, CURRENT_LESSON!.id),
         });
       case 'opening':
-        if (openingPhase === 'fact') {
-          // The preview link adds "Watch again" (Matt's review): the scene from the top.
-          return showOpeningFact(shell, () => dispatch({ type: 'openingDone' }), params.opening === true ? replayOpening : undefined);
-        }
         captions = showOpening(shell, endOpeningScene);
         captions.set(captionAt(opening.t));
         return;
@@ -353,6 +342,8 @@ function start(renderer: THREE.WebGLRenderer): void {
           onResume: () => dispatch({ type: 'resume' }),
           onSettings: () => dispatch({ type: 'graphics' }),
           onStart: () => dispatch({ type: 'toStart' }),
+          // The preview link: watch it again from Pause (Matt's review).
+          onOpening: params.opening === true ? () => dispatch({ type: 'opening' }) : undefined,
         }, fromGraphics);
       case 'graphics':
         // The Settings screen (the 'graphics' screen state, kept from when it held Graphics only).
@@ -425,7 +416,8 @@ function start(renderer: THREE.WebGLRenderer): void {
       // The scene moves the worm itself (out of the tub and under the leaf): the real crawl, so
       // play starts where it ends. ?openingAt= holds it still at that second.
       const hold = params.openingAt !== null && opening.t >= params.openingAt;
-      openingMove.y = hold ? 0 : opening.step(dt, crawl.motion.head.z);
+      if (hold) openingMove.x = openingMove.y = 0;
+      else opening.step(dt, crawl.motion.head.z, openingMove);
       game.step(dt, openingMove, false);
       if (opening.done) endOpeningScene();
       keyboard.endStep();
@@ -550,9 +542,8 @@ function start(renderer: THREE.WebGLRenderer): void {
     else if (state.screen === 'pause' && pauseKey) dispatch({ type: 'resume' });
     else if (state.screen === 'graphics' && e.code === 'Escape') dispatch({ type: 'back' });
     else if ((state.screen === 'lesson' || state.screen === 'vote') && e.code === 'Escape') dispatch({ type: 'toStart' });
-    // The opening: Esc or Enter skips the scene; on its fact card, Esc starts crawling.
-    else if (state.screen === 'opening' && openingPhase === 'scene' && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter')) endOpeningScene();
-    else if (state.screen === 'opening' && openingPhase === 'fact' && e.code === 'Escape') dispatch({ type: 'openingDone' });
+    // The opening: Esc or Enter skips the scene, straight into play.
+    else if (state.screen === 'opening' && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter')) endOpeningScene();
     else return;
     e.preventDefault();
   });

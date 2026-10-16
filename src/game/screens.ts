@@ -54,7 +54,8 @@ export function transition(s: ScreenState, e: ScreenEvent): ScreenState {
     case 'crawl':
       return s.screen === 'start' || s.screen === 'lesson' ? { ...s, screen: 'crawl' } : s;
     case 'opening':
-      return s.screen === 'start' || s.screen === 'lesson' ? { ...s, screen: 'opening' } : s;
+      // From Pause only on the preview link (main.ts offers it there).
+      return s.screen === 'start' || s.screen === 'lesson' || s.screen === 'pause' ? { ...s, screen: 'opening' } : s;
     case 'openingDone':
       return s.screen === 'opening' ? { ...s, screen: 'crawl' } : s;
     case 'lesson':
