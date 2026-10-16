@@ -85,3 +85,33 @@ test('?opening=0 goes straight to play', async ({ page }) => {
   await button(page, 'Crawl').click();
   await expect(crawling(page)).toBeVisible();
 });
+
+test('the preview link (?opening=1) leads Start with the opening, and its fact card offers Watch again', async ({ browser }) => {
+  // A brand-new device: Learn is not done, so Crawl is locked, but the preview still opens it.
+  const page = await browser.newPage();
+  const errors = watchErrors(page);
+  await page.goto(PAGE + '?opening=1');
+  const watch = button(page, shown(TEXT.openingWatch));
+  await expect(watch).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(scene(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(factCard(page)).toBeVisible();
+  await button(page, shown(TEXT.openingReplay)).click();
+  await expect(scene(page)).toBeVisible();
+  await expect(button(page, shown(TEXT.openingSkip))).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(factCard(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(crawling(page)).toBeVisible();
+  expect(errors).toEqual([]);
+  await page.close();
+});
+
+test('students never see Watch again on the fact card', async ({ page }) => {
+  await page.goto(PAGE);
+  await button(page, 'Crawl').click();
+  await button(page, shown(TEXT.openingSkip)).click();
+  await expect(factCard(page)).toBeVisible();
+  await expect(button(page, shown(TEXT.openingReplay))).toHaveCount(0);
+});

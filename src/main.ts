@@ -301,14 +301,22 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (state.screen === 'opening') draw();
   }
 
+  /** The fact card's "Watch again" (preview link): the scene from the top, its strip back. */
+  function replayOpening(): void {
+    beginOpening();
+    draw();
+  }
+
   function draw(fromGraphics = false): void {
     switch (state.screen) {
       case 'start':
         return showStart(shell, {
           onCrawl: crawlOrOpening,
           onSettings: () => dispatch({ type: 'graphics' }),
-          // A replay, once seen (so it never opens play before the round's Learn is done).
-          onOpening: openingSeen(store, VERSION.number) ? () => dispatch({ type: 'opening' }) : undefined,
+          // A replay, once seen (so it never opens play before the round's Learn is done); on the
+          // preview link (?opening=1), always, leading Start.
+          onOpening: params.opening === true || openingSeen(store, VERSION.number) ? () => dispatch({ type: 'opening' }) : undefined,
+          openingPreview: params.opening === true,
         }, fromGraphics, CURRENT_LESSON ? {
           lessonTitle: CURRENT_LESSON.title,
           quests: quests(questProgress()),
@@ -330,7 +338,10 @@ function start(renderer: THREE.WebGLRenderer): void {
           onFinish: () => markLessonDone(store, CURRENT_LESSON!.id),
         });
       case 'opening':
-        if (openingPhase === 'fact') return showOpeningFact(shell, () => dispatch({ type: 'openingDone' }));
+        if (openingPhase === 'fact') {
+          // The preview link adds "Watch again" (Matt's review): the scene from the top.
+          return showOpeningFact(shell, () => dispatch({ type: 'openingDone' }), params.opening === true ? replayOpening : undefined);
+        }
         captions = showOpening(shell, endOpeningScene);
         captions.set(captionAt(opening.t));
         return;

@@ -39,8 +39,11 @@ export function showOpening(shell: Shell, onSkip: () => void): OpeningCaptions {
   };
 }
 
-/** After the scene: the bait-worm fact with its source (a link, new tab), then Start crawling. */
-export function showOpeningFact(shell: Shell, onStart: () => void): void {
+/**
+ * After the scene: the bait-worm fact with its source (a link, new tab), then Start crawling.
+ * `onReplay` (the preview link) adds "Watch again".
+ */
+export function showOpeningFact(shell: Shell, onStart: () => void, onReplay?: () => void): void {
   const src = SOURCES[TEXT.openingFact.source];
   const link = el('a', src.title);
   link.href = src.url;
@@ -55,7 +58,8 @@ export function showOpeningFact(shell: Shell, onStart: () => void): void {
   tip.dataset.source = TEXT.openingTip.source;
   const start = button(shown(TEXT.openingStart), 'play', 'primary', onStart);
   shell.show('opening', shown(TEXT.openingFactTitle), [
-    el('h1', shown(TEXT.openingFactTitle), 'screen-title'), fact, tip, source, menu(start),
+    el('h1', shown(TEXT.openingFactTitle), 'screen-title'), fact, tip, source,
+    menu(start, ...(onReplay ? [button(shown(TEXT.openingReplay), 'eye', 'secondary', onReplay)] : [])),
   ]);
   // Cleared again by the next screen that is not the opening (main.ts).
   shell.panel.dataset.phase = 'fact';

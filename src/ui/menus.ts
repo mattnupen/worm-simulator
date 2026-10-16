@@ -12,6 +12,11 @@ export interface StartActions {
   onSettings(): void;
   /** "Watch the opening": the opening scene again (src/opening/). */
   onOpening?(): void;
+  /**
+   * The preview link (?opening=1, Matt's review): "Watch the opening" leads Start, right under the
+   * title, open whatever the quests say, and gets focus.
+   */
+  openingPreview?: boolean;
 }
 
 /**
@@ -40,12 +45,16 @@ const BEFORE: Record<QuestId, string> = { learn: '', play: 'Learn', vote: 'Play'
  */
 export function showStart(shell: Shell, a: StartActions, fromGraphics = false, round?: StartRound): void {
   const graphics = button('Settings', 'sliders', 'secondary', a.onSettings);
-  const watch = a.onOpening ? button(shown(TEXT.openingWatch), 'eye', 'secondary', a.onOpening) : null;
-  const head = [cardHead(VERSION_TITLE), el('p', 'You are an earthworm under the leaves of a northern forest.', 'lead')];
+  const preview = !!(a.openingPreview && a.onOpening);
+  const watch = a.onOpening ? button(shown(TEXT.openingWatch), 'eye', preview ? 'primary' : 'secondary', a.onOpening) : null;
+  const head: HTMLElement[] = [cardHead(VERSION_TITLE), el('p', 'You are an earthworm under the leaves of a northern forest.', 'lead')];
+  // The preview link: the opening leads, under the title, and is focused.
+  if (preview && watch) head.push(menu(watch));
+  const rowWatch = preview ? null : watch;
   if (!round) {
-    const crawl = button('Crawl', 'play', 'primary', a.onCrawl);
-    shell.show('start', 'Start', [...head, menu(crawl, ...(watch ? [watch] : []), graphics), versionsLink(shell)]);
-    (fromGraphics ? graphics : crawl).el.focus();
+    const crawl = button('Crawl', 'play', preview ? 'secondary' : 'primary', a.onCrawl);
+    shell.show('start', 'Start', [...head, menu(crawl, ...(rowWatch ? [rowWatch] : []), graphics), versionsLink(shell)]);
+    (fromGraphics ? graphics : preview && watch ? watch : crawl).el.focus();
     return;
   }
   const list = el('ol', '', 'quests');
@@ -74,10 +83,10 @@ export function showStart(shell: Shell, a: StartActions, fromGraphics = false, r
   const tools = el('div', '', 'menu menu-row');
   // Settings first, as before the opening existed, so its place in the Tab order holds.
   tools.append(graphics.el);
-  if (watch) tools.append(watch.el);
+  if (rowWatch) tools.append(rowWatch.el);
   shell.show('start', 'Start', [...head, list, tools, versionsLink(shell)]);
   // Every quest done: Crawl leads (play on as long as you like).
-  const first: Button = fromGraphics ? graphics : focus ?? crawl ?? graphics;
+  const first: Button = fromGraphics ? graphics : preview && watch ? watch : focus ?? crawl ?? graphics;
   first.el.focus();
 }
 
