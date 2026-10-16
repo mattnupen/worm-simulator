@@ -104,3 +104,13 @@ describe('opening script', () => {
     expect(facts.length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('the opening on a tall screen', () => {
+  it('keeps play\'s field of view on a wide screen and widens it, capped, on a phone held upright', async () => {
+    const { sceneFov } = await import('../../src/opening/opening');
+    expect(sceneFov(16 / 9, 60)).toBeCloseTo(60);
+    expect(sceneFov(1.6, 60)).toBeCloseTo(60);
+    expect(sceneFov(4 / 3, 60)).toBeGreaterThan(60);
+    expect(sceneFov(390 / 844, 60)).toBe(105);
+  });
+});

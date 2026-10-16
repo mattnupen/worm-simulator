@@ -72,8 +72,6 @@ export const TEXT = {
   },
   openingKid: { kind: 'ui', text: 'Kid' },
   openingTeacher: { kind: 'ui', text: 'Teacher' },
-  openingSkip: { kind: 'ui', text: 'Skip' },
-  openingSkipKeys: { kind: 'ui', text: 'Esc or Enter skips' },
   openingWatch: { kind: 'ui', text: 'Watch the opening' },
 } as const satisfies Record<string, Line>;
 

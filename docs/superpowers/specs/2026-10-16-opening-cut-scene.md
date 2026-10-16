@@ -28,7 +28,7 @@ of the screen, clear of the worm.
 - **Captions plus sound.** Every line and sound is a caption (sounds in brackets). Sound effects
   are made in the browser like the lesson's; there are no recorded voices and no footsteps.
 - **When it plays.** First Crawl of each version on a device (`wormsim.openings`, its own save
-  key). "Watch the opening" on Start replays it. Skip, Esc or Enter skips it any time.
+  key). "Watch the opening" on Start replays it. Esc or Enter skips it any time; there is no Skip button (Matt, 2026-10-16), so mouse and touch players watch it through.
   `?opening=1` is the preview link: "Watch the opening" leads Start (even before Learn), Pause
   offers it again, and the first Crawl plays it. `?opening=0` turns it off (tests).
 
@@ -41,7 +41,7 @@ of the screen, clear of the worm.
   the scene leaves it, under the big leaf.
 - Draw calls during the scene: 18–31 across presets (budget 40). The meshes are hidden outside
   the scene. The speed test never plays it.
-- Accessibility: captions carry everything (sound only adds); a real Skip button with focus;
+- Accessibility: captions carry everything (sound only adds); captions are white on see-through black bars (Matt, 2026-10-16), sized for phones;
   nothing flashes; no screen shake; keyboard, mouse and touch all work.
 
 ## Framework check (FRAMEWORK.md section 5)
