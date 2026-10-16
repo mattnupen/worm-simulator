@@ -284,6 +284,20 @@ export class Opening {
     this.q2.copy(game.quaternion);
     camera.quaternion.copy(this.q).slerp(this.q2, w);
     camera.up.set(0, 1, 0);
+    // A tall screen (a phone held upright) sees as wide as a 16:10 one, so the worm, the cup and the
+    // leaf all stay in the shot (capped so the picture doesn't bend too much), easing back to play's.
+    const fov = THREE.MathUtils.lerp(sceneFov(camera.aspect, game.fov), game.fov, w);
+    if (camera.fov !== fov) {
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    }
     camera.updateMatrixWorld();
   }
+}
+
+/** The opening's vertical field of view: play's, or wider on a screen narrower than 16:10. */
+export function sceneFov(aspect: number, playFov: number): number {
+  const wide = Math.tan(THREE.MathUtils.degToRad(playFov / 2)) * 1.6;
+  const half = Math.atan(wide / Math.min(aspect, 1.6));
+  return Math.min(THREE.MathUtils.radToDeg(2 * half), 105);
 }

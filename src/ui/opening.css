@@ -1,18 +1,26 @@
-/* The opening scene: a caption strip with Skip, at the top so it never covers the worm (low in the
-   shot, Matt 2026-10-16). */
+/* The opening scene's captions: white words on see-through black bars, like film subtitles (Matt
+   2026-10-16), at the top so they never cover the worm (low in the shot). No card and no button:
+   Esc or Enter still skips. */
 .panel[data-state="opening"] {
   left: 50%; transform: translateX(-50%); top: var(--edge-y); bottom: auto;
-  width: min(780px, calc(100vw - 32px)); padding: 14px 20px 14px 24px;
-  display: flex; align-items: center; gap: 18px;
+  width: min(900px, calc(100vw - 32px)); padding: 0;
+  background: none; border: none; border-radius: 0; box-shadow: none; overflow: visible;
+  text-align: center; pointer-events: none;
 }
-.opening-caption { flex: 1; min-height: 2.8em; display: flex; flex-direction: column; justify-content: center; }
-.opening-who { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bark); }
+.panel[data-state="opening"]::before { display: none; }
+.opening-caption { display: block; }
+.opening-caption:has(.opening-words:empty) { visibility: hidden; }
+.opening-who, .opening-words {
+  color: #fff; background: rgba(0, 0, 0, 0.72); padding: 2px 10px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.opening-who {
+  font-size: clamp(13px, 3.4vw, 16px); font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #ffe9a8; display: table; margin: 0 auto 4px;
+}
 .opening-who:empty { display: none; }
-.opening-words { font-size: 22px; line-height: 1.3; }
+.opening-words { font-size: clamp(17px, 4.6vw, 26px); line-height: 1.55; display: inline; }
 .opening-words[data-sound] { font-style: italic; }
-.opening-skip { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.opening-keys { font-size: 13px; color: var(--bark); white-space: nowrap; }
 @media (max-width: 560px) {
-  .panel[data-state="opening"] { left: 16px; right: 16px; transform: none; width: auto; }
-  .opening-words { font-size: 19px; }
+  .panel[data-state="opening"] { left: 50%; right: auto; width: calc(100vw - 32px); transform: translateX(-50%); }
 }

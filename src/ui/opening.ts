@@ -1,5 +1,5 @@
 import './opening.css';
-import { el, button } from './dom';
+import { el } from './dom';
 import type { Shell } from './shell';
 import { TEXT, shown } from '../content/text';
 import type { Caption } from '../opening/script';
@@ -10,21 +10,18 @@ export interface OpeningCaptions {
 }
 
 /**
- * The opening scene's strip at the top (clear of the worm, low in the shot): the caption now (who speaks, and the words; a sound in
- * brackets and italics) and a real Skip button, with its keys named. The card is the shell's
- * aria-live region, so each new caption is read out too.
+ * The opening scene's captions at the top (clear of the worm, low in the shot): who speaks, and the
+ * words (a sound in brackets and italics), white on see-through black bars. There is no button (Matt
+ * 2026-10-16); Esc or Enter skips (main.ts). The panel is the shell's aria-live region, so each new
+ * caption is read out too.
  */
-export function showOpening(shell: Shell, onSkip: () => void): OpeningCaptions {
+export function showOpening(shell: Shell): OpeningCaptions {
   const caption = el('p', '', 'opening-caption');
   const who = el('span', '', 'opening-who');
   const words = el('span', '', 'opening-words');
   caption.append(who, words);
-  const skip = button(shown(TEXT.openingSkip), 'play', 'secondary', onSkip);
-  const side = el('div', '', 'opening-skip');
-  side.append(skip.el, el('span', shown(TEXT.openingSkipKeys), 'opening-keys'));
-  shell.show('opening', 'Opening', [caption, side]);
+  shell.show('opening', 'Opening', [caption]);
   delete shell.panel.dataset.phase;
-  skip.el.focus({ preventScroll: true });
   let last: Caption | null = null;
   return {
     set(c) {

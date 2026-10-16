@@ -24,7 +24,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
 });
 
-test('the first Crawl plays the opening with captions; Skip goes straight to play, and it plays once', async ({ page, context }) => {
+test('the first Crawl plays the opening with captions; Esc skips straight to play, and it plays once', async ({ page, context }) => {
   const errors = watchErrors(page);
   const outside: string[] = [];
   page.on('request', (r) => { if (!/^(file|data|blob):/.test(r.url())) outside.push(r.url()); });
@@ -32,9 +32,8 @@ test('the first Crawl plays the opening with captions; Skip goes straight to pla
   await page.goto(PAGE);
   await button(page, 'Crawl').click();
   await expect(scene(page)).toBeVisible();
-  const skip = button(page, shown(TEXT.openingSkip));
-  await expect(skip).toBeFocused();
-  await expect(page.getByText(shown(TEXT.openingSkipKeys))).toBeVisible();
+  // No button: just the captions.
+  await expect(scene(page).getByRole('button')).toHaveCount(0);
   // The first caption (a sound, in brackets) comes up on its own.
   await expect(page.getByText(shown(TEXT[CAPTIONS[0].line]))).toBeVisible();
   // The strip sits at the top, clear of the worm low in the shot.
@@ -42,7 +41,11 @@ test('the first Crawl plays the opening with captions; Skip goes straight to pla
   const view = page.viewportSize()!;
   expect(box!.y + box!.height).toBeLessThan(view.height / 2);
 
-  await skip.click();
+  // White words on a see-through black bar.
+  const words = page.getByText(shown(TEXT[CAPTIONS[0].line]));
+  expect(await words.evaluate((e) => getComputedStyle(e).color)).toBe('rgb(255, 255, 255)');
+  expect(await words.evaluate((e) => getComputedStyle(e).backgroundColor)).toMatch(/^rgba\(0, 0, 0, 0\.\d+\)$/);
+  await page.keyboard.press('Escape');
   await expect(crawling(page)).toBeVisible();
 
   // Seen: the next Crawl goes straight to play, and Start offers the opening to watch again.
@@ -92,7 +95,6 @@ test('the preview link (?opening=1) leads Start with the opening, and Pause offe
   await page.keyboard.press('Escape');
   await button(page, shown(TEXT.openingWatch)).click();
   await expect(scene(page)).toBeVisible();
-  await expect(button(page, shown(TEXT.openingSkip))).toBeFocused();
   expect(errors).toEqual([]);
   await page.close();
 });

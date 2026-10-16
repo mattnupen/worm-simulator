@@ -128,7 +128,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   const { game, cut } = createBurrowing(crawl, world, app, shell.panel, store);
   // The opening scene (src/opening/): its props join the scene now, hidden, so warmShaders sees them.
   const opening = new Opening(world.scene);
-  /** The opening's strip (captions and Skip) while it plays. */
+  /** The opening's captions while it plays. */
   let captions: OpeningCaptions | null = null;
   /** ?opening=1 plays it on the first Crawl even when seen (Matt's review); once. */
   let openingForced = params.opening === true;
@@ -285,12 +285,14 @@ function start(renderer: THREE.WebGLRenderer): void {
     dirty = true;
   }
 
-  /** The scene is over (its end, or Skip): the props go, play's view is back, and play starts. */
+  /** The scene is over (its end, or Esc or Enter): the props go, play's view is back, and play starts. */
   function endOpeningScene(): void {
     if (!opening.playing) return;
     opening.stop();
     stopCueSound();
     world.worm.group.visible = true;
+    camera.fov = gameCam.fov;
+    camera.updateProjectionMatrix();
     sharedLighting.uFogNear.value = baseFog.near;
     sharedLighting.uFogFar.value = baseFog.far;
     markOpeningSeen(store, VERSION.number);
@@ -331,7 +333,7 @@ function start(renderer: THREE.WebGLRenderer): void {
           onFinish: () => markLessonDone(store, CURRENT_LESSON!.id),
         });
       case 'opening':
-        captions = showOpening(shell, endOpeningScene);
+        captions = showOpening(shell);
         captions.set(captionAt(opening.t));
         return;
       case 'crawl':
