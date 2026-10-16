@@ -5,7 +5,7 @@ import { pathDistance, sample, sample1, walkFoot, type FootPose, type Key } from
 import { buildOpeningActors, type OpeningActors, type Part } from './actors';
 import {
   BOX, BUS, CAMERA, EASE_END, EASE_START, HANDS_SHOWN, KIDS, LEAF, LEFT_HAND, LID, OPENING_END, RIGHT_HAND,
-  SOIL, SOIL_SIZE, TEACHER_PATH, TEACHER_SHOWN, TEACHER_YAW, TUB, TUB_ON_BOX, WORM, kidPath, wormPush,
+  CUP, SOIL, SOIL_SIZE, TEACHER_PATH, TEACHER_SHOWN, TEACHER_YAW, TUB, TUB_ON_BOX, WORM, kidPath, wormPush,
 } from './script';
 
 const M = 23.33;
@@ -133,7 +133,7 @@ export class Opening {
     const size = sample1(SOIL_SIZE, T);
     a.soil.visible = T >= SOIL_SIZE[0][0] && size > 0.01;
     this.p.set(SOIL.x, litterTopHeight(SOIL.x, SOIL.z) - 0.05, SOIL.z);
-    a.soil.matrix.compose(this.p, this.q.identity(), this.s.set(size, size, size));
+    a.soil.matrix.compose(this.p, this.q.setFromAxisAngle(this.up, SOIL.yaw), this.s.set(size, size, size));
     this.poseDoors(T);
     a.update();
     this.poseCamera(T, camera, game);
@@ -223,12 +223,14 @@ export class Opening {
       const k = sample(TUB, T, this.scratch, true);
       this.e.set(k[3], 0, k[4], 'ZYX');
       this.q.setFromEuler(this.e);
+      this.q2.setFromAxisAngle(this.up, k[5]);
+      this.q.premultiply(this.q2);
       this.p.set(k[0], litterTopHeight(k[0], k[2]) + k[1], k[2]);
       this.tubM.compose(this.p, this.q, this.s.set(1, 1, 1));
     }
     a.tub.matrix.copy(this.tubM);
     if (T < LID[0][0]) {
-      this.m.makeTranslation(0, 1.45, 0);
+      this.m.makeTranslation(0, CUP.top + CUP.lidHalf, 0);
       a.lid.matrix.multiplyMatrices(this.tubM, this.m);
     } else {
       const k = sample(LID, T, this.scratch, true);

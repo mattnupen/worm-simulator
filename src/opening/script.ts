@@ -119,45 +119,63 @@ export function kidPath(k: { at: number; endX: number; endZ: number }): Key[] {
 }
 
 /**
- * The bait tub: [t, x, y, z, tip about x, roll about z]. It rides on the box, rocks, tips off its
+ * How the fallen cup lies: turned so its mouth faces the camera's side, so the camera sees
+ * the soil inside and the pile tumbling out. It lands behind the worm's spawn, so the pile's front
+ * lumps lie over the worm (at the origin).
+ */
+export const LIE_YAW = -1.1;
+
+/**
+ * The bait tub: [t, x, y, z, tip about x, roll about z, turn about y]. It rides on the box, rocks, tips off its
  * end, lands on its side with its open end toward +z (the lid pops off) and lies there until the
  * teacher stands it up and lifts it away. Sampled at a steady rate, so the fall speeds up.
  */
 export const TUB: readonly Key[] = [
-  [4.3, 3.9, 6.0, -5.7, 0, 0],
-  [4.5, 3.9, 6.0, -5.7, 0.12, 0],
-  [4.62, 3.9, 6.0, -5.7, -0.05, 0],
-  [4.75, 3.6, 5.9, -5.1, 0.6, 0.1],
-  [4.92, 1.6, 2.6, -3.9, 1.35, 0.25],
-  [5.0, 0, 1.3, -3.3, Math.PI / 2, 0],
-  [5.1, 0, 1.55, -3.3, 1.5, 0.05],
-  [5.22, 0, 1.3, -3.3, Math.PI / 2, 0],
-  [11.0, 0, 1.3, -3.3, Math.PI / 2, 0],
-  [11.3, 0.9, 4.0, -2.4, 0, 0],
-  [11.6, 0.9, 4.0, -2.4, 0, 0],
-  [12.0, 1.5, 32, -2.2, 0, 0],
+  [4.3, 3.9, 5.4, -5.7, 0, 0, 0],
+  [4.5, 3.9, 5.4, -5.7, 0.12, 0, 0],
+  [4.62, 3.9, 5.4, -5.7, -0.05, 0, 0],
+  [4.75, 3.6, 5.3, -5.1, 0.6, 0.1, 0],
+  [4.92, 1.6, 2.6, -3.9, 1.35, 0.25, 0],
+  [5.0, 2.49, 1.45, -1.27, Math.PI / 2, 0, LIE_YAW],
+  [5.1, 2.49, 1.7, -1.27, 1.5, 0.05, LIE_YAW],
+  [5.22, 2.49, 1.45, -1.27, Math.PI / 2, 0, LIE_YAW],
+  [11.0, 2.49, 1.45, -1.27, Math.PI / 2, 0, LIE_YAW],
+  [11.3, 0.9, 4.0, -2.4, 0, 0, 0],
+  [11.6, 0.9, 4.0, -2.4, 0, 0, 0],
+  [12.0, 1.5, 32, -2.2, 0, 0, 0],
 ];
 /** Where the tub sits on the box, in the box's frame (it is set down turned half round): it rides along until it falls. */
-export const TUB_ON_BOX = { x: 0.95, y: 3.65, z: -2.8 } as const;
+export const TUB_ON_BOX = { x: 0.95, y: 3.05, z: -2.8 } as const;
 
 /**
  * The lid: [t, x, y, z, turn about x]. It flies off at the landing, back toward the camera's left
  * (clear of the worm's way out), and is pressed back on.
  */
 export const LID: readonly Key[] = [
-  [5.0, 0, 1.3, -1.95, Math.PI / 2],
+  [5.0, 1.8, 1.45, -0.92, Math.PI / 2],
   [5.2, -1.2, 3.4, -4.6, 3.5],
   [5.45, -2.4, 0.15, -6.8, 2 * Math.PI],
   [11.15, -2.4, 0.15, -6.8, 2 * Math.PI],
-  [11.45, 0.9, 5.45, -2.4, 2 * Math.PI],
-  [11.6, 0.9, 5.45, -2.4, 2 * Math.PI],
-  [12.0, 1.5, 33.5, -2.2, 2 * Math.PI],
+  [11.45, 0.9, 4.77, -2.4, 2 * Math.PI],
+  [11.6, 0.9, 4.77, -2.4, 2 * Math.PI],
+  [12.0, 1.5, 32.77, -2.2, 2 * Math.PI],
 ];
 /** The lid snaps on here (the click). */
 export const LID_ON = 11.45;
 
-/** The spilled soil in front of the tub: [t, size 0..1]. It covers the worm until it crawls out. */
-export const SOIL = { x: 0, z: -0.9, length: 3.6, width: 1.8, height: 0.55 } as const;
+/**
+ * The bait cup (Matt's photo, 2026-10-16: a round, squat night crawler cup, milky white with a
+ * turquoise snap-on lid), in its own frame: axis y, open end at +y, its middle at the origin.
+ * About 12 cm across and 6 cm deep.
+ */
+export const CUP = { bottom: -0.7, top: 0.65, rBottom: 1.35, rTop: 1.55, lidR: 1.68, lidHalf: 0.12 } as const;
+
+/**
+ * The spilled soil: a pile tumbling out of the cup's mouth and spreading the way it faces, its middle
+ * here (it grows and shrinks from there). It covers the worm until it crawls out.
+ */
+export const SOIL = { x: 1.07, z: -0.55, yaw: LIE_YAW } as const;
+/** [t, size 0..1] of the spilled pile. */
 export const SOIL_SIZE: readonly Key[] = [
   [5.0, 0], [5.25, 1], [9.95, 1], [10.95, 0],
 ];
@@ -180,9 +198,9 @@ export const LEFT_HAND: readonly Key[] = [
   [10.0, 2.6, 7, -4.6],
   [10.9, 2.6, 7, -4.6],
   [11.15, -2.4, 0.7, -6.8],
-  [11.45, 0.9, 6.3, -2.4],
-  [11.6, 0.9, 6.3, -2.4],
-  [12.0, 0.9, 34, -2.4],
+  [11.45, 0.9, 5.6, -2.4],
+  [11.6, 0.9, 5.6, -2.4],
+  [12.0, 0.9, 33.3, -2.4],
 ];
 /** The hands show while they are near the ground. */
 export const HANDS_SHOWN = [9.6, 12.0] as const;

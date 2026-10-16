@@ -133,10 +133,10 @@ export function wheel(w: MeshWriter, cx: number, cy: number, cz: number, r: numb
 }
 
 /**
- * A rounded lump (a squashed half sphere) on y = 0, `rx` by `rz` across and `h` high: spilled soil.
- * Its rim is a little uneven so it reads as a heap, not a dome.
+ * A rounded lump (a squashed half sphere) on y = 0 round (cx, cz), `rx` by `rz` across and `h` high:
+ * spilled soil. Its rim is a little uneven so it reads as a heap, not a dome.
  */
-export function heap(w: MeshWriter, rx: number, rz: number, h: number, hex: number, seed: number): void {
+export function heap(w: MeshWriter, rx: number, rz: number, h: number, hex: number, seed: number, cx = 0, cz = 0): void {
   const p = rgb(hex);
   const rings = 5;
   const sides = 18;
@@ -149,7 +149,7 @@ export function heap(w: MeshWriter, rx: number, rz: number, h: number, hex: numb
     for (let k = 0; k <= sides; k++) {
       const a = (k / sides) * Math.PI * 2;
       const wobble = 1 + 0.12 * Math.sin(a * 3 + seed) * (1 - v) + 0.06 * Math.sin(a * 7 + seed * 2);
-      w.vertex(Math.cos(a) * rx * rr * wobble, y, Math.sin(a) * rz * rr * wobble, 0, 1, 0, p);
+      w.vertex(cx + Math.cos(a) * rx * rr * wobble, y, cz + Math.sin(a) * rz * rr * wobble, 0, 1, 0, p);
     }
   }
   for (let i = 0; i < rings; i++) {
