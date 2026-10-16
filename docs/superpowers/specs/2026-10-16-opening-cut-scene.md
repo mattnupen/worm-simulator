@@ -26,7 +26,8 @@ Asia, and bait spread them; leftover bait goes in the trash, not the woods. Then
   are made in the browser like the lesson's; there are no recorded voices.
 - **When it plays.** First Crawl of each version on a device (`wormsim.openings`, its own save
   key). "Watch the opening" on Start replays it. Skip, Esc or Enter skips it any time.
-  `?opening=1` forces it (for review), `?opening=0` turns it off (tests).
+  `?opening=1` is the preview link: "Watch the opening" leads Start (even before Learn), the fact
+  card adds "Watch again", and the first Crawl plays it. `?opening=0` turns it off (tests).
 - **Fact card after.** The scene's science point, with its source.
 
 ## How it is built

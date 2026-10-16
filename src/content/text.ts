@@ -58,6 +58,7 @@ export const TEXT = {
   openingSkip: { kind: 'ui', text: 'Skip' },
   openingSkipKeys: { kind: 'ui', text: 'Esc or Enter skips' },
   openingWatch: { kind: 'ui', text: 'Watch the opening' },
+  openingReplay: { kind: 'ui', text: 'Watch again' },
   openingFactTitle: { kind: 'ui', text: 'Did you know?' },
   openingFact: {
     kind: 'fact',
