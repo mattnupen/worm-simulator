@@ -166,7 +166,13 @@ export function showCrawl(shell: Shell, mission?: Line): void {
   shell.panel.focus({ preventScroll: true });
 }
 
-export interface PauseActions { onResume(): void; onSettings(): void; onStart(): void }
+export interface PauseActions {
+  onResume(): void;
+  onSettings(): void;
+  onStart(): void;
+  /** The preview link (?opening=1) only: "Watch the opening" again from Pause. */
+  onOpening?(): void;
+}
 
 /** Paused. `fromGraphics`: back from the Settings screen, so focus returns to its button. */
 export function showPause(shell: Shell, a: PauseActions, fromGraphics = false): void {
@@ -174,7 +180,12 @@ export function showPause(shell: Shell, a: PauseActions, fromGraphics = false): 
   const graphics = button('Settings', 'sliders', 'secondary', a.onSettings);
   shell.show('pause', 'Paused', [
     el('h1', 'Paused', 'screen-title'),
-    menu(resume, graphics, button('Back to start', 'home', 'secondary', a.onStart)),
+    menu(
+      resume,
+      ...(a.onOpening ? [button(shown(TEXT.openingWatch), 'eye', 'secondary', a.onOpening)] : []),
+      graphics,
+      button('Back to start', 'home', 'secondary', a.onStart),
+    ),
   ]);
   (fromGraphics ? graphics : resume).el.focus();
 }

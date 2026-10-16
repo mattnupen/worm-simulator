@@ -51,28 +51,30 @@ export const TEXT = {
   openingDoor: { kind: 'ui', text: '[Brakes hiss. The door opens]' },
   openingThud: { kind: 'ui', text: '[Thud!]' },
   openingKidLine: { kind: 'ui', text: 'Is that the lake?' },
+  openingKidFish: { kind: 'ui', text: "I'm going to catch the biggest fish!" },
   openingPoles: { kind: 'ui', text: 'Everybody grab a fishing pole!' },
-  openingOops: { kind: 'ui', text: 'Oops! I dropped the worms. Lid on, before any of you escape!' },
+  openingOops: { kind: 'ui', text: 'Oops! I dropped the worms!' },
+  // The teacher's warning (Matt, 2026-10-16: say how they are invasive and why one getting loose is
+  // bad). MN DNR: "All of the terrestrial earthworms in Minnesota are non-native, invasive species
+  // from Europe and Asia"; "Invading earthworms eat the leaves that create the duff layer"; "This
+  // duff layer is the natural growing environment for native woodland wildflowers."
+  openingInvasive: {
+    kind: 'fact',
+    text: "These worms aren't from here. They came from Europe and Asia.",
+    source: 'mndnr-earthworms',
+    verified: true,
+  },
+  openingLoose: {
+    kind: 'fact',
+    text: 'If one gets loose, it eats the leaves that wildflowers need.',
+    source: 'mndnr-earthworms',
+    verified: true,
+  },
   openingKid: { kind: 'ui', text: 'Kid' },
   openingTeacher: { kind: 'ui', text: 'Teacher' },
   openingSkip: { kind: 'ui', text: 'Skip' },
   openingSkipKeys: { kind: 'ui', text: 'Esc or Enter skips' },
   openingWatch: { kind: 'ui', text: 'Watch the opening' },
-  openingReplay: { kind: 'ui', text: 'Watch again' },
-  openingFactTitle: { kind: 'ui', text: 'Did you know?' },
-  openingFact: {
-    kind: 'fact',
-    text: 'All earthworms in Minnesota came from Europe and Asia. Worms used as fishing bait have spread them to faraway parts of the state.',
-    source: 'mndnr-earthworms',
-    verified: true,
-  },
-  openingTip: {
-    kind: 'fact',
-    text: 'Done fishing? Put leftover worms in the trash, not in the woods.',
-    source: 'mndnr-earthworms',
-    verified: true,
-  },
-  openingStart: { kind: 'ui', text: 'Start crawling' },
 } as const satisfies Record<string, Line>;
 
 export type TextKey = keyof typeof TEXT;

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CURRENT_LESSON } from '../../src/content/lessons';
 import { SOURCES } from '../../src/content/sources';
-import { TEXT, shown } from '../../src/content/text';
+import { shown } from '../../src/content/text';
 
 const PAGE = pathToFileURL(path.resolve('dist/index.html')).href;
 const lesson = CURRENT_LESSON!;
@@ -159,11 +159,9 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
     await page.keyboard.press('Enter');
   }
 
-  // A new device's first Crawl plays the opening scene (tests/e2e/opening.spec.ts); Enter skips it,
-  // and Enter again on its fact card starts crawling.
+  // A new device's first Crawl plays the opening scene (tests/e2e/opening.spec.ts); Enter skips it
+  // straight into play.
   await expect(page.getByRole('region', { name: 'Opening' })).toBeVisible();
-  await page.keyboard.press('Enter');
-  await expect(button(page, shown(TEXT.openingStart))).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('region', { name: 'Crawling' })).toBeVisible();
   await expect(page.locator('.cue[data-cue]')).toHaveCount(0);

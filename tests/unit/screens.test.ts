@@ -131,7 +131,12 @@ describe('screens: the opening scene', () => {
     expect(run(start, { type: 'lesson' }, { type: 'opening' }).screen).toBe('opening');
   });
 
-  it('opens only from Start or the lesson, and does not pause', () => {
+  it('pause -> opening (the preview link offers it there) -> crawl', () => {
+    const paused = run(start, { type: 'crawl' }, { type: 'pause' });
+    expect(run(paused, { type: 'opening' }, { type: 'openingDone' }).screen).toBe('crawl');
+  });
+
+  it('opens only from Start, the lesson or Pause, and does not pause', () => {
     const crawling = run(start, { type: 'crawl' });
     expect(transition(crawling, { type: 'opening' })).toBe(crawling);
     expect(transition(start, { type: 'openingDone' })).toBe(start);
