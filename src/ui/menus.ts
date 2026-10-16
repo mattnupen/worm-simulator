@@ -7,7 +7,12 @@ import { openVersions } from './versionsDialog';
 import { TEXT, shown, type Line } from '../content/text';
 import { PLAY_GOAL_SECONDS, type Quest, type QuestId } from '../game/quests';
 
-export interface StartActions { onCrawl(): void; onSettings(): void }
+export interface StartActions {
+  onCrawl(): void;
+  onSettings(): void;
+  /** "Watch the opening": the opening scene again (src/opening/). */
+  onOpening?(): void;
+}
 
 /**
  * The round's quests on Start (src/game/quests.ts): Learn, Play, Vote, in that order. Learn opens
@@ -35,10 +40,11 @@ const BEFORE: Record<QuestId, string> = { learn: '', play: 'Learn', vote: 'Play'
  */
 export function showStart(shell: Shell, a: StartActions, fromGraphics = false, round?: StartRound): void {
   const graphics = button('Settings', 'sliders', 'secondary', a.onSettings);
+  const watch = a.onOpening ? button(shown(TEXT.openingWatch), 'eye', 'secondary', a.onOpening) : null;
   const head = [cardHead(VERSION_TITLE), el('p', 'You are an earthworm under the leaves of a northern forest.', 'lead')];
   if (!round) {
     const crawl = button('Crawl', 'play', 'primary', a.onCrawl);
-    shell.show('start', 'Start', [...head, menu(crawl, graphics), versionsLink(shell)]);
+    shell.show('start', 'Start', [...head, menu(crawl, ...(watch ? [watch] : []), graphics), versionsLink(shell)]);
     (fromGraphics ? graphics : crawl).el.focus();
     return;
   }
@@ -66,6 +72,7 @@ export function showStart(shell: Shell, a: StartActions, fromGraphics = false, r
     list.append(li);
   });
   const tools = el('div', '', 'menu menu-row');
+  if (watch) tools.append(watch.el);
   tools.append(graphics.el);
   shell.show('start', 'Start', [...head, list, tools, versionsLink(shell)]);
   // Every quest done: Crawl leads (play on as long as you like).

@@ -46,6 +46,32 @@ export const TEXT = {
     verified: true,
   },
   burrowChoice: { kind: 'gameChoice', text: 'In the game you can dig any way you like.' },
+  // The opening scene (src/opening/script.ts; Matt's storyboard, 2026-10-16).
+  openingBus: { kind: 'ui', text: '[A school bus pulls up]' },
+  openingDoor: { kind: 'ui', text: '[Brakes hiss. The door opens]' },
+  openingThud: { kind: 'ui', text: '[Thud!]' },
+  openingKidLine: { kind: 'ui', text: 'Is that the lake?' },
+  openingPoles: { kind: 'ui', text: 'Everybody grab a fishing pole!' },
+  openingOops: { kind: 'ui', text: 'Oops! I dropped the worms. Lid on, before any of you escape!' },
+  openingKid: { kind: 'ui', text: 'Kid' },
+  openingTeacher: { kind: 'ui', text: 'Teacher' },
+  openingSkip: { kind: 'ui', text: 'Skip' },
+  openingSkipKeys: { kind: 'ui', text: 'Esc or Enter skips' },
+  openingWatch: { kind: 'ui', text: 'Watch the opening' },
+  openingFactTitle: { kind: 'ui', text: 'Did you know?' },
+  openingFact: {
+    kind: 'fact',
+    text: 'All earthworms in Minnesota came from Europe and Asia. Worms used as fishing bait have spread them to faraway parts of the state.',
+    source: 'mndnr-earthworms',
+    verified: true,
+  },
+  openingTip: {
+    kind: 'fact',
+    text: 'Done fishing? Put leftover worms in the trash, not in the woods.',
+    source: 'mndnr-earthworms',
+    verified: true,
+  },
+  openingStart: { kind: 'ui', text: 'Start crawling' },
 } as const satisfies Record<string, Line>;
 
 export type TextKey = keyof typeof TEXT;

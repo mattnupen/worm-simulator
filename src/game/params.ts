@@ -20,6 +20,13 @@ export interface GameParams {
   dig: boolean;
   /** `?lesson=1`: open straight on the in-game lesson (Matt's review, screenshots). */
   lesson: boolean;
+  /**
+   * `?opening=1`: the first Crawl plays the opening even on a device that has seen it (Matt's
+   * review); `?opening=0`: never plays it (tests). `?openingAt=7.5` with it freezes the scene at
+   * that second (screenshots of each shot).
+   */
+  opening: boolean | null;
+  openingAt: number | null;
 }
 
 export function parseParams(search: string): GameParams {
@@ -34,5 +41,7 @@ export function parseParams(search: string): GameParams {
     prompt: prompt !== null && (ACTION_KINDS as readonly string[]).includes(prompt) ? (prompt as ActionKind) : null,
     dig: p.get('dig') === '1',
     lesson: p.get('lesson') === '1',
+    opening: p.get('opening') === '1' ? true : p.get('opening') === '0' ? false : null,
+    openingAt: p.has('openingAt') && Number.isFinite(Number(p.get('openingAt'))) ? Number(p.get('openingAt')) : null,
   };
 }

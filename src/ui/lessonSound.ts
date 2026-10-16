@@ -44,6 +44,23 @@ export function playCueSound(cue: Cue): void {
   }
 }
 
+/**
+ * Plays the sounds `build` schedules from `t` on (the opening scene's: src/ui/openingSound.ts), on
+ * the same output and switch as the lesson's cues: any cue playing stops first, and stopCueSound or
+ * Settings' sound off stops these too.
+ */
+export function playScheduled(build: (c: AudioContext, out: AudioNode, t: number) => void): void {
+  stopCueSound();
+  if (!enabled) return;
+  const c = audio();
+  if (!c) return;
+  const out = c.createGain();
+  out.gain.value = 0.7;
+  out.connect(c.destination);
+  current = out;
+  build(c, out, c.currentTime + 0.05);
+}
+
 export function stopCueSound(): void {
   if (!current) return;
   try { current.disconnect(); } catch { /* already gone */ }
@@ -61,7 +78,7 @@ function audio(): AudioContext | null {
 }
 
 /** A drum-like hit: a sine that drops in pitch, with a short burst of muffled noise. */
-function thud(c: AudioContext, out: AudioNode, t: number, freq: number, dur: number, level: number): void {
+export function thud(c: AudioContext, out: AudioNode, t: number, freq: number, dur: number, level: number): void {
   const osc = c.createOscillator();
   osc.type = 'sine';
   osc.frequency.setValueAtTime(freq * 1.6, t);
@@ -109,7 +126,7 @@ function whoosh(c: AudioContext, out: AudioNode, t: number, dur: number): void {
   n.start(t);
 }
 
-function noise(c: AudioContext, seconds: number): AudioBufferSourceNode {
+export function noise(c: AudioContext, seconds: number): AudioBufferSourceNode {
   const buf = c.createBuffer(1, Math.ceil(c.sampleRate * seconds), c.sampleRate);
   const data = buf.getChannelData(0);
   for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;

@@ -122,3 +122,21 @@ describe('screens: the Vote quest', () => {
     expect(transition(crawling, { type: 'vote' })).toBe(crawling);
   });
 });
+
+describe('screens: the opening scene', () => {
+  it('start or lesson -> opening -> done/Skip -> crawl', () => {
+    const fromStart = run(start, { type: 'opening' });
+    expect(fromStart.screen).toBe('opening');
+    expect(run(fromStart, { type: 'openingDone' }).screen).toBe('crawl');
+    expect(run(start, { type: 'lesson' }, { type: 'opening' }).screen).toBe('opening');
+  });
+
+  it('opens only from Start or the lesson, and does not pause', () => {
+    const crawling = run(start, { type: 'crawl' });
+    expect(transition(crawling, { type: 'opening' })).toBe(crawling);
+    expect(transition(start, { type: 'openingDone' })).toBe(start);
+    const opening = run(start, { type: 'opening' });
+    expect(transition(opening, { type: 'pause' })).toBe(opening);
+    expect(transition(opening, { type: 'hidden' })).toBe(opening);
+  });
+});

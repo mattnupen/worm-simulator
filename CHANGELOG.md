@@ -13,6 +13,15 @@ How to write an entry (for Matt and Claude):
   "## VN · Name (YYYY-MM-DD)" and start a new "Coming next" above it.
 -->
 
+## Coming next
+
+### New
+- **An opening scene.** The first time you press Crawl, a short movie plays from the ground: a
+  school bus pulls up, a teacher sets down a tackle box, and the bait tub falls off and opens.
+  That's you crawling out! Captions show every line and sound. Press **Skip** (or Esc or Enter)
+  any time, and watch it again with **Watch the opening** on the Start screen.
+- After the scene, a fact card tells you how fishing bait spread earthworms in Minnesota.
+
 ## V3 · Predators (2026-10-12)
 
 ### New

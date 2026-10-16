@@ -104,10 +104,14 @@ async function recordPlaces(page: Page): Promise<() => Promise<Seen[]>> {
   return () => page.evaluate(() => (window as unknown as { __seen: Seen[] }).__seen);
 }
 
-// These tests play as a returning student who has finished this version's lesson, so Crawl comes
-// first on Start. The lesson's own flow, on a new device, is tests/e2e/lesson.spec.ts.
+// These tests play as a returning student who has finished this version's lesson and seen its
+// opening scene, so Crawl comes first on Start and goes straight to play. The lesson's own flow,
+// on a new device, is tests/e2e/lesson.spec.ts.
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
+  await page.addInitScript(() => {
+    localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] }));
+    localStorage.setItem('wormsim.openings', JSON.stringify({ version: 1, seen: Array.from({ length: 30 }, (_, i) => i + 1) }));
+  });
 });
 
 test('keyboard only: dig down, dig around, switch the camera, pause, come up', async ({ page }) => {
@@ -196,7 +200,10 @@ test('touch: the Action button digs down, switches the view and comes up; the jo
   const context = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 360, height: 640 } });
   // Its own context, so the beforeEach above doesn't reach it: mark the lesson done here too, or
   // Crawl stays locked behind Learn.
-  await context.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
+  await context.addInitScript(() => {
+    localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] }));
+    localStorage.setItem('wormsim.openings', JSON.stringify({ version: 1, seen: Array.from({ length: 30 }, (_, i) => i + 1) }));
+  });
   const page = await context.newPage();
   const errors = watchErrors(page);
   await page.goto(PAGE);

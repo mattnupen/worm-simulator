@@ -12,11 +12,14 @@ import type { PresetId } from '../render/graphics';
  *   start --Learn--> lesson --Start crawling--> crawl
  *   lesson --Back to start/Esc--> start
  *   start --Vote--> vote --I voted/Back to start/Esc--> start
+ *   start/lesson --Crawl (first time this version), Watch the opening--> opening --done/Skip--> crawl
  */
-export type Screen = 'start' | 'crawl' | 'pause' | 'graphics' | 'speedTest' | 'results' | 'lesson' | 'vote';
+export type Screen = 'start' | 'crawl' | 'pause' | 'graphics' | 'speedTest' | 'results' | 'lesson' | 'vote' | 'opening';
 
 export type ScreenEvent =
   | { type: 'crawl' }
+  | { type: 'opening' }
+  | { type: 'openingDone' }
   | { type: 'lesson' }
   | { type: 'vote' }
   | { type: 'pause' }
@@ -50,6 +53,10 @@ export function transition(s: ScreenState, e: ScreenEvent): ScreenState {
   switch (e.type) {
     case 'crawl':
       return s.screen === 'start' || s.screen === 'lesson' ? { ...s, screen: 'crawl' } : s;
+    case 'opening':
+      return s.screen === 'start' || s.screen === 'lesson' ? { ...s, screen: 'opening' } : s;
+    case 'openingDone':
+      return s.screen === 'opening' ? { ...s, screen: 'crawl' } : s;
     case 'lesson':
       return s.screen === 'start' ? { ...s, screen: 'lesson' } : s;
     case 'vote':

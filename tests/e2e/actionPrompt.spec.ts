@@ -112,10 +112,14 @@ test.describe('on a touch screen', () => {
   });
 });
 
-// These tests play as a returning student who has finished this version's lesson, so Crawl comes
-// first on Start. The lesson's own flow, on a new device, is tests/e2e/lesson.spec.ts.
+// These tests play as a returning student who has finished this version's lesson and seen its
+// opening scene, so Crawl comes first on Start and goes straight to play. The lesson's own flow,
+// on a new device, is tests/e2e/lesson.spec.ts.
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
+  await page.addInitScript(() => {
+    localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] }));
+    localStorage.setItem('wormsim.openings', JSON.stringify({ version: 1, seen: Array.from({ length: 30 }, (_, i) => i + 1) }));
+  });
 });
 
 test('a click with no pointer (Switch Access, a screen reader) is one Action press', async ({ page }) => {
