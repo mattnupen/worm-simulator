@@ -38,6 +38,13 @@ import { PLAY_GOAL_SECONDS, playMinutes, quests, type QuestProgress } from './ga
 import { VERSION } from './version';
 import { warmShaders } from './render/warmShaders';
 import { createBurrowing } from './underground/burrowing';
+import { Opening } from './opening/opening';
+import { captionAt } from './opening/script';
+import { showOpening, showOpeningFact, type OpeningCaptions } from './ui/opening';
+import { playOpeningSound } from './ui/openingSound';
+import { stopCueSound } from './ui/lessonSound';
+import { markOpeningSeen, openingSeen } from './save/openingStore';
+import { sharedLighting } from './render/paintedMaterial';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
@@ -106,6 +113,8 @@ function start(renderer: THREE.WebGLRenderer): void {
   // camera stays >= 0.5 above the litter and 2.6 behind the worm, so nothing it normally looks
   // at comes within 0.2 of the lens.
   const camera = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
+  /** The follow camera as play would draw it: the opening eases into it at its end. */
+  const gameCam = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
   /** The round's question to think about while crawling: the lesson's own "notice" line. */
   const playQuestion = CURRENT_LESSON?.steps.find((s): s is Extract<typeof s, { kind: 'mission' }> => s.kind === 'mission')?.notice;
   const crawl = new Crawl();
@@ -117,6 +126,16 @@ function start(renderer: THREE.WebGLRenderer): void {
   const actionPrompt = createActionPrompt(app);
   // Surface or underground (V2): the game steps the crawl on the surface and digs below it.
   const { game, cut } = createBurrowing(crawl, world, app, shell.panel, store);
+  // The opening scene (src/opening/): its props join the scene now, hidden, so warmShaders sees them.
+  const opening = new Opening(world.scene);
+  /** The opening's strip (captions and Skip) while it plays; then its fact card. */
+  let captions: OpeningCaptions | null = null;
+  let openingPhase: 'scene' | 'fact' = 'scene';
+  /** ?opening=1 plays it on the first Crawl even when seen (Matt's review); once. */
+  let openingForced = params.opening === true;
+  const openingMove = { x: 0, y: 0 };
+  /** The forest's haze, kept while the opening thins it (the bus stands far off). */
+  const baseFog = { near: 0, far: 0 };
   /** The crawl screen's card: 0 the surface one, 1 the first underground visit's hint, 2 none. */
   let shownCard = 0;
   const cardNow = (): number => (game.mode.mode === 'surface' ? 0 : game.hintShowing ? 1 : 2);
@@ -180,6 +199,8 @@ function start(renderer: THREE.WebGLRenderer): void {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    gameCam.aspect = camera.aspect;
+    gameCam.updateProjectionMatrix();
     game.aspect = camera.aspect;
     updateResolution();
     dirty = true;
@@ -199,6 +220,8 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (state.screen === 'lesson') closeLesson(shell.root);
     // Leaving play (pause, a hidden tab, back to start): the Play quest's minutes are kept.
     if (state.screen === 'crawl' && progress.playSeconds !== playSaved) saveProgress();
+    if (next.screen === 'opening' && state.screen !== 'opening') beginOpening();
+    if (state.screen === 'opening' && next.screen !== 'opening') delete shell.panel.dataset.phase;
     state = next;
     // A slow streak from before (or a menu over the scene) must not count against Auto.
     graphics.interruptAuto(performance.now());
@@ -230,12 +253,62 @@ function start(renderer: THREE.WebGLRenderer): void {
     applyActive();
   }
 
+  /**
+   * Crawl from Start or the lesson: the opening first if this device has not seen this version's
+   * (never in the speed test, or with ?opening=0), else straight to play.
+   */
+  function crawlOrOpening(): void {
+    const play = params.opening !== false && !params.speedTest && (openingForced || !openingSeen(store, VERSION.number));
+    openingForced = false;
+    dispatch({ type: play ? 'opening' : 'crawl' });
+  }
+
+  /** The scene from the top: the worm back at the spawn (in the tub), the props, the sound. */
+  function beginOpening(): void {
+    crawl.reset();
+    game.reset();
+    openingPhase = 'scene';
+    opening.start();
+    world.worm.group.visible = false;
+    baseFog.near = sharedLighting.uFogNear.value;
+    baseFog.far = sharedLighting.uFogFar.value;
+    sharedLighting.uFogNear.value = baseFog.near * 3.5;
+    sharedLighting.uFogFar.value = baseFog.far * 2.4;
+    // ?openingAt=: run the scene to that second now, then hold it there (screenshots).
+    if (params.openingAt !== null) {
+      while (opening.t < params.openingAt) {
+        openingMove.y = opening.step(1 / 60, crawl.motion.head.z);
+        game.step(1 / 60, openingMove, false);
+      }
+    } else {
+      playOpeningSound();
+    }
+    dirty = true;
+  }
+
+  /** The scene is over (its end, or Skip): the props go, play's view is back, the fact card shows. */
+  function endOpeningScene(): void {
+    if (!opening.playing) return;
+    opening.stop(crawl.motion.head.x, crawl.motion.head.z);
+    stopCueSound();
+    world.worm.group.visible = true;
+    sharedLighting.uFogNear.value = baseFog.near;
+    sharedLighting.uFogFar.value = baseFog.far;
+    markOpeningSeen(store, VERSION.number);
+    openingPhase = 'fact';
+    captions = null;
+    dirty = true;
+    if (state.screen === 'opening') draw();
+  }
+
   function draw(fromGraphics = false): void {
     switch (state.screen) {
       case 'start':
         return showStart(shell, {
-          onCrawl: () => dispatch({ type: 'crawl' }),
+          onCrawl: crawlOrOpening,
           onSettings: () => dispatch({ type: 'graphics' }),
+          // A replay, once seen (so it never opens play before the round's Learn is done).
+          onOpening: openingSeen(store, VERSION.number) ? () => dispatch({ type: 'opening' }) : undefined,
         }, fromGraphics, CURRENT_LESSON ? {
           lessonTitle: CURRENT_LESSON.title,
           quests: quests(questProgress()),
@@ -252,10 +325,15 @@ function start(renderer: THREE.WebGLRenderer): void {
       case 'lesson':
         if (!CURRENT_LESSON) return;
         return showLesson(shell, CURRENT_LESSON, {
-          onCrawl: () => dispatch({ type: 'crawl' }),
+          onCrawl: crawlOrOpening,
           onStart: () => dispatch({ type: 'toStart' }),
           onFinish: () => markLessonDone(store, CURRENT_LESSON!.id),
         });
+      case 'opening':
+        if (openingPhase === 'fact') return showOpeningFact(shell, () => dispatch({ type: 'openingDone' }));
+        captions = showOpening(shell, endOpeningScene);
+        captions.set(captionAt(opening.t));
+        return;
       case 'crawl':
         shownCard = cardNow();
         return shownCard === 0 ? showCrawl(shell, playQuestion) : showUnderground(shell, shownCard === 1);
@@ -332,6 +410,18 @@ function start(renderer: THREE.WebGLRenderer): void {
   }
 
   function update(dt: number): void {
+    if (state.screen === 'opening' && opening.playing) {
+      // The scene moves the worm itself (out of the tub and under the leaf): the real crawl, so
+      // play starts where it ends. ?openingAt= holds it still at that second.
+      const hold = params.openingAt !== null && opening.t >= params.openingAt;
+      openingMove.y = hold ? 0 : opening.step(dt, crawl.motion.head.z);
+      game.step(dt, openingMove, false);
+      if (opening.done) endOpeningScene();
+      keyboard.endStep();
+      actionPrompt.set(null);
+      actionPrompt.endStep();
+      return;
+    }
     const cmds = commands();
     if (frozen()) game.hold(cmds.action);
     else {
@@ -362,7 +452,18 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (still && !dirty) return;
     dirty = false;
     setTime(clock / 1000);
-    cut.sync(alpha, clock / 1000, camera, window.innerWidth, window.innerHeight);
+    if (state.screen === 'opening' && opening.playing) {
+      // The world as play would pose it (the follow camera into gameCam), then the scene's own
+      // camera, and the litter's fade redone for it so the worm shows from there.
+      cut.sync(alpha, clock / 1000, gameCam, window.innerWidth, window.innerHeight);
+      opening.pose(alpha, camera, gameCam);
+      world.worm.group.visible = opening.wormShown;
+      world.syncWorm(world.pose, crawl.focus, camera, opening.wormShown);
+      captions?.set(captionAt(opening.t));
+    } else {
+      cut.sync(alpha, clock / 1000, camera, window.innerWidth, window.innerHeight);
+      opening.keepLeaf(crawl.motion.head.x, crawl.motion.head.z, game.mode.mode === 'surface');
+    }
     renderer.render(world.scene, camera);
     shell.setFps(meter.fps, CHOICE_LABELS[spec.id], runner.running ? runner.quality.tier : undefined);
     // Auto is fed only by frames actually drawn on the crawl screen: never menus, pauses or the
@@ -420,6 +521,8 @@ function start(renderer: THREE.WebGLRenderer): void {
     graphics.interruptAuto(performance.now());
     if (document.hidden) {
       runner.onHidden();
+      // The scene stops with the page; its sound would run on alone, so it stops.
+      if (opening.playing) stopCueSound();
       dispatch({ type: 'hidden' });
     } else {
       runner.onVisible(performance.now());
@@ -436,6 +539,9 @@ function start(renderer: THREE.WebGLRenderer): void {
     else if (state.screen === 'pause' && pauseKey) dispatch({ type: 'resume' });
     else if (state.screen === 'graphics' && e.code === 'Escape') dispatch({ type: 'back' });
     else if ((state.screen === 'lesson' || state.screen === 'vote') && e.code === 'Escape') dispatch({ type: 'toStart' });
+    // The opening: Esc or Enter skips the scene; on its fact card, Esc starts crawling.
+    else if (state.screen === 'opening' && openingPhase === 'scene' && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter')) endOpeningScene();
+    else if (state.screen === 'opening' && openingPhase === 'fact' && e.code === 'Escape') dispatch({ type: 'openingDone' });
     else return;
     e.preventDefault();
   });

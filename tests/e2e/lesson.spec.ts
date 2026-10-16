@@ -3,7 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CURRENT_LESSON } from '../../src/content/lessons';
 import { SOURCES } from '../../src/content/sources';
-import { shown } from '../../src/content/text';
+import { TEXT, shown } from '../../src/content/text';
 
 const PAGE = pathToFileURL(path.resolve('dist/index.html')).href;
 const lesson = CURRENT_LESSON!;
@@ -159,6 +159,12 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
     await page.keyboard.press('Enter');
   }
 
+  // A new device's first Crawl plays the opening scene (tests/e2e/opening.spec.ts); Enter skips it,
+  // and Enter again on its fact card starts crawling.
+  await expect(page.getByRole('region', { name: 'Opening' })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(button(page, shown(TEXT.openingStart))).toBeFocused();
+  await page.keyboard.press('Enter');
   await expect(page.getByRole('region', { name: 'Crawling' })).toBeVisible();
   await expect(page.locator('.cue[data-cue]')).toHaveCount(0);
   await page.reload();
@@ -235,7 +241,8 @@ test('the quests open in order: Learn, then Play, then Vote; "I voted" finishes 
 
 test('Play counts real crawling toward its 5 minutes, and keeps it when paused', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
-  await page.goto(PAGE);
+  // Straight to play: the opening scene is not play time.
+  await page.goto(PAGE + '?opening=0');
   await expect(page.getByText('0 of 5 minutes played')).toBeVisible();
   await button(page, 'Crawl').click();
   await page.waitForTimeout(7000);

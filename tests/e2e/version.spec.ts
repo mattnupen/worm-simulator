@@ -14,10 +14,14 @@ function luminance(rgb: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-// These tests play as a returning student who has finished this version's lesson, so Crawl comes
-// first on Start. The lesson's own flow, on a new device, is tests/e2e/lesson.spec.ts.
+// These tests play as a returning student who has finished this version's lesson and seen its
+// opening scene, so Crawl comes first on Start and goes straight to play. The lesson's own flow,
+// on a new device, is tests/e2e/lesson.spec.ts.
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
+  await page.addInitScript(() => {
+    localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] }));
+    localStorage.setItem('wormsim.openings', JSON.stringify({ version: 1, seen: Array.from({ length: 30 }, (_, i) => i + 1) }));
+  });
 });
 
 test('the Start screen shows "Version N · Name" under the title, at least 18 px and 4.5:1 on the parchment', async ({ page }) => {

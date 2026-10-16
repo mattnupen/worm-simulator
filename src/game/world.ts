@@ -46,6 +46,8 @@ export interface World {
   atmosphere: Atmosphere;
   /** Continuous tube body plus its contact shadow. */
   worm: HeroWorm;
+  /** The worm's pose as `sync` last wrote it (the opening re-fades the litter for its own camera). */
+  readonly pose: WormPose;
   /**
    * Shows a preset: counts by draw range, effects by visibility, rim light by uniform. Allocates
    * nothing. The renderer's pixel ratio is the caller's.
@@ -125,7 +127,7 @@ export function buildWorld(crawl: Crawl): World {
   }
 
   const world: World = {
-    scene, litter, detail, pocket, props, hero, nearClutter, atmosphere, worm,
+    scene, litter, detail, pocket, props, hero, nearClutter, atmosphere, worm, pose,
     apply(spec) {
       litter.setCount(scaledLeafCount(spec.litter));
       detail.setCount(scaledLeafCount(spec.detail));

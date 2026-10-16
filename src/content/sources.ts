@@ -58,7 +58,7 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     title: 'Earthworms',
     publisher: 'Minnesota DNR',
     url: 'https://www.dnr.state.mn.us/invasives/terrestrialanimals/earthworms/index.html',
-    checked: '2026-10-04',
+    checked: '2026-10-16',
   },
   'wormwatch-forest': {
     title: 'About the Forest',
