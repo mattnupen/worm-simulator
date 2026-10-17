@@ -39,6 +39,9 @@ of the screen, clear of the worm.
   material (`actors.ts`), so nothing compiles a shader mid-game.
 - The worm in the scene is the real worm, driven by the real crawl, so play starts exactly where
   the scene leaves it, under the big leaf.
+- Matt's notes (2026-10-17): the camera sits closer to where the cup falls and tilts down, so the
+  worms are easy to see and the walkers' legs run off the top of the shot; the far trees in the
+  bus's way are hidden while the scene plays (their instance matrices only).
 - Draw calls during the scene: 18–31 across presets (budget 40). The meshes are hidden outside
   the scene. The speed test never plays it.
 - Accessibility: captions carry everything (sound only adds); captions are white on see-through black bars (Matt, 2026-10-16), sized for phones;

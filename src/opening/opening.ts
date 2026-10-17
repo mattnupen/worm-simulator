@@ -52,8 +52,12 @@ export class Opening {
   private readonly look = new THREE.Matrix4();
   private readonly boxM = new THREE.Matrix4();
   private readonly tubM = new THREE.Matrix4();
+  private readonly busPose = { x: 0, z: 0, yaw: 0 };
 
-  constructor(scene: THREE.Scene) {
+  /** The far trees the bus would drive through, and their own matrices (hidden while it plays). */
+  private cleared: { mesh: THREE.InstancedMesh; index: number; matrix: THREE.Matrix4 }[] | null = null;
+
+  constructor(private readonly scene: THREE.Scene) {
     this.actors = buildOpeningActors();
     scene.add(this.actors.bus, this.actors.leaf, this.actors.moving);
   }
@@ -64,11 +68,35 @@ export class Opening {
     this.playing = true;
     this.leafLeft = true;
     this.actors.show(true);
+    this.clearBusPath(true);
+  }
+
+  /**
+   * Hides the far trees in the bus's way while the scene plays (Matt saw it drive through one) and
+   * puts them back after. Found once, by the bus's whole drive; only their matrices change.
+   */
+  private clearBusPath(hide: boolean): void {
+    if (!this.cleared) {
+      this.cleared = [];
+      const mesh = this.scene.getObjectByName('distantTrees');
+      if (mesh instanceof THREE.InstancedMesh) {
+        for (let i = 0; i < mesh.count; i++) {
+          const matrix = new THREE.Matrix4();
+          mesh.getMatrixAt(i, matrix);
+          this.p.setFromMatrixPosition(matrix);
+          this.s.setFromMatrixScale(matrix);
+          if (inBusPath(this.p.x, this.p.z, DISTANT_TRUNK * this.s.x)) this.cleared.push({ mesh, index: i, matrix });
+        }
+      }
+    }
+    for (const c of this.cleared) c.mesh.setMatrixAt(c.index, hide ? HIDDEN : c.matrix);
+    if (this.cleared.length) this.cleared[0].mesh.instanceMatrix.needsUpdate = true;
   }
 
   /** Ends the scene now (Skip, or its end): the props go, but the big leaf stays (keepLeaf). */
   stop(): void {
     this.playing = false;
+    this.clearBusPath(false);
     this.actors.bus.visible = false;
     this.actors.moving.visible = false;
     // The leaf stays (it would vanish in plain view otherwise) until keepLeaf lets it go.
@@ -141,14 +169,7 @@ export class Opening {
   }
 
   private poseBus(T: number): void {
-    const u = 1 - (1 - Math.min(1, T / BUS.stopAt)) ** 3;
-    const { from: a, via: b, to: c } = BUS;
-    const v = 1 - u;
-    const x = v * v * a.x + 2 * v * u * b.x + u * u * c.x;
-    const z = v * v * a.z + 2 * v * u * b.z + u * u * c.z;
-    const tx = 2 * v * (b.x - a.x) + 2 * u * (c.x - b.x);
-    const tz = 2 * v * (b.z - a.z) + 2 * u * (c.z - b.z);
-    const yaw = Math.atan2(tx, tz);
+    const { x, z, yaw } = busAt(1 - (1 - Math.min(1, T / BUS.stopAt)) ** 3, this.busPose);
     const bus = this.actors.bus;
     // Its door side's wheels on the ground (the berm rises beyond the floor's edge).
     const nearX = x - Math.cos(yaw) * 1.25 * M;
@@ -300,4 +321,38 @@ export function sceneFov(aspect: number, playFov: number): number {
   const wide = Math.tan(THREE.MathUtils.degToRad(playFov / 2)) * 1.6;
   const half = Math.atan(wide / Math.min(aspect, 1.6));
   return Math.min(THREE.MathUtils.radToDeg(2 * half), 105);
+}
+
+/** A far tree's trunk radius at the foot, per unit of its scale (distantTrees.ts). */
+const DISTANT_TRUNK = 0.45;
+/** A matrix that shrinks an instance to nothing. */
+const HIDDEN = new THREE.Matrix4().makeScale(0, 0, 0);
+/** The bus's size (actors.ts): half its width and its length behind the front. */
+const BUS_HALF = 29;
+const BUS_LEN = 12 * M;
+
+/** The bus's front-centre and heading at `u` (0 to 1) along its drive, written into `out`. */
+function busAt(u: number, out: { x: number; z: number; yaw: number }): { x: number; z: number; yaw: number } {
+  const { from: a, via: b, to: c } = BUS;
+  const v = 1 - u;
+  out.x = v * v * a.x + 2 * v * u * b.x + u * u * c.x;
+  out.z = v * v * a.z + 2 * v * u * b.z + u * u * c.z;
+  out.yaw = Math.atan2(2 * v * (b.x - a.x) + 2 * u * (c.x - b.x), 2 * v * (b.z - a.z) + 2 * u * (c.z - b.z));
+  return out;
+}
+
+/** A trunk at (x, z), `r` thick, stands somewhere the bus passes on its drive in. */
+export function inBusPath(x: number, z: number, r: number): boolean {
+  const pose = { x: 0, z: 0, yaw: 0 };
+  for (let k = 0; k <= 100; k++) {
+    busAt(k / 100, pose);
+    const dx = x - pose.x;
+    const dz = z - pose.z;
+    const f = Math.sin(pose.yaw);
+    const g = Math.cos(pose.yaw);
+    const along = dx * f + dz * g;
+    const across = dx * g - dz * f;
+    if (Math.abs(across) < BUS_HALF + r && along < r && along > -BUS_LEN - r) return true;
+  }
+  return false;
 }
