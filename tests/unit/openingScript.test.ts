@@ -114,3 +114,14 @@ describe('the opening on a tall screen', () => {
     expect(sceneFov(390 / 844, 60)).toBe(105);
   });
 });
+
+describe('the bus drive', () => {
+  it('finds a trunk the bus would drive through, and leaves the ones off its way', async () => {
+    const { inBusPath } = await import('../../src/opening/opening');
+    const { BUS, CAMERA } = await import('../../src/opening/script');
+    expect(inBusPath(BUS.to.x, BUS.to.z - 20, 4)).toBe(true);
+    expect(inBusPath(BUS.via.x, BUS.via.z, 4)).toBe(true);
+    expect(inBusPath(CAMERA.x, CAMERA.z, 4)).toBe(false);
+    expect(inBusPath(-30, 0, 4)).toBe(false);
+  });
+});

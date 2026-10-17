@@ -30,7 +30,7 @@ export const EASE_END = at(14.0);
  * The fixed camera: low on the leaves behind the worm's left, clear of the sedge and ferns, looking
  * across at the bus's door, with the tub in the middle and the big leaf to the right.
  */
-export const CAMERA = { x: -8, y: 1.3, z: -6, lookX: 24, lookY: 3.5, lookZ: 6 } as const;
+export const CAMERA = { x: -5, y: 1.2, z: -4.6, lookX: 24, lookY: 0.8, lookZ: 12 } as const;
 
 /**
  * The worm: hidden in the bait tub until it spills, then working its way out of the soil (Matt:
@@ -218,9 +218,9 @@ export const TUB_ON_BOX = { x: 0.95, y: 3.05, z: -2.8 } as const;
  */
 export const LID: readonly Key[] = slow([
   [5.0, 1.8, 1.45, -0.92, Math.PI / 2],
-  [5.2, 1.0, 3.0, -3.2, 3.5],
-  [5.45, 0.3, 0.15, -4.6, 2 * Math.PI],
-  [11.15, 0.3, 0.15, -4.6, 2 * Math.PI],
+  [5.2, 2.0, 3.0, -4.0, 3.5],
+  [5.45, 2.2, 0.15, -6.2, 2 * Math.PI],
+  [11.15, 2.2, 0.15, -6.2, 2 * Math.PI],
   [11.45, 0.9, 4.77, -2.4, 2 * Math.PI],
   [11.6, 0.9, 4.77, -2.4, 2 * Math.PI],
   [12.0, 1.5, 32.77, -2.2, 2 * Math.PI],
@@ -260,9 +260,9 @@ export const RIGHT_HAND: readonly Key[] = slow([
 ]);
 export const LEFT_HAND: readonly Key[] = slow([
   [9.6, 2.0, 26, -4.5],
-  [10.0, 2.6, 7, -4.6],
-  [10.9, 2.6, 7, -4.6],
-  [11.15, 0.3, 0.7, -4.6],
+  [10.0, 3.0, 7, -6.2],
+  [10.9, 3.0, 7, -6.2],
+  [11.15, 2.2, 0.7, -6.2],
   [11.45, 0.9, 5.6, -2.4],
   [11.6, 0.9, 5.6, -2.4],
   [12.0, 0.9, 33.3, -2.4],
