@@ -30,7 +30,7 @@ export const EASE_END = at(14.0);
  * The fixed camera: low on the leaves behind the worm's left, clear of the sedge and ferns, looking
  * across at the bus's door, with the tub in the middle and the big leaf to the right.
  */
-export const CAMERA = { x: -5, y: 1.2, z: -4.6, lookX: 24, lookY: 0.8, lookZ: 12 } as const;
+export const CAMERA = { x: -5, y: 1.1, z: -2.8, lookX: 23, lookY: 0.6, lookZ: 17 } as const;
 
 /**
  * The worm: hidden in the bait tub until it spills, then working its way out of the soil (Matt:
