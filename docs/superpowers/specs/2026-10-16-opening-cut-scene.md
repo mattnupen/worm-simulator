@@ -41,7 +41,9 @@ of the screen, clear of the worm.
   the scene leaves it, under the big leaf.
 - Matt's notes (2026-10-17): the camera sits close by, the cup on the left of the shot, the worm crawling out to the right with the people behind; it tilts down, so the
   worms are easy to see and the walkers' legs run off the top of the shot; the far trees in the
-  bus's way are hidden while the scene plays (their instance matrices only).
+  bus's way are hidden while the scene plays (their instance matrices only). The kids run between the
+  worm's leaf and the fallen birch log, the teacher stops clear of the big maple and the cup, and a
+  walker's feet come together when it stands still (Matt, 2026-10-19).
 - Draw calls during the scene: 18–31 across presets (budget 40). The meshes are hidden outside
   the scene. The speed test never plays it.
 - Accessibility: captions carry everything (sound only adds); captions are white on see-through black bars (Matt, 2026-10-16), sized for phones;
