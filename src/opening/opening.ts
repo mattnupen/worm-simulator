@@ -188,6 +188,9 @@ export class Opening {
     const d = pathDistance(path, T);
     const speed = (pathDistance(path, T + 0.05) - d) / 0.05;
     const moving = Math.min(1, speed / 6);
+    // Standing still, the feet come together under the walker (Matt saw a parked foot reach the
+    // fallen cup, 2026-10-19): the stride fades over the 0.2 s either side of a stop.
+    const going = Math.min(1, (pathDistance(path, T + 0.2) - pathDistance(path, T - 0.2)) / 0.4 / 6);
     const fx = Math.sin(yaw);
     const fz = Math.cos(yaw);
     // Right is (-fz, 0, fx) (yaw 0 faces +z, its right is -x).
@@ -197,6 +200,7 @@ export class Opening {
     for (let i = 0; i < 2; i++) {
       const side = i === 0 ? -g.side : g.side;
       walkFoot(d, g.stride, i as 0 | 1, g.lift, moving, this.foot);
+      this.foot.ahead *= going;
       const x = mid[0] + fx * this.foot.ahead + rx * side;
       const z = mid[2] + fz * this.foot.ahead + rz * side;
       const y = litterTopHeight(x, z) + mid[1] + this.foot.lift;

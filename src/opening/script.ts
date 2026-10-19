@@ -127,52 +127,57 @@ export const BOX = { x: 4.85, z: -8.5, dropAt: at(3.9), dropped: at(4.25), liftA
 /**
  * The teacher's feet (their middle, on the ground), walked at a steady speed between keys:
  * down the bus step, over to set the box down, across to the spilled tub, back for the box and up
- * into the bus.
+ * into the bus. Every stop keeps the boots clear of the big maple's trunk and of the fallen cup
+ * (Matt saw them overlap, 2026-10-19).
  */
 export const TEACHER_PATH: readonly Key[] = slow([
   [2.2, STEP.x, BUS.stepY, STEP.z],
   [2.65, 19.5, 0, 5],
-  [3.9, 9.9, 0, -8.5],
-  [8.9, 9.9, 0, -8.5],
-  [9.7, 4.3, 0, -1.8],
-  [11.9, 4.3, 0, -1.8],
-  [12.5, 9.9, 0, -6.2],
-  [12.8, 9.9, 0, -6.2],
+  [3.9, 9.6, 0, -4.0],
+  [8.9, 9.6, 0, -4.0],
+  [9.7, 6.4, 0, -2.6],
+  [11.9, 6.4, 0, -2.6],
+  [12.5, 9.6, 0, -4.0],
+  [12.8, 9.6, 0, -4.0],
   [13.9, 20.5, 0, 5.5],
   [14.2, STEP.x, BUS.stepY, STEP.z],
 ]);
 /** Which way the teacher faces (yaw: 0 is +z, -pi/2 is toward the camera). */
 export const TEACHER_YAW: readonly Key[] = slow([
   [2.2, -Math.PI / 2],
-  [2.7, -2.53],
-  [3.9, -2.53],
+  [2.7, -2.31],
+  [3.9, -2.31],
   [4.2, -Math.PI],
   [6.8, -Math.PI],
   [7.2, -0.3],
   [8.9, -0.3],
-  [9.2, -0.7],
+  [9.2, -1.16],
   [9.7, -Math.PI / 2],
   [11.9, -Math.PI / 2],
-  [12.15, -4.08],
-  [12.8, -4.08],
-  [13.0, -5.53],
-  [14.2, -5.53],
+  [12.15, -4.3],
+  [12.8, -4.3],
+  [13.0, -5.43],
+  [14.2, -5.43],
 ]);
 /** The teacher shows from stepping out (before, inside the bus) until back inside. */
 export const TEACHER_SHOWN = [at(2.1), at(14.3)] as const;
 
 /**
- * The kids: each steps off the bottom step at its time and runs off the right of the screen. Only
- * shoes and legs show.
+ * The kids: each steps off the bottom step at its time and runs off the right of the screen, behind
+ * the worm and in front of the log. Only shoes and legs show.
  */
 export const KIDS: readonly { at: number; endX: number; endZ: number; shoe: number; pants: number }[] = [
-  { at: at(5.3), endX: 11, endZ: 44, shoe: 0x4f86c6, pants: 0x3b4f7a },
-  { at: at(5.75), endX: 13.5, endZ: 46, shoe: 0xd0573f, pants: 0x2f2f33 },
-  { at: at(6.15), endX: 10, endZ: 45, shoe: 0x8a6fc2, pants: 0x9a8a68 },
-  { at: at(6.6), endX: 12.5, endZ: 47, shoe: 0x5e9e4c, pants: 0x55606b },
-  { at: at(7.0), endX: 11.5, endZ: 44, shoe: 0xe0b33a, pants: 0x3b4f7a },
+  { at: at(5.3), endX: -8, endZ: 10.2, shoe: 0x4f86c6, pants: 0x3b4f7a },
+  { at: at(5.75), endX: -7, endZ: 9.6, shoe: 0xd0573f, pants: 0x2f2f33 },
+  { at: at(6.15), endX: -9, endZ: 10.6, shoe: 0x8a6fc2, pants: 0x9a8a68 },
+  { at: at(6.6), endX: -7.5, endZ: 9.8, shoe: 0x5e9e4c, pants: 0x55606b },
+  { at: at(7.0), endX: -8.5, endZ: 10.4, shoe: 0xe0b33a, pants: 0x3b4f7a },
 ];
-/** A kid's path: the step, the ground just off it, then a run off screen. */
+/**
+ * A kid's path: the step, the ground just off it, then a run off the right of the screen between the
+ * leaf and the fallen birch log (it lies along x at z = 15.5; Matt saw the kids run through it,
+ * 2026-10-19).
+ */
 export function kidPath(k: { at: number; endX: number; endZ: number }): Key[] {
   return [
     [k.at, STEP.x, BUS.stepY, STEP.z],
