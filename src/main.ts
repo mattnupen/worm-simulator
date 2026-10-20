@@ -45,6 +45,7 @@ import { playOpeningSound } from './ui/openingSound';
 import { stopCueSound } from './ui/lessonSound';
 import { markOpeningSeen, openingSeen } from './save/openingStore';
 import { sharedLighting } from './render/paintedMaterial';
+import { RobinPreview } from './predators/robinPreview';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
@@ -128,6 +129,8 @@ function start(renderer: THREE.WebGLRenderer): void {
   const { game, cut } = createBurrowing(crawl, world, app, shell.panel, store);
   // The opening scene (src/opening/): its props join the scene now, hidden, so warmShaders sees them.
   const opening = new Opening(world.scene);
+  /** ?robin=1: the V4 robin's preview loop ahead of the worm (Matt's review). */
+  const robinPreview = params.robin ? new RobinPreview(world.scene, params) : null;
   /** The opening's captions while it plays. */
   let captions: OpeningCaptions | null = null;
   /** ?opening=1 plays it on the first Crawl even when seen (Matt's review); once. */
@@ -469,6 +472,8 @@ function start(renderer: THREE.WebGLRenderer): void {
       cut.sync(alpha, clock / 1000, camera, window.innerWidth, window.innerHeight);
       opening.keepLeaf(crawl.motion.head.x, crawl.motion.head.z, game.mode.mode === 'surface');
     }
+    robinPreview?.frame(clock / 1000, state.screen === 'crawl', crawl.motion.head, crawl.motion.heading);
+    robinPreview?.aim(camera);
     renderer.render(world.scene, camera);
     shell.setFps(meter.fps, CHOICE_LABELS[spec.id], runner.running ? runner.quality.tier : undefined);
     // Auto is fed only by frames actually drawn on the crawl screen: never menus, pauses or the

@@ -27,6 +27,17 @@ export interface GameParams {
    */
   opening: boolean | null;
   openingAt: number | null;
+  /**
+   * `?robin=1`: the V4 robin's preview loop in front of the worm while crawling (Matt's review).
+   * `?robinAt=8` holds it at that second, `?robinTurn=90` turns it side-on, `?robinDist=6` sets how
+   * far ahead it starts (world units), and `?robinCam=30` looks at it from that angle round it
+   * instead of from the worm (model review).
+   */
+  robin: boolean;
+  robinCam: number | null;
+  robinAt: number | null;
+  robinTurn: number;
+  robinDist: number;
 }
 
 export function parseParams(search: string): GameParams {
@@ -42,6 +53,16 @@ export function parseParams(search: string): GameParams {
     dig: p.get('dig') === '1',
     lesson: p.get('lesson') === '1',
     opening: p.get('opening') === '1' ? true : p.get('opening') === '0' ? false : null,
-    openingAt: p.has('openingAt') && Number.isFinite(Number(p.get('openingAt'))) ? Number(p.get('openingAt')) : null,
+    openingAt: num(p, 'openingAt'),
+    robin: p.get('robin') === '1',
+    robinAt: num(p, 'robinAt'),
+    robinCam: num(p, 'robinCam'),
+    robinTurn: num(p, 'robinTurn') ?? 0,
+    robinDist: num(p, 'robinDist') ?? 9,
   };
+}
+
+/** A finite number from the query, or null. */
+function num(p: URLSearchParams, key: string): number | null {
+  return p.has(key) && Number.isFinite(Number(p.get(key))) ? Number(p.get(key)) : null;
 }
