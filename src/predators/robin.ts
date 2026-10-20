@@ -20,7 +20,9 @@ export interface RobinPose {
   yaw: number;
   /** Off the ground (cm): a hop or flight. */
   lift: number;
-  /** 0 standing tall, 1 legs bent (before a hop, landing). */
+  /** Running: the legs swing opposite ways by this angle (positive: right leg forward). */
+  stride: number;
+  /** 0 standing tall, 1 legs bent (landing, bracing to tug). */
   crouch: number;
   /** The body's lean round the hips: positive tips the head down (a strike). */
   pitch: number;
@@ -41,7 +43,7 @@ export interface RobinPose {
 
 export function restPose(): RobinPose {
   return {
-    x: 0, y: 0, z: 0, yaw: 0, lift: 0, crouch: 0, pitch: 0,
+    x: 0, y: 0, z: 0, yaw: 0, lift: 0, stride: 0, crouch: 0, pitch: 0,
     headYaw: 0, headPitch: 0, headRoll: 0, bill: 0, tail: 0, flying: false, flap: 0, visible: false,
   };
 }
@@ -58,6 +60,7 @@ export class Robin {
   private readonly root = new THREE.Matrix4();
   private readonly body = new THREE.Matrix4();
   private readonly head = new THREE.Matrix4();
+  private readonly legs = new THREE.Matrix4();
   private readonly m = new THREE.Matrix4();
   private readonly n = new THREE.Matrix3();
   private readonly v = new THREE.Vector3();
@@ -103,9 +106,14 @@ export class Robin {
     this.root.multiply(this.m.makeTranslation(0, p.lift, 0));
     // Legs: bent by `crouch`, tucked back under the body in flight.
     P.legR.visible = P.legL.visible = true;
-    if (p.flying) this.about(P.legR.matrix, this.root, PIVOTS.hip, 1.3, 0, 0);
-    else P.legR.matrix.copy(this.root).multiply(this.m.makeScale(1, 1 - 0.3 * p.crouch, 1));
-    P.legL.matrix.copy(P.legR.matrix);
+    if (p.flying) {
+      this.about(P.legR.matrix, this.root, PIVOTS.hip, 1.3, 0, 0);
+      P.legL.matrix.copy(P.legR.matrix);
+    } else {
+      this.legs.multiplyMatrices(this.root, this.m.makeScale(1, 1 - 0.3 * p.crouch, 1));
+      this.about(P.legR.matrix, this.legs, PIVOTS.hip, -p.stride, 0, 0);
+      this.about(P.legL.matrix, this.legs, PIVOTS.hip, p.stride, 0, 0);
+    }
     // Body: lowered by the crouch, leaning round the hips.
     this.m.makeTranslation(0, -1.1 * p.crouch, 0);
     this.body.multiplyMatrices(this.root, this.m);

@@ -7,7 +7,8 @@ import { lin, loft, mix, ripple, shade, smooth, tube, type LoftPoint, type Rgb }
  * All About Birds, "American Robin": length 20-28 cm, wingspan 31-41 cm). Markings follow the same
  * page and field photos: blackish head with a broken white eye ring, white throat with dark streaks,
  * yellow bill, grey-brown back and wings, brick-orange breast, white lower belly and undertail.
- * In fall the breast feathers have pale tips. The painted material adds the brush texture.
+ * The pale tips on the breast feathers follow fall field photos. The painted material adds the
+ * brush texture.
  *
  * Each part is written at its rest place in the bird frame; robin.ts moves them round the pivots
  * below. Build-time only.
@@ -32,13 +33,13 @@ const PRIMARY = lin(0x3c3733);
 const TAIL = lin(0x2d2926);
 const LEG = lin(0x4d3f37);
 
-/** Body: an egg along an axis tilted up 30° at the front, as a robin stands alert. */
-const BODY = { cy: 7.5, cz: 0.5, tilt: (38 * Math.PI) / 180, length: 12.8, rx: 3.2, up: 2.8, down: 3.7 };
+/** Body: an egg along an axis tilted up 38° at the front, an alert standing posture (our choice). */
+const BODY = { cy: 7.5, cz: 0.5, tilt: (38 * Math.PI) / 180, length: 13.5, rx: 3.2, up: 2.8, down: 4.0 };
 const SIN_T = Math.sin(BODY.tilt);
 const COS_T = Math.cos(BODY.tilt);
 
 /** Head centre (cm) and its size. */
-const HEAD_AT = { y: 12.3, z: 5.6, back: 2.1, front: 2.3, rx: 1.8, up: 1.9, down: 1.85 };
+const HEAD_AT = { y: 12.0, z: 5.6, back: 2.1, front: 2.3, rx: 1.8, up: 1.9, down: 1.85 };
 
 /** Where the parts turn (bird frame, cm). */
 export const PIVOTS = {
@@ -76,9 +77,9 @@ function bodyColour(s: number, a: number): Rgb {
   const up = Math.cos(a);
   let c: Rgb = mix(BREAST, FLANK, smooth(0.0, 0.5, Math.abs(Math.sin(a))) * 0.5);
   // Pale fall tips on the breast feathers, in rows like scales.
-  c = mix(c, BREAST_TIP, smooth(0.55, 0.95, ripple(s * 38, a * 7)) * 0.35 * smooth(0.25, 0.6, s));
+  c = mix(c, BREAST_TIP, smooth(0.55, 0.95, ripple(s * 38, a * 7)) * 0.5 * smooth(0.25, 0.6, s));
   // White lower belly and undertail, between the legs and back.
-  c = mix(c, WHITE, smooth(0.5, 0.22, s) * smooth(0.15, -0.55, up));
+  c = mix(c, WHITE, smooth(0.58, 0.3, s) * smooth(0.0, -0.5, up));
   // Grey-brown back, darkening to the nape behind the head.
   const back = mix(BACK, NAPE, smooth(0.72, 0.95, s));
   c = mix(c, back, smooth(-0.05, 0.38, up));
@@ -107,7 +108,8 @@ function headColour(s: number, a: number, x: number): Rgb {
   let c = shade(HEAD, 1 + 0.06 * ripple(s * 20, a * 4));
   // White chin and throat with dark streaks running back from the bill.
   const throat = smooth(0.05, -0.5, up) * smooth(0.35, 0.7, s);
-  const streak = smooth(0.2, 0.55, Math.sin(x * 15 + 1.2));
+  // Thin, uneven streaks; the chin by the bill stays plain.
+  const streak = smooth(0.6, 0.85, Math.sin(x * 15 + 1.2 + 1.5 * ripple(s * 9, x * 3))) * smooth(0.88, 0.72, s);
   c = mix(c, mix(WHITE, HEAD, streak * 0.85), throat);
   // Below and behind, the throat runs into the orange breast.
   return mix(c, BREAST, smooth(-0.35, -0.8, up) * smooth(0.5, 0.15, s));
@@ -130,7 +132,7 @@ function writeHead(w: MeshWriter): void {
 function writeNeck(w: MeshWriter): void {
   const [, ny, nz] = PIVOTS.neck;
   loft(w, 8, 20, (s, a) => {
-    const r = 1.55 + 0.35 * s;
+    const r = 1.9 + 0.6 * s;
     const ca = Math.cos(a);
     const y = HEAD_AT.y - 0.4 + (ny - 1.6 - HEAD_AT.y + 0.4) * s;
     const z = HEAD_AT.z - 0.6 + (nz - 1.6 - HEAD_AT.z + 0.6) * s;
@@ -142,7 +144,7 @@ function writeNeck(w: MeshWriter): void {
 /** The eye, its glint and the broken white ring round it (above and below, open front and back). */
 function writeEye(w: MeshWriter, side: number): void {
   const s = 0.62;
-  const a = side * 1.2;
+  const a = side * 1.45;
   const p = headPoint(s, a);
   // The skin's outward direction there, from two nearby points.
   const ds = headPoint(s + 0.01, a);
@@ -151,11 +153,11 @@ function writeEye(w: MeshWriter, side: number): void {
   const up = unitToward(cross(n, [0, 0, 1]), [0, 1, 0]);
   const fwd = cross(up, n);
   const at = (k: number): [number, number, number] => [p[0] + n[0] * k, p[1] + n[1] * k, p[2] + n[2] * k];
-  ball(w, at(-0.06), 0.33, EYE);
-  const g = at(0.24);
+  ball(w, at(-0.2), 0.3, EYE);
+  const g = at(0.08);
   ball(w, [g[0] + up[0] * 0.12 + fwd[0] * 0.08, g[1] + up[1] * 0.12, g[2] + up[2] * 0.12 + fwd[2] * 0.08], 0.06, GLINT);
   for (const [from, to] of [[0.35, 2.8], [3.5, 5.95]]) {
-    const c = at(0.0);
+    const c = at(-0.05);
     loft(w, 12, 5, (t, ang) => {
       const th = from + (to - from) * t;
       const rr = 0.5;
@@ -181,14 +183,14 @@ function writeBill(w: MeshWriter, lower: boolean): void {
   const [, gy, gz] = PIVOTS.gape;
   const len = lower ? 1.65 : 1.95;
   const half = lower ? 0.36 : 0.42;
-  const deep = lower ? 0.26 : 0.38;
+  const deep = lower ? 0.26 : 0.48;
   loft(w, 12, 12, (s, a) => {
     const taper = Math.pow(1 - s, 0.85);
     const ca = Math.cos(a);
     // Upper: rounded on top, flat below. Lower: flat on top, rounded below.
     const v = lower ? (ca < 0 ? ca * deep : ca * 0.04) : (ca > 0 ? ca * deep : ca * 0.04);
     const droop = (lower ? -0.12 : -0.2) * Math.pow(s, 2.5);
-    const c = lower ? BILL : mix(BILL, BILL_TIP, smooth(0.6, 0.95, s) * 0.8 + smooth(0.5, 0.95, ca) * 0.25);
+    const c = lower ? BILL : mix(BILL, BILL_TIP, smooth(0.8, 1.0, s) * 0.5 + smooth(0.5, 0.95, ca) * 0.2);
     return { x: Math.sin(a) * half * taper, y: gy + (lower ? -0.06 : 0.02) + v * taper + droop - 0.12 * s, z: gz - 0.15 + s * len, c };
   });
 }
@@ -196,9 +198,9 @@ function writeBill(w: MeshWriter, lower: boolean): void {
 /** A folded wing on the body's side (`side` 1 right, -1 left), its tip crossing over the rump. */
 function writeFoldedWing(w: MeshWriter, side: number): void {
   loft(w, 20, 10, (u, v) => {
-    const s = 0.9 - 1.1 * u;
+    const s = 0.9 - 0.95 * u;
     const top = 0.42 - 0.22 * u;
-    const span = (1.35 * (1 - Math.pow(u, 1.6)) + 0.1) * (0.45 + 0.55 * smooth(0, 0.18, u));
+    const span = (1.35 * (1 - Math.pow(u, 1.6)) + 0.03) * (0.45 + 0.55 * smooth(0, 0.18, u));
     const a = side * (top + v * span);
     const [x, y, z] = bodyPoint(s, a, 0.28 + 0.12 * Math.sin(Math.PI * v), 0.32);
     let c = mix(WING, PRIMARY, smooth(0.55, 0.75, u));
@@ -220,7 +222,7 @@ function writeOpenWing(w: MeshWriter, side: number): void {
     // Rounded at the leading edge, a scalloped trailing edge (one bump per secondary).
     const chord = (7.6 - 1.6 * u) * (1 - 0.06 * Math.abs(Math.sin(u * Math.PI * 4.5)) * v);
     const lead = sz + 1.0 - 0.6 * u;
-    const c = mix(WING, WING_EDGE, smooth(0.55, 0.85, v) * 0.35);
+    const c = mix(mix(WING, PRIMARY, 0.3), WING_EDGE, smooth(0.55, 0.85, v) * 0.3);
     return {
       x: side * (sx + u * arm),
       y: sy + 0.4 * u + 0.5 * Math.sin(Math.PI * Math.min(1, v * 1.4)),
@@ -231,13 +233,13 @@ function writeOpenWing(w: MeshWriter, side: number): void {
   const hx = sx + arm - 0.6;
   for (let f = 0; f < 6; f++) {
     // From pointing out and a little forward (outermost) to back toward the body (innermost).
-    const ang = 0.3 - f * 0.17;
-    const len = 8.6 - f * 0.55;
+    const ang = 0.2 - f * 0.07;
+    const len = 8.6 - f * 0.9;
     const dx = Math.cos(ang);
     const dz = Math.sin(ang);
-    const z0 = sz + 0.4 - f * 0.8;
+    const z0 = sz + 0.4 - f * 0.4;
     loft(w, 8, 3, (u, v) => {
-      const half = 1.15 * Math.sin(Math.PI * (0.15 + 0.85 * u)) ** 0.4 * (1 - 0.3 * u);
+      const half = 1.5 * Math.sin(Math.PI * (0.15 + 0.85 * u)) ** 0.4 * (1 - 0.3 * u);
       const across = (v * 2 - 1) * half;
       return {
         x: side * (hx + dx * u * len - dz * across * 0.4),
@@ -252,16 +254,23 @@ function writeOpenWing(w: MeshWriter, side: number): void {
 /** The tail: a long dark fan from the rump, back and a little down, white corners on the outer feathers. */
 function writeTail(w: MeshWriter): void {
   const [, ty, tz] = PIVOTS.rump;
-  const drop = (32 * Math.PI) / 180;
+  const drop = (24 * Math.PI) / 180;
   loft(w, 14, 8, (u, k) => {
     const v = k * 2 - 1;
-    const len = 9.0 * u * (1 - 0.04 * v * v);
-    const hw = 1.25 + 1.3 * u;
-    const lift = -0.3 * v * v + 0.15;
+    const len = 8.5 * u * (1 - 0.04 * v * v);
+    const hw = 1.0 + 0.9 * u;
+    const lift = -0.6 * v * v + 0.3;
     let c = shade(TAIL, 1 + 0.05 * ripple(u * 13, v * 6));
     c = mix(c, WHITE, smooth(0.86, 0.97, u) * smooth(0.68, 0.95, Math.abs(v)) * 0.9);
     return { x: v * hw, y: ty - Math.sin(drop) * len + Math.cos(drop) * lift, z: tz - Math.cos(drop) * len - Math.sin(drop) * lift, c };
-  }, false);
+  }, false);  // White undertail feathers under the tail's base, joining it to the belly.
+  loft(w, 6, 12, (u, ang) => {
+    const len = 2.6 * u;
+    const r = 1.2 * (1 - u * u) + 0.1;
+    const x = Math.sin(ang) * r;
+    const y = ty - 0.45 - Math.sin(drop) * len + Math.min(0, Math.cos(ang)) * r * 0.6;
+    return { x, y, z: tz + 1.1 - Math.cos(drop) * len, c: WHITE };
+  });
 }
 
 /** A leg (`side` ±1): feathered thigh, the bare tarsus, three toes forward and one back. */
