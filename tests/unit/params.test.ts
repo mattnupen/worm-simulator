@@ -1,20 +1,22 @@
 import { describe, it, expect } from 'vitest';
 import { parseParams } from '../../src/game/params';
 
+const NO_ROBIN = { robin: false, robinAt: null, robinTurn: 0, robinDist: 9, robinCam: null };
+
 describe('parseParams', () => {
   it('defaults: no forced preset, no fps tag, not quick, Start screen', () => {
-    expect(parseParams('')).toEqual({ preset: null, fps: false, quick: false, speedTest: false, prompt: null, dig: false, lesson: false, opening: null, openingAt: null });
+    expect(parseParams('')).toEqual({ preset: null, fps: false, quick: false, speedTest: false, prompt: null, dig: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
   });
   it('reads ?preset=, ?fps=1, ?quick=1 and ?speedtest=1', () => {
     expect(parseParams('?preset=ultra&fps=1&quick=1&speedtest=1'))
-      .toEqual({ preset: 'ultra', fps: true, quick: true, speedTest: true, prompt: null, dig: false, lesson: false, opening: null, openingAt: null });
+      .toEqual({ preset: 'ultra', fps: true, quick: true, speedTest: true, prompt: null, dig: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
   });
   it('ignores an unknown preset (and Auto, which is not a preset)', () => {
     expect(parseParams('?preset=extreme').preset).toBeNull();
     expect(parseParams('?preset=auto').preset).toBeNull();
   });
   it('ignores V1\'s ?scale= (V2 is real size only)', () => {
-    expect(parseParams('?scale=classic&preset=low')).toEqual({ preset: 'low', fps: false, quick: false, speedTest: false, prompt: null, dig: false, lesson: false, opening: null, openingAt: null });
+    expect(parseParams('?scale=classic&preset=low')).toEqual({ preset: 'low', fps: false, quick: false, speedTest: false, prompt: null, dig: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
   });
   it('reads ?prompt= (tests and screenshots) and ignores an unknown kind', () => {
     expect(parseParams('?prompt=digDown').prompt).toBe('digDown');
@@ -24,5 +26,10 @@ describe('parseParams', () => {
   it('reads ?dig=1: the speed test digs underground (V2 perf gates)', () => {
     expect(parseParams('?speedtest=1&dig=1').dig).toBe(true);
     expect(parseParams('?dig=yes').dig).toBe(false);
+  });
+  it('reads the robin preview options (V4 review) and ignores bad numbers', () => {
+    expect(parseParams('?robin=1&robinAt=8&robinTurn=90&robinDist=6&robinCam=30'))
+      .toMatchObject({ robin: true, robinAt: 8, robinTurn: 90, robinDist: 6, robinCam: 30 });
+    expect(parseParams('?robin=yes&robinDist=abc&robinAt=x')).toMatchObject({ robin: false, robinDist: 9, robinAt: null });
   });
 });

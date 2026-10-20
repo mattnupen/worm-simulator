@@ -57,4 +57,41 @@ describe('robin model', () => {
     r.update();
     expect(r.mesh.visible).toBe(false);
   });
+
+  it('every drawn normal has unit length after posing', () => {
+    const r = new Robin();
+    demoPose(7.7, 0, 0, 0, 9, flat, r.pose);
+    r.update();
+    const nor = r.mesh.geometry.getAttribute('normal') as THREE.BufferAttribute;
+    const pos = r.mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < nor.count; i++) {
+      if (v.fromBufferAttribute(pos, i).lengthSq() === 0) continue;
+      expect(v.fromBufferAttribute(nor, i).length()).toBeCloseTo(1, 4);
+    }
+  });
+});
+
+describe('robin preview loop', () => {
+  it('repeats every DEMO_SECONDS, for negative times too', () => {
+    const a = new Robin().pose;
+    const b = new Robin().pose;
+    for (const t of [0.3, 2.0, 7.7, 10.6]) {
+      demoPose(t, 1, 2, 0.4, 9, flat, a);
+      demoPose(t + DEMO_SECONDS, 1, 2, 0.4, 9, flat, b);
+      expect(b).toEqual(a);
+      demoPose(t - DEMO_SECONDS, 1, 2, 0.4, 9, flat, b);
+      for (const k of Object.keys(a) as (keyof typeof a)[]) {
+        if (typeof a[k] === 'number') expect(b[k] as number).toBeCloseTo(a[k] as number, 6);
+        else expect(b[k]).toBe(a[k]);
+      }
+    }
+  });
+
+  it('is hidden at the end of the loop, after it has flown off', () => {
+    const r = new Robin();
+    demoPose(11.6, 0, 0, 0, 9, flat, r.pose);
+    r.update();
+    expect(r.mesh.visible).toBe(false);
+  });
 });

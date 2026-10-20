@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { createPropMaterial } from '../render/propMaterial';
 import { UNITS_PER_CM } from '../surface/realScale';
 import { MeshWriter } from '../surface/meshWriter';
-import { PIVOTS, ROBIN_PARTS, type RobinPartName } from './robinShape';
+import { ROBIN_PARTS, type RobinPartName } from './robinParts';
+import { PIVOTS } from './robinShape';
 
 /**
  * The robin (V4): one mesh built at load, its parts (body, head, bill, wings, tail, legs) moved
@@ -48,7 +49,14 @@ export function restPose(): RobinPose {
   };
 }
 
-interface Part { readonly start: number; readonly count: number; readonly matrix: THREE.Matrix4; visible: boolean }
+interface Part {
+  readonly start: number;
+  readonly count: number;
+  readonly matrix: THREE.Matrix4;
+  visible: boolean;
+  /** Its vertices are collapsed already (hidden last frame too): nothing to write. */
+  cleared: boolean;
+}
 
 export class Robin {
   readonly mesh: THREE.Mesh;
@@ -64,7 +72,6 @@ export class Robin {
   private readonly m = new THREE.Matrix4();
   private readonly n = new THREE.Matrix3();
   private readonly v = new THREE.Vector3();
-  private readonly q = new THREE.Quaternion();
   private readonly e = new THREE.Euler();
 
   constructor() {
@@ -72,7 +79,7 @@ export class Robin {
     for (const name of Object.keys(ROBIN_PARTS) as RobinPartName[]) {
       const start = w.vertexCount;
       ROBIN_PARTS[name](w);
-      this.parts[name] = { start, count: w.vertexCount - start, matrix: new THREE.Matrix4(), visible: true };
+      this.parts[name] = { start, count: w.vertexCount - start, matrix: new THREE.Matrix4(), visible: true, cleared: false };
       this.list.push(this.parts[name]);
     }
     const geometry = w.toGeometry();
@@ -105,14 +112,16 @@ export class Robin {
     this.root.makeRotationY(p.yaw).scale(this.v.set(s, s, s)).setPosition(p.x, p.y, p.z);
     this.root.multiply(this.m.makeTranslation(0, p.lift, 0));
     // Legs: bent by `crouch`, tucked back under the body in flight.
-    P.legR.visible = P.legL.visible = true;
     if (p.flying) {
       this.about(P.legR.matrix, this.root, PIVOTS.hip, 1.3, 0, 0);
       P.legL.matrix.copy(P.legR.matrix);
     } else {
-      this.legs.multiplyMatrices(this.root, this.m.makeScale(1, 1 - 0.3 * p.crouch, 1));
-      this.about(P.legR.matrix, this.legs, PIVOTS.hip, -p.stride, 0, 0);
-      this.about(P.legL.matrix, this.legs, PIVOTS.hip, p.stride, 0, 0);
+      // Swung by the stride (positive: right leg forward), then shortened by the crouch.
+      this.legs.makeScale(1, 1 - 0.3 * p.crouch, 1);
+      this.about(P.legR.matrix, this.root, PIVOTS.hip, -p.stride, 0, 0);
+      P.legR.matrix.multiply(this.legs);
+      this.about(P.legL.matrix, this.root, PIVOTS.hip, p.stride, 0, 0);
+      P.legL.matrix.multiply(this.legs);
     }
     // Body: lowered by the crouch, leaning round the hips.
     this.m.makeTranslation(0, -1.1 * p.crouch, 0);
@@ -127,9 +136,10 @@ export class Robin {
     P.openR.visible = P.openL.visible = p.flying;
     P.wingR.matrix.copy(this.body);
     P.wingL.matrix.copy(this.body);
-    this.about(P.openR.matrix, this.body, PIVOTS.shoulder, 0, 0, p.flap);
+    // The left wing is on +x: its tip rises with +z turns; the right wing's with -z.
+    this.about(P.openL.matrix, this.body, PIVOTS.shoulder, 0, 0, p.flap);
     const [sx, sy, sz] = PIVOTS.shoulder;
-    this.aboutAt(P.openL.matrix, this.body, -sx, sy, sz, 0, 0, -p.flap);
+    this.aboutAt(P.openR.matrix, this.body, -sx, sy, sz, 0, 0, -p.flap);
     this.write();
   }
 
@@ -140,8 +150,7 @@ export class Robin {
 
   private aboutAt(out: THREE.Matrix4, parent: THREE.Matrix4, px: number, py: number, pz: number, rx: number, ry: number, rz: number): void {
     // Yaw, then nod, then tip: the order a head turns.
-    this.q.setFromEuler(this.e.set(rx, ry, rz, 'YXZ'));
-    this.m.makeRotationFromQuaternion(this.q);
+    this.m.makeRotationFromEuler(this.e.set(rx, ry, rz, 'YXZ'));
     const e = this.m.elements;
     // Translate(p) · R · Translate(-p), written straight into the matrix.
     e[12] = px - (e[0] * px + e[4] * py + e[8] * pz);
@@ -156,20 +165,31 @@ export class Robin {
     const nor = geometry.getAttribute('normal') as THREE.BufferAttribute;
     const out = pos.array as Float32Array;
     const outN = nor.array as Float32Array;
-    const v = this.v;
+    const rp = this.restPos;
+    const rn = this.restNor;
     for (const part of this.list) {
       const end = (part.start + part.count) * 3;
       if (!part.visible) {
-        // Collapsed to one point: nothing to draw, nothing to shade.
-        out.fill(0, part.start * 3, end);
+        // Collapsed to one point: nothing to draw, nothing to shade. Once, when it hides.
+        if (!part.cleared) out.fill(0, part.start * 3, end);
+        part.cleared = true;
         continue;
       }
-      this.n.getNormalMatrix(part.matrix);
+      part.cleared = false;
+      // Affine (rotation, uniform scale, translation): written out, no w divide.
+      const e = part.matrix.elements;
+      const ne = this.n.getNormalMatrix(part.matrix).elements;
       for (let i = part.start * 3; i < end; i += 3) {
-        v.set(this.restPos[i], this.restPos[i + 1], this.restPos[i + 2]).applyMatrix4(part.matrix);
-        out[i] = v.x; out[i + 1] = v.y; out[i + 2] = v.z;
-        v.set(this.restNor[i], this.restNor[i + 1], this.restNor[i + 2]).applyMatrix3(this.n).normalize();
-        outN[i] = v.x; outN[i + 1] = v.y; outN[i + 2] = v.z;
+        const x = rp[i], y = rp[i + 1], z = rp[i + 2];
+        out[i] = e[0] * x + e[4] * y + e[8] * z + e[12];
+        out[i + 1] = e[1] * x + e[5] * y + e[9] * z + e[13];
+        out[i + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
+        const a = rn[i], b = rn[i + 1], c = rn[i + 2];
+        const nx = ne[0] * a + ne[3] * b + ne[6] * c;
+        const ny = ne[1] * a + ne[4] * b + ne[7] * c;
+        const nz = ne[2] * a + ne[5] * b + ne[8] * c;
+        const l = 1 / (Math.hypot(nx, ny, nz) || 1);
+        outN[i] = nx * l; outN[i + 1] = ny * l; outN[i + 2] = nz * l;
       }
     }
     pos.needsUpdate = true;

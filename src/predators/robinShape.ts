@@ -1,9 +1,9 @@
 import type { MeshWriter } from '../surface/meshWriter';
-import { lin, loft, mix, ripple, shade, smooth, tube, type LoftPoint, type Rgb } from './robinGeom';
+import { lin, loft, mix, ripple, shade, smooth, type LoftPoint, type Rgb } from './robinGeom';
 
 /**
  * The American robin's shape and markings, built once at load (V4). Bird frame, in centimetres:
- * feet on y = 0, facing +z, x to its right. An adult is about 25 cm from bill to tail tip (Cornell,
+ * feet on y = 0, facing +z, so its left is +x and its right is -x. An adult is about 25 cm from bill to tail tip (Cornell,
  * All About Birds, "American Robin": length 20-28 cm, wingspan 31-41 cm). Markings follow the same
  * page and field photos: blackish head with a broken white eye ring, white throat with dark streaks,
  * yellow bill, grey-brown back and wings, brick-orange breast, white lower belly and undertail.
@@ -11,27 +11,27 @@ import { lin, loft, mix, ripple, shade, smooth, tube, type LoftPoint, type Rgb }
  * brush texture.
  *
  * Each part is written at its rest place in the bird frame; robin.ts moves them round the pivots
- * below. Build-time only.
+ * below. The wings, tail and legs are in robinParts.ts, with the list of parts. Build-time only.
  */
 
 // sRGB colours, as linear rgb.
-const BACK = lin(0x605852);
+export const BACK = lin(0x605852);
 const NAPE = lin(0x3a3632);
 const HEAD = lin(0x272422);
 const BREAST = lin(0xbf5527);
 const BREAST_TIP = lin(0xd9a074);
 const FLANK = lin(0xa4491f);
-const WHITE = lin(0xe9e4d9);
-const THIGH = lin(0x8a7d72);
+export const WHITE = lin(0xe9e4d9);
+export const THIGH = lin(0x8a7d72);
 const EYE = lin(0x15100d);
 const GLINT = lin(0xe2ddd3);
 const BILL = lin(0xe1aa2b);
 const BILL_TIP = lin(0x5e4b23);
-const WING = lin(0x5c554f);
-const WING_EDGE = lin(0x8d847a);
-const PRIMARY = lin(0x3c3733);
-const TAIL = lin(0x2d2926);
-const LEG = lin(0x4d3f37);
+export const WING = lin(0x5c554f);
+export const WING_EDGE = lin(0x8d847a);
+export const PRIMARY = lin(0x3c3733);
+export const TAIL = lin(0x2d2926);
+export const LEG = lin(0x4d3f37);
 
 /** Body: an egg along an axis tilted up 38° at the front, an alert standing posture (our choice). */
 const BODY = { cy: 7.5, cz: 0.5, tilt: (38 * Math.PI) / 180, length: 13.5, rx: 3.2, up: 2.8, down: 4.0 };
@@ -62,7 +62,7 @@ function bodyFullness(s: number): number {
 }
 
 /** A point on the body's skin: s along it, a round it from the top (0) toward its right (π/2). */
-function bodyPoint(s: number, a: number, grow = 0, minFull = 0): [number, number, number] {
+export function bodyPoint(s: number, a: number, grow = 0, minFull = 0): [number, number, number] {
   const f = Math.max(bodyFullness(s), minFull);
   const along = (s - 0.5) * BODY.length;
   const ca = Math.cos(a);
@@ -86,7 +86,7 @@ function bodyColour(s: number, a: number): Rgb {
   return shade(c, 1 + 0.05 * ripple(s * 31, a * 5));
 }
 
-function writeBody(w: MeshWriter): void {
+export function writeBody(w: MeshWriter): void {
   loft(w, 34, 30, (s, a): LoftPoint => {
     const [x, y, z] = bodyPoint(s, a);
     return { x, y, z, c: bodyColour(s, a) };
@@ -115,7 +115,7 @@ function headColour(s: number, a: number, x: number): Rgb {
   return mix(c, BREAST, smooth(-0.35, -0.8, up) * smooth(0.5, 0.15, s));
 }
 
-function writeHead(w: MeshWriter): void {
+export function writeHead(w: MeshWriter): void {
   loft(w, 30, 28, (s, a) => {
     const [x, y, z] = headPoint(s, a);
     return { x, y, z, c: headColour(s, a, x) };
@@ -136,7 +136,8 @@ function writeNeck(w: MeshWriter): void {
     const ca = Math.cos(a);
     const y = HEAD_AT.y - 0.4 + (ny - 1.6 - HEAD_AT.y + 0.4) * s;
     const z = HEAD_AT.z - 0.6 + (nz - 1.6 - HEAD_AT.z + 0.6) * s;
-    const c = mix(BREAST, mix(HEAD, NAPE, s), smooth(-0.3, 0.3, ca));
+    // Orange only down its front: its sides show over the shoulders when the head tips.
+    const c = mix(BREAST, mix(HEAD, BACK, s), smooth(-0.75, -0.35, ca));
     return { x: Math.sin(a) * r, y: y + ca * r * 0.25, z: z - ca * r * 0.9, c };
   });
 }
@@ -151,11 +152,11 @@ function writeEye(w: MeshWriter, side: number): void {
   const da = headPoint(s, a + 0.01);
   const n = unitToward(cross(sub(ds, p), sub(da, p)), [side, 0, 0]);
   const up = unitToward(cross(n, [0, 0, 1]), [0, 1, 0]);
-  const fwd = cross(up, n);
+  const fwd = unitToward(cross(up, n), [0, 0, 1]);
   const at = (k: number): [number, number, number] => [p[0] + n[0] * k, p[1] + n[1] * k, p[2] + n[2] * k];
   ball(w, at(-0.2), 0.3, EYE);
   const g = at(0.08);
-  ball(w, [g[0] + up[0] * 0.12 + fwd[0] * 0.08, g[1] + up[1] * 0.12, g[2] + up[2] * 0.12 + fwd[2] * 0.08], 0.06, GLINT);
+  ball(w, [g[0] + up[0] * 0.12 + fwd[0] * 0.08, g[1] + up[1] * 0.12 + fwd[1] * 0.08, g[2] + up[2] * 0.12 + fwd[2] * 0.08], 0.06, GLINT);
   for (const [from, to] of [[0.35, 2.8], [3.5, 5.95]]) {
     const c = at(-0.05);
     loft(w, 12, 5, (t, ang) => {
@@ -179,7 +180,7 @@ function writeEye(w: MeshWriter, side: number): void {
 }
 
 /** The upper bill (on the head) or the lower one (its own part, opening at the gape). */
-function writeBill(w: MeshWriter, lower: boolean): void {
+export function writeBill(w: MeshWriter, lower: boolean): void {
   const [, gy, gz] = PIVOTS.gape;
   const len = lower ? 1.65 : 1.95;
   const half = lower ? 0.36 : 0.42;
@@ -193,97 +194,6 @@ function writeBill(w: MeshWriter, lower: boolean): void {
     const c = lower ? BILL : mix(BILL, BILL_TIP, smooth(0.8, 1.0, s) * 0.5 + smooth(0.5, 0.95, ca) * 0.2);
     return { x: Math.sin(a) * half * taper, y: gy + (lower ? -0.06 : 0.02) + v * taper + droop - 0.12 * s, z: gz - 0.15 + s * len, c };
   });
-}
-
-/** A folded wing on the body's side (`side` 1 right, -1 left), its tip crossing over the rump. */
-function writeFoldedWing(w: MeshWriter, side: number): void {
-  loft(w, 20, 10, (u, v) => {
-    const s = 0.9 - 0.95 * u;
-    const top = 0.42 - 0.22 * u;
-    const span = (1.35 * (1 - Math.pow(u, 1.6)) + 0.03) * (0.45 + 0.55 * smooth(0, 0.18, u));
-    const a = side * (top + v * span);
-    const [x, y, z] = bodyPoint(s, a, 0.28 + 0.12 * Math.sin(Math.PI * v), 0.32);
-    let c = mix(WING, PRIMARY, smooth(0.55, 0.75, u));
-    // Pale edges on the tertials and secondaries, feather by feather.
-    const edge = (v * 5 + u * 0.8) % 1;
-    c = mix(c, WING_EDGE, smooth(0.86, 0.97, edge) * smooth(0.12, 0.25, u) * smooth(0.72, 0.6, u) * 0.7);
-    return { x, y, z, c: shade(c, 1 + 0.05 * ripple(u * 17, v * 9)) };
-  }, false);
-}
-
-/**
- * An open wing for flight, from the shoulder out along ±x (about 17 cm): the arm's broad inner wing
- * (coverts and secondaries), then six long primaries fanned out from the hand like fingers.
- */
-function writeOpenWing(w: MeshWriter, side: number): void {
-  const [sx, sy, sz] = PIVOTS.shoulder;
-  const arm = 8.5;
-  loft(w, 10, 6, (u, v) => {
-    // Rounded at the leading edge, a scalloped trailing edge (one bump per secondary).
-    const chord = (7.6 - 1.6 * u) * (1 - 0.06 * Math.abs(Math.sin(u * Math.PI * 4.5)) * v);
-    const lead = sz + 1.0 - 0.6 * u;
-    const c = mix(mix(WING, PRIMARY, 0.3), WING_EDGE, smooth(0.55, 0.85, v) * 0.3);
-    return {
-      x: side * (sx + u * arm),
-      y: sy + 0.4 * u + 0.5 * Math.sin(Math.PI * Math.min(1, v * 1.4)),
-      z: lead - v * chord,
-      c: shade(c, 1 + 0.06 * ripple(u * 23, v * 7)),
-    };
-  }, false);
-  const hx = sx + arm - 0.6;
-  for (let f = 0; f < 6; f++) {
-    // From pointing out and a little forward (outermost) to back toward the body (innermost).
-    const ang = 0.2 - f * 0.07;
-    const len = 8.6 - f * 0.9;
-    const dx = Math.cos(ang);
-    const dz = Math.sin(ang);
-    const z0 = sz + 0.4 - f * 0.4;
-    loft(w, 8, 3, (u, v) => {
-      const half = 1.5 * Math.sin(Math.PI * (0.15 + 0.85 * u)) ** 0.4 * (1 - 0.3 * u);
-      const across = (v * 2 - 1) * half;
-      return {
-        x: side * (hx + dx * u * len - dz * across * 0.4),
-        y: sy + 0.55 + 0.25 * u + 0.08 * f,
-        z: z0 + dz * u * len + across,
-        c: shade(PRIMARY, 1 + 0.05 * ripple(u * 19, f)),
-      };
-    }, false);
-  }
-}
-
-/** The tail: a long dark fan from the rump, back and a little down, white corners on the outer feathers. */
-function writeTail(w: MeshWriter): void {
-  const [, ty, tz] = PIVOTS.rump;
-  const drop = (24 * Math.PI) / 180;
-  loft(w, 14, 8, (u, k) => {
-    const v = k * 2 - 1;
-    const len = 8.5 * u * (1 - 0.04 * v * v);
-    const hw = 1.0 + 0.9 * u;
-    const lift = -0.6 * v * v + 0.3;
-    let c = shade(TAIL, 1 + 0.05 * ripple(u * 13, v * 6));
-    c = mix(c, WHITE, smooth(0.86, 0.97, u) * smooth(0.68, 0.95, Math.abs(v)) * 0.9);
-    return { x: v * hw, y: ty - Math.sin(drop) * len + Math.cos(drop) * lift, z: tz - Math.cos(drop) * len - Math.sin(drop) * lift, c };
-  }, false);  // White undertail feathers under the tail's base, joining it to the belly.
-  loft(w, 6, 12, (u, ang) => {
-    const len = 2.6 * u;
-    const r = 1.2 * (1 - u * u) + 0.1;
-    const x = Math.sin(ang) * r;
-    const y = ty - 0.45 - Math.sin(drop) * len + Math.min(0, Math.cos(ang)) * r * 0.6;
-    return { x, y, z: tz + 1.1 - Math.cos(drop) * len, c: WHITE };
-  });
-}
-
-/** A leg (`side` ±1): feathered thigh, the bare tarsus, three toes forward and one back. */
-function writeLeg(w: MeshWriter, side: number): void {
-  const foot: [number, number, number] = [side * 1.0, 0.3, 1.0];
-  const ankle: [number, number, number] = [side * 1.05, 3.6, 0.2];
-  tube(w, ankle, [side * 1.15, 5.4, 0.5], 0.42, 0.7, THIGH, 8);
-  tube(w, foot, ankle, 0.2, 0.24, LEG);
-  const toes: [number, number][] = [[-0.38, 1.9], [0, 2.2], [0.38, 1.8], [Math.PI, 1.5]];
-  for (const [yaw, len] of toes) {
-    const ang = yaw * side;
-    tube(w, [foot[0], 0.15, foot[2]], [foot[0] + Math.sin(ang) * len, 0.1, foot[2] + Math.cos(ang) * len], 0.13, 0.07, LEG, 5);
-  }
 }
 
 /** A small ball: an eye or its glint. */
@@ -303,19 +213,3 @@ function unitToward(p: V, hint: V): [number, number, number] {
   const k = p[0] * hint[0] + p[1] * hint[1] + p[2] * hint[2] < 0 ? -1 / l : 1 / l;
   return [p[0] * k, p[1] * k, p[2] * k];
 }
-
-/** The parts, in the order robin.ts names them. */
-export const ROBIN_PARTS = {
-  body: writeBody,
-  head: writeHead,
-  lowerBill: (w: MeshWriter) => writeBill(w, true),
-  wingR: (w: MeshWriter) => writeFoldedWing(w, 1),
-  wingL: (w: MeshWriter) => writeFoldedWing(w, -1),
-  openR: (w: MeshWriter) => writeOpenWing(w, 1),
-  openL: (w: MeshWriter) => writeOpenWing(w, -1),
-  tail: writeTail,
-  legR: (w: MeshWriter) => writeLeg(w, 1),
-  legL: (w: MeshWriter) => writeLeg(w, -1),
-} as const;
-
-export type RobinPartName = keyof typeof ROBIN_PARTS;
