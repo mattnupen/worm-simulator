@@ -81,6 +81,8 @@
 @media (max-width: 560px) {
   .hunt-grip { top: 84px; left: 12px; transform: none; width: min(260px, calc(100vw - 24px)); }
   .hunt-note { top: auto; bottom: 176px; left: 12px; right: 12px; transform: none; width: auto; max-width: none; }
+  /* No room for both on a phone: the grip panel (what to do now) wins over the first grab's note. */
+  #app:has(> .hunt-grip:not([hidden])) > .hunt-note { display: none; }
   .hunt-bar-track { height: 100px; }
   .hunt-warning { top: 80px; right: 12px; }
 }

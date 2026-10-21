@@ -19,6 +19,7 @@ import { LOCOMOTION } from './drive';
 import { disturbReach, type DisturbReach } from '../surface/leafScale';
 import { pushOut, slideMove } from '../surface/obstacles';
 import { CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
+import { layDown } from './crawlHold';
 
 export { WORM_SEGMENTS };
 /** The gap between body points at full length (bodyLength.ts holds the length now: `wormBody.spacing`). */
@@ -41,6 +42,12 @@ const LOOK_UP_BACK = 1.6;
 const LOOK_UP_RISE = 0.3;
 const LOOK_UP_AIM = 0.7;
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+/** Puts a point on the floor, out of solid props (layDown, as the crawl rests its body). */
+const restSurf: WormSurface = { y: 0 };
+function restAt(p: Vec3): void {
+  pushOut(p, BODY_RADIUS);
+  p.y = bellyHeight(wormSurface(p.x, p.z, restSurf));
+}
 /** Scratch for interpolate: where the camera aims (cameraAim). */
 const aim: CameraAim = { ahead: 0, above: 0, upX: 0, upY: 1, upZ: 0 };
 
@@ -147,7 +154,7 @@ export class Crawl {
     this.held.on = false;
     const head = this.motion.head;
     head.y = this.rest(head.x, head.z);
-    this.trail(head);
+    layDown(this.body, head, this.motion.heading, this.gap.value, restAt);
   }
 
   /**
@@ -219,9 +226,12 @@ export class Crawl {
   /** The body follows `head`, each trailing segment kept out of solid props and on its own surface (head first up a pile). */
   private trail(head: Vec3): void {
     followHead(this.body, head, this.gap.value);
+    const held = this.held.on;
     for (let i = 1; i < this.body.length; i++) {
       pushOut(this.body[i], BODY_RADIUS);
-      this.body[i].y = this.rest(this.body[i].x, this.body[i].z);
+      // Held up by the robin, the front hangs from the bill like a rope, never under the floor.
+      const r = this.rest(this.body[i].x, this.body[i].z);
+      this.body[i].y = held ? Math.max(r, this.body[i].y) : r;
     }
   }
 
