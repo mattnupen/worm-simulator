@@ -15,6 +15,8 @@ export const OPENING_MERGE = 1.25;
 export interface Openings {
   /** Per opening: x, the litter's top there (the midden's base), z and a turn. */
   readonly data: Float32Array;
+  /** Per opening: the burrow (burrows.ts slot) whose tunnels lie below it, or -1. */
+  readonly burrow: Int8Array;
   count: number;
   /** When each slot was last written (`added` then): the oldest is replaced once all are taken. */
   readonly born: Float64Array;
@@ -24,11 +26,17 @@ export interface Openings {
 }
 
 export function createOpenings(): Openings {
-  return { data: new Float32Array(MAX_OPENINGS * 4), count: 0, born: new Float64Array(MAX_OPENINGS), added: 0, version: 0 };
+  return {
+    data: new Float32Array(MAX_OPENINGS * 4), burrow: new Int8Array(MAX_OPENINGS).fill(-1), count: 0,
+    born: new Float64Array(MAX_OPENINGS), added: 0, version: 0,
+  };
 }
 
-/** Records the opening where the worm just came out (the coming-up path's exit point). */
-export function addOpening(o: Openings, p: BodyPath, s: Slab): void {
+/**
+ * Records the opening where the worm just came out (the coming-up path's exit point), over the
+ * burrow `burrow` (the slab's slot in burrows.ts; -1: none).
+ */
+export function addOpening(o: Openings, p: BodyPath, s: Slab, burrow = -1): void {
   const x = slabX(s, p.exitU);
   const z = slabZ(s, p.exitU);
   // The nearest old opening within OPENING_MERGE, else a free slot, else the oldest.
@@ -51,6 +59,7 @@ export function addOpening(o: Openings, p: BodyPath, s: Slab): void {
   o.data[k + 1] = boundaryAt(s, B_TOP, p.exitU);
   o.data[k + 2] = z;
   o.data[k + 3] = (s.seed % 628) / 100;
+  o.burrow[slot] = burrow;
   o.born[slot] = ++o.added;
   o.version++;
 }

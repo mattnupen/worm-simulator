@@ -27,6 +27,44 @@ export interface GameParams {
    */
   opening: boolean | null;
   openingAt: number | null;
+  /**
+   * `?robin=1`: the V4 robin's preview loop in front of the worm while crawling (Matt's review).
+   * `?robinAt=8` holds it at that second, `?robinTurn=90` turns it side-on, `?robinDist=6` sets how
+   * far ahead it starts (world units), and `?robinCam=30` looks at it from that angle round it
+   * instead of from the worm (model review).
+   */
+  robin: boolean;
+  robinCam: number | null;
+  robinAt: number | null;
+  robinTurn: number;
+  robinDist: number;
+  /**
+   * `?wormLength=0.6`: the worm starts at that share of its full length (V4: 0.8 and 0.6 after a
+   * robin breaks it), for Matt's review and screenshots. Not saved.
+   */
+  wormLength: number | null;
+  /**
+   * `?hunt=0`: no robin hunt at all (V4's one rollback switch). The hunt is also off while the
+   * `?robin=1` preview plays.
+   */
+  hunt: boolean;
+  /** `?robinIn=3`: the first robin comes after 3 s on the surface, not 20 to 40 (Matt's review, tests). */
+  robinIn: number | null;
+  /**
+   * `?nest=1`: a "Watch the nest scene" button under the title on Start plays the V4 nest scene
+   * (Matt's review: every cut scene gets a preview). `?nestAt=6` with it holds the scene at that
+   * second (screenshots).
+   */
+  nest: boolean;
+  nestAt: number | null;
+  /** `?digMarks=0`: no dig markers on the ground (V4 spec 4.2; on unless turned off). */
+  digMarks: boolean;
+}
+
+/** A number param, or null when it is missing or not a finite number. */
+function num(p: URLSearchParams, key: string): number | null {
+  const v = p.get(key);
+  return v !== null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null;
 }
 
 export function parseParams(search: string): GameParams {
@@ -42,6 +80,17 @@ export function parseParams(search: string): GameParams {
     dig: p.get('dig') === '1',
     lesson: p.get('lesson') === '1',
     opening: p.get('opening') === '1' ? true : p.get('opening') === '0' ? false : null,
-    openingAt: p.has('openingAt') && Number.isFinite(Number(p.get('openingAt'))) ? Number(p.get('openingAt')) : null,
+    openingAt: num(p, 'openingAt'),
+    robin: p.get('robin') === '1',
+    robinAt: num(p, 'robinAt'),
+    robinCam: num(p, 'robinCam'),
+    robinTurn: num(p, 'robinTurn') ?? 0,
+    robinDist: num(p, 'robinDist') ?? 9,
+    wormLength: num(p, 'wormLength'),
+    hunt: p.get('hunt') !== '0',
+    robinIn: num(p, 'robinIn'),
+    nest: p.get('nest') === '1',
+    nestAt: num(p, 'nestAt'),
+    digMarks: p.get('digMarks') !== '0',
   };
 }

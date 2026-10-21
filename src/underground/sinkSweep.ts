@@ -61,6 +61,7 @@ export function bodyFanOf(m: { readonly heading: number }, body?: ArrayLike<Vec3
   const heading = m.heading;
   if (!body) {
     fan.lo = fan.hi = fan.first = heading + Math.PI;
+    // Full length on purpose: a worm made shorter by a break (bodyLength.ts) sweeps within it.
     fan.reach = (WORM_SEGMENTS - 1) * SPACING;
     return;
   }

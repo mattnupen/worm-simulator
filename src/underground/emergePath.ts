@@ -1,4 +1,4 @@
-import { SPACING, WORM_SEGMENTS } from '../game/crawl';
+import { WORM_SEGMENTS, wormBody } from '../worm/bodyLength';
 import { arc, frame, push, restAt, sampleAt, wrap, TURN_RADIUS, type BodyPath } from './bodyPath';
 import { fitSlide, slidePose } from './slidePath';
 import { OUT_S, RISE_S } from './modeMachine';
@@ -31,7 +31,7 @@ export const HEAD_SPEED = 2.4;
 /** A front point eases onto the path this far ahead of the nearest place to it (see buildEmerge). */
 const LEAD = 0.03;
 /** The run along the floor is drawn this finely (about 0.02 u, ending exactly OUT_LENGTH out): the body
- * lies on the floor itself there, so its points stay SPACING apart as the crawl keeps them. */
+ * lies on the floor itself there, so its points stay the worm's gap apart as the crawl keeps them. */
 const RUN_DX = OUT_LENGTH / Math.ceil(OUT_LENGTH / 0.02);
 /** The best plan over the ways out, with what it aimed at (see buildEmerge). */
 const kept = { ...plan, sign: 1, ev: 0, out: 0, eu: 0, lie: true };
@@ -120,6 +120,8 @@ function aimAt(p: BodyPath, eu: number): void {
 export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<number>, vs: ArrayLike<number>, dir: number): void {
   frame(p, s);
   p.posing = slidePose;
+  // It comes out at the worm's length now (a change while it comes up eases in on the surface: crawl.ts).
+  p.spacing = wormBody.spacing;
   const hu = us[0];
   const cu = Math.cos(dir);
   const want = Math.abs(cu) > 0.2 ? Math.sign(cu) : hu < (s.playLo + s.playHi) / 2 ? 1 : -1;
@@ -189,9 +191,9 @@ export function buildEmerge(p: BodyPath, s: Slab, m: EmergeMap, us: ArrayLike<nu
   let ahead = p.s[roundAt];
   for (let i = ROUND - 1; i >= 0 && !front.lie; i--) {
     const near = nearestAlong(p, us[i], vs[i], roundAt, riseFrom + 1.5) + LEAD;
-    // Never closer than half its segment to the next back, nor further than a hair over SPACING
+    // Never closer than half its segment to the next back, nor further than a hair over the gap
     // (under the 4% stretch the tests allow; any closer and easing on could pull it backward).
-    ahead = Math.min(ahead + SPACING * 1.03, Math.max(near, ahead + 0.5 * hypot2(us[i + 1] - us[i], vs[i + 1] - vs[i])));
+    ahead = Math.min(ahead + p.spacing * 1.03, Math.max(near, ahead + 0.5 * hypot2(us[i + 1] - us[i], vs[i + 1] - vs[i])));
     p.back[i] = ahead; // its place for now; made relative to the head's below
   }
   p.headFrom = front.lie ? p.s[headAt] : p.back[0];

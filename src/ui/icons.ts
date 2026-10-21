@@ -100,6 +100,15 @@ const ICONS = {
   lock: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
       stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="currentColor"/>
     <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>`,
+  /** A robin's side view (V4's "Robin!" warning): round body, tipped tail, bill, an eye. */
+  bird: `<svg ${SVG} viewBox="0 0 24 24"><path d="M3 14.5l5.5-1.2C9 9.5 11.5 7 15 7c1.4 0 2.4.5 3.2 1.3L22 9l-3.2 1.4c.3 2.8-1 5.7-3.8 7.1L15.5 21h-1.6l-.5-3c-.6.1-1.2.1-1.8 0l-.4 3H9.6l.6-3.6C9.4 17 8.8 16.4 8.4 15.7z" fill="currentColor"/>
+    <circle cx="16.6" cy="9.4" r="1" fill="#fffaf0"/></svg>`,
+  /** Holding on: two arrows down into a ground line (the grip mini-game's button). */
+  grip: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
+      stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v9M5 9l3 3 3-3M16 3v9M13 9l3 3 3-3M3 17h18M6 21h12"/></svg>`,
+  /** Careful: a triangle with an exclamation mark (the Stretch meter nearly full). */
+  careful: `<svg ${SVG} viewBox="0 0 24 24"><path d="M12 2.5L22.5 21h-21z" fill="currentColor"/>
+    <path d="M12 9v5.5M12 17.6v.4" stroke="#fffaf0" stroke-width="2.6" stroke-linecap="round"/></svg>`,
 } as const;
 
 export type IconName = keyof typeof ICONS;

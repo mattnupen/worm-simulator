@@ -42,7 +42,8 @@ export interface Hints {
  * How far back the worm's body can lie along the floor once it has sunk (sinkPath.ts: straight back
  * along -u from the hole at u = 0, its length less at least the dive's quarter turn): the hints
  * keep off it as well as the entry, or the body would lie through one, and the burrower's first
- * move push it out in a single step (a visible jump).
+ * move push it out in a single step (a visible jump). At full length on purpose: a worm made
+ * shorter by a break (bodyLength.ts) lies within it.
  */
 export const BODY_BACK = -((WORM_SEGMENTS - 1) * SPACING - (TURN_RADIUS * Math.PI) / 2);
 

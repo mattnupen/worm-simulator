@@ -25,6 +25,38 @@ export const TEXT = {
   comeUp: { kind: 'ui', text: 'Come up' },
   viewWide: { kind: 'ui', text: 'Wide view' },
   viewClose: { kind: 'ui', text: 'Close view' },
+  grip: { kind: 'ui', text: 'Hold on' },
+  // The robin hunt (V4 spec 1 and 2; src/ui/huntHud.ts).
+  huntRobin: { kind: 'ui', text: 'Robin!' },
+  huntHide: { kind: 'ui', text: 'Dig down to hide.' },
+  huntGrabbed: { kind: 'ui', text: 'The robin has you!' },
+  huntPull: { kind: 'ui', text: 'Hold Space to pull back in.' },
+  huntPullTouch: { kind: 'ui', text: 'Hold the button to pull back in.' },
+  huntGetReady: { kind: 'ui', text: 'It leans back. Get ready to let go!' },
+  huntLetGo: { kind: 'ui', text: 'It tugs! Let go!' },
+  huntCareful: { kind: 'ui', text: 'Careful! Stretching!' },
+  huntBarTop: { kind: 'ui', text: 'Robin' },
+  huntBarBottom: { kind: 'ui', text: 'Burrow' },
+  huntBarLabel: { kind: 'ui', text: 'How far the robin has pulled you out' },
+  huntStretch: { kind: 'ui', text: 'Stretch' },
+  huntEscaped: { kind: 'ui', text: 'You got away!' },
+  huntGripFact: {
+    kind: 'fact',
+    text: 'A worm grips the soil with tiny bristles called setae, so a robin has to tug hard.',
+    source: 'journeynorth-robin-tug',
+    verified: true,
+  },
+  huntTimingChoice: { kind: 'gameChoice', text: 'Real worms don\'t time their pulls. You do.' },
+  // What happens when the robin wins (V4 spec 3; src/predators/huntGame.ts).
+  huntBroke: {
+    kind: 'fact',
+    text: 'Your worm broke! The front end can live and may grow a new tail.',
+    source: 'esb-cut-in-two',
+    verified: true,
+  },
+  huntTooShort: { kind: 'ui', text: 'Too short! Start again in your burrow.' },
+  huntNewLife: { kind: 'gameChoice', text: 'A new life is a full-length worm.' },
+  huntTaken: { kind: 'ui', text: 'The robin got your whole worm! Start again in your burrow.' },
   layerLitter: { kind: 'ui', text: 'Leaf litter' },
   layerOld: { kind: 'ui', text: 'Old leaves' },
   layerHumus: { kind: 'ui', text: 'Humus' },
@@ -73,6 +105,22 @@ export const TEXT = {
   openingKid: { kind: 'ui', text: 'Kid' },
   openingTeacher: { kind: 'ui', text: 'Teacher' },
   openingWatch: { kind: 'ui', text: 'Watch the opening' },
+  // The nest scene (V4, src/predators/nestScene.ts): when the robin gets the whole worm.
+  nestWatch: { kind: 'ui', text: 'Watch the nest scene' },
+  nestLabel: { kind: 'ui', text: 'Nest scene' },
+  nestWings: { kind: 'ui', text: '[Wings flap]' },
+  nestCheep: { kind: 'ui', text: '[The baby robins cheep]' },
+  nestTitle: { kind: 'ui', text: 'Food for the nest' },
+  nestFact: {
+    kind: 'fact',
+    text: 'Robins feed earthworms to their babies.',
+    source: 'cornell-robin-nestcam',
+    verified: true,
+  },
+  // Minnesota Breeding Bird Atlas: robins breed in "the summer's breeding season". The game is in fall.
+  nestSeason: { kind: 'gameChoice', text: 'real robins raise their babies in spring and summer, not in fall.' },
+  nestSource: { kind: 'ui', text: 'Source:' },
+  nestContinue: { kind: 'ui', text: 'Keep going' },
 } as const satisfies Record<string, Line>;
 
 export type TextKey = keyof typeof TEXT;

@@ -161,17 +161,29 @@ export function canDigHere(m: WormMotion, body?: ArrayLike<Vec3>): boolean {
 
 /** canDigAt for the spot in `at`. */
 function canDigAsked(body?: ArrayLike<Vec3>): boolean {
+  return spotOpen() && findCut(body);
+}
+
+/** canDigHere without the cut search (`m`, as Crawl.motion): an old burrow's own cut is tested instead (burrowReuse.ts). */
+export function digSpotOpen(m: WormMotion): boolean {
+  at.x = m.head.x;
+  at.z = m.head.z;
+  at.heading = m.heading;
+  return spotOpen();
+}
+
+/** The spot in `at` is open ground: finite, off the play edge, every footprint (DIG_PAD) and rock (rockReach). */
+function spotOpen(): boolean {
   const x = at.x;
   const z = at.z;
-  const heading = at.heading;
-  if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(heading)) return false;
+  if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(at.heading)) return false;
   if (Math.abs(x) > PLAY_HALF - DIG_EDGE || Math.abs(z) > PLAY_HALF - DIG_EDGE) return false;
   if (obstacleDepth(x, z, DIG_PAD, hit) > 0) return false;
   const rs = rocks();
   for (let i = 0; i < rs.length; i++) {
     if (hypot2(x - rs[i].x, z - rs[i].z) < rockReach(i) + DIG_PAD) return false;
   }
-  return findCut(body);
+  return true;
 }
 
 /** How much of footprint (u, s, r) lies in the region in front of the cut on the s > 0 side (0: none). */

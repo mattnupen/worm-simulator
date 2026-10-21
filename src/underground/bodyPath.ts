@@ -56,6 +56,8 @@ export interface BodyPath {
   seconds: number;
   /** ...and the fastest a segment turns in it (TURN_RATE, but for the rare move `fitSeconds` caps). */
   turnRate: number;
+  /** Coming up: the gap between body points it ends with (the worm's length as it was built: bodyLength.ts). */
+  spacing: number;
   /** Each body point's distance behind the head along the path at the start (head first). */
   readonly back: Float64Array;
   /**
@@ -64,7 +66,7 @@ export interface BodyPath {
    */
   readonly offU: Float64Array; readonly offV: Float64Array;
   turnFirst: boolean;
-  /** Going down: the body as it lay (u, w); each point's distance from the hole and its angle there from straight back along -u. */
+  /** Going down: the body as it lay (u, w); each point's distance from the hole and its angle there from straight back along -u (+u when the head dives toward -u: `exitSign` -1). */
   readonly bu: Float64Array; readonly bw: Float64Array;
   readonly rad: Float64Array; readonly ang: Float64Array;
   /** Going down: each point's height over where the floor rests it (0 for a settled crawl), eased out. */
@@ -85,7 +87,7 @@ export function createBodyPath(): BodyPath {
   const f = (n: number) => new Float64Array(n);
   return {
     u: f(MAX_POINTS), v: f(MAX_POINTS), s: f(MAX_POINTS), count: 0, headFrom: 0, headTo: 0,
-    exitSign: 1, exitU: 0, exitAt: 0, posing: null, seconds: 0, turnRate: 0, back: f(N), offU: f(N), offV: f(N), turnFirst: false,
+    exitSign: 1, exitU: 0, exitAt: 0, posing: null, seconds: 0, turnRate: 0, spacing: 0.22, back: f(N), offU: f(N), offV: f(N), turnFirst: false,
     bu: f(N), bw: f(N), rad: f(N), ang: f(N), lift: f(N), fit: [f(N), f(N), f(N), f(N), f(N), f(N)],
     warp: f(WARP_STEPS + 1), allow: f(WARP_STEPS + 1), reach: f(WARP_STEPS + 1),
     ox: 0, oz: 0, tx: 0, tz: 1, nx: 1, nz: 0,

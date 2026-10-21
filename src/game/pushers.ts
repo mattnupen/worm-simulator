@@ -28,21 +28,38 @@ export interface Pushers {
   readonly ask: SwellAsk;
   readonly swell: { min: number; max: number };
   readonly head: HeadProbe;
+  /** The gap between body points they are fitted to (fitPushers). */
+  spacing: number;
 }
 
 export function createPushers(segments: number, spacing: number): Pushers {
   const count = 2 * segments - 1;
-  /** A pusher stands for the rings within PUSHER_SPAN of it along the spine (in body coordinate). */
-  const reach = PUSHER_SPAN / wormLength(segments, spacing);
   const p: Pushers = {
     count, out: new Float32Array(count * PUSHER_STRIDE),
     m: new Float32Array(count), top: new Float32Array(count), half: new Float32Array(count),
     fall: new Float32Array(count), share: new Float32Array(count),
-    ask: { m: 0, reach, phase0: 0, phase1: 0, amp0: 0, amp1: 0 },
-    swell: { min: 1, max: 1 }, head: { lift: 0, sway: 0 },
+    ask: { m: 0, reach: 0.5, phase0: 0, phase1: 0, amp0: 0, amp1: 0 },
+    swell: { min: 1, max: 1 }, head: { lift: 0, sway: 0 }, spacing: NaN,
   };
-  const ext: WormExtent = { top: 0, half: 0, fall: 0, probe: 0 };
-  for (let k = 0; k < count; k++) {
+  fitPushers(p, spacing);
+  return p;
+}
+
+const ext: WormExtent = { top: 0, half: 0, fall: 0, probe: 0 };
+
+/**
+ * Fits the pushers to a body whose points are `spacing` apart (its length changes: bodyLength.ts):
+ * each one's rest body coordinate and the body it stands for there. Only when the gap changed (it
+ * is asked every step); in place: allocates nothing.
+ */
+export function fitPushers(p: Pushers, spacing: number): void {
+  if (spacing === p.spacing) return;
+  p.spacing = spacing;
+  const segments = (p.count + 1) / 2;
+  /** A pusher stands for the rings within PUSHER_SPAN of it along the spine (in body coordinate). */
+  const reach = PUSHER_SPAN / wormLength(segments, spacing);
+  p.ask.reach = reach;
+  for (let k = 0; k < p.count; k++) {
     p.m[k] = bodyCoordAt((k * spacing) / 2, segments, spacing);
     wormExtent(p.m[k], reach, ext);
     p.top[k] = ext.top;
@@ -50,7 +67,6 @@ export function createPushers(segments: number, spacing: number): Pushers {
     p.fall[k] = ext.fall;
     p.share[k] = ext.probe;
   }
-  return p;
 }
 
 /**
