@@ -9,7 +9,7 @@ import { UNITS_PER_CM } from '../surface/realScale';
 import { HUNT, createHunt, endGrab, resetHunt, robinIn, stepHunt, type HuntInput, type HuntPhase, type HuntState } from './hunt';
 import { huntPose } from './huntPose';
 import { huntOutcome, nextLength, type HuntOutcome } from './huntOutcome';
-import { HuntShadow, SHIVER_S, shiver } from './huntEffects';
+import { GUSTS, HuntShadow, SHIVER_S, gust } from './huntEffects';
 import { HUNT_NOTES } from './huntNotes';
 import { Robin } from './robin';
 import { createTug, startTug, stepTug } from './tug';
@@ -56,9 +56,8 @@ export class HuntGame {
   private readonly input: HuntInput = { surface: false, hx: 0, hz: 0, heading: 0 };
   private readonly bill = { x: 0, y: 0, z: 0 };
   private last: HuntPhase = 'away';
-  /** The warning's shiver: seconds into it (Infinity when none), round this spot. */
+  /** The warning's leaf shiver: seconds into it (Infinity when none). */
   private shiverT = Infinity;
-  private readonly shiverAt = { x: 0, z: 0 };
   /** The shadow's sweep: from behind the worm to where the robin lands. */
   private readonly sweepFrom = { x: 0, z: 0 };
   private noteLeft = 0;
@@ -137,10 +136,9 @@ export class HuntGame {
     this.hud.warn(h.phase === 'arrive' || h.phase === 'stare' || h.phase === 'dash' || h.phase === 'strike');
     this.lookUp(dt, w.surface);
     if (this.shiverT < SHIVER_S) {
-      if (w.surface && c.reaction) {
-        shiver(c.disturbance, this.shiverAt.x, this.shiverAt.z, this.shiverT, c.reach.stamp, c.reach.onTop);
-        c.disturbed = true;
-      }
+      // The wingbeats' puffs: the loose leaves by the worm hop and turn.
+      const n = Math.floor((this.shiverT + dt) * GUSTS) - Math.floor(this.shiverT * GUSTS);
+      if (w.surface && n > 0) gust(c.hero, Math.floor(this.shiverT * GUSTS));
       this.shiverT += dt;
     }
     if (this.noteLeft > 0) {
@@ -190,11 +188,7 @@ export class HuntGame {
     const c = this.crawl;
     const h = this.hunt;
     playHuntSound('arrive');
-    if (!this.host.reducedMotion()) {
-      this.shiverT = 0;
-      this.shiverAt.x = c.motion.head.x;
-      this.shiverAt.z = c.motion.head.z;
-    }
+    if (!this.host.reducedMotion()) this.shiverT = 0;
     const b = SWEEP_BEHIND_CM * CM;
     this.sweepFrom.x = c.motion.head.x - Math.sin(h.away) * b;
     this.sweepFrom.z = c.motion.head.z - Math.cos(h.away) * b;

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { DIST_CELL, DIST_N, DIST_REACH, type DisturbanceMap } from '../surface/disturbance';
 import { litterTopHeight } from '../surface/litterDepth';
+import type { HeroLeaves } from '../surface/heroLeaves';
 import { createWormShadowMaterial } from '../worm/wormMaterial';
 
 /**
@@ -8,9 +8,11 @@ import { createWormShadowMaterial } from '../worm/wormMaterial';
  * - HuntShadow: a soft dark patch on the litter, the worm's contact-shadow material (the same
  *   multiply program, so no new shader; one draw while it shows). It sweeps over the worm as the
  *   robin flies in, then lies small under the robin's body while it stands.
- * - shiver(): the leaves round the worm twitch up and down for a moment, through the leaf
- *   disturbance map's body channel (the same channel the worm's own body lifts leaves with). The
- *   camera never moves. Off with reduced motion and on Low (leaves don't react there).
+ * - gust(): the loose leaves by the worm (the hero leaves, with their own physics) hop and turn
+ *   with each wingbeat's puff for a moment, then settle by themselves. The camera never moves.
+ *   Off with reduced motion. (The litter's own leaves only move through the disturbance map,
+ *   which can lift leaves resting low or slide them along a trail: neither shivers the top
+ *   leaves without leaving a furrow or flickering the ground's trail shading, so it isn't used.)
  * Neither allocates per step or frame.
  */
 
@@ -81,53 +83,27 @@ export class HuntShadow {
   }
 }
 
-/** The shiver: this long (s), twitching this many times a second (at most 3: never a flicker). */
+/**
+ * The leaves' shiver (V4 spec 1 and 6.1): for this long (s) after the robin's warning, this many
+ * puffs of air a second from its wings (at most 3: never a flicker). Each puff is a gust (below).
+ */
 export const SHIVER_S = 1.1;
-const SHIVER_HZ = 3;
-/** Twitch spots in rings round the worm's head (world units), each on its own beat. */
-const RINGS = [1.4, 2.8] as const;
-const PER_RING = 7;
+export const GUSTS = 3;
+
+/** The gust's hop (world units a second, up) and spin (radians a second) for a loose leaf. */
+const GUST_HOP = 0.9;
+const GUST_SPIN = 2.2;
 
 /**
- * Stamps the shiver at `t` seconds into it round (hx, hz) into the map's body channel (re-stamped
- * by the crawl every step, so this lasts one step and the next stamp moves it). `limit`, `onTop`:
- * the crawl's reach (leafScale.ts), so it lifts leaves exactly as the worm's body would there.
- * Values only rise, as the body's own stamps do.
+ * A puff of air from the robin's wings: every loose leaf near the worm (the hero leaves, with their
+ * own physics) hops a little and turns, then settles back by itself. `n` varies which way each
+ * turns, so successive puffs don't all spin one way.
  */
-export function shiver(m: DisturbanceMap, hx: number, hz: number, t: number, limit: number, onTop: number): void {
-  if (t < 0 || t >= SHIVER_S) return;
-  const env = Math.sin((Math.PI * t) / SHIVER_S);
-  for (let r = 0; r < RINGS.length; r++) {
-    for (let i = 0; i < PER_RING; i++) {
-      const a = ((i + r * 0.5) / PER_RING) * Math.PI * 2;
-      const beat = 0.5 + 0.5 * Math.sin(2 * Math.PI * SHIVER_HZ * t + i * 2.4 + r * 1.3);
-      bodySpot(m, hx + Math.sin(a) * RINGS[r], hz + Math.cos(a) * RINGS[r], env * beat, limit, onTop);
-    }
-  }
-}
-
-/**
- * One spot in the body channel as a body point `under` the litter (1 under, 0 on top) would stamp
- * it (disturbance.ts stampSegment's nearness), leaving the path and trail alone: no furrow is left.
- */
-function bodySpot(m: DisturbanceMap, x: number, z: number, under: number, limit: number, onTop: number): void {
-  const off = (1 - under) * onTop;
-  const range = Math.min(limit, DIST_REACH) - off;
-  if (range <= 0) return;
-  const d = m.data;
-  const i0 = Math.max(0, Math.floor((x - range) / DIST_CELL) - m.ci);
-  const i1 = Math.min(DIST_N - 1, Math.floor((x + range) / DIST_CELL) - m.ci);
-  const j0 = Math.max(0, Math.floor((z - range) / DIST_CELL) - m.cj);
-  const j1 = Math.min(DIST_N - 1, Math.floor((z + range) / DIST_CELL) - m.cj);
-  for (let j = j0; j <= j1; j++) {
-    const cz = (m.cj + j + 0.5) * DIST_CELL - z;
-    for (let i = i0; i <= i1; i++) {
-      const cx = (m.ci + i + 0.5) * DIST_CELL - x;
-      const dist = Math.sqrt(cx * cx + cz * cz);
-      if (dist >= range) continue;
-      const near = 1 - (dist + off) / DIST_REACH;
-      const k = (j * DIST_N + i) * 4 + 2;
-      if (near > d[k]) d[k] = near;
-    }
+export function gust(p: HeroLeaves, n: number): void {
+  for (let i = 0; i < p.count; i++) {
+    const k = Math.sin(i * 12.9898 + n * 78.233) * 43758.5453;
+    const r = k - Math.floor(k);
+    p.vy[i] += GUST_HOP * (0.6 + 0.4 * r);
+    p.spin[i] += GUST_SPIN * (r * 2 - 1);
   }
 }

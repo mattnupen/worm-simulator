@@ -39,7 +39,7 @@ const HELD_RATE = 14;
 /** Looking up at a robin close by (V4 spec 6.2), at `lookUp` 1: the camera backs off and rises this far, and aims this much higher. */
 const LOOK_UP_BACK = 1.6;
 const LOOK_UP_RISE = 0.3;
-const LOOK_UP_AIM = 1.0;
+const LOOK_UP_AIM = 0.7;
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 /** Scratch for interpolate: where the camera aims (cameraAim). */
 const aim: CameraAim = { ahead: 0, above: 0, upX: 0, upY: 1, upZ: 0 };
