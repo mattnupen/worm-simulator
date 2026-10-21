@@ -1,7 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { CURRENT_LESSON } from '../../src/content/lessons';
+import { ALL_LESSONS, CURRENT_LESSON } from '../../src/content/lessons';
+import type { Lesson } from '../../src/content/lessons/lesson';
 import { SOURCES } from '../../src/content/sources';
 import { shown } from '../../src/content/text';
 
@@ -20,83 +21,72 @@ function watchErrors(page: Page): string[] {
 
 const escape = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
-const card = (page: Page) => page.getByRole('region', { name: `Lesson: ${lesson.title}` });
+const card = (page: Page, l: Lesson = lesson) => page.getByRole('region', { name: `Lesson: ${l.title}` });
 
 test.skip(!CURRENT_LESSON, 'this build has no lesson');
 
-test('a new device: the lesson comes first, plays through by keyboard, and then Crawl comes first', async ({ page, context }) => {
-  test.setTimeout(150_000);
-  const errors = watchErrors(page);
-  const outside: string[] = [];
-  // The game itself loads nothing from outside; only an opened "Tell me more" video does.
-  page.on('request', (r) => {
-    if (!/^(file|data|blob):/.test(r.url()) && r.frame() === page.mainFrame()) outside.push(r.url());
-  });
-  await context.setOffline(true);
-  await page.goto(PAGE);
-  await expect(button(page, LEARN)).toBeFocused();
-  await page.keyboard.press('Enter');
-
+/** Plays every step of `l` from the open lesson card by keyboard and pointer, checking each kind. */
+async function playThrough(page: Page, l: Lesson): Promise<void> {
   let zoomed = false;
-  for (const [i, step] of lesson.steps.entries()) {
-    await expect(card(page)).toHaveCount(1);
+  for (const [i, step] of l.steps.entries()) {
+    await expect(card(page, l)).toHaveCount(1);
     await expect(page.locator('.pip.here')).toHaveCount(1);
-    await expect(card(page).getByRole('heading', { name: step.title })).toHaveCount(1);
-    const next = button(page, i === lesson.steps.length - 1 ? 'Start crawling' : 'Next');
+    await expect(card(page, l).getByRole('heading', { name: step.title })).toHaveCount(1);
+    const next = button(page, i === l.steps.length - 1 ? 'Start crawling' : 'Next');
     if (step.kind === 'sense') {
       // A scene: the card fades out, and the words show as captions over the black bar with Skip.
       await expect(page.locator(`.cue[data-cue="${step.cue}"]`)).toHaveCount(1);
       const captions = page.locator('.cue-captions');
       await expect(captions.getByText(step.cueText)).toBeVisible();
-      await expect(card(page)).toBeHidden();
+      await expect(card(page, l)).toBeHidden();
       await expect(button(page, 'Skip')).toBeFocused();
       // It plays to its end, then waits: Skip becomes Next, still focused.
       await expect(captions.getByRole('button', { name: 'Next' })).toBeFocused({ timeout: 15_000 });
-      await expect(card(page)).toBeHidden();
+      await expect(card(page, l)).toBeHidden();
       await page.keyboard.press('Enter');
       await expect(captions).toBeHidden();
-      await expect(card(page).getByText(step.question)).toBeFocused();
+      await expect(card(page, l).getByText(step.question)).toBeFocused();
     } else {
-      await expect(card(page).getByRole('heading', { name: step.title })).toBeFocused();
+      await expect(card(page, l).getByRole('heading', { name: step.title })).toBeFocused();
     }
     if (step.kind === 'guess') {
       // Guess first: Next waits for a pick, and the pick reveals nothing yet.
       await expect(next).toBeDisabled();
-      await expect(card(page).getByText('Pick an answer to go on.')).toBeVisible();
-      await card(page).getByRole('radio', { name: step.options[(step.answer + 1) % step.options.length] }).check();
+      await expect(card(page, l).getByText('Pick an answer to go on.')).toBeVisible();
+      await card(page, l).getByRole('radio', { name: step.options[(step.answer + 1) % step.options.length] }).check();
       await expect(next).toBeEnabled();
-      await expect(card(page).getByText('You will find out at the end of Learn.', { exact: false })).toBeVisible();
-      await expect(card(page).getByText('What scientists found')).toHaveCount(0);
-      await expect(card(page).getByText('Correct')).toHaveCount(0);
-    } else if (step.kind === 'mission' && lesson.steps[0].kind === 'guess') {
+      await expect(card(page, l).getByText('You will find out at the end of Learn.', { exact: false })).toBeVisible();
+      await expect(card(page, l).getByText('What scientists found')).toHaveCount(0);
+      await expect(card(page, l).getByText('Correct')).toHaveCount(0);
+    } else if (step.kind === 'mission' && l.steps[0].kind === 'guess') {
       // The mission shows the first guess beside what scientists found, for the form.
-      const g = lesson.steps[0];
-      await expect(card(page).getByText(`You guessed: ${g.options[(g.answer + 1) % g.options.length]}`)).toBeVisible();
-      await expect(card(page).getByText(`Scientists found: ${g.options[g.answer]}`)).toBeVisible();
+      const g = l.steps[0];
+      await expect(card(page, l).getByText(`You guessed: ${g.options[(g.answer + 1) % g.options.length]}`)).toBeVisible();
+      await expect(card(page, l).getByText(`Scientists found: ${g.options[g.answer]}`)).toBeVisible();
       const fact = g.reveal.find((l) => l.kind === 'fact');
-      if (fact && fact.kind === 'fact') await expect(card(page).getByText(shown(fact))).toBeVisible();
+      if (fact && fact.kind === 'fact') await expect(card(page, l).getByText(shown(fact))).toBeVisible();
       await expect(button(page, 'Sources')).toBeVisible();
     } else if (step.kind === 'predict' || step.kind === 'sense') {
       // Next is there but grayed out until a guess, and says so; any guess reveals what
       // scientists found.
       await expect(next).toBeDisabled();
-      await expect(card(page).getByText('Pick an answer to go on.')).toBeVisible();
+      await expect(card(page, l).getByText('Pick an answer to go on.')).toBeVisible();
       const guess = step.answer === undefined ? 0 : (step.answer + 1) % step.options.length;
-      await card(page).getByRole('radio', { name: step.options[guess] }).check();
+      await card(page, l).getByRole('radio', { name: step.options[guess] }).check();
       await expect(next).toBeEnabled();
-      await expect(card(page).getByText('Pick an answer to go on.')).toBeHidden();
-      await expect(card(page).getByText('Your guess')).toHaveCount(0);
+      await expect(card(page, l).getByText('Pick an answer to go on.')).toBeHidden();
+      await expect(card(page, l).getByText('Your guess')).toHaveCount(0);
       if (step.answer !== undefined) {
         // The option scientists found is marked, in words.
-        await expect(card(page).locator('label.choice', { hasText: step.options[step.answer] }).getByText('Correct')).toBeVisible();
+        await expect(card(page, l).locator('label.choice', { hasText: step.options[step.answer] }).getByText('Correct')).toBeVisible();
       }
-      await expect(card(page).getByText('What scientists found')).toBeVisible();
+      await expect(card(page, l).getByText('What scientists found')).toBeVisible();
       const fact = step.reveal.find((l) => l.kind === 'fact');
       if (fact && fact.kind === 'fact') {
-        await expect(card(page).getByText(shown(fact))).toBeVisible();
+        await expect(card(page, l).getByText(shown(fact))).toBeVisible();
         // Sources stay off the card: the Sources panel links each one, opening in a new tab,
         // with the photo credits.
-        await expect(card(page).getByRole('link')).toHaveCount(0);
+        await expect(card(page, l).getByRole('link')).toHaveCount(0);
         await button(page, 'Sources').click();
         const list = page.getByRole('dialog', { name: 'Sources for this page' });
         const src = list.getByRole('link', { name: new RegExp(`^${escape(SOURCES[fact.source].title)}`) });
@@ -107,22 +97,35 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
         await expect(list).toHaveCount(0);
       }
       if (step.photo) {
-        await expect(card(page).getByRole('img', { name: step.photo.alt })).toBeVisible();
-        await expect(card(page).getByText(step.photo.credit)).toHaveCount(0);
+        await expect(card(page, l).getByRole('img', { name: step.photo.alt })).toBeVisible();
+        await expect(card(page, l).getByText(step.photo.credit)).toHaveCount(0);
       }
+    } else if (step.kind === 'body') {
+      // Follow the leaf: each tap shows the next part, in words and on the drawing; Next waits for the last.
+      await expect(next).toBeDisabled();
+      await expect(card(page, l).getByText(`Follow the leaf through all ${step.stops.length} parts to go on.`)).toBeVisible();
+      const follow = button(page, 'Follow the leaf');
+      for (const [j, s] of step.stops.entries()) {
+        await follow.click();
+        await expect(card(page, l).getByText(`Part ${j + 1} of ${step.stops.length}`)).toBeVisible();
+        await expect(card(page, l).locator(`.body-part.here[data-part="${s.part}"]`)).toHaveCount(1);
+        await expect(card(page, l).getByText(shown(s.fact))).toBeVisible();
+      }
+      await expect(follow).toBeHidden();
+      await expect(next).toBeEnabled();
     } else if (step.kind === 'meet') {
       await expect(next).toBeDisabled();
-      await expect(card(page).getByText(`Found 0 of ${step.cards.length}`)).toBeVisible();
+      await expect(card(page, l).getByText(`Found 0 of ${step.cards.length}`)).toBeVisible();
       for (const c of step.cards) {
         await button(page, `Find out: ${c.name}`).click();
-        await expect(card(page).getByText(shown(c.fact))).toBeVisible();
+        await expect(card(page, l).getByText(shown(c.fact))).toBeVisible();
       }
-      await expect(card(page).getByText(`Found ${step.cards.length} of ${step.cards.length}`)).toBeVisible();
+      await expect(card(page, l).getByText(`Found ${step.cards.length} of ${step.cards.length}`)).toBeVisible();
       await expect(next).toBeEnabled();
     }
     // Any photo opens bigger, with its credit. Esc closes only that view, and so does a tap on
     // the big photo.
-    const zoom = card(page).getByRole('button', { name: /^Show a bigger photo: / }).first();
+    const zoom = card(page, l).getByRole('button', { name: /^Show a bigger photo: / }).first();
     if (!zoomed && await zoom.count()) {
       zoomed = true;
       await zoom.click();
@@ -132,7 +135,7 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
       await expect(view.getByText(/iNaturalist|Wikimedia|CC /).first()).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(view).toHaveCount(0);
-      await expect(card(page)).toBeVisible();
+      await expect(card(page, l)).toBeVisible();
       await expect(zoom).toBeFocused();
       await zoom.click();
       await view.getByRole('img').click();
@@ -158,6 +161,24 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
     await next.focus();
     await page.keyboard.press('Enter');
   }
+
+}
+
+
+test('a new device: the lesson comes first, plays through by keyboard, and then Crawl comes first', async ({ page, context }) => {
+  test.setTimeout(150_000);
+  const errors = watchErrors(page);
+  const outside: string[] = [];
+  // The game itself loads nothing from outside; only an opened "Tell me more" video does.
+  page.on('request', (r) => {
+    if (!/^(file|data|blob):/.test(r.url()) && r.frame() === page.mainFrame()) outside.push(r.url());
+  });
+  await context.setOffline(true);
+  await page.goto(PAGE);
+  await expect(button(page, LEARN)).toBeFocused();
+  await page.keyboard.press('Enter');
+
+  await playThrough(page, lesson);
 
   // A new device's first Crawl plays the opening scene (tests/e2e/opening.spec.ts); Enter skips it
   // straight into play.
@@ -251,3 +272,15 @@ test('Play counts real crawling toward its 5 minutes, and keeps it when paused',
   expect(saved.rounds['3'].playSeconds).toBeLessThan(10);
   expect(saved.rounds['3'].voted).toBe(false);
 });
+
+for (const other of ALL_LESSONS.filter((l) => l !== CURRENT_LESSON)) {
+  test(`the next round's lesson previews on its own link: ?lesson=${other.id}`, async ({ page }) => {
+    test.setTimeout(150_000);
+    const errors = watchErrors(page);
+    await page.goto(`${PAGE}?lesson=${other.id}`);
+    await expect(card(page, other)).toBeVisible();
+    await playThrough(page, other);
+    await expect(page.getByRole('region', { name: 'Opening' })).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}

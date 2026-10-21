@@ -31,7 +31,7 @@ import { createActionPrompt } from './ui/actionPrompt';
 import { showResult, showRunning, showTestIntro } from './ui/speedTestUi';
 import { showUnderground } from './ui/undergroundHint';
 import { closeLesson, showLesson } from './ui/lesson';
-import { CURRENT_LESSON } from './content/lessons';
+import { CURRENT_LESSON, lessonFor } from './content/lessons';
 import { lessonDone, markLessonDone } from './save/lessonStore';
 import { loadRound, saveRound } from './save/questStore';
 import { PLAY_GOAL_SECONDS, playMinutes, quests, type QuestProgress } from './game/quests';
@@ -92,8 +92,10 @@ function run(renderer: THREE.WebGLRenderer): void {
 }
 
 function start(renderer: THREE.WebGLRenderer): void {
+  /** This round's lesson, or the one `?lesson=<id>` previews (content/lessons/index.ts), opened straight away. */
+  const lesson = lessonFor(location.search);
   app.appendChild(renderer.domElement);
-  let state: ScreenState = initialScreens(params.speedTest, params.lesson && !!CURRENT_LESSON);
+  let state: ScreenState = initialScreens(params.speedTest, (params.lesson || lesson !== CURRENT_LESSON) && !!lesson);
   // The first card (Start, or the speed-test intro) goes up synchronously, before the slow
   // world build, so no frame is ever painted with an empty card. (The no-WebGL path shows its
   // FAIL card just as synchronously, above.) Its buttons only act once run() has finished.
@@ -109,7 +111,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     playSaved = progress.playSeconds;
   };
   const questProgress = (): QuestProgress => ({
-    learned: !CURRENT_LESSON || lessonDone(store, CURRENT_LESSON.id),
+    learned: !lesson || lessonDone(store, lesson.id),
     playSeconds: progress.playSeconds,
     voted: progress.voted,
   });
@@ -121,7 +123,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   /** The follow camera as play would draw it: the opening eases into it at its end. */
   const gameCam = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
   /** The round's question to think about while crawling: the lesson's own "notice" line. */
-  const playQuestion = CURRENT_LESSON?.steps.find((s): s is Extract<typeof s, { kind: 'mission' }> => s.kind === 'mission')?.notice;
+  const playQuestion = lesson?.steps.find((s): s is Extract<typeof s, { kind: 'mission' }> => s.kind === 'mission')?.notice;
   const crawl = new Crawl();
   const world = buildWorld(crawl);
   const keyboard = new KeyboardInput();
@@ -382,8 +384,8 @@ function start(renderer: THREE.WebGLRenderer): void {
           openingPreview: params.opening === true,
           // ?nest=1: watch the nest scene now, from where the worm is.
           onNest: params.nest ? () => playNestScene(crawl.motion.head.x, crawl.motion.head.z, crawl.motion.heading) : undefined,
-        }, fromGraphics, CURRENT_LESSON ? {
-          lessonTitle: CURRENT_LESSON.title,
+        }, fromGraphics, lesson ? {
+          lessonTitle: lesson.title,
           quests: quests(questProgress()),
           playMinutes: playMinutes(questProgress()),
           onLesson: () => dispatch({ type: 'lesson' }),
@@ -396,11 +398,11 @@ function start(renderer: THREE.WebGLRenderer): void {
           dispatch({ type: 'toStart' });
         }, () => dispatch({ type: 'toStart' }));
       case 'lesson':
-        if (!CURRENT_LESSON) return;
-        return showLesson(shell, CURRENT_LESSON, {
+        if (!lesson) return;
+        return showLesson(shell, lesson, {
           onCrawl: crawlOrOpening,
           onStart: () => dispatch({ type: 'toStart' }),
-          onFinish: () => markLessonDone(store, CURRENT_LESSON!.id),
+          onFinish: () => markLessonDone(store, lesson.id),
         });
       case 'opening':
         captions = showOpening(shell);

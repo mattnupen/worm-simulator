@@ -69,6 +69,12 @@ Each job is a lens on the student's own idea:
   of the time".
 - **Votes over many options are "pick 2" checkboxes,** not a ranking grid. Use response
   validation, "Select exactly" 2.
+- **Design questions are door questions** (Matt, 2026-10-21; `game-design-thinking.md`): many
+  small, concrete questions about one feature (what is it, how does the player know, how do they
+  use it, what happens after, what if they don't). Add one "Real worm, or game choice?" question
+  with a reason picked from a list, and one "What would make you keep playing?" question whose
+  choices say what the player would do (get better at it, explore, beat a challenge, make my own
+  choices, work with friends). That asks about goals without a feelings rating.
 - **Every design question asks for evidence** (P3): a "How do you know?" line, or a sentence
   starter such as "The worm would ___ because ___." Starters come out over the rounds.
 - **The check question uses only facts** from `docs/codev/research/<topic>.md`, and its answer is

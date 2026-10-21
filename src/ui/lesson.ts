@@ -4,10 +4,11 @@ import { icon } from './icons';
 import type { Shell } from './shell';
 import { SOURCES, type SourceId } from '../content/sources';
 import { GAME_CHOICE_PREFIX, shown, type Line } from '../content/text';
-import type { Cue, Lesson, LessonStep, More, Photo, Video } from '../content/lessons/lesson';
+import type { BodyStop, Cue, Lesson, LessonStep, More, Photo, Video } from '../content/lessons/lesson';
 import { PHOTO_URLS } from '../content/lessons/photos';
 import { youTubeId } from '../content/lessons/lesson';
 import { playCueSound, stopCueSound } from './lessonSound';
+import { BODY_SVG, LEAF_START_X, labelX, leafX } from './lessonBody';
 
 /**
  * Whether lessons show sources as links (new tab) and play "Tell me more" videos in the panel
@@ -213,12 +214,14 @@ export function closeLesson(root: HTMLElement): void {
 }
 
 function interactive(step: LessonStep): boolean {
-  return step.kind === 'guess' || step.kind === 'predict' || step.kind === 'sense' || step.kind === 'meet';
+  return step.kind === 'guess' || step.kind === 'predict' || step.kind === 'sense' || step.kind === 'meet' || step.kind === 'body';
 }
 
 /** Beside a grayed-out Next: what to do first, in words. */
 function waitHint(step: LessonStep): string {
-  return step.kind === 'meet' ? `Find out about all ${step.cards.length} animals to go on.` : 'Pick an answer to go on.';
+  if (step.kind === 'meet') return `Tap Find out on all ${step.cards.length} to go on.`;
+  if (step.kind === 'body') return `Follow the leaf through all ${step.stops.length} parts to go on.`;
+  return 'Pick an answer to go on.';
 }
 
 /** Leaf pips for the steps; the words ("Step 2 of 8") are for screen readers only. */
@@ -269,6 +272,8 @@ function stepBody(step: LessonStep, c: BodyCtx): HTMLElement[] {
     }
     case 'meet':
       return meet(step, c);
+    case 'body':
+      return body(step, c);
     case 'mission': {
       const notice = el('p', '', 'mission-line');
       notice.append(icon('flag', 'mission-icon'), readable(el('span', shown(step.notice))));
@@ -411,6 +416,67 @@ function meet(step: Extract<LessonStep, { kind: 'meet' }>, c: BodyCtx): HTMLElem
     list.append(li);
   });
   return [intro, count, list];
+}
+
+/**
+ * "Follow the leaf": the worm's insides as a drawing. Each tap moves the leaf bit to the next part,
+ * labels it on the drawing, and shows that part's name and fact in a box under it. Once the leaf
+ * reaches the last part, the box becomes the whole trip as a numbered list, and Next wakes up.
+ * Back keeps the parts already seen.
+ */
+function body(step: Extract<LessonStep, { kind: 'body' }>, c: BodyCtx): HTMLElement[] {
+  const intro = readable(el('p', step.intro, 'lead lesson-question'));
+  const fig = el('figure', '', 'body-diagram');
+  fig.innerHTML = BODY_SVG;
+  fig.append(el('figcaption', 'A drawing, not to scale: inside an earthworm, head on the left.', 'body-caption'));
+  const svg = fig.querySelector('svg') as SVGSVGElement;
+  const leaf = svg.querySelector('.body-leaf') as SVGGElement;
+  const label = svg.querySelector('.body-label') as SVGGElement;
+  const count = el('p', '', 'meet-count');
+  count.setAttribute('aria-live', 'polite');
+  const now = el('div', '', 'body-now');
+  const follow = button('Follow the leaf', 'leaf', 'primary', () => {
+    c.opened.add(c.opened.size);
+    show();
+    if (c.opened.size === step.stops.length) c.onAnswer();
+  });
+  follow.el.classList.add('btn-small');
+  const stopWords = (s: BodyStop): HTMLElement[] => [readable(el('p', s.name, 'meet-name')), line(s.fact)];
+
+  const show = (): void => {
+    const seen = c.opened.size;
+    const here = seen - 1;
+    const stop = here >= 0 ? step.stops[here] : undefined;
+    count.textContent = `Part ${seen} of ${step.stops.length}`;
+    leaf.setAttribute('transform', `translate(${stop ? leafX(stop.part) : LEAF_START_X} 110)`);
+    for (const part of svg.querySelectorAll<SVGGElement>('.body-part')) {
+      const i = step.stops.findIndex((s) => s.part === part.dataset.part);
+      part.classList.toggle('seen', i >= 0 && i < seen);
+      part.classList.toggle('here', i === here);
+    }
+    label.toggleAttribute('hidden', !stop);
+    if (stop) {
+      label.setAttribute('transform', `translate(${labelX(stop.part)} 0)`);
+      (label.querySelector('text') as SVGTextElement).textContent = stop.name;
+      (label.querySelector('.body-label-line') as SVGPathElement).setAttribute('d', `M${leafX(stop.part) - labelX(stop.part)} 74 L0 34`);
+    }
+    const finished = seen === step.stops.length;
+    if (finished) {
+      const trip = el('ol', '', 'body-stops');
+      trip.append(...step.stops.map((s) => {
+        const li = el('li', '', 'body-stop');
+        li.append(...stopWords(s));
+        return li;
+      }));
+      now.replaceChildren(readable(el('p', 'The leaf made it all the way through! Here is its whole trip:', 'body-done')), trip);
+    } else {
+      now.replaceChildren(...(stop ? stopWords(stop) : []));
+    }
+    now.classList.toggle('body-now-on', !!stop && !finished);
+    follow.el.hidden = finished;
+  };
+  show();
+  return [intro, fig, count, now, follow.el];
 }
 
 /**

@@ -30,6 +30,7 @@ project.** How Worm Simulator applies it (Strategy A, async form-led co-design) 
 | Visual and performance rules (**read before any rendering work**) | `docs/superpowers/visual-quality-brief.md` |
 | Hosting | `docs/hosting.md`, `render.yaml` |
 | Burrow Board (the separate idea-sharing app students use each round) | `burrow-board/README.md` |
+| Game design thinking: ask questions, decide, know why ("The Door Problem"; reusable for any game) | `docs/codev/game-design-thinking.md` |
 
 ## Commands
 
@@ -131,6 +132,11 @@ the files sort) from `docs/codev/version-template.md`. It holds:
 - the Canvas announcement.
 
 After the form closes, it also holds the results and the decisions.
+
+**Game design thinking (Matt, 2026-10-21):** every round's lesson ends with a short "Think like a
+game designer" step, and the form's design section asks the round's "door questions" about one
+concrete feature, with a "why" for each decision (real worm, or a labelled game choice?) and what
+motivates players. See `docs/codev/game-design-thinking.md`.
 
 **Learning happens in the game (Matt, 2026-10-11).** Each round opens with an interactive
 in-game learning intro on the round's topic. Claude researches the topic and drafts the intro,
