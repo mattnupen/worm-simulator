@@ -5,9 +5,10 @@ import { TEXT, shown } from '../content/text';
 /**
  * What one press of Action (Space, or the touch Action button) will do now (V2 spec 4 and 7):
  * dig down on the surface, come up near the top underground, or switch to the Wide or the Close
- * view deeper down.
+ * view deeper down. While a robin holds the worm (V4), it is the grip mini-game's "Hold on": held,
+ * not pressed (src/predators/tug.ts).
  */
-export type ActionKind = 'digDown' | 'comeUp' | 'viewWide' | 'viewClose';
+export type ActionKind = 'digDown' | 'comeUp' | 'viewWide' | 'viewClose' | 'grip';
 
 export interface ActionPrompt {
   /** Shows the prompt for `kind`, or hides it (null). Call every frame: an unchanged kind does nothing. */
@@ -25,9 +26,9 @@ export interface ActionPrompt {
 }
 
 /** Every kind, once (params.ts reads ?prompt= against it). */
-export const ACTION_KINDS: readonly ActionKind[] = ['digDown', 'comeUp', 'viewWide', 'viewClose'];
+export const ACTION_KINDS: readonly ActionKind[] = ['digDown', 'comeUp', 'viewWide', 'viewClose', 'grip'];
 const ICONS: Readonly<Record<ActionKind, IconName>> = {
-  digDown: 'digDown', comeUp: 'comeUp', viewWide: 'viewWide', viewClose: 'viewClose',
+  digDown: 'digDown', comeUp: 'comeUp', viewWide: 'viewWide', viewClose: 'viewClose', grip: 'grip',
 };
 
 /**

@@ -424,7 +424,7 @@ describe('the surface / underground state machine (spec 4, 10)', () => {
             const m = where === 'surface' ? createModeMachine() : undergroundMachine();
             const kind = promptKind(m.state, canDig, nearTop, view);
             const ev = m.step(true, canDig, nearTop, false, DT);
-            const expected = { digDown: 'startDig', comeUp: 'startUp', viewWide: 'switchView', viewClose: 'switchView' } as const;
+            const expected = { digDown: 'startDig', comeUp: 'startUp', viewWide: 'switchView', viewClose: 'switchView', grip: 'none' } as const;
             expect(ev).toBe(kind === null ? 'none' : expected[kind]);
           }
         }
