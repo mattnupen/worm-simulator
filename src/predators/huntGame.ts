@@ -16,10 +16,13 @@ import { createTug, startTug, stepTug } from './tug';
 
 /** What the page does for the hunt's endings that start a new life (main.ts). */
 export interface HuntHost {
-  /** The robin got the whole worm (spec 3 and 5). */
-  onWholeWorm(): void;
-  /** Too short: start again at full length in "your burrow". */
-  startAgain(): void;
+  /**
+   * The robin got the whole worm (spec 3 and 5). `action`: the Action level held now (the grip's
+   * Space), so a new life started from here doesn't read it as a new press.
+   */
+  onWholeWorm(action: boolean): void;
+  /** Too short: start again at full length in "your burrow". `action` as for onWholeWorm. */
+  startAgain(action: boolean): void;
   /** prefers-reduced-motion, read as each warning starts (no leaf shiver). */
   reducedMotion(): boolean;
 }
@@ -121,7 +124,7 @@ export class HuntGame {
       if (this.tug.result !== 'none') end = huntOutcome(this.tug.result, this.rand(), this.game.wormLength);
     }
     huntPose(h, this.tug, litterTopHeight, this.robin.pose);
-    if (end) this.finish(end);
+    if (end) this.finish(end, action);
     else if (h.phase === 'grab') {
       // The head in the bill: lifted a little, and pulled toward the robin as it leans back to tug.
       this.robin.billTip(this.bill);
@@ -205,7 +208,7 @@ export class HuntGame {
   }
 
   /** The mini-game's ending (spec 3). */
-  private finish(end: HuntOutcome): void {
+  private finish(end: HuntOutcome, action: boolean): void {
     const h = this.hunt;
     const c = this.crawl;
     c.release();
@@ -225,11 +228,11 @@ export class HuntGame {
       case 'tooShort':
         endGrab(h, 'broke');
         this.note(HUNT_NOTES.tooShort, 5);
-        this.host.startAgain();
+        this.host.startAgain(action);
         break;
       case 'taken':
         endGrab(h, 'taken');
-        this.host.onWholeWorm();
+        this.host.onWholeWorm(action);
         break;
     }
   }

@@ -143,11 +143,11 @@ function start(renderer: THREE.WebGLRenderer): void {
   const hunt = params.hunt && !params.robin ? new HuntGame(world.scene, app, crawl, game, {
     // The robin got the whole worm. The nest scene plugs in here: main.ts calls playNestScene and
     // starts the new life when it ends; until it exists, the new life starts at once.
-    onWholeWorm: () => {
-      startAgain();
+    onWholeWorm: (action) => {
+      startAgain(action);
       hunt?.note(HUNT_NOTES.taken, 5);
     },
-    startAgain: () => startAgain(),
+    startAgain: (action) => startAgain(action),
     reducedMotion: () => reduceMotion.matches,
   }, Math.random, params.robinIn) : null;
   /** While the robin holds the worm it doesn't crawl. */
@@ -331,15 +331,15 @@ function start(renderer: THREE.WebGLRenderer): void {
   }
 
   /**
-   * A new life after the robin (too short, or taken): full length, underground, the hunt reset.
-   * "Your burrow" is the V4 tunnels' job (game.enterBurrow, once it exists: the one line to swap);
-   * until then the new life starts down at the spawn, as the speed test's dig run does.
+   * A new life after the robin (too short, or taken): full length, underground in "your burrow"
+   * (the one last gone down, tunnels and all), the hunt reset. `action`: the Action level held now,
+   * so the grip's Space held through it is not a new press after.
    */
-  function startAgain(): void {
+  function startAgain(action: boolean): void {
     game.setWormLength(1);
-    crawl.reset();
+    crawl.release();
     hunt?.reset();
-    game.enterNow(game.view);
+    game.enterBurrow(action);
     dirty = true;
   }
 
