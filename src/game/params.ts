@@ -27,6 +27,17 @@ export interface GameParams {
    */
   opening: boolean | null;
   openingAt: number | null;
+  /**
+   * `?wormLength=0.6`: the worm starts at that share of its full length (V4: 0.8 and 0.6 after a
+   * robin breaks it), for Matt's review and screenshots. Not saved.
+   */
+  wormLength: number | null;
+}
+
+/** A number param, or null when it is missing or not a finite number. */
+function num(p: URLSearchParams, key: string): number | null {
+  const v = p.get(key);
+  return v !== null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null;
 }
 
 export function parseParams(search: string): GameParams {
@@ -42,6 +53,7 @@ export function parseParams(search: string): GameParams {
     dig: p.get('dig') === '1',
     lesson: p.get('lesson') === '1',
     opening: p.get('opening') === '1' ? true : p.get('opening') === '0' ? false : null,
-    openingAt: p.has('openingAt') && Number.isFinite(Number(p.get('openingAt'))) ? Number(p.get('openingAt')) : null,
+    openingAt: num(p, 'openingAt'),
+    wormLength: num(p, 'wormLength'),
   };
 }

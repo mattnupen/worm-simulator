@@ -12,6 +12,7 @@ import { createModeMachine, cameraProgress, promptKind, type Mode, type Undergro
 import { createCutCam, followCut, type CutFrame, type FrameAsk } from './cutCamera';
 import { clearOpenings, createOpenings } from './openings';
 import { arriveBelow, buildStage, startDig, startUp, stepMove, type MoveState } from './burrowMoves';
+import { setBodyLength, wormBody, WORM_SEGMENTS } from '../worm/bodyLength';
 
 /** What the game asks of the page. */
 export interface BurrowHost {
@@ -70,8 +71,8 @@ export class BurrowGame implements MoveState {
   /** The worm in the cut: u along it, v the axis height (also posed through the moves). */
   readonly worm = createBurrower();
   /** Each body point's distance off the cut toward the camera's side (0 in it), now and at the last step. */
-  readonly offW = new Float64Array(16);
-  readonly prevW = new Float64Array(16);
+  readonly offW = new Float64Array(WORM_SEGMENTS);
+  readonly prevW = new Float64Array(WORM_SEGMENTS);
   readonly cam = createCutCam();
   /** The cut camera's frame at the last step (the renderer interpolates from it to `cam`). */
   readonly camPrev: CutFrame = { cu: 0, cv: 0, h: 10, pitch: 0.2 };
@@ -146,6 +147,20 @@ export class BurrowGame implements MoveState {
       else this.frameCut(dt);
     }
     this.prompt = promptKind(m, this.canDig, this.nearTop, this.view);
+  }
+
+  /**
+   * The worm's length, as a share of full length (V4 spec 3: 1, then about 0.8 and 0.6 as robins
+   * break it; 1 for a new life). Safe at any moment, on the surface, underground or in a move: the
+   * body eases to it (bodyLength.ts). For a new life at full length, set 1 before `crawl.reset()`
+   * (the crawl is placed at the length at once).
+   */
+  setWormLength(f: number): void {
+    setBodyLength(f);
+  }
+
+  get wormLength(): number {
+    return wormBody.factor;
   }
 
   /** A step that must not act (paused, another screen): Action is still watched, so a held press stays spent. */

@@ -5,7 +5,8 @@ import { createSlab, slabSeed, slabX, slabZ, type Slab } from './slab';
 import { digDiscAt, fillSoilGrid, type Eaten, type SoilGrid } from './soilGrid';
 import { markSolids, placeSolids, type Solids } from './solids';
 import { chooseSide, cutHeading } from './digSpot';
-import { placeBurrower, BREATH_HZ, TUNNEL_R, WAVES_PER_UNIT, type Burrower } from './burrowMotion';
+import { placeBurrower, BREATH_HZ, TUNNEL_R, type Burrower } from './burrowMotion';
+import { wormBody } from '../worm/bodyLength';
 import { poseAt, smootherstep, wrap, AXIS_UP, type BodyPath } from './bodyPath';
 import { buildSink } from './sinkPath';
 import { buildEmerge } from './emergePath';
@@ -175,7 +176,7 @@ export function stepMove(g: MoveState, dt: number, action: boolean, reduced: boo
   poseAt(g.path, t, w.u, w.v, g.offW);
   w.dir = neckDir(w, w.dir);
   if (down) {
-    advanceWave(w.wave, hypot3(w.u[0] - hu, w.v[0] - hv, g.offW[0] - hw), dt, 1, WAVES_PER_UNIT, BREATH_HZ);
+    advanceWave(w.wave, hypot3(w.u[0] - hu, w.v[0] - hv, g.offW[0] - hw), dt, 1, wormBody.wavesPerUnit, BREATH_HZ);
     if (!g.stage) {
       for (let i = 0; i < N; i++) if (Math.abs(g.offW[i]) < IN_PLANE) digPoint(g.grid, w, i);
     }
@@ -245,6 +246,6 @@ export function startUp(g: MoveState): void {
   const out = g.waveOut;
   out.from = w.wave.phase;
   out.act = w.wave.activity;
-  out.span = Math.ceil(out.from + (p.headTo - p.headFrom) * WAVES_PER_UNIT) - out.from;
+  out.span = Math.ceil(out.from + (p.headTo - p.headFrom) * wormBody.wavesPerUnit) - out.from;
   g.nearTop = false;
 }

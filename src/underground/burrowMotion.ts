@@ -1,6 +1,5 @@
 import { advanceWave } from '../worm/wormShape';
-import { WAVES, wormLength } from '../worm/wormMesh';
-import { WORM_SEGMENTS, SPACING } from '../game/crawl';
+import { wormBody } from '../worm/bodyLength';
 import { boundaryOf, bound, B_F, B_TOP, type Slab } from './slab';
 import type { SoilGrid } from './soilGrid';
 import { ahead, soilAhead } from './soilFeel';
@@ -74,9 +73,11 @@ function holdBend(b: Burrower): void {
 }
 /** Peristalsis runs this much faster per unit moved while eating (spec 6). */
 const EAT_WAVES = 1.9;
-/** The resting breath, and the peristalsis waves per unit moved (the moves in and out use them too: burrowGame.ts). */
+/**
+ * The resting breath (the moves in and out use it too: burrowGame.ts). The peristalsis waves per
+ * unit moved are the worm's length's (wormBody.wavesPerUnit: more for a shorter worm, bodyLength.ts).
+ */
 export const BREATH_HZ = 0.22;
-export const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
 /** Stick input below this is no input. */
 const DEAD = 0.15;
 /** Rates (1/s) of the two smoothing stages from the soil's speed to the worm's (two stages: no kink). */
@@ -186,7 +187,7 @@ function backStep(b: Burrower, s: Slab, dt: number): void {
     b.spentWay = Math.atan2(way.dv, way.du);
     b.want = b.speed = 0;
   }
-  advanceWave(b.wave, moved, dt, 0.3, WAVES_PER_UNIT, BREATH_HZ);
+  advanceWave(b.wave, moved, dt, 0.3, wormBody.wavesPerUnit, BREATH_HZ);
   pt.u = b.u[0];
   boundaryOf(s, B_F, pt);
   b.nearTop = b.v[0] >= bound.v - (b.nearTop ? NEAR_TOP_OUT : NEAR_TOP_IN);
@@ -258,7 +259,7 @@ function digOn(b: Burrower, s: Slab, g: SoilGrid, dt: number): void {
     castTail(b, g, false);
   } else if (b.castLeft > 0) castTail(b, g, true);
   const full = Math.max(0.3, way.target);
-  advanceWave(b.wave, moved * (1 + (EAT_WAVES - 1) * b.eat), dt, full, WAVES_PER_UNIT, BREATH_HZ);
+  advanceWave(b.wave, moved * (1 + (EAT_WAVES - 1) * b.eat), dt, full, wormBody.wavesPerUnit, BREATH_HZ);
   pt.u = b.u[0];
   boundaryOf(s, B_F, pt);
   b.nearTop = b.v[0] >= bound.v - (b.nearTop ? NEAR_TOP_OUT : NEAR_TOP_IN);
