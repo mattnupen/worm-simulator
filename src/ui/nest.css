@@ -1,0 +1,35 @@
+/* The nest scene (V4, nestScene.ts): the whole screen, so a tap anywhere skips; captions at the top
+   like the opening's (opening.css), a dark layer for the fade, then the fact card in the middle. */
+.panel[data-state="nest"] {
+  inset: 0; width: auto; max-height: none; padding: 0; overflow: hidden;
+  background: none; border: none; border-radius: 0; box-shadow: none;
+  text-align: center; cursor: pointer; touch-action: none;
+}
+.panel[data-state="nest"]::before { display: none; }
+.panel[data-state="nest"] > * { animation: none; }
+.panel[data-state="nest"][data-phase="card"] { cursor: auto; touch-action: auto; display: grid; place-items: center; overflow: auto; }
+.nest-dark { position: absolute; inset: 0; background: #0b0805; opacity: 0; pointer-events: none; }
+.nest-caption {
+  position: absolute; left: 50%; transform: translateX(-50%); top: var(--edge-y);
+  width: min(900px, calc(100vw - 32px)); pointer-events: none;
+}
+.nest-card {
+  position: relative; box-sizing: border-box; width: min(560px, calc(100vw - 32px)); margin: 16px;
+  padding: 26px 30px 28px; text-align: left; color: var(--ink); font-size: 21px; line-height: 1.45;
+  background:
+    radial-gradient(120% 70% at 0% 0%, var(--parchment-hi) 0%, rgba(255, 250, 234, 0) 60%),
+    var(--grain), var(--parchment);
+  border: 3px solid var(--bark); border-radius: var(--card-radius);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.6), 0 22px 44px -10px rgba(0, 0, 0, 0.7);
+  animation: rise 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.nest-card .screen-title { margin-bottom: 12px; }
+.nest-fact { font-size: 24px; font-weight: 700; }
+.nest-source { margin-top: 6px !important; font-size: 18px; color: var(--ink-soft); }
+.nest-source a { color: #1d4f8c; text-decoration: underline; text-underline-offset: 3px; }
+.nest-source a:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.nest-choice {
+  margin-top: 16px !important; padding: 10px 14px; font-size: 19px;
+  border: 2px dashed rgba(90, 56, 24, 0.55); border-radius: 12px; background: rgba(255, 251, 241, 0.6);
+}
+.nest-card .btn { margin-top: 22px; }

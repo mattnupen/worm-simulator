@@ -101,6 +101,17 @@ export class Robin {
     return this.restPos.length / 3;
   }
 
+  /**
+   * Where something held in the bill sits (between the two halves, a little behind the tip), in
+   * world units, as the last update() posed the head: the worm the robin carries to its nest
+   * (nest.ts). `side` (cm) moves it to the bird's left (+) or right (-) along the bill's edge.
+   * Writes `out` and returns it.
+   */
+  billHold(out: THREE.Vector3, side = 0): THREE.Vector3 {
+    const [, gy, gz] = PIVOTS.gape;
+    return out.set(side, gy - 0.15, gz + 1.3).applyMatrix4(this.head);
+  }
+
   /** Poses every part from `pose` and rewrites the mesh. Call once per drawn frame while it shows. */
   update(): void {
     const p = this.pose;

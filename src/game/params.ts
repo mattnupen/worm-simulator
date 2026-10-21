@@ -43,6 +43,13 @@ export interface GameParams {
    * robin breaks it), for Matt's review and screenshots. Not saved.
    */
   wormLength: number | null;
+  /**
+   * `?nest=1`: a "Watch the nest scene" button under the title on Start plays the V4 nest scene
+   * (Matt's review: every cut scene gets a preview). `?nestAt=6` with it holds the scene at that
+   * second (screenshots).
+   */
+  nest: boolean;
+  nestAt: number | null;
 }
 
 /** A number param, or null when it is missing or not a finite number. */
@@ -71,5 +78,7 @@ export function parseParams(search: string): GameParams {
     robinTurn: num(p, 'robinTurn') ?? 0,
     robinDist: num(p, 'robinDist') ?? 9,
     wormLength: num(p, 'wormLength'),
+    nest: p.get('nest') === '1',
+    nestAt: num(p, 'nestAt'),
   };
 }

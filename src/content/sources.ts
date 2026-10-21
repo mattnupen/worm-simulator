@@ -44,7 +44,8 @@ export type SourceId =
   | 'allaboutbirds-woodcock'
   | 'scott-2023'
   | 'mndnr-redbelly-snake'
-  | 'uw-ground-beetles';
+  | 'uw-ground-beetles'
+  | 'cornell-robin-nestcam';
 
 export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'mndnr-humus': {
@@ -232,6 +233,18 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     short: 'UW–Madison Extension',
     url: 'https://hort.extension.wisc.edu/articles/ground-beetles/',
     checked: '2026-10-12',
+  },
+  // V4 nest scene: the Cornell Lab's live robin nest cam talk. Its captions show "Adult robin flies
+  // in and lands on the nest with worms in its beak" and feeding the three nestlings, and the
+  // NestWatch speaker says robins eat "earthworms and other small, soft insects", feeding chicks more
+  // whole insects as they grow. Journey North's "Baby Robins" (Laura Erickson) says the same plainly:
+  // "By five days of age, the nestlings get earthworms that parents break into small mouthfuls."
+  'cornell-robin-nestcam': {
+    title: "Questions About Nesting Birds? Live From A Robin's Nest, We've Got Answers",
+    publisher: 'Cornell Lab of Ornithology, Bird Academy',
+    short: 'Cornell Lab',
+    url: 'https://academy.allaboutbirds.org/live-event/questions-about-nesting-birds-live-from-a-robins-nest-weve-got-answers/',
+    checked: '2026-10-21',
   },
 };
 
