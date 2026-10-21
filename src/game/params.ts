@@ -38,6 +38,13 @@ export interface GameParams {
   robinAt: number | null;
   robinTurn: number;
   robinDist: number;
+  /**
+   * `?nest=1`: a "Watch the nest scene" button under the title on Start plays the V4 nest scene
+   * (Matt's review: every cut scene gets a preview). `?nestAt=6` with it holds the scene at that
+   * second (screenshots).
+   */
+  nest: boolean;
+  nestAt: number | null;
 }
 
 export function parseParams(search: string): GameParams {
@@ -59,6 +66,8 @@ export function parseParams(search: string): GameParams {
     robinCam: num(p, 'robinCam'),
     robinTurn: num(p, 'robinTurn') ?? 0,
     robinDist: num(p, 'robinDist') ?? 9,
+    nest: p.get('nest') === '1',
+    nestAt: num(p, 'nestAt'),
   };
 }
 
