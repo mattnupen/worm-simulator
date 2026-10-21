@@ -3,6 +3,7 @@ import { createPropMaterial } from '../render/propMaterial';
 import { UNITS_PER_CM } from '../surface/realScale';
 import { MeshWriter } from '../surface/meshWriter';
 import { ROBIN_PARTS, type RobinPartName } from './robinParts';
+import { WING_CHORD, WING_UP, WRIST_CHORD, WRIST_SPAN } from './robinFlight';
 import { PIVOTS } from './robinShape';
 
 /**
@@ -39,13 +40,15 @@ export interface RobinPose {
   flying: boolean;
   /** The open wings' beat angle (positive up). */
   flap: number;
+  /** Which way the wings are beating, -1..1: positive on the upstroke (the hands fold back), negative on the downstroke. */
+  stroke: number;
   visible: boolean;
 }
 
 export function restPose(): RobinPose {
   return {
     x: 0, y: 0, z: 0, yaw: 0, lift: 0, stride: 0, crouch: 0, pitch: 0,
-    headYaw: 0, headPitch: 0, headRoll: 0, bill: 0, tail: 0, flying: false, flap: 0, visible: false,
+    headYaw: 0, headPitch: 0, headRoll: 0, bill: 0, tail: 0, flying: false, flap: 0, stroke: 0, visible: false,
   };
 }
 
@@ -70,6 +73,9 @@ export class Robin {
   private readonly head = new THREE.Matrix4();
   private readonly legs = new THREE.Matrix4();
   private readonly m = new THREE.Matrix4();
+  private readonly m2 = new THREE.Matrix4();
+  private readonly chord = new THREE.Vector3(...WING_CHORD);
+  private readonly up = new THREE.Vector3(...WING_UP);
   private readonly n = new THREE.Matrix3();
   private readonly v = new THREE.Vector3();
   private readonly e = new THREE.Euler();
@@ -143,15 +149,43 @@ export class Robin {
     P.head.matrix.copy(this.head);
     this.about(P.lowerBill.matrix, this.head, PIVOTS.gape, 0.35 * p.bill, 0, 0);
     this.about(P.tail.matrix, this.body, PIVOTS.rump, p.tail, 0, 0);
-    P.wingR.visible = P.wingL.visible = !p.flying;
-    P.openR.visible = P.openL.visible = p.flying;
+    P.wingR.visible = P.wingL.visible = P.tail.visible = !p.flying;
+    P.armR.visible = P.armL.visible = P.handR.visible = P.handL.visible = P.flightTail.visible = p.flying;
+    P.flightTail.matrix.copy(P.tail.matrix);
     P.wingR.matrix.copy(this.body);
     P.wingL.matrix.copy(this.body);
-    // The left wing is on +x: its tip rises with +z turns; the right wing's with -z.
-    this.about(P.openL.matrix, this.body, PIVOTS.shoulder, 0, 0, p.flap);
-    const [sx, sy, sz] = PIVOTS.shoulder;
-    this.aboutAt(P.openR.matrix, this.body, -sx, sy, sz, 0, 0, -p.flap);
+    if (p.flying) this.poseWings(p);
     this.write();
+  }
+
+  /**
+   * The open wings beat round the shoulders, about the body's long axis (the left tip rises with
+   * +flap, the right with -flap, mirrored). The hand bends at the wrist: on the upstroke it folds
+   * back and trails below the arm; on the downstroke it is spread, lagging a little above.
+   * Game choice: a simple stand-in for a real wingbeat, no source for the angles.
+   */
+  private poseWings(p: RobinPose): void {
+    const P = this.parts;
+    const [sx, sy, sz] = PIVOTS.shoulder;
+    const up = Math.max(0, p.stroke);
+    const down = Math.max(0, -p.stroke);
+    // Low in the beat the hand trails above the arm (and clears the ground taking off and landing).
+    const bend = -0.35 * up + 0.12 * down + 0.3 * Math.max(0, -p.flap);
+    const sweep = 0.45 * up;
+    const wy = sy + WRIST_CHORD * WING_CHORD[1];
+    const wz = sz + WRIST_CHORD * WING_CHORD[2];
+    // Left (+x), then right: mirrored, so every turn's angle flips.
+    this.wingTurn(P.armL.matrix, this.body, sx, sy, sz, p.flap, 0);
+    this.wingTurn(P.handL.matrix, P.armL.matrix, sx + WRIST_SPAN, wy, wz, bend, sweep);
+    this.wingTurn(P.armR.matrix, this.body, -sx, sy, sz, -p.flap, 0);
+    this.wingTurn(P.handR.matrix, P.armR.matrix, -sx - WRIST_SPAN, wy, wz, -bend, -sweep);
+  }
+
+  /** out = parent · (turn round the wing's chord by `c`, then round its up axis by `u`, at the pivot). */
+  private wingTurn(out: THREE.Matrix4, parent: THREE.Matrix4, px: number, py: number, pz: number, c: number, u: number): void {
+    this.m.makeRotationAxis(this.chord, c);
+    if (u !== 0) this.m.multiply(this.m2.makeRotationAxis(this.up, u));
+    this.pivotAt(out, parent, px, py, pz);
   }
 
   /** out = parent · (turn by x, y, z Euler angles round `pivot`). */
@@ -162,6 +196,11 @@ export class Robin {
   private aboutAt(out: THREE.Matrix4, parent: THREE.Matrix4, px: number, py: number, pz: number, rx: number, ry: number, rz: number): void {
     // Yaw, then nod, then tip: the order a head turns.
     this.m.makeRotationFromEuler(this.e.set(rx, ry, rz, 'YXZ'));
+    this.pivotAt(out, parent, px, py, pz);
+  }
+
+  /** out = parent · Translate(p) · (the turn in this.m) · Translate(-p). */
+  private pivotAt(out: THREE.Matrix4, parent: THREE.Matrix4, px: number, py: number, pz: number): void {
     const e = this.m.elements;
     // Translate(p) · R · Translate(-p), written straight into the matrix.
     e[12] = px - (e[0] * px + e[4] * py + e[8] * pz);
