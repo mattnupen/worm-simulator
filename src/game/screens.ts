@@ -13,13 +13,17 @@ import type { PresetId } from '../render/graphics';
  *   lesson --Back to start/Esc--> start
  *   start --Vote--> vote --I voted/Back to start/Esc--> start
  *   start/lesson --Crawl (first time this version), Watch the opening--> opening --done/Skip--> crawl
+ *   crawl --the robin gets the whole worm (V4)--> nest --its fact card's Keep going--> crawl
+ *   start --Watch the nest scene (?nest=1)--> nest
  */
-export type Screen = 'start' | 'crawl' | 'pause' | 'graphics' | 'speedTest' | 'results' | 'lesson' | 'vote' | 'opening';
+export type Screen = 'start' | 'crawl' | 'pause' | 'graphics' | 'speedTest' | 'results' | 'lesson' | 'vote' | 'opening' | 'nest';
 
 export type ScreenEvent =
   | { type: 'crawl' }
   | { type: 'opening' }
   | { type: 'openingDone' }
+  | { type: 'nest' }
+  | { type: 'nestDone' }
   | { type: 'lesson' }
   | { type: 'vote' }
   | { type: 'pause' }
@@ -58,6 +62,11 @@ export function transition(s: ScreenState, e: ScreenEvent): ScreenState {
       return s.screen === 'start' || s.screen === 'lesson' || s.screen === 'pause' ? { ...s, screen: 'opening' } : s;
     case 'openingDone':
       return s.screen === 'opening' ? { ...s, screen: 'crawl' } : s;
+    case 'nest':
+      // From play (the hunt), or from Start on the preview link (main.ts offers it there).
+      return s.screen === 'crawl' || s.screen === 'start' ? { ...s, screen: 'nest' } : s;
+    case 'nestDone':
+      return s.screen === 'nest' ? { ...s, screen: 'crawl' } : s;
     case 'lesson':
       return s.screen === 'start' ? { ...s, screen: 'lesson' } : s;
     case 'vote':

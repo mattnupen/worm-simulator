@@ -104,6 +104,22 @@ export const TEXT = {
   openingKid: { kind: 'ui', text: 'Kid' },
   openingTeacher: { kind: 'ui', text: 'Teacher' },
   openingWatch: { kind: 'ui', text: 'Watch the opening' },
+  // The nest scene (V4, src/predators/nestScene.ts): when the robin gets the whole worm.
+  nestWatch: { kind: 'ui', text: 'Watch the nest scene' },
+  nestLabel: { kind: 'ui', text: 'Nest scene' },
+  nestWings: { kind: 'ui', text: '[Wings flap]' },
+  nestCheep: { kind: 'ui', text: '[The baby robins cheep]' },
+  nestTitle: { kind: 'ui', text: 'Food for the nest' },
+  nestFact: {
+    kind: 'fact',
+    text: 'Robins feed earthworms to their babies.',
+    source: 'cornell-robin-nestcam',
+    verified: true,
+  },
+  // Minnesota Breeding Bird Atlas: robins breed in "the summer's breeding season". The game is in fall.
+  nestSeason: { kind: 'gameChoice', text: 'real robins raise their babies in spring and summer, not in fall.' },
+  nestSource: { kind: 'ui', text: 'Source:' },
+  nestContinue: { kind: 'ui', text: 'Keep going' },
 } as const satisfies Record<string, Line>;
 
 export type TextKey = keyof typeof TEXT;

@@ -48,6 +48,10 @@ import { sharedLighting } from './render/paintedMaterial';
 import { RobinPreview } from './predators/robinPreview';
 import { HuntGame } from './predators/huntGame';
 import { HUNT_NOTES } from './predators/huntNotes';
+import { NestScene } from './predators/nestScene';
+import { NEST_TIMES, nestCaptionAt } from './predators/nestScript';
+import { playNestSound } from './predators/nestSound';
+import { showNestScene, type NestOverlay } from './ui/nestScene';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
@@ -141,11 +145,11 @@ function start(renderer: THREE.WebGLRenderer): void {
    */
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const hunt = params.hunt && !params.robin ? new HuntGame(world.scene, app, crawl, game, {
-    // The robin got the whole worm. The nest scene plugs in here: main.ts calls playNestScene and
-    // starts the new life when it ends; until it exists, the new life starts at once.
-    onWholeWorm: (action) => {
-      startAgain(action);
-      hunt?.note(HUNT_NOTES.taken, 5);
+    // The robin got the whole worm: it flies it to its nest (the nest scene, with the hunt's own
+    // robin), and afterNest starts the new life.
+    onWholeWorm: () => {
+      hunt?.hide();
+      playNestScene(crawl.motion.head.x, crawl.motion.head.z, crawl.motion.heading);
     },
     startAgain: (action) => startAgain(action),
     reducedMotion: () => reduceMotion.matches,
@@ -154,6 +158,20 @@ function start(renderer: THREE.WebGLRenderer): void {
   const stillMove = { x: 0, y: 0 };
   /** A touch screen: the grip panel says "Hold the button" (menus.ts reads the same query). */
   const touchScreen = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  /** The V4 nest scene (src/predators/nestScene.ts): built now, hidden, so warmShaders sees it. */
+  const nestScene = new NestScene(world.scene, hunt?.robin);
+  let nestOverlay: NestOverlay | null = null;
+  /** Where the next nest scene starts: where the robin caught the worm, and its facing. */
+  const nestFrom = { x: 0, z: 0, heading: 0 };
+  /**
+   * After the nest scene's fact card: a new life, full length, underground in your burrow, then
+   * back to play (also after the ?nest=1 preview, which then starts that life too).
+   */
+  const afterNest = (): void => {
+    startAgain(false);
+    hunt?.note(HUNT_NOTES.taken, 5);
+    dispatch({ type: 'nestDone' });
+  };
   /** The opening's captions while it plays. */
   let captions: OpeningCaptions | null = null;
   /** ?opening=1 plays it on the first Crawl even when seen (Matt's review); once. */
@@ -246,6 +264,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     // Leaving play (pause, a hidden tab, back to start): the Play quest's minutes are kept.
     if (state.screen === 'crawl' && progress.playSeconds !== playSaved) saveProgress();
     if (next.screen === 'opening' && state.screen !== 'opening') beginOpening();
+    if (next.screen === 'nest' && state.screen !== 'nest') beginNest();
     state = next;
     // A slow streak from before (or a menu over the scene) must not count against Auto.
     graphics.interruptAuto(performance.now());
@@ -343,6 +362,56 @@ function start(renderer: THREE.WebGLRenderer): void {
     dirty = true;
   }
 
+  /**
+   * The hunt's entry point (V4): the robin got the whole worm at (atX, atZ), facing `heading` (0 =
+   * +z). From the crawl screen (or Start, the preview), plays the nest scene: the robin flies the
+   * worm up to its nest and feeds a nestling, then the fact card, whose "Keep going" calls
+   * afterNest. The hunt hides its robin first: the scene flies that same robin.
+   */
+  function playNestScene(atX: number, atZ: number, heading: number): void {
+    nestFrom.x = atX;
+    nestFrom.z = atZ;
+    nestFrom.heading = heading;
+    dispatch({ type: 'nest' });
+  }
+
+  function beginNest(): void {
+    // The worm is in the robin's bill now (the scene draws it).
+    world.worm.group.visible = false;
+    const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    nestScene.start(nestFrom.x, nestFrom.z, nestFrom.heading, reduced);
+    // ?nestAt=: run the scene to that second now, then hold it there (screenshots).
+    if (params.nestAt !== null) {
+      while (nestScene.t < Math.min(params.nestAt, NEST_TIMES.end)) {
+        nestScene.step(1 / 60);
+        nestScene.pose(1, camera);
+      }
+    } else {
+      playNestSound();
+    }
+    dirty = true;
+  }
+
+  /** Esc, Enter or a tap: straight to the fact card. */
+  function skipNest(): void {
+    if (!nestScene.playing || nestScene.done) return;
+    nestScene.skip();
+    stopCueSound();
+  }
+
+  /** The fact card's "Keep going" (or Esc on it): the scene goes, play's view is back. */
+  function endNestScene(): void {
+    if (!nestScene.playing) return;
+    nestScene.stop();
+    stopCueSound();
+    world.worm.group.visible = true;
+    camera.fov = gameCam.fov;
+    camera.updateProjectionMatrix();
+    nestOverlay = null;
+    dirty = true;
+    if (state.screen === 'nest') afterNest();
+  }
+
   function draw(fromGraphics = false): void {
     switch (state.screen) {
       case 'start':
@@ -353,6 +422,8 @@ function start(renderer: THREE.WebGLRenderer): void {
           // preview link (?opening=1), always, leading Start.
           onOpening: params.opening === true || openingSeen(store, VERSION.number) ? () => dispatch({ type: 'opening' }) : undefined,
           openingPreview: params.opening === true,
+          // ?nest=1: watch the nest scene now, from where the worm is.
+          onNest: params.nest ? () => playNestScene(crawl.motion.head.x, crawl.motion.head.z, crawl.motion.heading) : undefined,
         }, fromGraphics, CURRENT_LESSON ? {
           lessonTitle: CURRENT_LESSON.title,
           quests: quests(questProgress()),
@@ -376,6 +447,10 @@ function start(renderer: THREE.WebGLRenderer): void {
       case 'opening':
         captions = showOpening(shell);
         captions.set(captionAt(opening.t));
+        return;
+      case 'nest':
+        nestOverlay = showNestScene(shell, skipNest, endNestScene);
+        nestOverlay.set(nestCaptionAt(nestScene.t), nestScene.dark);
         return;
       case 'crawl':
         shownCard = cardNow();
@@ -468,6 +543,15 @@ function start(renderer: THREE.WebGLRenderer): void {
       actionPrompt.endStep();
       return;
     }
+    if (state.screen === 'nest' && nestScene.playing) {
+      // ?nestAt= holds it still at that second.
+      if (params.nestAt === null || nestScene.t < params.nestAt) nestScene.step(dt);
+      if (nestScene.done && nestOverlay && shell.panel.dataset.phase !== 'card') nestOverlay.showCard();
+      keyboard.endStep();
+      actionPrompt.set(null);
+      actionPrompt.endStep();
+      return;
+    }
     const cmds = commands();
     const playing = state.screen === 'crawl' && !runner.running && !frozen();
     if (frozen()) game.hold(cmds.action);
@@ -512,11 +596,18 @@ function start(renderer: THREE.WebGLRenderer): void {
       world.worm.group.visible = opening.wormShown;
       world.syncWorm(world.pose, crawl.focus, camera, opening.wormShown);
       captions?.set(captionAt(opening.t));
+    } else if (state.screen === 'nest' && nestScene.playing) {
+      // As the opening: the world as play poses it, then the scene's own camera, the worm hidden.
+      cut.sync(alpha, clock / 1000, gameCam, window.innerWidth, window.innerHeight);
+      nestScene.pose(alpha, camera);
+      world.syncWorm(world.pose, crawl.focus, camera, false);
+      nestOverlay?.set(nestCaptionAt(nestScene.t), nestScene.dark);
     } else {
       cut.sync(alpha, clock / 1000, camera, window.innerWidth, window.innerHeight);
       opening.keepLeaf(crawl.motion.head.x, crawl.motion.head.z, game.mode.mode === 'surface');
     }
-    hunt?.frame();
+    // The nest scene poses the robin itself (the hunt's robin) while it plays.
+    if (!nestScene.playing) hunt?.frame();
     robinPreview?.frame(clock / 1000, state.screen === 'crawl', crawl.motion.head, crawl.motion.heading);
     robinPreview?.aim(camera);
     renderer.render(world.scene, camera);
@@ -577,7 +668,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (document.hidden) {
       runner.onHidden();
       // The scene stops with the page; its sound would run on alone, so it stops.
-      if (opening.playing) stopCueSound();
+      if (opening.playing || nestScene.playing) stopCueSound();
       dispatch({ type: 'hidden' });
     } else {
       runner.onVisible(performance.now());
@@ -596,6 +687,9 @@ function start(renderer: THREE.WebGLRenderer): void {
     else if ((state.screen === 'lesson' || state.screen === 'vote') && e.code === 'Escape') dispatch({ type: 'toStart' });
     // The opening: Esc or Enter skips the scene, straight into play.
     else if (state.screen === 'opening' && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter')) endOpeningScene();
+    // The nest scene: Esc or Enter skips to its fact card; there, Esc goes on (Enter presses its button).
+    else if (state.screen === 'nest' && !nestScene.done && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter')) skipNest();
+    else if (state.screen === 'nest' && e.code === 'Escape') endNestScene();
     else return;
     e.preventDefault();
   });

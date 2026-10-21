@@ -2,7 +2,7 @@ import { el, button } from './dom';
 
 /** Which card is showing. CSS places the card and shows the joystick and Pause button from it. */
 export type UiState =
-  | 'start' | 'crawl' | 'pause' | 'graphics' | 'speedTest' | 'running' | 'results' | 'lost' | 'lesson' | 'vote' | 'opening';
+  | 'start' | 'crawl' | 'pause' | 'graphics' | 'speedTest' | 'running' | 'results' | 'lost' | 'lesson' | 'vote' | 'opening' | 'nest';
 
 export interface Shell {
   readonly root: HTMLElement;

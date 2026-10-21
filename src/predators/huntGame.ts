@@ -169,6 +169,15 @@ export class HuntGame {
     this.shadow.place(p.x, p.z, p.yaw, size * CM, (BODY_CM + 4 * up) * 1.3 * CM, 0.75 * (1 - up));
   }
 
+  /** The robin and its shadow out of sight now (the nest scene takes the robin over). */
+  hide(): void {
+    this.robin.pose.visible = false;
+    this.robin.update();
+    this.shadow.hide();
+    this.hud.warn(false);
+    this.hud.grip(null, false);
+  }
+
   /** A new life (or the speed test's reset): no robin, no grab, the hint again on the next grab. */
   reset(): void {
     resetHunt(this.hunt, this.rand);

@@ -17,6 +17,8 @@ export interface StartActions {
    * title, open whatever the quests say, and gets focus.
    */
   openingPreview?: boolean;
+  /** `?nest=1` (V4 review): "Watch the nest scene" under the title (after the opening's preview), focused. */
+  onNest?(): void;
 }
 
 /**
@@ -50,11 +52,14 @@ export function showStart(shell: Shell, a: StartActions, fromGraphics = false, r
   const head: HTMLElement[] = [cardHead(VERSION_TITLE), el('p', 'You are an earthworm under the leaves of a northern forest.', 'lead')];
   // The preview link: the opening leads, under the title, and is focused.
   if (preview && watch) head.push(menu(watch));
+  // The nest scene's preview link: its button leads, under the title, and is focused.
+  const nest = a.onNest ? button(shown(TEXT.nestWatch), 'eye', 'primary', a.onNest) : null;
+  if (nest) head.push(menu(nest));
   const rowWatch = preview ? null : watch;
   if (!round) {
     const crawl = button('Crawl', 'play', preview ? 'secondary' : 'primary', a.onCrawl);
     shell.show('start', 'Start', [...head, menu(crawl, ...(rowWatch ? [rowWatch] : []), graphics), versionsLink(shell)]);
-    (fromGraphics ? graphics : preview && watch ? watch : crawl).el.focus();
+    (fromGraphics ? graphics : nest ?? (preview && watch ? watch : crawl)).el.focus();
     return;
   }
   const list = el('ol', '', 'quests');
@@ -86,7 +91,7 @@ export function showStart(shell: Shell, a: StartActions, fromGraphics = false, r
   if (rowWatch) tools.append(rowWatch.el);
   shell.show('start', 'Start', [...head, list, tools, versionsLink(shell)]);
   // Every quest done: Crawl leads (play on as long as you like).
-  const first: Button = fromGraphics ? graphics : preview && watch ? watch : focus ?? crawl ?? graphics;
+  const first: Button = fromGraphics ? graphics : nest ?? (preview && watch ? watch : focus ?? crawl ?? graphics);
   first.el.focus();
 }
 

@@ -145,3 +145,21 @@ describe('screens: the opening scene', () => {
     expect(transition(opening, { type: 'hidden' })).toBe(opening);
   });
 });
+
+describe('screens: the nest scene (V4)', () => {
+  it('crawl (the robin gets the whole worm) or Start (the preview) -> nest -> Keep going -> crawl', () => {
+    const crawling = run(start, { type: 'crawl' });
+    expect(run(crawling, { type: 'nest' }).screen).toBe('nest');
+    expect(run(crawling, { type: 'nest' }, { type: 'nestDone' }).screen).toBe('crawl');
+    expect(run(start, { type: 'nest' }, { type: 'nestDone' }).screen).toBe('crawl');
+  });
+
+  it('does not open from elsewhere, and does not pause', () => {
+    const paused = run(start, { type: 'crawl' }, { type: 'pause' });
+    expect(transition(paused, { type: 'nest' })).toBe(paused);
+    expect(transition(start, { type: 'nestDone' })).toBe(start);
+    const nest = run(start, { type: 'nest' });
+    expect(transition(nest, { type: 'pause' })).toBe(nest);
+    expect(transition(nest, { type: 'hidden' })).toBe(nest);
+  });
+});
