@@ -86,6 +86,9 @@ export function createHuntHud(root: HTMLElement): HuntHud {
       if (on === warnOn) return;
       warnOn = on;
       warning.hidden = !on;
+      // Written as it appears, so screen readers announce it (a region that is only un-hidden often isn't read).
+      warnWord.textContent = on ? shown(TEXT.huntRobin) : '';
+      warnDo.textContent = on ? shown(TEXT.huntHide) : '';
     },
     grip(tug, touch) {
       const on = tug !== null;
@@ -107,12 +110,14 @@ export function createHuntHud(root: HTMLElement): HuntHud {
         stretchFill.style.width = `${s}%`;
         stretch.setAttribute('aria-valuenow', String(s));
       }
-      const c = tug.stretch >= TUG.careful;
+      // Shows above `careful`, hides a little below it, so quick taps can't make it blink.
+      const c = carefulOn ? tug.stretch >= TUG.careful - 0.1 : tug.stretch >= TUG.careful;
       if (c !== carefulOn) {
         carefulOn = c;
         careful.hidden = !c;
       }
-      const next = tug.phase === 'calm' ? shown(touch ? TEXT.huntPullTouch : TEXT.huntPull) : shown(TEXT.huntLetGo);
+      const next = tug.phase === 'calm' ? shown(touch ? TEXT.huntPullTouch : TEXT.huntPull)
+        : tug.phase === 'lean' ? shown(TEXT.huntGetReady) : shown(TEXT.huntLetGo);
       if (next !== line) {
         line = next;
         say.textContent = next;

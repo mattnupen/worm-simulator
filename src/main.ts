@@ -214,7 +214,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   const runner = new SpeedTestRunner({
     // Every run starts at the spawn, whatever the player did before opening the test (or dug: no
     // openings). ?dig=1 starts it underground there, in Wide (scripts/perf-gates.mjs's run below).
-    resetWorld: () => { crawl.reset(); hunt?.reset(); if (params.dig) game.enterNow(); else game.reset(); dirty = true; },
+    resetWorld: () => { game.setWormLength(1); crawl.reset(); hunt?.reset(); if (params.dig) game.enterNow(); else game.reset(); dirty = true; },
     where: () => (game.mode.mode === 'surface' ? 'Surface' : 'Underground'),
     setMaxFps: (fps) => loop.setMaxFps(fps),
     applyTier: (tier) => applySpec(tierSpec(testBase, TIERS[tier])),
@@ -320,11 +320,12 @@ function start(renderer: THREE.WebGLRenderer): void {
 
   /** The scene from the top: the worm back at the spawn (in the tub), the props, the sound. */
   function beginOpening(): void {
+    // A new start: a full-length worm (a robin may have broken the last one).
+    game.setWormLength(1);
     crawl.reset();
     hunt?.reset();
     game.reset();
-    // The worm starts curled in the bait cup, facing out of its mouth (script.ts), laid out at full
-    // length (a shorter worm draws in once it crawls).
+    // The worm starts curled in the bait cup, facing out of its mouth (script.ts), at full length.
     crawl.reset(crawl.hero.count, wormStart(WORM_SEGMENTS, SPACING).map((p) => ({ x: p.x, y: 0, z: p.z })), LIE_YAW);
     opening.start();
     world.worm.group.visible = false;

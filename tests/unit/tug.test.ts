@@ -76,3 +76,9 @@ describe('grip mini-game', () => {
     expect(s.stretch).toBeLessThanOrEqual(1);
   });
 });
+
+describe('grip mini-game balance', () => {
+  it('holding the whole time always breaks the worm, for every seed', () => {
+    for (let seed = 1; seed < 40; seed++) expect(play(() => true, seed).result).toBe('broke');
+  });
+});

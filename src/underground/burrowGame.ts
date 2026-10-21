@@ -12,7 +12,7 @@ import { createCutCam, followCut, type CutFrame, type FrameAsk } from './cutCame
 import { clearOpenings, createOpenings } from './openings';
 import { clearBurrows, createBurrows } from './burrows';
 import { enterHome, sinkAtOnce } from './burrowHome';
-import { approachStep, createApproach, pressDig, startApproach } from './burrowApproach';
+import { acrossCut, approachStep, createApproach, ON_CUT, pressDig, startApproach } from './burrowApproach';
 import { DigAsk } from './digAsk';
 import { startDig, startUp, stepMove, type MoveState } from './burrowMoves';
 import { setBodyLength, wormBody, WORM_SEGMENTS } from '../worm/bodyLength';
@@ -259,6 +259,8 @@ export class BurrowGame implements MoveState {
     // Into the old burrow at hand when the worm is at one (dig.ask sets `reuse`), else a new one.
     this.dig.ask(this, true);
     this.approach.burrow = -1;
+    // Off the old cut's plane its sink would fold the body back on itself: a new burrow instead.
+    if (this.reuse >= 0 && Math.abs(acrossCut(this.burrows.slabs[this.reuse]!, this.crawl.motion.head)) > ON_CUT) this.reuse = -1;
     if (!pressDig(this, this.host.reducedMotion())) return;
     this.wasAction = true;
     this.prompt = null;

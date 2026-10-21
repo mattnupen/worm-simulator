@@ -35,14 +35,21 @@ export function huntPose(h: HuntState, tug: TugState, ground: (x: number, z: num
       break;
     case 'arrive':
       if (t < HUNT.flyIn) {
-        // From behind its spot and above, slowing to land; legs down for the last few centimetres.
+        // From behind the worm, over it (its shadow sweeps across), out to its spot, slowing to
+        // land; legs down for the last few centimetres. It flies facing its way...
         const k = 1 - ease(t / HUNT.flyIn);
         out.lift = 60 * k * k;
         out.flying = out.lift > 5;
         wingBeat(t, out);
         out.pitch = out.flying ? 0.6 : 0;
-        off = 40 * k;
-      } else out.crouch = 1 - ease((t - HUNT.flyIn) / HUNT.settle);
+        out.yaw = h.away;
+        off = -(HUNT.landCm + 60) * k;
+      } else {
+        // ...then hops round to face the worm as it settles.
+        const k = ease((t - HUNT.flyIn) / HUNT.settle);
+        out.crouch = 1 - k;
+        out.yaw = h.away + Math.PI * k;
+      }
       break;
     case 'stare': {
       // Still, head tipped so one eye looks at the ground; a flick of the tail now and then.
@@ -75,8 +82,8 @@ export function huntPose(h: HuntState, tug: TugState, ground: (x: number, z: num
       grabPose(tug, out);
       break;
     case 'miss': {
-      // Straightens up and looks round, then goes.
-      const k = 1 - ease(t / 0.3);
+      // Straightens up and looks round, then goes. From a stare it first pecks the empty spot.
+      const k = h.struck ? 1 - ease(t / 0.3) : bump(t / 0.5);
       out.pitch = 0.95 * k;
       out.headPitch = 0.4 * k;
       out.tail = -0.55 * k;

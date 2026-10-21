@@ -24,7 +24,6 @@ const SUB = 1 / 120;
 /** How hard it squirms (cm/s per point away from the bill). */
 const WRIGGLE = 1.6;
 
-// The player's worm's colours (wormMaterial.ts): mauve-brown above, redder at the front, a pale saddle.
 // The player's worm's colours (wormMaterial.ts): mauve-brown, redder at the front, a pale saddle.
 const FRONT = lin(0x8e3f50);
 const BODY = lin(0x7a4a4f);

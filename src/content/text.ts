@@ -32,6 +32,7 @@ export const TEXT = {
   huntGrabbed: { kind: 'ui', text: 'The robin has you!' },
   huntPull: { kind: 'ui', text: 'Hold Space to pull back in.' },
   huntPullTouch: { kind: 'ui', text: 'Hold the button to pull back in.' },
+  huntGetReady: { kind: 'ui', text: 'It leans back. Get ready to let go!' },
   huntLetGo: { kind: 'ui', text: 'It tugs! Let go!' },
   huntCareful: { kind: 'ui', text: 'Careful! Stretching!' },
   huntBarTop: { kind: 'ui', text: 'Robin' },

@@ -35,8 +35,6 @@ const LOOK_RATE = 1.6;
 /** The shadow: a robin's spread wings (about 38 cm), and its body standing (cm). */
 const WINGS_CM = 38;
 const BODY_CM = 9;
-/** The shadow starts this far behind the worm (cm), sweeping over it to where the robin lands. */
-const SWEEP_BEHIND_CM = 120;
 
 const CM = UNITS_PER_CM;
 const ease = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
@@ -58,8 +56,6 @@ export class HuntGame {
   private last: HuntPhase = 'away';
   /** The warning's leaf shiver: seconds into it (Infinity when none). */
   private shiverT = Infinity;
-  /** The shadow's sweep: from behind the worm to where the robin lands. */
-  private readonly sweepFrom = { x: 0, z: 0 };
   private noteLeft = 0;
   /** This life's first grab shows the grip hint. */
   private hinted = false;
@@ -105,7 +101,8 @@ export class HuntGame {
     const h = this.hunt;
     const c = this.crawl;
     const w = this.input;
-    w.surface = this.game.mode.mode === 'surface';
+    // Crawling onto an old burrow's cut after Dig down counts as digging: the player pressed in time.
+    w.surface = this.game.mode.mode === 'surface' && this.game.approach.burrow < 0;
     w.hx = c.motion.head.x;
     w.hz = c.motion.head.z;
     w.heading = c.motion.heading;
@@ -157,10 +154,9 @@ export class HuntGame {
       return;
     }
     if (h.phase === 'arrive' && h.t < HUNT.flyIn) {
-      // Sweeping in over the worm to where it lands, darkening as it comes down.
+      // Under the robin as it flies in over the worm to where it lands, darkening as it comes down.
       const k = ease(h.t / HUNT.flyIn);
-      const f = this.sweepFrom;
-      this.shadow.place(f.x + (h.x - f.x) * k, f.z + (h.z - f.z) * k, h.away, WINGS_CM * CM, BODY_CM * 1.6 * CM, 0.35 + 0.4 * k);
+      this.shadow.place(p.x, p.z, h.away, WINGS_CM * CM, BODY_CM * 1.6 * CM, 0.35 + 0.4 * k);
       return;
     }
     // Under its body; spreading and fading as it rises to fly off.
@@ -194,13 +190,8 @@ export class HuntGame {
   }
 
   private warned(): void {
-    const c = this.crawl;
-    const h = this.hunt;
     playHuntSound('arrive');
     if (!this.host.reducedMotion()) this.shiverT = 0;
-    const b = SWEEP_BEHIND_CM * CM;
-    this.sweepFrom.x = c.motion.head.x - Math.sin(h.away) * b;
-    this.sweepFrom.z = c.motion.head.z - Math.cos(h.away) * b;
   }
 
   private grabbed(): void {

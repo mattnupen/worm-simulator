@@ -23,8 +23,8 @@ export const TUG = {
   yank: 0.25,
   /** A tug, held: the bristles keep most of the worm in, but it stretches. */
   heldYank: 0.05,
-  /** Holding through a tug fills Stretch this much a second... */
-  stretch: 1.6,
+  /** Holding through a tug fills Stretch this much a second (one whole tug held breaks the worm)... */
+  stretch: 2.4,
   /** ...and letting go eases it this much a second. Holding while calm keeps it where it is. */
   relax: 1.2,
   /** Stretch above this shows "Careful!". */

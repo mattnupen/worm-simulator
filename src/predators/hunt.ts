@@ -77,6 +77,8 @@ export interface HuntState {
   withTail: boolean;
   /** Robins so far this life (the first one's hint). */
   count: number;
+  /** A miss began mid-strike (already leaning in), not from a stare (it pecks the empty spot first). */
+  struck: boolean;
 }
 
 /** Where the worm is, each step. */
@@ -92,7 +94,7 @@ export interface HuntInput {
 export function createHunt(rand: () => number): HuntState {
   return {
     phase: 'away', t: 0, wait: HUNT.waitMin + HUNT.waitSpread * rand(), x: 0, z: 0, yaw: 0,
-    fromX: 0, fromZ: 0, toX: 0, toZ: 0, stare: HUNT.stareMin, away: 0, withTail: false, count: 0,
+    fromX: 0, fromZ: 0, toX: 0, toZ: 0, stare: HUNT.stareMin, away: 0, withTail: false, count: 0, struck: false,
   };
 }
 
@@ -173,6 +175,7 @@ export function endGrab(s: HuntState, end: GrabEnd): void {
   s.withTail = end === 'broke';
   // It flies off back the way it came.
   s.away = s.yaw;
+  s.struck = true;
   go(s, end === 'escaped' ? 'miss' : end === 'broke' ? 'leave' : 'carry');
 }
 
@@ -216,6 +219,7 @@ function slide(s: HuntState, time: number): boolean {
 
 function missed(s: HuntState, w: HuntInput): HuntEvent {
   face(s, w);
+  s.struck = s.phase === 'strike';
   go(s, 'miss');
   return 'miss';
 }
