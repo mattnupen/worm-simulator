@@ -50,6 +50,8 @@ export interface GameParams {
    */
   nest: boolean;
   nestAt: number | null;
+  /** `?digMarks=0`: no dig markers on the ground (V4 spec 4.2; on unless turned off). */
+  digMarks: boolean;
 }
 
 /** A number param, or null when it is missing or not a finite number. */
@@ -80,5 +82,6 @@ export function parseParams(search: string): GameParams {
     wormLength: num(p, 'wormLength'),
     nest: p.get('nest') === '1',
     nestAt: num(p, 'nestAt'),
+    digMarks: p.get('digMarks') !== '0',
   };
 }

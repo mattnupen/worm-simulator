@@ -1,5 +1,7 @@
 import { BurrowGame } from '../../src/underground/burrowGame';
 import { canDigAt } from '../../src/underground/digSpot';
+import { DigMarks } from '../../src/underground/digMarks';
+import { createSlab } from '../../src/underground/slab';
 import { stepBurrowing, type Pointing } from '../../src/underground/burrowMotion';
 import { Crawl } from '../../src/game/crawl';
 import type { Vec2, Vec3 } from '../../src/core/vec';
@@ -152,10 +154,23 @@ const surface = bytesPerCall(() => {
   top.step(DT, TURNING, false);
   if (top.prompt === 'digDown') offered++;
 }) - bytesPerCall(replay);
+// The dig markers' sampler (digMarks.ts) over the same crawl, with an old opening to check too.
+const marker = new DigMarks();
+const markWorld = new BurrowGame(new Crawl(), { reducedMotion: () => false, saveView: () => {} }, 'wide');
+markWorld.openings.data.set([1, 0, 3, 0]);
+markWorld.openings.count = 1;
+markWorld.openings.burrow[0] = 0;
+markWorld.burrows.slabs[0] = createSlab(1, 3, 0.4, 1, 7);
+let marked = 0;
+const marks = bytesPerCall(() => {
+  replay();
+  marker.step(replayed.motion, markWorld);
+  marked += marker.calls;
+}) - bytesPerCall(replay);
 const alone = new Crawl();
 const crawl = bytesPerCall(() => alone.step(DT, TURNING), 1);
 
 console.log(JSON.stringify({
-  underground, backing, backs, cuts, canDigAt: dig, surface, crawl,
+  underground, backing, backs, cuts, canDigAt: dig, surface, marks, marked, crawl,
   modes: [under.mode.mode, top.mode.mode], digs, offered,
 }));
