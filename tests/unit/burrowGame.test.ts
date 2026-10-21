@@ -248,10 +248,13 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
       press(game);
       until(game, 'surface');
     };
-    // The same dig twice comes up in the same place: its opening is replaced, not doubled.
+    // The same dig twice goes back into the same burrow (V4: its tunnels stay, so the worm may come
+    // up by another way): at most one opening per way out, each over that one burrow.
     comeUpFrom(0);
     comeUpFrom(0);
-    expect(game.openings.count).toBe(1);
+    expect(game.burrows.slabs.filter(Boolean)).toHaveLength(1);
+    expect(game.openings.count).toBeLessThanOrEqual(2);
+    for (let i = 0; i < game.openings.count; i++) expect(game.openings.burrow[i]).toBe(0);
     // Digs 1.5 u apart (the cuts run parallel): each leaves its own.
     for (let n = 1; n < MAX_OPENINGS + 2; n++) comeUpFrom(n % 2 ? -1.5 * Math.ceil(n / 2) : 1.5 * (n / 2));
     expect(game.openings.count).toBe(MAX_OPENINGS);
@@ -263,6 +266,8 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     game.reset();
     expect(game.mode.mode).toBe('surface');
     expect(game.openings.count).toBe(0);
+    expect(game.burrows.slabs.filter(Boolean)).toHaveLength(0);
+    expect(game.home).toBe(-1);
   });
 
   it('the first visit shows the hint card for HINT_S underground, from the end of the swing, later visits none', () => {
