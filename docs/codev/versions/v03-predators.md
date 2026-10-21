@@ -255,22 +255,42 @@ build next.
 ---
 
 ## Results (filled in after the form closes)
-- **Turnout:** n responses, about X% of students. Play time (Q1): % per answer …
-- **Fact check (Q2):** X% correct. Most common wrong answer: …
-- **Predator picks (Q3):** count per predator …
-- **Predator designs (Q4–Q8, drawings):** count, grouped into themes, and the proposed shortlist
-  for V4's form …
-- **The game (Q9–Q13):** % per answer, and the top "make better first" pick …
-- **Broken or confusing (Q14):** themes (count), copied to the bug list …
-- **Vote (Q15):** each topic's pick count per class period, then combined with the periods
-  weighted equally.
-- **Participation:** responses per class period …
+From the export Matt shared on 2026-10-19 (36 responses, names and emails removed). Counts and
+themes only. The full table, with each decision traced to response numbers, is the V4 predator
+plan in the project's shared folder (`v4/v4-predator-plan.md`).
+- **Turnout:** 36 responses. Play time (Q1): 5 to 10 minutes 24, more than 10 minutes 7, less than
+  5 minutes 5.
+- **Fact check (Q2):** not scored. The export has no "which did you guess?" column.
+- **Predator picks (Q3):** robin 11, star-nosed mole 10, woodcock 7, garter snake 2, toad 2,
+  human 2, bear 1, red-backed salamander 1.
+- **Escapes:** pull back down the burrow fast 19 (alone or with others), grip with bristles 14,
+  race away (a game choice) 6, other ideas 5. 22 said their answers were based on what they
+  learned, 13 said not.
+- **If caught:** hurt but keeps going 9 (12 counting mixes with restarting), start again 9,
+  a scene of being eaten 7, back to home or base 4.
+- **Warnings:** a sound about 10, the ground shaking about 9, an on-screen alert 7, a shadow 4.
+- **The game:** controls: went where I wanted right away 17, figured them out after a few tries 16,
+  got stuck a lot 3. Hard to see: nothing 18, where I could go or dig 12, too dark 3, the camera or
+  the view switching 2.
+- **Broken or confusing (Q14):** tunnels vanishing when going back underground (3), digging down
+  and coming back up being hard (9), bugs at the top disappearing, the view switching on its own.
+- **Vote (Q15, pick 2):** natural dangers 13, getting hurt 9, senses 8, eating 7, life cycle 4.
+- **Participation:** the export has no class period column, so votes couldn't be weighted by
+  period and ideas can't be credited by period this round.
 
 ## Decisions
-- Predator design built in V4: …
-- Topic for V4's form (built in V5): …
-- Matt's reasoning, especially where it isn't the top vote: …
-- Ideas not built, and why: …
+- **Predator design built in V4 (Matt, 2026-10-21):** the robin. It warns with a sound, a shadow,
+  shivering leaves and a "Robin!" sign. The escapes are digging down in time, or a hold-Space grip
+  mini-game. If it wins, the worm breaks and keeps going shorter, or once in 4 times the robin takes
+  the whole worm to its nest (a short scene). Plus two fixes: tunnels stay, and markers show where
+  you can dig. Spec: `docs/superpowers/specs/2026-10-21-v4-robin-hunt-design.md`.
+- **V4's learning topic (Matt, 2026-10-21):** eating and getting energy (worm anatomy, how and
+  what worms eat), not natural dangers, which had the most votes.
+- **Matt's reasoning:** worms have to come up to the top leaf layer for food, and that's where
+  predators like the robin hunt. So eating ties the lesson to the robin students just designed.
+- **Ideas not built, and why:** a predator underground (mole or woodcock), racing away, a speed
+  burst, and other predators (snake, toad and more). One predator per version, and racing away
+  isn't true of nightcrawlers. The plan lists each with its students.
 - **Emergency fix (2026-10-13).** Matt chose to add the lesson's "Guess first!" step (PR #25) to
   the students' V3 link mid-week, so the form can ask which guess they picked and then ask the
   same question again (research: "Pre and post topic questions" in the project's research folder).
