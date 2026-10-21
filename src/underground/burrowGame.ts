@@ -1,17 +1,20 @@
-import { hypot2, type Vec2 } from '../core/vec';
+import type { Vec2 } from '../core/vec';
 import type { Crawl } from '../game/crawl';
 import type { ActionKind } from '../ui/actionPrompt';
 import type { Slab } from './slab';
 import { createSoilGrid } from './soilGrid';
 import { createSolids } from './solids';
-import { canDigHere } from './digSpot';
 import { createBurrower, stepBurrowing, type Pointing } from './burrowMotion';
 import { canEmergeAt, createEmergeMap } from './emergeMap';
 import { createBodyPath } from './bodyPath';
 import { createModeMachine, cameraProgress, promptKind, type Mode, type UndergroundView } from './modeMachine';
 import { createCutCam, followCut, type CutFrame, type FrameAsk } from './cutCamera';
 import { clearOpenings, createOpenings } from './openings';
-import { arriveBelow, buildStage, startDig, startUp, stepMove, type MoveState } from './burrowMoves';
+import { clearBurrows, createBurrows } from './burrows';
+import { enterHome, sinkAtOnce } from './burrowHome';
+import { approachStep, createApproach, startApproach } from './burrowApproach';
+import { DigAsk } from './digAsk';
+import { startDig, startUp, stepMove, type MoveState } from './burrowMoves';
 
 /** What the game asks of the page. */
 export interface BurrowHost {
@@ -23,13 +26,7 @@ export interface BurrowHost {
 
 /** The first visit's hint card shows for this long underground (then the cut is left clear). */
 export const HINT_S = 12;
-/**
- * canDigAt (up to about 160 us) is asked again only once the head has moved this far or turned
- * this much since it was last asked, or as Action goes down (a press acts on a fresh answer).
- */
-export const DIG_RECHECK = 0.05;
-export const DIG_RETURN = (2 * Math.PI) / 180;
-const wrap = (a: number): number => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
+export { DIG_RECHECK, DIG_RETURN } from './digAsk';
 
 /**
  * The surface-and-underground game (V2 spec 4, 6, 7): the mode machine, the slab and its soil, the
@@ -79,6 +76,11 @@ export class BurrowGame implements MoveState {
   /** What the cut camera frames for (followCut fills it; `aspect` is the screen's). */
   private readonly ask: FrameAsk = { hu: 0, hv: 0, au: 0, av: 1, aspect: 16 / 9 };
   readonly openings = createOpenings();
+  /** The burrows dug this play with their tunnels (burrows.ts), and which is which (MoveState). */
+  readonly burrows = createBurrows();
+  burrow = -1; home = -1; reuse = -1; digSign = 1;
+  /** Dig down pressed beside an old burrow's cut: the worm crawls onto it first (burrowApproach.ts). */
+  readonly approach = createApproach();
   /** The move in progress: the sink or the way up and out (bodyPath.ts). */
   readonly path = createBodyPath();
   /** Coming up: the wave eased to a whole number of waves at rest, as the crawl starts (burrowMoves.ts). */
@@ -91,10 +93,8 @@ export class BurrowGame implements MoveState {
   nearTop = false;
   /** The dig-down's work left (burrowMoves.ts buildStage), one part a step; 0 when none. */
   stage = 0;
-  private canDig = false;
-  private digX = NaN;
-  private digZ = NaN;
-  private digH = NaN;
+  /** Whether the worm may dig where it lies, and into what (digAsk.ts; asked every few steps). */
+  private readonly dig = new DigAsk();
   private wasAction = false;
   /** Seconds below on the session's first visit (the hint card's clock). */
   private firstVisitT = 0;
@@ -142,10 +142,10 @@ export class BurrowGame implements MoveState {
         this.stepUnder(dt, move, action, reduced, auto);
       } else stepMove(this, dt, action, reduced);
       // Back up (the move just ended): the crawl takes over, and the dig spot is asked afresh.
-      if ((m.mode as Mode) === 'surface') this.digSpot(true);
+      if ((m.mode as Mode) === 'surface') this.dig.ask(this, true);
       else this.frameCut(dt);
     }
-    this.prompt = promptKind(m, this.canDig, this.nearTop, this.view);
+    this.prompt = this.approach.burrow >= 0 ? null : promptKind(m, this.dig.canDig, this.nearTop, this.view);
   }
 
   /** A step that must not act (paused, another screen): Action is still watched, so a held press stays spent. */
@@ -155,27 +155,21 @@ export class BurrowGame implements MoveState {
   }
 
   private stepSurface(dt: number, move: Vec2, action: boolean, fresh: boolean, reduced: boolean): void {
-    // A press acts on what the prompt showed, asked afresh as Action goes down.
-    if (this.machine.step(action, this.digSpot(fresh), false, reduced, dt) === 'startDig') {
+    const ap = this.approach;
+    if (ap.burrow >= 0) return approachStep(this, ap, this.dig, move, dt, action, reduced);
+    // A press acts on what the prompt showed, asked afresh as Action goes down (beside an old
+    // burrow's cut, the worm first crawls onto it: burrowApproach.ts).
+    const can = this.dig.ask(this, fresh);
+    if (fresh && can && this.reuse >= 0 && startApproach(ap, this.reuse, this.burrows.slabs[this.reuse]!, this.crawl.motion)) {
+      this.machine.hold(action);
+      return;
+    }
+    if (this.machine.step(action, can, false, reduced, dt) === 'startDig') {
       startDig(this);
       return;
     }
     this.crawl.step(dt, move);
-    this.digSpot(false);
-  }
-
-  /** Whether the worm may dig here (canDigAt), asked again only when the head has moved or turned enough. */
-  private digSpot(force: boolean): boolean {
-    const c = this.crawl;
-    const h = c.motion.head;
-    const a = c.motion.heading;
-    if (force || !(hypot2(h.x - this.digX, h.z - this.digZ) <= DIG_RECHECK) || Math.abs(wrap(a - this.digH)) > DIG_RETURN) {
-      this.canDig = canDigHere(c.motion, c.body);
-      this.digX = h.x;
-      this.digZ = h.z;
-      this.digH = a;
-    }
-    return this.canDig;
+    this.dig.ask(this, false);
   }
 
   private stepUnder(dt: number, move: Vec2, action: boolean, reduced: boolean, auto: boolean): void {
@@ -219,26 +213,37 @@ export class BurrowGame implements MoveState {
   enterNow(): void {
     this.reset();
     this.view = 'wide';
-    const m = this.machine;
-    m.hold(false);
-    if (m.step(true, true, false, true, 0) !== 'startDig') return;
-    startDig(this);
-    this.visits--; // not the player's visit: their first still shows the hint card
-    while (this.stage) buildStage(this);
-    m.step(false, false, false, true, 1e6);
-    arriveBelow(this, true);
+    if (!sinkAtOnce(this)) return;
     this.wasAction = false;
     this.autoT = 0;
   }
 
-  /** Back on the surface with no openings (the speed test's fresh start; the crawl's own reset is the caller's). */
+  /**
+   * Underground at once in "your burrow" (`home`, the one last gone down), its tunnels put back: the
+   * start again after the robin (V4 spec 3; burrowHome.ts enterHome). In the player's own view; not
+   * a visit (the hint card waits for their own first dig). `action`: the held Action level now, so
+   * a press held through it (the grip's Space) is not a new press after.
+   */
+  enterBurrow(action = false): void {
+    this.approach.burrow = -1;
+    enterHome(this);
+    this.prompt = null;
+    this.dig.forget();
+    this.autoT = 0;
+    this.machine.hold(action);
+    this.wasAction = action;
+  }
+
+  /** Back on the surface with no openings or burrows (the speed test's fresh start; the crawl's own reset is the caller's). */
   reset(): void {
     this.machine.reset();
     this.stage = 0;
     this.prompt = null;
     this.nearTop = false;
-    this.digX = NaN;
+    this.dig.forget();
     this.autoT = 0;
     clearOpenings(this.openings);
+    clearBurrows(this.burrows);
+    this.burrow = this.home = this.reuse = this.approach.burrow = -1;
   }
 }

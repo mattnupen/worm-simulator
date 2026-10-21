@@ -64,7 +64,7 @@ export interface BodyPath {
    */
   readonly offU: Float64Array; readonly offV: Float64Array;
   turnFirst: boolean;
-  /** Going down: the body as it lay (u, w); each point's distance from the hole and its angle there from straight back along -u. */
+  /** Going down: the body as it lay (u, w); each point's distance from the hole and its angle there from straight back along -u (+u when the head dives toward -u: `exitSign` -1). */
   readonly bu: Float64Array; readonly bw: Float64Array;
   readonly rad: Float64Array; readonly ang: Float64Array;
   /** Going down: each point's height over where the floor rests it (0 for a settled crawl), eased out. */

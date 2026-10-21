@@ -1,10 +1,9 @@
 import { hypot3, hypot2, vec3s } from '../core/vec';
 import { WORM_SEGMENTS, type Crawl } from '../game/crawl';
 import { advanceWave } from '../worm/wormShape';
-import { createSlab, slabSeed, slabX, slabZ, type Slab } from './slab';
+import { slabX, slabZ, type Slab } from './slab';
 import { digDiscAt, fillSoilGrid, type Eaten, type SoilGrid } from './soilGrid';
 import { markSolids, placeSolids, type Solids } from './solids';
-import { chooseSide, cutHeading } from './digSpot';
 import { placeBurrower, BREATH_HZ, TUNNEL_R, WAVES_PER_UNIT, type Burrower } from './burrowMotion';
 import { poseAt, smootherstep, wrap, AXIS_UP, type BodyPath } from './bodyPath';
 import { buildSink } from './sinkPath';
@@ -13,11 +12,14 @@ import { mapEmerge, type EmergeMap } from './emergeMap';
 import { bodyProgress, DIP_IN, type ModeMachine, type ModeState, type UndergroundView } from './modeMachine';
 import { frameTarget, snapCutCam, type CutCam, type CutFrame } from './cutCamera';
 import { addOpening, type Openings } from './openings';
+import { restoreBurrow, saveBurrow, type Burrows } from './burrows';
+import { slabForDig } from './burrowReuse';
 
 /**
  * The game's moves (V2 spec 4.1, 4.2): digging down (a new slab through the head, along the cut
- * digSpot.ts chooses, its work spread over the first steps) and coming up (the crawl moved to the
- * end pose at once). Between them the worm is posed along the move's path (bodyPath.ts) every step.
+ * digSpot.ts chooses, or an old burrow's slab with its tunnels put back (V4 spec 4.1: burrows.ts),
+ * its work spread over the first steps) and coming up (the crawl moved to the end pose at once,
+ * the burrow's tunnels kept as the worm comes out). Between them the worm is posed along the move's path (bodyPath.ts) every step.
  * Allocates only once per dig and once per coming up.
  */
 const N = WORM_SEGMENTS;
@@ -46,6 +48,14 @@ export interface MoveState {
   readonly camPrev: CutFrame;
   readonly frame: CutFrame;
   readonly openings: Openings;
+  /** The burrows dug this play; the one the worm is in (or last was), -1 none; "your burrow" (the last gone down). */
+  readonly burrows: Burrows;
+  burrow: number;
+  home: number;
+  /** The burrow the next dig goes back into (the dig spot found it, burrowReuse.ts), or -1: a new one. */
+  reuse: number;
+  /** The way along u the head dives going down (sinkPath.ts buildSink's `sign`). */
+  digSign: number;
   readonly path: BodyPath;
   /** Coming up: the wave's phase and activity at the start, and the phase it gains (to a whole number of waves). */
   readonly waveOut: { from: number; act: number; span: number };
@@ -86,16 +96,14 @@ function snapCam(g: MoveState): void {
 
 /**
  * Action on the surface where the worm may dig: a new slab through the head along `cutHeading`
- * (never the raw heading), the camera on `chooseSide`'s side, seeded by the spot. The worm in the
+ * (never the raw heading), the camera on `chooseSide`'s side, seeded by the spot; or, back at an
+ * old burrow (`reuse`), that burrow's own slab, the camera on its side as before. The worm in the
  * cut starts as the crawl lies, exactly (frame 0 of the sink). The rest of the work (the sink path,
- * the soil, the blockers, the ways up) follows one part a step (`buildStage`).
+ * the soil, the blockers, the old tunnels, the ways up) follows one part a step (`buildStage`).
  */
 export function startDig(g: MoveState): void {
   const c = g.crawl;
-  const h = c.motion.head;
-  const heading = c.motion.heading;
-  const cut = cutHeading(h.x, h.z, heading, c.body) ?? heading;
-  const s = createSlab(h.x, h.z, cut, chooseSide(h.x, h.z, heading, c.body), slabSeed(h.x, h.z));
+  const s = slabForDig(g);
   g.slab = s;
   g.visits++;
   for (let i = 0; i < N; i++) {
@@ -107,7 +115,8 @@ export function startDig(g: MoveState): void {
   }
   const w = g.worm;
   placeBurrower(w, us, vs, 0, c.wave);
-  w.dir = w.prevDir = neckDir(w, 0);
+  // Facing -u (mirrored), unwrapped from -PI: its dive turns down to -PI/2, as the burrower takes it.
+  w.dir = w.prevDir = neckDir(w, g.digSign > 0 ? 0 : -Math.PI);
   g.offW.set(ws);
   g.prevW.set(ws);
   g.nearTop = false;
@@ -117,14 +126,15 @@ export function startDig(g: MoveState): void {
 
 /**
  * The dig-down's next part (one a step, while the camera still holds behind the worm): the sink
- * path (and the move's length), the soil, the blockers, then the ways up, when the slab is ready
+ * path (and the move's length), the soil, the blockers and an old burrow's tunnels (burrows.ts
+ * restoreBurrow), then the ways up, when the slab is ready
  * (`slabVersion` bumped: the renderer rebuilds then).
  */
 export function buildStage(g: MoveState): void {
   const s = g.slab!;
   switch (g.stage) {
     case 1:
-      buildSink(g.path, s, g.crawl.body);
+      buildSink(g.path, s, g.crawl.body, g.digSign);
       g.machine.setMoveTime(g.path.seconds);
       break;
     case 2:
@@ -133,6 +143,7 @@ export function buildStage(g: MoveState): void {
     case 3:
       placeSolids(s, g.solids);
       markSolids(g.grid, g.solids);
+      restoreBurrow(g.burrows, g.burrow, g.grid);
       break;
     default:
       mapEmerge(g.emerge, s);
@@ -188,7 +199,10 @@ export function stepMove(g: MoveState, dt: number, action: boolean, reduced: boo
   w.wave.phase = out.from + out.span * e;
   w.wave.activity = out.act * (1 - e) + OUT_ACTIVITY * Math.sin(Math.PI * t) ** 2;
   for (let i = 0; i < 4; i++) digPoint(g.grid, w, i);
-  if (ev === 'emerge') addOpening(g.openings, g.path, g.slab!);
+  if (ev === 'emerge') {
+    saveBurrow(g.burrows, g.burrow, g.grid);
+    addOpening(g.openings, g.path, g.slab!, g.burrow);
+  }
 }
 
 /**

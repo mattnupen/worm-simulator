@@ -35,8 +35,11 @@ export const SINK_SPEED = 2.0;
  * Digging down from the crawl's body (head first, belly heights, as `Crawl.body`), into slab `s`
  * dug at the head: the dive is an arc turning the head down, then straight down to SINK_DEPTH below
  * the F top. The head ends facing straight down. Sets `p.seconds` (at least SINK_S + FADE_S).
+ * `sign` (+1 or -1, kept in `p.exitSign`) is the way along u the head dives, the body lying out the
+ * other way: a new slab is cut along the worm (+1); back into an old one it may face -u
+ * (burrowReuse.ts), and the move is then the +1 move mirrored across the hole (u to -u).
  */
-export function buildSink(p: BodyPath, s: Slab, body: ArrayLike<Vec3>): void {
+export function buildSink(p: BodyPath, s: Slab, body: ArrayLike<Vec3>, sign = 1): void {
   frame(p, s);
   p.posing = sinkPose;
   for (let i = 0; i < N; i++) {
@@ -56,7 +59,7 @@ export function buildSink(p: BodyPath, s: Slab, body: ArrayLike<Vec3>): void {
     const dw = p.bw[i] - p.bw[0];
     p.rad[i] = hypot2(du, dw);
     const prev = p.ang[i - 1];
-    const a = p.rad[i] > 1e-9 ? Math.atan2(dw, -du) : prev;
+    const a = p.rad[i] > 1e-9 ? Math.atan2(dw, -sign * du) : prev;
     p.ang[i] = i > 1 ? prev + wrap(a - prev) : a;
     p.back[i] = p.back[i - 1] + hypot2(p.bu[i] - p.bu[i - 1], p.bw[i] - p.bw[i - 1]);
   }
@@ -64,12 +67,13 @@ export function buildSink(p: BodyPath, s: Slab, body: ArrayLike<Vec3>): void {
   const u0 = p.bu[0];
   const v0 = body[0].y + AXIS_UP;
   push(p, u0, v0);
-  arc(p, 0, -1, Math.PI / 2);
+  if (sign > 0) arc(p, 0, -1, Math.PI / 2);
+  else arc(p, Math.PI, 1, Math.PI / 2);
   const ue = p.u[p.count - 1];
   push(p, ue, Math.min(p.v[p.count - 1] - 0.05, boundaryAt(s, B_F, ue) - SINK_DEPTH));
   p.headFrom = 0;
   p.headTo = p.exitAt = p.s[p.count - 1];
-  p.exitSign = 1;
+  p.exitSign = sign > 0 ? 1 : -1;
   p.exitU = u0;
   p.seconds = fitSeconds(p, SINK_S + FADE_S, SINK_SPEED, LONGEST);
 }
@@ -95,7 +99,7 @@ function sinkPose(p: BodyPath, t: number, outU: Float64Array, outV: Float64Array
     const r0 = p.rad[i];
     const r = back <= depth ? r0 * (1 - dived / back) : r0 + (back - depth - r0) * (dived / depth);
     const a = p.ang[i] * left;
-    const u = p.bu[0] - r * Math.cos(a);
+    const u = p.bu[0] - p.exitSign * r * Math.cos(a);
     const w = shift + r * Math.sin(a);
     outU[i] = u;
     outW[i] = w;
