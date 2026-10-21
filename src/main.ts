@@ -151,6 +151,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     // robin), and afterNest starts the new life.
     onWholeWorm: () => {
       hunt?.hide();
+      nestFromHunt = true;
       playNestScene(crawl.motion.head.x, crawl.motion.head.z, crawl.motion.heading);
     },
     startAgain: (action) => startAgain(action),
@@ -165,13 +166,18 @@ function start(renderer: THREE.WebGLRenderer): void {
   let nestOverlay: NestOverlay | null = null;
   /** Where the next nest scene starts: where the robin caught the worm, and its facing. */
   const nestFrom = { x: 0, z: 0, heading: 0 };
+  /** The nest scene playing came from a hunt (not the ?nest=1 preview from Start). */
+  let nestFromHunt = false;
   /**
-   * After the nest scene's fact card: a new life, full length, underground in your burrow, then
-   * back to play (also after the ?nest=1 preview, which then starts that life too).
+   * After the nest scene's fact card, back to play. After a hunt that is a new life: full length,
+   * underground in your burrow. The ?nest=1 preview from Start lost no life, so it plays on as is.
    */
   const afterNest = (): void => {
-    startAgain(false);
-    hunt?.note(HUNT_NOTES.taken, 5);
+    if (nestFromHunt) {
+      nestFromHunt = false;
+      startAgain(false);
+      hunt?.note(HUNT_NOTES.taken, 5);
+    }
     dispatch({ type: 'nestDone' });
   };
   /** The opening's captions while it plays. */
