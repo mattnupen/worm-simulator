@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseParams } from '../../src/game/params';
 
-const NO_ROBIN = { robin: false, robinAt: null, robinTurn: 0, robinDist: 9, robinCam: null, wormLength: null, nest: false, nestAt: null, digMarks: true };
+const NO_ROBIN = { robin: false, robinAt: null, robinTurn: 0, robinDist: 9, robinCam: null, wormLength: null, hunt: true, robinIn: null, nest: false, nestAt: null, digMarks: true };
 
 describe('parseParams', () => {
   it('defaults: no forced preset, no fps tag, not quick, Start screen', () => {
@@ -41,6 +41,13 @@ describe('parseParams', () => {
     expect(parseParams('?wormLength=0.6').wormLength).toBe(0.6);
     expect(parseParams('?wormLength=short').wormLength).toBeNull();
     expect(parseParams('?wormLength=').wormLength).toBeNull();
+  });
+  it('reads ?hunt=0 (the hunt\'s rollback switch) and ?robinIn= (the first robin sooner)', () => {
+    expect(parseParams('?hunt=0').hunt).toBe(false);
+    expect(parseParams('?hunt=1').hunt).toBe(true);
+    expect(parseParams('?hunt=off').hunt).toBe(true);
+    expect(parseParams('?robinIn=3').robinIn).toBe(3);
+    expect(parseParams('?robinIn=soon').robinIn).toBeNull();
   });
   it('reads the nest scene preview (?nest=1, ?nestAt=) and ignores anything else', () => {
     expect(parseParams('?nest=1&nestAt=6.5')).toMatchObject({ nest: true, nestAt: 6.5 });

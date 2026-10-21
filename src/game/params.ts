@@ -44,6 +44,13 @@ export interface GameParams {
    */
   wormLength: number | null;
   /**
+   * `?hunt=0`: no robin hunt at all (V4's one rollback switch). The hunt is also off while the
+   * `?robin=1` preview plays.
+   */
+  hunt: boolean;
+  /** `?robinIn=3`: the first robin comes after 3 s on the surface, not 20 to 40 (Matt's review, tests). */
+  robinIn: number | null;
+  /**
    * `?nest=1`: a "Watch the nest scene" button under the title on Start plays the V4 nest scene
    * (Matt's review: every cut scene gets a preview). `?nestAt=6` with it holds the scene at that
    * second (screenshots).
@@ -80,6 +87,8 @@ export function parseParams(search: string): GameParams {
     robinTurn: num(p, 'robinTurn') ?? 0,
     robinDist: num(p, 'robinDist') ?? 9,
     wormLength: num(p, 'wormLength'),
+    hunt: p.get('hunt') !== '0',
+    robinIn: num(p, 'robinIn'),
     nest: p.get('nest') === '1',
     nestAt: num(p, 'nestAt'),
     digMarks: p.get('digMarks') !== '0',

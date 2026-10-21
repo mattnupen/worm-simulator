@@ -45,6 +45,7 @@ export type SourceId =
   | 'scott-2023'
   | 'mndnr-redbelly-snake'
   | 'uw-ground-beetles'
+  | 'esb-cut-in-two'
   | 'cornell-robin-nestcam'
   | 'wormwatch-trees'
   | 'sciencelearn-earthworm'
@@ -238,6 +239,12 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     short: 'UW–Madison Extension',
     url: 'https://hort.extension.wisc.edu/articles/ground-beetles/',
     checked: '2026-10-12',
+  },
+  'esb-cut-in-two': {
+    title: 'If I cut an earthworm in two will it grow into two earthworms?',
+    publisher: 'Earthworm Society of Britain',
+    url: 'https://www.earthwormsoc.org.uk/FAQchop',
+    checked: '2026-10-21',
   },
   // V4 nest scene: the Cornell Lab's live robin nest cam talk. Its captions show "Adult robin flies
   // in and lands on the nest with worms in its beak" and feeding the three nestlings, and the

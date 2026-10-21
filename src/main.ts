@@ -46,6 +46,8 @@ import { stopCueSound } from './ui/lessonSound';
 import { markOpeningSeen, openingSeen } from './save/openingStore';
 import { sharedLighting } from './render/paintedMaterial';
 import { RobinPreview } from './predators/robinPreview';
+import { HuntGame } from './predators/huntGame';
+import { HUNT_NOTES } from './predators/huntNotes';
 import { NestScene } from './predators/nestScene';
 import { NEST_TIMES, nestCaptionAt } from './predators/nestScript';
 import { playNestSound } from './predators/nestSound';
@@ -143,13 +145,45 @@ function start(renderer: THREE.WebGLRenderer): void {
   const opening = new Opening(world.scene);
   /** ?robin=1: the V4 robin's preview loop ahead of the worm (Matt's review). */
   const robinPreview = params.robin ? new RobinPreview(world.scene, params) : null;
+  /**
+   * The robin hunt (V4, src/predators/huntGame.ts). Off with ?hunt=0 (its one rollback switch) and
+   * while the ?robin=1 preview plays; ?robinIn=3 brings the first robin after 3 s up top.
+   */
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const hunt = params.hunt && !params.robin ? new HuntGame(world.scene, app, crawl, game, {
+    // The robin got the whole worm: it flies it to its nest (the nest scene, with the hunt's own
+    // robin), and afterNest starts the new life.
+    onWholeWorm: () => {
+      hunt?.hide();
+      nestFromHunt = true;
+      playNestScene(crawl.motion.head.x, crawl.motion.head.z, crawl.motion.heading);
+    },
+    startAgain: (action) => startAgain(action),
+    reducedMotion: () => reduceMotion.matches,
+  }, Math.random, params.robinIn) : null;
+  /** While the robin holds the worm it doesn't crawl. */
+  const stillMove = { x: 0, y: 0 };
+  /** A touch screen: the grip panel says "Hold the button" (menus.ts reads the same query). */
+  const touchScreen = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
   /** The V4 nest scene (src/predators/nestScene.ts): built now, hidden, so warmShaders sees it. */
-  const nestScene = new NestScene(world.scene);
+  const nestScene = new NestScene(world.scene, hunt?.robin);
   let nestOverlay: NestOverlay | null = null;
   /** Where the next nest scene starts: where the robin caught the worm, and its facing. */
   const nestFrom = { x: 0, z: 0, heading: 0 };
-  /** After the nest scene's fact card. For now, back to play; the hunt will set this (start again at the burrow). */
-  const afterNest = (): void => dispatch({ type: 'nestDone' });
+  /** The nest scene playing came from a hunt (not the ?nest=1 preview from Start). */
+  let nestFromHunt = false;
+  /**
+   * After the nest scene's fact card, back to play. After a hunt that is a new life: full length,
+   * underground in your burrow. The ?nest=1 preview from Start lost no life, so it plays on as is.
+   */
+  const afterNest = (): void => {
+    if (nestFromHunt) {
+      nestFromHunt = false;
+      startAgain(false);
+      hunt?.note(HUNT_NOTES.taken, 5);
+    }
+    dispatch({ type: 'nestDone' });
+  };
   /** The opening's captions while it plays. */
   let captions: OpeningCaptions | null = null;
   /** ?opening=1 plays it on the first Crawl even when seen (Matt's review); once. */
@@ -180,7 +214,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   const runner = new SpeedTestRunner({
     // Every run starts at the spawn, whatever the player did before opening the test (or dug: no
     // openings). ?dig=1 starts it underground there, in Wide (scripts/perf-gates.mjs's run below).
-    resetWorld: () => { crawl.reset(); if (params.dig) game.enterNow(); else game.reset(); dirty = true; },
+    resetWorld: () => { crawl.reset(); hunt?.reset(); if (params.dig) game.enterNow(); else game.reset(); dirty = true; },
     where: () => (game.mode.mode === 'surface' ? 'Surface' : 'Underground'),
     setMaxFps: (fps) => loop.setMaxFps(fps),
     applyTier: (tier) => applySpec(tierSpec(testBase, TIERS[tier])),
@@ -287,6 +321,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   /** The scene from the top: the worm back at the spawn (in the tub), the props, the sound. */
   function beginOpening(): void {
     crawl.reset();
+    hunt?.reset();
     game.reset();
     // The worm starts curled in the bait cup, facing out of its mouth (script.ts), laid out at full
     // length (a shorter worm draws in once it crawls).
@@ -327,10 +362,23 @@ function start(renderer: THREE.WebGLRenderer): void {
   }
 
   /**
+   * A new life after the robin (too short, or taken): full length, underground in "your burrow"
+   * (the one last gone down, tunnels and all), the hunt reset. `action`: the Action level held now,
+   * so the grip's Space held through it is not a new press after.
+   */
+  function startAgain(action: boolean): void {
+    game.setWormLength(1);
+    crawl.release();
+    hunt?.reset();
+    game.enterBurrow(action);
+    dirty = true;
+  }
+
+  /**
    * The hunt's entry point (V4): the robin got the whole worm at (atX, atZ), facing `heading` (0 =
    * +z). From the crawl screen (or Start, the preview), plays the nest scene: the robin flies the
    * worm up to its nest and feeds a nestling, then the fact card, whose "Keep going" calls
-   * afterNest. The hunt hides its own robin first: the scene has its own.
+   * afterNest. The hunt hides its robin first: the scene flies that same robin.
    */
   function playNestScene(atX: number, atZ: number, heading: number): void {
     nestFrom.x = atX;
@@ -517,10 +565,18 @@ function start(renderer: THREE.WebGLRenderer): void {
       return;
     }
     const cmds = commands();
+    const playing = state.screen === 'crawl' && !runner.running && !frozen();
     if (frozen()) game.hold(cmds.action);
-    else {
+    else if (playing && hunt?.held) {
+      // In the robin's bill: no crawling or digging; Action is the grip (the hunt reads it below).
+      game.hold(cmds.action);
+      crawl.step(dt, stillMove);
+    } else {
       game.step(dt, cmds.move, cmds.action, runner.running && params.dig);
       if (digMarks && state.screen === 'crawl' && !runner.running && game.mode.mode === 'surface') digMarks.step(crawl.motion, game);
+    }
+    hunt?.step(dt, playing, cmds.action, touchScreen);
+    if (!frozen()) {
       // The Play quest counts real play only: never menus, pauses or the speed test.
       if (state.screen === 'crawl' && !runner.running && progress.playSeconds < PLAY_GOAL_SECONDS) {
         progress.playSeconds += dt;
@@ -529,7 +585,7 @@ function start(renderer: THREE.WebGLRenderer): void {
       // ?prompt= shows one kind over the game's own and counts the presses (tests, screenshots).
       if (params.prompt && pressEdge.update(cmds.action)) app.dataset.actionPresses = String(++presses);
       const on = state.screen === 'crawl' && !runner.running && app.dataset.promptOff === undefined;
-      actionPrompt.set(on ? params.prompt ?? game.prompt : null);
+      actionPrompt.set(on ? params.prompt ?? hunt?.prompt ?? game.prompt : null);
       // Gone down, come up, or the first visit's hint has had its time: the crawl card changes.
       if (state.screen === 'crawl' && shownCard !== cardNow()) draw();
     }
@@ -568,6 +624,8 @@ function start(renderer: THREE.WebGLRenderer): void {
     // Dig markers: on the surface in play only (never the opening, the speed test or below).
     digMarks?.frame(!runner.running && game.mode.mode === 'surface' && (state.screen === 'crawl' || still),
       crawl.motion.head, game.prompt === 'digDown', clock / 1000, still ? 0 : elapsed / 1000);
+    // The nest scene poses the robin itself (the hunt's robin) while it plays.
+    if (!nestScene.playing) hunt?.frame();
     robinPreview?.frame(clock / 1000, state.screen === 'crawl', crawl.motion.head, crawl.motion.heading);
     robinPreview?.aim(camera);
     renderer.render(world.scene, camera);

@@ -12,7 +12,7 @@ import { createCutCam, followCut, type CutFrame, type FrameAsk } from './cutCame
 import { clearOpenings, createOpenings } from './openings';
 import { clearBurrows, createBurrows } from './burrows';
 import { enterHome, sinkAtOnce } from './burrowHome';
-import { approachStep, createApproach, startApproach } from './burrowApproach';
+import { approachStep, createApproach, pressDig, startApproach } from './burrowApproach';
 import { DigAsk } from './digAsk';
 import { startDig, startUp, stepMove, type MoveState } from './burrowMoves';
 import { setBodyLength, wormBody, WORM_SEGMENTS } from '../worm/bodyLength';
@@ -247,6 +247,21 @@ export class BurrowGame implements MoveState {
     this.autoT = 0;
     this.machine.hold(action);
     this.wasAction = action;
+  }
+
+  /**
+   * Digs down where the worm is now, as a press of Action on a good spot would: the real move down
+   * (V4: the worm pulled free of the robin, or its front end dropping back after a break). On the
+   * surface only; anywhere, even where a press would not dig. A held Action stays spent.
+   */
+  diveNow(): void {
+    if (this.mode.mode !== 'surface') return;
+    // Into the old burrow at hand when the worm is at one (dig.ask sets `reuse`), else a new one.
+    this.dig.ask(this, true);
+    this.approach.burrow = -1;
+    if (!pressDig(this, this.host.reducedMotion())) return;
+    this.wasAction = true;
+    this.prompt = null;
   }
 
   /** Back on the surface with no openings or burrows (the speed test's fresh start; the crawl's own reset is the caller's). */

@@ -46,6 +46,16 @@ export const TEXT = {
     verified: true,
   },
   huntTimingChoice: { kind: 'gameChoice', text: 'Real worms don\'t time their pulls. You do.' },
+  // What happens when the robin wins (V4 spec 3; src/predators/huntGame.ts).
+  huntBroke: {
+    kind: 'fact',
+    text: 'Your worm broke! The front end can live and may grow a new tail.',
+    source: 'esb-cut-in-two',
+    verified: true,
+  },
+  huntTooShort: { kind: 'ui', text: 'Too short! Start again in your burrow.' },
+  huntNewLife: { kind: 'gameChoice', text: 'A new life is a full-length worm.' },
+  huntTaken: { kind: 'ui', text: 'The robin got your whole worm! Start again in your burrow.' },
   layerLitter: { kind: 'ui', text: 'Leaf litter' },
   layerOld: { kind: 'ui', text: 'Old leaves' },
   layerHumus: { kind: 'ui', text: 'Humus' },
