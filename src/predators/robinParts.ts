@@ -1,12 +1,14 @@
 import type { MeshWriter } from '../surface/meshWriter';
 import { loft, mix, ripple, shade, smooth, tube } from './robinGeom';
+import { writeFlightTail, writeOpenArm, writeOpenHand, writeUndertail } from './robinFlight';
 import {
   LEG, PIVOTS, PRIMARY, TAIL, THIGH, WHITE, WING, WING_EDGE, bodyPoint, writeBill, writeBody, writeHead,
 } from './robinShape';
 
 /**
- * The robin's wings, tail and legs (robinShape.ts has the body, head and bill, the colours and the
- * pivots), and the list of parts robin.ts builds and moves. Bird frame, in centimetres. Build-time only.
+ * The robin's folded wings, tail and legs (robinShape.ts has the body, head and bill, the colours and
+ * the pivots; robinFlight.ts the open wings and the fanned tail), and the list of parts robin.ts
+ * builds and moves. Bird frame, in centimetres. Build-time only.
  */
 
 /** A folded wing on the body's side (`side` 1 its left, -1 its right), its tip crossing over the rump. */
@@ -25,46 +27,6 @@ function writeFoldedWing(w: MeshWriter, side: number): void {
   }, false);
 }
 
-/**
- * An open wing for flight, from the shoulder out along ±x (about 17 cm): the arm's broad inner wing
- * (coverts and secondaries), then six long primaries fanned out from the hand like fingers.
- */
-function writeOpenWing(w: MeshWriter, side: number): void {
-  const [sx, sy, sz] = PIVOTS.shoulder;
-  const arm = 8.5;
-  loft(w, 10, 6, (u, v) => {
-    // Rounded at the leading edge, a scalloped trailing edge (one bump per secondary).
-    const chord = (7.6 - 1.6 * u) * (1 - 0.06 * Math.abs(Math.sin(u * Math.PI * 4.5)) * v);
-    const lead = sz + 1.0 - 0.6 * u;
-    const c = mix(mix(WING, PRIMARY, 0.3), WING_EDGE, smooth(0.55, 0.85, v) * 0.3);
-    return {
-      x: side * (sx + u * arm),
-      y: sy + 0.4 * u + 0.5 * Math.sin(Math.PI * Math.min(1, v * 1.4)),
-      z: lead - v * chord,
-      c: shade(c, 1 + 0.06 * ripple(u * 23, v * 7)),
-    };
-  }, false);
-  const hx = sx + arm - 0.6;
-  for (let f = 0; f < 6; f++) {
-    // From pointing out and a little forward (outermost) to back toward the body (innermost).
-    const ang = 0.2 - f * 0.07;
-    const len = 8.6 - f * 0.9;
-    const dx = Math.cos(ang);
-    const dz = Math.sin(ang);
-    const z0 = sz + 0.4 - f * 0.4;
-    loft(w, 8, 3, (u, v) => {
-      const half = 1.5 * Math.sin(Math.PI * (0.15 + 0.85 * u)) ** 0.4 * (1 - 0.3 * u);
-      const across = (v * 2 - 1) * half;
-      return {
-        x: side * (hx + dx * u * len - dz * across * 0.4),
-        y: sy + 0.55 + 0.25 * u + 0.08 * f,
-        z: z0 + dz * u * len + across,
-        c: shade(PRIMARY, 1 + 0.05 * ripple(u * 19, f)),
-      };
-    }, false);
-  }
-}
-
 /** The tail: a long dark fan from the rump, back and a little down, white corners on the outer feathers. */
 function writeTail(w: MeshWriter): void {
   const [, ty, tz] = PIVOTS.rump;
@@ -77,14 +39,8 @@ function writeTail(w: MeshWriter): void {
     let c = shade(TAIL, 1 + 0.05 * ripple(u * 13, v * 6));
     c = mix(c, WHITE, smooth(0.86, 0.97, u) * smooth(0.68, 0.95, Math.abs(v)) * 0.9);
     return { x: v * hw, y: ty - Math.sin(drop) * len + Math.cos(drop) * lift, z: tz - Math.cos(drop) * len - Math.sin(drop) * lift, c };
-  }, false);  // White undertail feathers under the tail's base, joining it to the belly.
-  loft(w, 6, 12, (u, ang) => {
-    const len = 2.6 * u;
-    const r = 1.2 * (1 - u * u) + 0.1;
-    const x = Math.sin(ang) * r;
-    const y = ty - 0.45 - Math.sin(drop) * len + Math.min(0, Math.cos(ang)) * r * 0.6;
-    return { x, y, z: tz + 1.1 - Math.cos(drop) * len, c: WHITE };
-  });
+  }, false);
+  writeUndertail(w);
 }
 
 /** A leg (`side` ±1): feathered thigh, the bare tarsus, three toes forward and one back. */
@@ -108,9 +64,13 @@ export const ROBIN_PARTS = {
   // Side 1 is +x, the bird's left; -1 its right.
   wingR: (w: MeshWriter) => writeFoldedWing(w, -1),
   wingL: (w: MeshWriter) => writeFoldedWing(w, 1),
-  openR: (w: MeshWriter) => writeOpenWing(w, -1),
-  openL: (w: MeshWriter) => writeOpenWing(w, 1),
+  // In flight: the open wings (arm and hand) and the fanned tail, in place of the folded ones.
+  armR: (w: MeshWriter) => writeOpenArm(w, -1),
+  armL: (w: MeshWriter) => writeOpenArm(w, 1),
+  handR: (w: MeshWriter) => writeOpenHand(w, -1),
+  handL: (w: MeshWriter) => writeOpenHand(w, 1),
   tail: writeTail,
+  flightTail: writeFlightTail,
   legR: (w: MeshWriter) => writeLeg(w, -1),
   legL: (w: MeshWriter) => writeLeg(w, 1),
 } as const;

@@ -24,8 +24,15 @@ const ease = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * 
 const span = (t: number, a: number, b: number): number => ease((t - a) / (b - a));
 /** 0 → 1 → 0 over [a, b]. */
 const bump = (t: number, a: number, b: number): number => (t <= a || t >= b ? 0 : Math.sin((Math.PI * (t - a)) / (b - a)));
-/** The open wings' angle `s` seconds into a flight. */
-const beat = (s: number): number => 0.9 * Math.sin(s * Math.PI * 2 * FLAP_HZ);
+/**
+ * The open wings `s` seconds into a flight: their angle (flap) and which way they are going
+ * (stroke, positive on the upstroke). Shared by the hunt and the nest scene.
+ */
+export function wingBeat(s: number, out: RobinPose): void {
+  const ph = s * Math.PI * 2 * FLAP_HZ;
+  out.flap = 0.9 * Math.sin(ph);
+  out.stroke = Math.cos(ph);
+}
 
 /**
  * Poses the robin at `t` (looped) for a worm at (x, z) facing `heading`: it starts `start` world
@@ -40,7 +47,7 @@ export function demoPose(
   out.yaw = heading + Math.PI;
   out.lift = 0; out.crouch = 0; out.pitch = 0; out.stride = 0;
   out.headYaw = 0; out.headPitch = 0; out.headRoll = 0;
-  out.bill = 0; out.tail = 0; out.flying = false; out.flap = 0;
+  out.bill = 0; out.tail = 0; out.flying = false; out.flap = 0; out.stroke = 0;
 
   // How far it has come toward the worm (cm): the dashes, and the flights in and out.
   let ahead = 0;
@@ -63,7 +70,7 @@ export function demoPose(
     const k = 1 - ease(t / 1.2);
     out.lift = 60 * k * k;
     out.flying = out.lift > 5;
-    out.flap = beat(t);
+    wingBeat(t, out);
     ahead -= 40 * k;
     // Flying, the body lies level.
     out.pitch = out.flying ? 0.6 : 0;
@@ -97,7 +104,7 @@ export function demoPose(
       const k = ease((t - 10.05) / 1.35);
       out.lift = 70 * k * k;
       out.flying = out.lift > 5;
-      out.flap = beat(t - 10.05);
+      wingBeat(t - 10.05, out);
       out.pitch = out.flying ? 0.6 : 0.2;
       out.yaw = heading;
       ahead -= 50 * k * k;

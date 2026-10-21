@@ -1,7 +1,7 @@
 import type { TextKey } from '../content/text';
 import { UNITS_PER_CM } from '../surface/realScale';
 import type { RobinPose } from './robin';
-import { FLAP_HZ } from './robinDemo';
+import { wingBeat } from './robinDemo';
 import type { NestlingPose } from './nest';
 import { RIM_R, RIM_Y } from './nestShape';
 
@@ -116,7 +116,7 @@ export function robinAt(t: number, s: NestSetup, out: RobinPose): void {
   const T = NEST_TIMES;
   out.visible = true;
   out.lift = 0; out.stride = 0; out.crouch = 0; out.pitch = 0; out.headYaw = 0; out.headRoll = 0;
-  out.tail = 0; out.flap = 0; out.flying = false;
+  out.tail = 0; out.flap = 0; out.stroke = 0; out.flying = false;
   // Holding the worm: the bill shut on it, the head up after the pull.
   out.bill = 0.12;
   out.headPitch = -0.3;
@@ -140,7 +140,7 @@ export function robinAt(t: number, s: NestSetup, out: RobinPose): void {
     // Faces its way at first, then turns to face the nestlings as it comes in.
     out.yaw = turn(turn(s.heading, along, span(t, T.takeoff, T.takeoff + 0.5)), perchYaw, span(t, T.land - 0.8, T.land));
     out.flying = true;
-    out.flap = 0.9 * Math.sin((t - T.takeoff) * Math.PI * 2 * FLAP_HZ);
+    wingBeat(t - T.takeoff, out);
     // Level in flight, rearing up to brake as it lands.
     out.pitch = 0.6 - 0.75 * span(t, T.land - 0.6, T.land);
     out.tail = 0.3 * span(t, T.land - 0.6, T.land);
