@@ -46,6 +46,8 @@ import { stopCueSound } from './ui/lessonSound';
 import { markOpeningSeen, openingSeen } from './save/openingStore';
 import { sharedLighting } from './render/paintedMaterial';
 import { RobinPreview } from './predators/robinPreview';
+import { HuntGame } from './predators/huntGame';
+import { HUNT_NOTES } from './predators/huntNotes';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
@@ -133,6 +135,25 @@ function start(renderer: THREE.WebGLRenderer): void {
   const opening = new Opening(world.scene);
   /** ?robin=1: the V4 robin's preview loop ahead of the worm (Matt's review). */
   const robinPreview = params.robin ? new RobinPreview(world.scene, params) : null;
+  /**
+   * The robin hunt (V4, src/predators/huntGame.ts). Off with ?hunt=0 (its one rollback switch) and
+   * while the ?robin=1 preview plays; ?robinIn=3 brings the first robin after 3 s up top.
+   */
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const hunt = params.hunt && !params.robin ? new HuntGame(world.scene, app, crawl, game, {
+    // The robin got the whole worm. The nest scene plugs in here: main.ts calls playNestScene and
+    // starts the new life when it ends; until it exists, the new life starts at once.
+    onWholeWorm: () => {
+      startAgain();
+      hunt?.note(HUNT_NOTES.taken, 5);
+    },
+    startAgain: () => startAgain(),
+    reducedMotion: () => reduceMotion.matches,
+  }, Math.random, params.robinIn) : null;
+  /** While the robin holds the worm it doesn't crawl. */
+  const stillMove = { x: 0, y: 0 };
+  /** A touch screen: the grip panel says "Hold the button" (menus.ts reads the same query). */
+  const touchScreen = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
   /** The opening's captions while it plays. */
   let captions: OpeningCaptions | null = null;
   /** ?opening=1 plays it on the first Crawl even when seen (Matt's review); once. */
@@ -163,7 +184,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   const runner = new SpeedTestRunner({
     // Every run starts at the spawn, whatever the player did before opening the test (or dug: no
     // openings). ?dig=1 starts it underground there, in Wide (scripts/perf-gates.mjs's run below).
-    resetWorld: () => { crawl.reset(); if (params.dig) game.enterNow(); else game.reset(); dirty = true; },
+    resetWorld: () => { crawl.reset(); hunt?.reset(); if (params.dig) game.enterNow(); else game.reset(); dirty = true; },
     where: () => (game.mode.mode === 'surface' ? 'Surface' : 'Underground'),
     setMaxFps: (fps) => loop.setMaxFps(fps),
     applyTier: (tier) => applySpec(tierSpec(testBase, TIERS[tier])),
@@ -269,6 +290,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   /** The scene from the top: the worm back at the spawn (in the tub), the props, the sound. */
   function beginOpening(): void {
     crawl.reset();
+    hunt?.reset();
     game.reset();
     // The worm starts curled in the bait cup, facing out of its mouth (script.ts), laid out at full
     // length (a shorter worm draws in once it crawls).
@@ -306,6 +328,19 @@ function start(renderer: THREE.WebGLRenderer): void {
     dirty = true;
     // Straight into play (Matt, 2026-10-16: no card between the scene and play).
     if (state.screen === 'opening') dispatch({ type: 'openingDone' });
+  }
+
+  /**
+   * A new life after the robin (too short, or taken): full length, underground, the hunt reset.
+   * "Your burrow" is the V4 tunnels' job (game.enterBurrow, once it exists: the one line to swap);
+   * until then the new life starts down at the spawn, as the speed test's dig run does.
+   */
+  function startAgain(): void {
+    game.setWormLength(1);
+    crawl.reset();
+    hunt?.reset();
+    game.enterNow(game.view);
+    dirty = true;
   }
 
   function draw(fromGraphics = false): void {
@@ -434,9 +469,15 @@ function start(renderer: THREE.WebGLRenderer): void {
       return;
     }
     const cmds = commands();
+    const playing = state.screen === 'crawl' && !runner.running && !frozen();
     if (frozen()) game.hold(cmds.action);
-    else {
-      game.step(dt, cmds.move, cmds.action, runner.running && params.dig);
+    else if (playing && hunt?.held) {
+      // In the robin's bill: no crawling or digging; Action is the grip (the hunt reads it below).
+      game.hold(cmds.action);
+      crawl.step(dt, stillMove);
+    } else game.step(dt, cmds.move, cmds.action, runner.running && params.dig);
+    hunt?.step(dt, playing, cmds.action, touchScreen);
+    if (!frozen()) {
       // The Play quest counts real play only: never menus, pauses or the speed test.
       if (state.screen === 'crawl' && !runner.running && progress.playSeconds < PLAY_GOAL_SECONDS) {
         progress.playSeconds += dt;
@@ -445,7 +486,7 @@ function start(renderer: THREE.WebGLRenderer): void {
       // ?prompt= shows one kind over the game's own and counts the presses (tests, screenshots).
       if (params.prompt && pressEdge.update(cmds.action)) app.dataset.actionPresses = String(++presses);
       const on = state.screen === 'crawl' && !runner.running && app.dataset.promptOff === undefined;
-      actionPrompt.set(on ? params.prompt ?? game.prompt : null);
+      actionPrompt.set(on ? params.prompt ?? hunt?.prompt ?? game.prompt : null);
       // Gone down, come up, or the first visit's hint has had its time: the crawl card changes.
       if (state.screen === 'crawl' && shownCard !== cardNow()) draw();
     }
@@ -475,6 +516,7 @@ function start(renderer: THREE.WebGLRenderer): void {
       cut.sync(alpha, clock / 1000, camera, window.innerWidth, window.innerHeight);
       opening.keepLeaf(crawl.motion.head.x, crawl.motion.head.z, game.mode.mode === 'surface');
     }
+    hunt?.frame();
     robinPreview?.frame(clock / 1000, state.screen === 'crawl', crawl.motion.head, crawl.motion.heading);
     robinPreview?.aim(camera);
     renderer.render(world.scene, camera);

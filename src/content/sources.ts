@@ -44,7 +44,8 @@ export type SourceId =
   | 'allaboutbirds-woodcock'
   | 'scott-2023'
   | 'mndnr-redbelly-snake'
-  | 'uw-ground-beetles';
+  | 'uw-ground-beetles'
+  | 'esb-cut-in-two';
 
 export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'mndnr-humus': {
@@ -232,6 +233,12 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     short: 'UW–Madison Extension',
     url: 'https://hort.extension.wisc.edu/articles/ground-beetles/',
     checked: '2026-10-12',
+  },
+  'esb-cut-in-two': {
+    title: 'If I cut an earthworm in two will it grow into two earthworms?',
+    publisher: 'Earthworm Society of Britain',
+    url: 'https://www.earthwormsoc.org.uk/FAQchop',
+    checked: '2026-10-21',
   },
 };
 

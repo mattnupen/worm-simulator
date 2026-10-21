@@ -5,7 +5,8 @@
 :not([data-ui="crawl"]) > .hunt-note { display: none; }
 
 .hunt-warning {
-  position: fixed; z-index: 1; top: 16px; right: 16px; max-width: min(360px, calc(100vw - 32px));
+  /* Below the Pause button (hud.css: 12 px down, 60 px tall). */
+  position: fixed; z-index: 1; top: 84px; right: 16px; max-width: min(360px, calc(100vw - 32px));
   display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center;
   padding: 12px 18px; border-radius: 16px; color: var(--ink);
   background: var(--parchment-hi); border: 3px solid var(--bark-dark);
@@ -65,14 +66,21 @@
 
 .hunt-note {
   position: fixed; z-index: 1; top: 16px; left: 50%; transform: translateX(-50%); margin: 0;
-  padding: 10px 18px; border-radius: 14px; font: 800 22px/1.2 var(--font-display);
+  width: max-content; max-width: min(640px, calc(100vw - 300px)); text-align: center;
+  padding: 10px 18px; border-radius: 14px; font: 700 20px/1.3 var(--font-body);
   color: var(--ink); background: var(--parchment-hi); border: 3px solid var(--bark-dark);
 }
 .hunt-note[hidden] { display: none; }
 
-/* Small screens: the panel sits at the top, clear of the joystick and the button. */
+/* While the hunt's HUD shows, the crawl card (controls and mission) steps aside for it. */
+#app:has(> .hunt-warning:not([hidden])) > .panel[data-state="crawl"],
+#app:has(> .hunt-grip:not([hidden])) > .panel[data-state="crawl"],
+#app:has(> .hunt-note:not([hidden])) > .panel[data-state="crawl"] { visibility: hidden; }
+
+/* Small screens: the panel sits at the top under Pause, the note above the joystick and the button. */
 @media (max-width: 560px) {
-  .hunt-grip { top: 12px; left: 12px; transform: none; width: min(260px, calc(100vw - 24px)); }
+  .hunt-grip { top: 84px; left: 12px; transform: none; width: min(260px, calc(100vw - 24px)); }
+  .hunt-note { top: auto; bottom: 176px; left: 12px; right: 12px; transform: none; width: auto; max-width: none; }
   .hunt-bar-track { height: 100px; }
-  .hunt-warning { top: 12px; right: 12px; }
+  .hunt-warning { top: 80px; right: 12px; }
 }

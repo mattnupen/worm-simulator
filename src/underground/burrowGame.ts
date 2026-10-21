@@ -229,11 +229,12 @@ export class BurrowGame implements MoveState {
 
   /**
    * Underground at once where the worm is: the speed test's dig run. Always in Wide (the default),
-   * so the numbers never depend on the view the player picked; that pick stays stored.
+   * so the numbers never depend on the view the player picked; that pick stays stored. `view`: the
+   * view to arrive in instead (V4: a new life after the robin keeps the player's view).
    */
-  enterNow(): void {
+  enterNow(view: UndergroundView = 'wide'): void {
     this.reset();
-    this.view = 'wide';
+    this.view = view;
     const m = this.machine;
     m.hold(false);
     if (m.step(true, true, false, true, 0) !== 'startDig') return;
@@ -244,6 +245,21 @@ export class BurrowGame implements MoveState {
     arriveBelow(this, true);
     this.wasAction = false;
     this.autoT = 0;
+  }
+
+  /**
+   * Digs down where the worm is now, as a press of Action on a good spot would: the real move down
+   * (V4: the worm pulled free of the robin, or its front end dropping back after a break). On the
+   * surface only; anywhere, even where a press would not dig. A held Action stays spent.
+   */
+  diveNow(): void {
+    if (this.mode.mode !== 'surface') return;
+    const m = this.machine;
+    m.hold(false);
+    if (m.step(true, true, false, this.host.reducedMotion(), 0) !== 'startDig') return;
+    startDig(this);
+    this.wasAction = true;
+    this.prompt = null;
   }
 
   /** Back on the surface with no openings (the speed test's fresh start; the crawl's own reset is the caller's). */

@@ -49,6 +49,9 @@ export function restPose(): RobinPose {
   };
 }
 
+/** The upper bill's tip in the bird's frame (cm): writeBill's far end, a little in to grip with. */
+const BILL_TIP = [0, PIVOTS.gape[1] - 0.25, PIVOTS.gape[2] + 1.6] as const;
+
 interface Part {
   readonly start: number;
   readonly count: number;
@@ -103,9 +106,25 @@ export class Robin {
 
   /** Poses every part from `pose` and rewrites the mesh. Call once per drawn frame while it shows. */
   update(): void {
+    this.mesh.visible = this.pose.visible;
+    if (!this.pose.visible) return;
+    this.place();
+    this.write();
+  }
+
+  /**
+   * The tip of its bill (world units) as `pose` holds it now, into `out` (the hunt: the worm's head
+   * follows it). Works out the parts' places only; writes no vertices.
+   */
+  billTip(out: { x: number; y: number; z: number }): void {
+    this.place();
+    this.v.set(BILL_TIP[0], BILL_TIP[1], BILL_TIP[2]).applyMatrix4(this.parts.head.matrix);
+    out.x = this.v.x; out.y = this.v.y; out.z = this.v.z;
+  }
+
+  /** Every part's matrix from `pose`. */
+  private place(): void {
     const p = this.pose;
-    this.mesh.visible = p.visible;
-    if (!p.visible) return;
     const s = UNITS_PER_CM;
     const P = this.parts;
     // Root: on the ground at (x, y, z), turned to yaw, in centimetres from here on.
@@ -140,7 +159,6 @@ export class Robin {
     this.about(P.openL.matrix, this.body, PIVOTS.shoulder, 0, 0, p.flap);
     const [sx, sy, sz] = PIVOTS.shoulder;
     this.aboutAt(P.openR.matrix, this.body, -sx, sy, sz, 0, 0, -p.flap);
-    this.write();
   }
 
   /** out = parent · (turn by x, y, z Euler angles round `pivot`). */

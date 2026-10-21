@@ -43,6 +43,13 @@ export interface GameParams {
    * robin breaks it), for Matt's review and screenshots. Not saved.
    */
   wormLength: number | null;
+  /**
+   * `?hunt=0`: no robin hunt at all (V4's one rollback switch). The hunt is also off while the
+   * `?robin=1` preview plays.
+   */
+  hunt: boolean;
+  /** `?robinIn=3`: the first robin comes after 3 s on the surface, not 20 to 40 (Matt's review, tests). */
+  robinIn: number | null;
 }
 
 /** A number param, or null when it is missing or not a finite number. */
@@ -71,5 +78,7 @@ export function parseParams(search: string): GameParams {
     robinTurn: num(p, 'robinTurn') ?? 0,
     robinDist: num(p, 'robinDist') ?? 9,
     wormLength: num(p, 'wormLength'),
+    hunt: p.get('hunt') !== '0',
+    robinIn: num(p, 'robinIn'),
   };
 }
