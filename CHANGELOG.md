@@ -21,6 +21,22 @@ How to write an entry (for Matt and Claude):
   spills. That's you, wriggling out of the dirt! The teacher explains why a loose bait worm is a
   problem for the forest. Captions show every line and sound. Press Esc or Enter to skip it,
   and watch it again with **Watch the opening** on the Start screen.
+- **A robin hunts you.** Stay on the surface too long and a robin comes. You'll hear its wings,
+  see its shadow, the leaves shiver and a **Robin!** sign shows up. It runs, stops and stares,
+  just like a real robin. Dig down before it strikes and you're safe!
+- **Hold on!** If the robin grabs you, hold Space (or the button) to grip the soil with your
+  bristles and pull back down. Let go when the robin tugs, or your worm stretches too far and breaks.
+- **If you lose,** your worm breaks and keeps going, shorter. Real worms can lose their tail end
+  and live. Once in a while, the robin takes the whole worm to feed its babies.
+
+### Because you voted
+- The robin was your top pick for a predator (11 of 36). Your warnings are in: a sound, a
+  shaking ground, a shadow and a sign. So are your escapes: digging back down (19 of you) and
+  gripping with bristles (14 of you).
+
+### Fixed
+- **Your tunnels stay.** Go back down your old hole and your old tunnels are still there.
+- **See where you can dig.** Little soil mounds with arrows show spots where you can dig down.
 
 ## V3 · Predators (2026-10-12)
 
