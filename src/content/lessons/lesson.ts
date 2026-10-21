@@ -15,8 +15,11 @@ import { type Line } from '../text';
  * - `sense`: a worm's-eye moment over the live forest. A cue plays (a shadow passes, the ground
  *   thumps), the player picks what the worm does, then the reveal. The cue is always also told in
  *   words, so it never relies on sight or motion alone (accessibility).
- * - `meet`: a few animals as photo cards; tap "Find out" on each to read its fact. No sorting and
- *   no trick question (Matt, 2026-10-12: the sort felt like a quiz with an obvious answer).
+ * - `meet`: a few animals (or things) as photo cards; tap "Find out" on each to read its fact. No
+ *   sorting and no trick question (Matt, 2026-10-12: the sort felt like a quiz with an obvious answer).
+ * - `body`: a tour inside the worm. A code-drawn diagram (labelled as a drawing, not a photo) with a
+ *   bit of leaf that moves from part to part as the player taps "Follow the leaf"; each stop shows
+ *   that part's name and its fact. Next waits until the leaf has visited every stop.
  * Any step but the mission can have `more`: a "Tell me more" panel with extra sourced facts for
  * students who want to read on. Nothing in it is needed for the round.
  * - `guess`: optional, and only as the first step. One question asked before anything is taught
@@ -87,6 +90,14 @@ export type LessonStep =
     readonly more?: More;
   }
   | {
+    readonly kind: 'body';
+    readonly title: string;
+    readonly intro: string;
+    /** In the order food passes through, from the mouth to the back end. */
+    readonly stops: readonly BodyStop[];
+    readonly more?: More;
+  }
+  | {
     readonly kind: 'mission';
     readonly title: string;
     readonly notice: Line;
@@ -105,7 +116,9 @@ export type Cue = 'shadow' | 'thump' | 'robin';
  * names a jpg in ./photos/ (photos.ts turns it into the image, so lesson data stays plain data that
  * tests can load); `credit` is the photographer and license as the source asks.
  */
-export type PhotoFile = 'robin' | 'woodcock' | 'mole' | 'shrew' | 'garter-snake' | 'toad' | 'salamander';
+export type PhotoFile =
+  | 'robin' | 'woodcock' | 'mole' | 'shrew' | 'garter-snake' | 'toad' | 'salamander'
+  | 'nightcrawler' | 'basswood' | 'sugar-maple' | 'red-oak' | 'white-pine';
 
 export interface Photo {
   readonly file: PhotoFile;
@@ -114,6 +127,16 @@ export interface Photo {
   /** What the photo shows, for screen readers. */
   readonly alt: string;
   readonly credit: string;
+}
+
+/** A part of the worm the `body` diagram can point to (src/ui/lessonBody.ts draws each one). */
+export type BodyPart = 'mouth' | 'pharynx' | 'crop' | 'gizzard' | 'intestine' | 'casts';
+
+export interface BodyStop {
+  readonly part: BodyPart;
+  /** The part's name, as labelled on the diagram ("Gizzard"). Makes no claim. */
+  readonly name: string;
+  readonly fact: Line;
 }
 
 export interface MeetCard {
@@ -193,6 +216,13 @@ export function lessonLines(lesson: Lesson): Record<string, Line> {
           at(`card.${j}`, ui(c.name));
           at(`card.${j}.fact`, c.fact);
           at(`card.${j}.photo`, ui(c.photo.name));
+        });
+        break;
+      case 'body':
+        at('intro', ui(s.intro));
+        s.stops.forEach((st, j) => {
+          at(`stop.${j}`, ui(st.name));
+          at(`stop.${j}.fact`, st.fact);
         });
         break;
       case 'mission':
