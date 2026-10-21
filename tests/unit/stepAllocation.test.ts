@@ -26,6 +26,8 @@ interface Measured {
   cuts: number;
   canDigAt: number;
   surface: number;
+  marks: number;
+  marked: number;
   crawl: number;
   modes: string[];
   digs: number;
@@ -78,6 +80,9 @@ describe('no per-step garbage, as built (bytes the heap grows per step)', () => 
     // What the game adds to the crawl on the surface: the mode machine, the dig spot it asks every
     // few steps, the prompt (24 measured, over a crawl replayed from a recording).
     expect(m.surface).toBeLessThan(64);
+    // The dig markers' sampler (digMarks.ts): a few dig tests a step round the head (V4 spec 4.2).
+    expect(m.marked).toBeGreaterThan(0);
+    expect(m.marks).toBeLessThan(64);
     // The V1 crawl itself still boxes about 3.5 KB a step in the litter-height and prop-collision
     // functions it calls (numbers passed between them): a bound only against it growing again
     // (it was about 16 KB; the hero leaves' pushers alone boxed 9 KB).

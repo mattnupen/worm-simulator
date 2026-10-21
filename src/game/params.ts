@@ -43,6 +43,8 @@ export interface GameParams {
    * robin breaks it), for Matt's review and screenshots. Not saved.
    */
   wormLength: number | null;
+  /** `?digMarks=0`: no dig markers on the ground (V4 spec 4.2; on unless turned off). */
+  digMarks: boolean;
 }
 
 /** A number param, or null when it is missing or not a finite number. */
@@ -71,5 +73,6 @@ export function parseParams(search: string): GameParams {
     robinTurn: num(p, 'robinTurn') ?? 0,
     robinDist: num(p, 'robinDist') ?? 9,
     wormLength: num(p, 'wormLength'),
+    digMarks: p.get('digMarks') !== '0',
   };
 }

@@ -46,6 +46,7 @@ import { stopCueSound } from './ui/lessonSound';
 import { markOpeningSeen, openingSeen } from './save/openingStore';
 import { sharedLighting } from './render/paintedMaterial';
 import { RobinPreview } from './predators/robinPreview';
+import { createDigMarkView } from './underground/digMarkMesh';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
@@ -127,6 +128,9 @@ function start(renderer: THREE.WebGLRenderer): void {
   const actionPrompt = createActionPrompt(app);
   // Surface or underground (V2): the game steps the crawl on the surface and digs below it.
   const { game, cut } = createBurrowing(crawl, world, app, shell.panel, store);
+  // Where the worm can dig, marked on the ground near it (V4 spec 4.2); ?digMarks=0 turns them off.
+  const digMarks = params.digMarks ? createDigMarkView() : null;
+  if (digMarks) world.scene.add(digMarks.mesh);
   // ?wormLength=0.6: the worm starts that much shorter (V4's broken worm, for review).
   if (params.wormLength !== null) { game.setWormLength(params.wormLength); crawl.reset(); }
   // The opening scene (src/opening/): its props join the scene now, hidden, so warmShaders sees them.
@@ -437,6 +441,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (frozen()) game.hold(cmds.action);
     else {
       game.step(dt, cmds.move, cmds.action, runner.running && params.dig);
+      if (digMarks && state.screen === 'crawl' && !runner.running && game.mode.mode === 'surface') digMarks.step(crawl.motion, game);
       // The Play quest counts real play only: never menus, pauses or the speed test.
       if (state.screen === 'crawl' && !runner.running && progress.playSeconds < PLAY_GOAL_SECONDS) {
         progress.playSeconds += dt;
@@ -475,6 +480,9 @@ function start(renderer: THREE.WebGLRenderer): void {
       cut.sync(alpha, clock / 1000, camera, window.innerWidth, window.innerHeight);
       opening.keepLeaf(crawl.motion.head.x, crawl.motion.head.z, game.mode.mode === 'surface');
     }
+    // Dig markers: on the surface in play only (never the opening, the speed test or below).
+    digMarks?.frame(!runner.running && game.mode.mode === 'surface' && (state.screen === 'crawl' || still),
+      crawl.motion.head, game.prompt === 'digDown', clock / 1000, still ? 0 : elapsed / 1000);
     robinPreview?.frame(clock / 1000, state.screen === 'crawl', crawl.motion.head, crawl.motion.heading);
     robinPreview?.aim(camera);
     renderer.render(world.scene, camera);
