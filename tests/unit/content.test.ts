@@ -56,7 +56,7 @@ describe('content: science honesty', () => {
     );
     expect(TEXT.burrowFact).toMatchObject({ kind: 'fact', source: 'wormwatch-ecogroups', verified: true });
     expect(shown(TEXT.burrowFact)).toBe('Real nightcrawlers dig one burrow that goes straight down, as deep as 2 meters.');
-    expect(SOURCES['wormwatch-ecogroups'].checked).toBe('2026-10-07');
+    expect(SOURCES['wormwatch-ecogroups'].checked).toBe('2026-10-21');
     expect(GAME_CHOICE_PREFIX).toBe('Game choice: ');
     expect(shown(TEXT.digDown)).toBe('Dig down');
   });

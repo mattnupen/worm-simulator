@@ -56,6 +56,17 @@ and no switching back and forth between tabs. (Matt, 2026-10-11)
 - Methods for the intro are being worked out in the "In-game learning intros" thread. Its first
   test topic is predators.
 
+### Game design thinking (Matt, 2026-10-21)
+Students practise one designer's habit every round: ask many small questions about one concrete
+thing, decide, and say why (Liz England's "The Door Problem"). The full guide, written to reuse in
+any future game, is `game-design-thinking.md`. In Worm Simulator:
+- the lesson ends with a "Think like a game designer" step that asks the round's door questions
+  about one feature (V4: eating), and the mission asks students to play like a designer;
+- the form's design section is those door questions as multiple choice, plus "Real worm, or game
+  choice? Why?" and "What would make you keep playing?" (player motivation, as what they'd do);
+- each feature's spec records its door questions, the answers, the reasons, and which came from
+  students.
+
 ### Rotating jobs (Matt, 2026-10-11)
 Every student fills in the same form, but each round they have a **job**: a lens for looking at
 their own design for the round's topic (Matt, 2026-10-12). Jobs rotate every round, so each
