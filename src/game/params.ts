@@ -38,6 +38,17 @@ export interface GameParams {
   robinAt: number | null;
   robinTurn: number;
   robinDist: number;
+  /**
+   * `?wormLength=0.6`: the worm starts at that share of its full length (V4: 0.8 and 0.6 after a
+   * robin breaks it), for Matt's review and screenshots. Not saved.
+   */
+  wormLength: number | null;
+}
+
+/** A number param, or null when it is missing or not a finite number. */
+function num(p: URLSearchParams, key: string): number | null {
+  const v = p.get(key);
+  return v !== null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null;
 }
 
 export function parseParams(search: string): GameParams {
@@ -59,10 +70,6 @@ export function parseParams(search: string): GameParams {
     robinCam: num(p, 'robinCam'),
     robinTurn: num(p, 'robinTurn') ?? 0,
     robinDist: num(p, 'robinDist') ?? 9,
+    wormLength: num(p, 'wormLength'),
   };
-}
-
-/** A finite number from the query, or null. */
-function num(p: URLSearchParams, key: string): number | null {
-  return p.has(key) && Number.isFinite(Number(p.get(key))) ? Number(p.get(key)) : null;
 }

@@ -4,7 +4,9 @@ import { stepFollowCamInto, type FollowCamState } from '../surface/followCamera'
 import { createBody, followHead } from '../worm/body';
 import { clampToNeck, stepWormInto, type WormMotion } from '../worm/locomotion';
 import { advanceWave, type WaveState } from '../worm/wormShape';
-import { WAVES, WORM_HALF_WIDTH, wormLength, type WormPose } from '../worm/wormMesh';
+import { WORM_HALF_WIDTH, type WormPose } from '../worm/wormMesh';
+import { FULL_SPACING, WORM_SEGMENTS, wormBody } from '../worm/bodyLength';
+import { EasedGap } from '../worm/easedGap';
 import { bellyHeight, wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import { floorHeight } from '../surface/litterDepth';
 import { createDisturbance, recentre, stampBody, decay, clearDisturbance, type DisturbanceMap } from '../surface/disturbance';
@@ -12,20 +14,20 @@ import {
   clearHeroLeaves, createHeroLeaves, setHeroCount, settleHeroLeaves, snapshotHeroLeaves, stepHeroLeaves,
   HERO_MAX, type HeroLeaves,
 } from '../surface/heroLeaves';
-import { createPushers, packPushers } from './pushers';
+import { createPushers, fitPushers, packPushers } from './pushers';
 import { LOCOMOTION } from './drive';
 import { disturbReach, type DisturbReach } from '../surface/leafScale';
 import { pushOut, slideMove } from '../surface/obstacles';
 import { CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
 
-export const WORM_SEGMENTS = 16;
-export const SPACING = 0.22;
+export { WORM_SEGMENTS };
+/** The gap between body points at full length (bodyLength.ts holds the length now: `wormBody.spacing`). */
+export const SPACING = FULL_SPACING;
 /** The most the body reaches to its side at its fullest swell (about 0.134): how far the spine keeps off solid props. */
 export const BODY_RADIUS = WORM_HALF_WIDTH;
 const MAX_NECK_BEND = 1.3;
 /** Slow resting "breath" of the contraction wave, in waves per second. */
 const BREATH_HZ = 0.22;
-const WAVES_PER_UNIT = WAVES / wormLength(WORM_SEGMENTS, SPACING);
 /**
  * The disturbance map centres on this segment (1.5 m behind the head), so the head and the tail,
  * plus the leaves they reach, all lie inside the map's unfaded middle.
@@ -65,6 +67,8 @@ export class Crawl {
   readonly hero: HeroLeaves = createHeroLeaves(HERO_MAX);
   /** The body as the hero leaves feel it (pushers.ts). */
   private readonly push = createPushers(WORM_SEGMENTS, SPACING);
+  /** The gap between body points, eased toward the worm's length (bodyLength.ts) when it changes. */
+  private readonly gap = new EasedGap();
   /** PUSHER_STRIDE floats per pusher ([x, z, radius, strength, top, under, belly, fall]), for the hero leaves. */
   readonly pushers = this.push.out;
   private readonly surf: WormSurface = { y: 0 };
@@ -100,7 +104,9 @@ export class Crawl {
     const head = { x: at ? at[0].x : 0, y: 0, z: at ? at[0].z : 0 };
     this.motion = { head, heading };
     head.y = this.rest(head.x, head.z);
-    const body = at ?? createBody(WORM_SEGMENTS, SPACING, head, heading);
+    this.gap.place(at);
+    fitPushers(this.push, this.gap.to);
+    const body = at ?? createBody(WORM_SEGMENTS, this.gap.value, head, heading);
     body.forEach((p, i) => (this.body[i] = { x: p.x, y: at ? this.rest(p.x, p.z) : head.y, z: p.z }));
     for (let k = 0; at && k < 3; k++) this.trail(head);
     for (let i = 0; i < WORM_SEGMENTS; i++) copy(this.prevBody[i], this.body[i]);
@@ -123,8 +129,9 @@ export class Crawl {
    * worm had been. `heroes`: how many hero leaves to scatter (the same count as now unless given).
    * With `at` (WORM_SEGMENTS points, head first) the same fresh start happens there, facing
    * `heading`: the worm coming up out of the cut, with no trail or leaf drawn across the jump. Frame
-   * 0 is `at` exactly only where the points, rested on the floor, are at most SPACING apart in 3D;
-   * farther apart (flat spacing over a slope) the body is first pulled to SPACING and off props, as a step would.
+   * 0 is `at` exactly only where the points, rested on the floor, are at most the gap apart in 3D;
+   * farther apart (flat spacing over a slope) the body is first pulled to the gap and off props, as
+   * a step would. The body starts at the length now (wormBody), or as long as `at` if that is longer.
    */
   reset(heroes = this.hero.count, at: readonly Vec3[] | null = null, heading = 0): void {
     this.place(at, heading);
@@ -182,7 +189,7 @@ export class Crawl {
 
   /** The body follows `head`, each trailing segment kept out of solid props and on its own surface (head first up a pile). */
   private trail(head: Vec3): void {
-    followHead(this.body, head, SPACING);
+    followHead(this.body, head, this.gap.value);
     for (let i = 1; i < this.body.length; i++) {
       pushOut(this.body[i], BODY_RADIUS);
       this.body[i].y = this.rest(this.body[i].x, this.body[i].z);
@@ -215,8 +222,11 @@ export class Crawl {
     head.y = this.rest(head.x, head.z);
     advanceWave(
       wave, hypot2(head.x - this.prevHead.x, head.z - this.prevHead.z), dt,
-      LOCOMOTION.speed, WAVES_PER_UNIT, BREATH_HZ,
+      LOCOMOTION.speed, wormBody.wavesPerUnit, BREATH_HZ,
     );
+    // The gap eases toward the worm's length; the leaves feel the length it is going to.
+    this.gap.step(dt);
+    fitPushers(this.push, this.gap.to);
     this.trail(head);
     const view = this.clearance.follow(head, dt);
     this.clearance.update(view, this.cam, dt);

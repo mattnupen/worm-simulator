@@ -13,7 +13,11 @@ import { hypot2 } from '../core/vec';
 /** The rise lands on the floor within this far along the cut from the head (emergePath.ts holds it to that)... */
 export const LAND_MIN = 0.2;
 export const LAND_MAX = 1.6;
-/** ...then the worm crawls this far along it: the body's length (3.3) and a little more, so it is all out. */
+/**
+ * ...then the worm crawls this far along it: the body's full length (3.3) and a little more, so it
+ * is all out. Full length on purpose: a worm made shorter by a break (bodyLength.ts) is out sooner,
+ * and the same map serves it.
+ */
 export const OUT_LENGTH = 3.45;
 /** The map's sample spacing along the cut, and its most samples. */
 const MAP_STEP = 0.05;

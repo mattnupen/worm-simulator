@@ -127,6 +127,8 @@ function start(renderer: THREE.WebGLRenderer): void {
   const actionPrompt = createActionPrompt(app);
   // Surface or underground (V2): the game steps the crawl on the surface and digs below it.
   const { game, cut } = createBurrowing(crawl, world, app, shell.panel, store);
+  // ?wormLength=0.6: the worm starts that much shorter (V4's broken worm, for review).
+  if (params.wormLength !== null) { game.setWormLength(params.wormLength); crawl.reset(); }
   // The opening scene (src/opening/): its props join the scene now, hidden, so warmShaders sees them.
   const opening = new Opening(world.scene);
   /** ?robin=1: the V4 robin's preview loop ahead of the worm (Matt's review). */
@@ -268,7 +270,8 @@ function start(renderer: THREE.WebGLRenderer): void {
   function beginOpening(): void {
     crawl.reset();
     game.reset();
-    // The worm starts curled in the bait cup, facing out of its mouth (script.ts).
+    // The worm starts curled in the bait cup, facing out of its mouth (script.ts), laid out at full
+    // length (a shorter worm draws in once it crawls).
     crawl.reset(crawl.hero.count, wormStart(WORM_SEGMENTS, SPACING).map((p) => ({ x: p.x, y: 0, z: p.z })), LIE_YAW);
     opening.start();
     world.worm.group.visible = false;

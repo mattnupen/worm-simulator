@@ -1,4 +1,4 @@
-import { SPACING, WORM_SEGMENTS } from '../game/crawl';
+import { WORM_SEGMENTS } from '../worm/bodyLength';
 import {
   pt, restAt, sampleAt, worldOf, POINT_SPEED, SHORT, TURN_RATE, WARP_STEPS, type BodyPath,
 } from './bodyPath';
@@ -46,7 +46,8 @@ const STEPS_PER_S = 60;
 
 /**
  * The body (head first) at progress q of the slide: each point slides along the path; a body bunched
- * up in a turn stretches out to its full spacing on the way (never sliding back). Each point is the
+ * up in a turn stretches out to its full spacing on the way (never sliding back), and a body still
+ * longer than the worm's length (bodyLength.ts) draws in to it. Each point is the
  * average of the path a little way either side of its place, so the body takes its own tunnel's sharp
  * bends rounder (none at the start or the end: exact there; the rise's crests only get lower).
  */
@@ -57,7 +58,7 @@ export function slideAt(p: BodyPath, q: number, outU: Float64Array, outV: Float6
   const head = p.headFrom + (p.headTo - p.headFrom) * st;
   const win = p.turnFirst ? 0 : ROUND_OFF * smootherstep(st / ROUND_IN) * (1 - smootherstep((st - 1 + ROUND_OUT) / ROUND_OUT));
   for (let i = 0; i < N; i++) {
-    const at = head - p.back[i] - (i * SPACING - p.back[i]) * st;
+    const at = head - p.back[i] - (i * p.spacing - p.back[i]) * st;
     let u = 0;
     let v = 0;
     if (win === 0) {

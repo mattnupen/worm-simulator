@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseParams } from '../../src/game/params';
 
-const NO_ROBIN = { robin: false, robinAt: null, robinTurn: 0, robinDist: 9, robinCam: null };
+const NO_ROBIN = { robin: false, robinAt: null, robinTurn: 0, robinDist: 9, robinCam: null, wormLength: null };
 
 describe('parseParams', () => {
   it('defaults: no forced preset, no fps tag, not quick, Start screen', () => {
@@ -31,5 +31,10 @@ describe('parseParams', () => {
     expect(parseParams('?robin=1&robinAt=8&robinTurn=90&robinDist=6&robinCam=30'))
       .toMatchObject({ robin: true, robinAt: 8, robinTurn: 90, robinDist: 6, robinCam: 30 });
     expect(parseParams('?robin=yes&robinDist=abc&robinAt=x')).toMatchObject({ robin: false, robinDist: 9, robinAt: null });
+  });
+  it('reads ?wormLength= (a short worm to look at) and ignores one that is not a number', () => {
+    expect(parseParams('?wormLength=0.6').wormLength).toBe(0.6);
+    expect(parseParams('?wormLength=short').wormLength).toBeNull();
+    expect(parseParams('?wormLength=').wormLength).toBeNull();
   });
 });

@@ -11,7 +11,7 @@ import type { Burrower } from './burrower';
  */
 /** Open tunnel radius: about the body's half-width. */
 export const TUNNEL_R = 0.14;
-/** A casting every this far (about 1.3 body lengths). */
+/** A casting every this far (about 1.3 full body lengths; the same for a shorter worm: bodyLength.ts). */
 export const CAST_EVERY = 4.5;
 const CAST_R = 0.15;
 /**

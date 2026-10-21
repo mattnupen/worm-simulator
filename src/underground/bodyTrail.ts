@@ -1,5 +1,5 @@
-import { SPACING, WORM_SEGMENTS } from '../game/crawl';
-import { hypot2 } from '../core/vec';
+import { FULL_SPACING, WORM_SEGMENTS } from '../worm/bodyLength';
+import { easeLinks, seedLinks, type TrailLinks } from './trailLinks';
 
 /**
  * The burrowing body rides its head's trail (V2 emergency fix, spec 2026-10-08 section 3): a chain
@@ -34,14 +34,6 @@ export const TRAIL_STEP = 0.02;
 export const TRAIL_LAG = 0.1;
 /** Most trail points kept (about 160 u of path); when full the oldest half is dropped. */
 export const TRAIL_CAP = 8192;
-/** Seeded links ease to SPACING at this share per unit (u) the head moves... */
-const LEN_EASE = 2;
-/**
- * ...but the body grows by at most this share of the head's move: short seeded links grew faster
- * than the head moved, and the tail slid back along the trail.
- */
-const GROW_MOST = 0.5;
-
 /** The body the trail poses: points head first, now and at the last step. */
 export interface TrailBody {
   readonly u: Float64Array;
@@ -50,7 +42,7 @@ export interface TrailBody {
   readonly prevV: Float64Array;
 }
 
-export interface BodyTrail {
+export interface BodyTrail extends TrailLinks {
   /** Trail points, oldest first; point n - 1 is the live pursuit point (the pinned head while backed). */
   readonly u: Float64Array;
   readonly v: Float64Array;
@@ -62,8 +54,6 @@ export interface BodyTrail {
    * for it starts. The head's only while backed (moving forward, it is just past the trail's end).
    */
   readonly at: Float64Array;
-  /** len[i]: the link from body point i - 1 to point i (i >= 1), as arc length (u) along the trail. */
-  readonly len: Float64Array;
   /** The head has backed along the trail since it last moved forward (its place is at[0]). */
   backed: boolean;
 }
@@ -72,7 +62,8 @@ export interface BodyTrail {
 export function createTrail(): BodyTrail {
   return {
     u: new Float64Array(TRAIL_CAP), v: new Float64Array(TRAIL_CAP), arc: new Float64Array(TRAIL_CAP), n: 0,
-    at: new Float64Array(N), len: new Float64Array(N).fill(SPACING), backed: false,
+    at: new Float64Array(N), len: new Float64Array(N).fill(FULL_SPACING), backed: false,
+    gap: FULL_SPACING, drawIn: false,
   };
 }
 
@@ -152,7 +143,7 @@ function dropHalf(t: BodyTrail): void {
 
 /**
  * A fresh trail through the body's points, tail first, with a live point at the head; the links
- * keep their lengths (eased to SPACING as the worm moves: nothing pops).
+ * keep their lengths (eased to the worm's gap as the worm moves: nothing pops).
  */
 export function seedTrail(t: BodyTrail, b: Pick<TrailBody, 'u' | 'v'>): void {
   t.n = 0;
@@ -164,15 +155,15 @@ export function seedTrail(t: BodyTrail, b: Pick<TrailBody, 'u' | 'v'>): void {
   }
   // The head's own point stays where it was seeded; this copy is the live point that pursues it.
   push(t);
-  for (let i = 1; i < N; i++) t.len[i] = Math.max(1e-3, hypot2(b.u[i] - b.u[i - 1], b.v[i] - b.v[i - 1]));
+  seedLinks(t, b);
   t.backed = false;
 }
 
 /**
  * After the head moved forward: if it had backed, the trail is cut at its place (the old branch
  * stays in the soil, not in the record); the pursuit point is drawn to within TRAIL_LAG of the
- * head and committed every TRAIL_STEP; the links ease toward SPACING. It commits at most one point
- * a step: when the head jumps further, the live segment is longer than TRAIL_STEP, a straight
+ * head and committed every TRAIL_STEP; the links ease toward the worm's gap (trailLinks.ts). It
+ * commits at most one point a step: when the head jumps further, the live segment is longer than TRAIL_STEP, a straight
  * chord of the head's path, which is fine.
  */
 export function followHead(t: BodyTrail, b: TrailBody): void {
@@ -200,14 +191,7 @@ export function followHead(t: BodyTrail, b: TrailBody): void {
     pt.v = t.v[k];
     push(t);
   }
-  const mu = b.u[0] - b.prevU[0];
-  const mv = b.v[0] - b.prevV[0];
-  const moved = Math.sqrt(mu * mu + mv * mv);
-  let e = Math.min(1, moved * LEN_EASE);
-  let grow = 0;
-  for (let i = 1; i < N; i++) grow += (SPACING - t.len[i]) * e;
-  if (grow > GROW_MOST * moved) e *= (GROW_MOST * moved) / grow;
-  for (let i = 1; i < N; i++) t.len[i] += (SPACING - t.len[i]) * e;
+  easeLinks(t, b);
 }
 
 /** The head's arc length (`a`), and its distance (u) past the live point while moving forward (`d`). */
