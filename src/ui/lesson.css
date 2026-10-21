@@ -241,3 +241,28 @@
   .lesson-progress .pip { width: 18px; }
   .cue-captions { flex-direction: column; gap: 8px; }
 }
+
+/* Body tour ("Follow the leaf"): a drawing of the worm's insides, head on the left. The part the
+   leaf is in gets a thick dark outline and a label above it, and the box under the drawing says
+   the same in words. The leaf glides between parts (no glide under reduced motion). */
+.body-diagram { margin: 6px 0 2px; }
+.body-diagram svg { display: block; width: 100%; height: auto; }
+.body-caption { font-size: 16px; font-style: italic; text-align: center; margin-top: 2px; }
+.body-skin { fill: #d69a86; stroke: #6b3d2e; stroke-width: 3; }
+.body-band { fill: #c27a63; }
+.body-furrows { fill: none; stroke: rgba(107, 61, 46, 0.35); stroke-width: 1.5; }
+.body-tube { fill: none; stroke: #8a5a44; stroke-width: 7; stroke-linecap: round; }
+.body-part > * { fill: #b27a63; stroke: #6b3d2e; stroke-width: 2; }
+.body-part.seen > * { fill: #8a5a44; }
+.body-part.here > * { fill: #f2c14e; stroke: #2a1a10; stroke-width: 4; }
+.body-leaf { transition: transform 0.6s ease-in-out; }
+.body-leaf path { fill: #4f8a2c; stroke: #1f3d10; stroke-width: 1.5; }
+.body-leaf .body-leaf-vein { fill: none; stroke: #1f3d10; }
+.body-label text { font: 800 24px/1 system-ui, sans-serif; fill: #2a1a10; }
+.body-label-line { fill: none; stroke: #2a1a10; stroke-width: 2.5; }
+.body-now:empty { display: none; }
+.body-now-on { padding: 8px 12px; border: 3px solid var(--ink); border-radius: 12px; background: rgba(255, 251, 241, 0.85); margin: 6px 0 10px; }
+.body-now .lesson-line { font-size: 18px; line-height: 1.4; margin: 2px 0 0 !important; }
+.body-stops { margin: 6px 0 0 !important; padding-left: 28px; display: grid; gap: 6px; }
+.body-done { font-weight: 800; margin-top: 6px !important; }
+@media (prefers-reduced-motion: reduce) { .body-leaf { transition: none; } }

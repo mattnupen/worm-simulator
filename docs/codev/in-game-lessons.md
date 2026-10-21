@@ -27,7 +27,7 @@ data file, so a new topic needs no new code. E stays for the version's main feat
 ## How a lesson is built
 
 A lesson is one file in `src/content/lessons/` (the predators one is `predators.ts`). It's a list of
-steps, each one of five kinds:
+steps, each one of these kinds:
 
 | Step | What students see |
 |---|---|
@@ -35,6 +35,7 @@ steps, each one of five kinds:
 | `story` | One big idea in two or three short lines |
 | `predict` | A question with 2–4 answers (radio buttons), then "What scientists found". With `answer`, that option is marked "Correct" after a guess |
 | `sense` | A film-like moment over the forest (`shadow`, `thump` or `robin`): the card fades out, black bars close in, the cue plays with its sound, and the `scene` and cue words show as captions with Skip. When the cue ends, Skip becomes Next and waits for the student; then the card comes back with the question and the reveal |
+| `body` | "Follow the leaf": a code-drawn diagram of the worm's insides, captioned as a drawing. Each tap moves a bit of leaf to the next part and shows its name and fact; at the end the whole trip shows as a list. Next waits for the last part (V4) |
 | `meet` | 2–6 animals as photo cards; "Find out" on each shows its fact (replaced `sort`, which Matt found confusing: it was a quiz where every answer was the same) |
 | `mission` | Always last: "While you play, notice…" and the reminder to vote on the form in Canvas |
 
@@ -85,10 +86,13 @@ under their own save key, `wormsim.lessons`, so older versions never see it.
    - a guess (`predict`);
    - a worm's-eye moment (`sense`), if the topic has a sense the worm uses;
    - a `sort`, if the topic has a "which ones" idea;
-   - a `story` that sets up the design question;
+   - a `story` that sets up the design question: "Think like a game designer", the round's door
+     questions about one feature (`docs/codev/game-design-thinking.md`), with no new facts;
    - the `mission`.
 4. **Matt reviews.** He gets:
-   - a preview link where the lesson opens straight away (`?lesson=1`);
+   - a preview link where the lesson opens straight away: `?lesson=1` for the current lesson, or
+     `?lesson=<id>` (for example `?lesson=eating`) for the next round's lesson before it becomes
+     `CURRENT_LESSON`;
    - screenshots of each step;
    - the fact table.
 

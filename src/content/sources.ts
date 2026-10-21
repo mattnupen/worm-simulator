@@ -44,7 +44,12 @@ export type SourceId =
   | 'allaboutbirds-woodcock'
   | 'scott-2023'
   | 'mndnr-redbelly-snake'
-  | 'uw-ground-beetles';
+  | 'uw-ground-beetles'
+  | 'wormwatch-trees'
+  | 'sciencelearn-earthworm'
+  | 'usbg-earthworms'
+  | 'esb-biology'
+  | 'esb-food';
 
 export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'mndnr-humus': {
@@ -58,7 +63,7 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     title: 'Earthworms',
     publisher: 'Minnesota DNR',
     url: 'https://www.dnr.state.mn.us/invasives/terrestrialanimals/earthworms/index.html',
-    checked: '2026-10-16',
+    checked: '2026-10-21',
   },
   'wormwatch-forest': {
     title: 'About the Forest',
@@ -72,14 +77,14 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     publisher: 'Great Lakes Worm Watch, University of Minnesota Duluth',
     short: 'Great Lakes Worm Watch',
     url: 'https://wormwatch.d.umn.edu/forest-ecology-and-worms/soil-and-forest-floor/soil-and-worms',
-    checked: '2026-10-04',
+    checked: '2026-10-21',
   },
   'wormwatch-ecogroups': {
     title: 'Earthworm Ecological Groups',
     publisher: 'Great Lakes Worm Watch, University of Minnesota Duluth',
     short: 'Great Lakes Worm Watch',
     url: 'https://wormwatch.d.umn.edu/worm-id/earthworm-ecological-groups',
-    checked: '2026-10-07',
+    checked: '2026-10-21',
   },
   'wormwatch-vertebrates': {
     title: 'Vertebrate Animals',
@@ -152,7 +157,7 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     publisher: 'Colorado State University, Arthropods of Colorado',
     short: 'Colorado State University',
     url: 'https://webdoc.agsci.colostate.edu/bspm/arthropodsofcolorado/Nightcrawlers.pdf',
-    checked: '2026-10-11',
+    checked: '2026-10-21',
   },
   'nuutinen-2014': {
     title: 'Dew-worms in white nights',
@@ -232,6 +237,39 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     short: 'UW–Madison Extension',
     url: 'https://hort.extension.wisc.edu/articles/ground-beetles/',
     checked: '2026-10-12',
+  },
+  'wormwatch-trees': {
+    title: 'Trees',
+    publisher: 'Great Lakes Worm Watch, University of Minnesota Duluth',
+    short: 'Great Lakes Worm Watch',
+    url: 'https://wormwatch.d.umn.edu/forest-ecology-and-worms/plants/trees',
+    checked: '2026-10-21',
+  },
+  'sciencelearn-earthworm': {
+    title: 'Inside of an earthworm',
+    publisher: 'Science Learning Hub, University of Waikato',
+    short: 'Science Learning Hub',
+    url: 'https://www.sciencelearn.org.nz/image_maps/24-inside-of-an-earthworm',
+    checked: '2026-10-21',
+  },
+  'usbg-earthworms': {
+    title: 'Earthworms Science Page: Earthworms are adapted for living in soil',
+    publisher: 'United States Botanic Garden',
+    short: 'U.S. Botanic Garden',
+    url: 'https://www.usbg.gov/sites/default/files/images/earthworm_science_page.pdf',
+    checked: '2026-10-21',
+  },
+  'esb-biology': {
+    title: 'Earthworm Biology',
+    publisher: 'Earthworm Society of Britain',
+    url: 'https://www.earthwormsoc.org.uk/earthworm-biology',
+    checked: '2026-10-21',
+  },
+  'esb-food': {
+    title: 'What do earthworms eat?',
+    publisher: 'Earthworm Society of Britain',
+    url: 'https://www.earthwormsoc.org.uk/node/61',
+    checked: '2026-10-21',
   },
 };
 
