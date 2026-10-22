@@ -27,6 +27,7 @@ import { createShell } from './ui/shell';
 import { showCrawl, showLost, showPause, showStart, showVote } from './ui/menus';
 import { showSettings } from './ui/settingsMenu';
 import { setSoundEnabled } from './ui/lessonSound';
+import { applyTextSize } from './ui/textSize';
 import { createActionPrompt } from './ui/actionPrompt';
 import { showResult, showRunning, showTestIntro } from './ui/speedTestUi';
 import { showUnderground } from './ui/undergroundHint';
@@ -103,9 +104,13 @@ function start(renderer: THREE.WebGLRenderer): void {
   // world build, so no frame is ever painted with an empty card. (The no-WebGL path shows its
   // FAIL card just as synchronously, above.) Its buttons only act once run() has finished.
   const store = browserStore();
+  const saved = loadSettings(store);
   /** Sound effects on or off (Settings), as saved. */
-  let sound = loadSettings(store).sound;
+  let sound = saved.sound;
   setSoundEnabled(sound);
+  /** Text size (Settings), as saved: set before any card shows. */
+  let textSize = saved.textSize;
+  applyTextSize(textSize);
   // This round's Play and Vote progress (the quest list on Start; src/game/quests.ts).
   const progress = loadRound(store, VERSION.number);
   let playSaved = progress.playSeconds;
@@ -477,7 +482,7 @@ function start(renderer: THREE.WebGLRenderer): void {
         }, fromGraphics);
       case 'graphics':
         // The Settings screen (the 'graphics' screen state, kept from when it held Graphics only).
-        return showSettings(shell, { graphics: graphics.choice, sound }, {
+        return showSettings(shell, { graphics: graphics.choice, sound, textSize }, {
           onGraphics: (c) => {
             graphics.choose(c);
             applyActive();
@@ -485,6 +490,10 @@ function start(renderer: THREE.WebGLRenderer): void {
           onSound: (on) => {
             sound = updateSettings(store, { sound: on }).sound;
             setSoundEnabled(sound);
+          },
+          onTextSize: (size) => {
+            textSize = updateSettings(store, { textSize: size }).textSize;
+            applyTextSize(textSize);
           },
           onBack: () => dispatch({ type: 'back' }),
         });

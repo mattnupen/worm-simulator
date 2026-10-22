@@ -331,3 +331,24 @@ test('Settings has Sound on or off, saved only once switched', async ({ page }) 
   await button(page, 'Settings').click();
   await expect(radio(page, 'Off')).toBeChecked();
 });
+
+test('Settings has Text size (Normal, Big, Bigger): it applies at once and is saved only once picked', async ({ page }) => {
+  await page.goto(PAGE);
+  const rootPx = () => page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+  // Normal is a little larger than the browser's 16px (Matt, 2026-10-22).
+  expect(await rootPx()).toBeCloseTo(17, 0);
+  await button(page, 'Settings').click();
+  await expect(radio(page, 'Normal')).toBeChecked();
+  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
+  expect((await saved())?.textSize).toBeUndefined();
+  const before = await page.getByRole('heading', { name: 'Settings' }).evaluate((h) => h.getBoundingClientRect().height);
+  await radio(page, 'Bigger').check();
+  await expect.poll(async () => (await saved())?.textSize).toBe('bigger');
+  expect(await rootPx()).toBeCloseTo(21, 0);
+  const after = await page.getByRole('heading', { name: 'Settings' }).evaluate((h) => h.getBoundingClientRect().height);
+  expect(after).toBeGreaterThan(before);
+  await page.reload();
+  expect(await rootPx()).toBeCloseTo(21, 0);
+  await button(page, 'Settings').click();
+  await expect(radio(page, 'Bigger')).toBeChecked();
+});

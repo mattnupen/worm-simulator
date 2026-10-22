@@ -1,8 +1,10 @@
-/* The in-game lesson (lesson.ts): a wide parchment card bottom-left over the live forest, with the
-   same rules as every card: 18px+ text, 7:1 ink, 4px focus rings, 48px+ targets, no flashing,
+/* The in-game lesson (lesson.ts): a wide Leaf light card (tokens in theme.css) bottom-left over the live forest, with the
+   same rules as every card: 18px+ text at Normal size, 7:1 ink, 4px focus rings, 48px+ targets, no flashing,
    motion off under reduced motion. */
 .panel[data-state="lesson"] {
-  left: var(--edge); bottom: var(--edge-y); width: min(720px, calc(100vw - 32px));
+  left: var(--edge); bottom: var(--edge-y); width: min(43rem, calc(100vw - 32px));
+  /* Solid, not see-through: a long read, and the sticky Next bar must match it. */
+  background: var(--card-solid);
   max-height: calc(100dvh - var(--edge-y) - 16px);
 }
 .lesson-progress { display: flex; align-items: center; justify-content: flex-start; gap: 12px; margin-bottom: 10px; }
@@ -11,11 +13,11 @@
   clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 .lesson-progress .pips { margin: 0; gap: 6px; }
-.lesson-progress .pip { width: 28px; height: 10px; }
-.lesson-progress .pip.here { background: linear-gradient(90deg, #f4b244, #e07a26); }
+.lesson-progress .pip { width: 28px; height: 6px; }
+.lesson-progress .pip.here { background: var(--now); }
 .lesson-title { margin-bottom: 12px !important; }
 .lesson-title:focus { outline: none; }
-.lesson-title:focus-visible { outline: 4px solid var(--focus); outline-offset: 4px; }
+.lesson-title:focus-visible { outline: 4px solid var(--focus); outline-offset: 4px; border-radius: 6px; }
 .panel .lesson-line + .lesson-line, .panel .fact + .fact, .panel .lesson-line + .fact,
 .panel .fact + .lesson-line { margin-top: 10px; }
 .lesson-question { font-weight: 700; margin-top: 4px !important; }
@@ -23,21 +25,21 @@
 /* Questions: real radio buttons, like the Graphics menu (parchment.css .choice), a little slimmer. */
 .lesson-choices { margin-top: 8px; gap: 8px; }
 .lesson-choices legend { padding: 0; margin-bottom: 8px; }
-.lesson-choices .choice { min-height: 54px; padding: 8px 14px; border-width: 2px; }
-.lesson-choices .choice:has(input:checked) { border-width: 3px; }
-.lesson-choices .choice-name { font-size: 21px; font-weight: 700; }
+.lesson-choices .choice { min-height: 52px; padding: 8px 14px; }
+.lesson-choices .choice:has(input:checked) { padding: 7px 13px; }
+.lesson-choices .choice-name { font-size: 1.25rem; font-weight: 500; }
 .lesson-choices .choice-words { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .choice-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .choice-tags:empty { display: none; }
 /* The answer, marked after a guess in words and a tick (never colour alone). */
 .choice-tag {
   display: inline-flex; align-items: center; gap: 4px; padding: 1px 10px; border-radius: 99px;
-  font-size: 18px; font-weight: 800; line-height: 1.5;
+  font-size: 1.125rem; font-weight: 800; line-height: 1.5;
 }
-.choice-tag.correct { background: #dcebc9; border: 2px solid var(--moss); color: #1f3a0e; }
+.choice-tag.correct { background: var(--good); border: 1px solid var(--done); color: var(--good-ink); }
 .tag-icon { display: inline-flex; width: 18px; height: 18px; }
 .tag-icon svg { width: 100%; height: 100%; }
-.btn.btn-small { min-height: 48px; font-size: 19px; padding: 6px 14px; width: auto; }
+.btn.btn-small { min-height: 48px; font-size: 1.1875rem; padding: 6px 14px; width: auto; }
 .btn-small .btn-icon { width: 22px; height: 22px; }
 .lesson-tools { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 14px; }
 .panel[data-state="lesson"] .menu { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 18px; }
@@ -46,25 +48,25 @@
 /* What scientists found: a framed note, like a field-guide inset. */
 .reveal {
   margin-top: 14px; padding: 12px 16px; border-radius: 14px;
-  border: 2px solid rgba(90, 56, 24, 0.55); background: rgba(255, 251, 241, 0.85);
+  border: 1px solid var(--line); background: var(--row);
 }
 .reveal[hidden] { display: none; }
 /* Guess first: nothing is revealed on the step; the mission shows the guess and the answer. */
-.guess-hint, .guess-later { font-size: 19px; font-style: italic; }
+.guess-hint, .guess-later { font-size: 1.1875rem; font-style: italic; }
 .guess-later[hidden] { display: none; }
 .guess-recap { margin-bottom: 12px; }
-.guess-pick, .guess-answer { font-size: 20px; font-weight: 700; }
+.guess-pick, .guess-answer { font-size: 1.25rem; font-weight: 700; }
 .guess-answer { display: flex; align-items: center; gap: 6px; }
-.guess-form { font-size: 18px; font-style: italic; margin-top: 8px !important; }
-.reveal-head { font-weight: 800; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px !important; }
+.guess-form { font-size: 1.125rem; font-style: italic; margin-top: 8px !important; }
+.reveal-head { font-weight: 700; font-size: 1.125rem; color: var(--accent); margin-bottom: 6px !important; }
 /* Sources: listed in a panel (the Sources button, and the end of Tell me more), not on the card. */
-.source-head { font-weight: 800; font-size: 18px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
-.source-list { margin: 4px 0 0; padding-left: 22px; font-size: 18px; }
+.source-head { font-weight: 700; font-size: 1.125rem; color: var(--accent); }
+.source-list { margin: 4px 0 0; padding-left: 22px; font-size: 1.125rem; }
 .source-list li + li { margin-top: 6px; }
 .source-list + .source-head { margin-top: 14px; }
-.source-list a { color: #1d4f8c; text-decoration: underline; text-underline-offset: 3px; font-weight: 700; }
+.source-list a { color: var(--link); text-decoration: underline; text-underline-offset: 3px; font-weight: 700; }
 .source-list a:focus-visible, .video-link:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; }
-.more-sources { margin-top: 18px !important; padding-top: 10px; border-top: 2px solid rgba(90, 56, 24, 0.35); }
+.more-sources { margin-top: 18px !important; padding-top: 10px; border-top: 1px solid var(--line); }
 .more-sources:empty { display: none; }
 
 /* Real photos (lesson.ts photo()): the animal, its name, and the credit its license asks for. */
@@ -77,17 +79,17 @@
 .photo-zoom:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 .zoom-icon {
   position: absolute; right: 8px; bottom: 8px; width: 36px; height: 36px; padding: 6px; box-sizing: border-box;
-  border-radius: 50%; background: rgba(255, 250, 234, 0.92); color: var(--ink); border: 2px solid var(--bark-dark);
+  border-radius: 50%; background: var(--card); color: var(--ink); border: 1px solid var(--line);
 }
 .zoom-icon svg { width: 100%; height: 100%; display: block; }
 .lesson-photo img {
   /* The whole photo, never cropped (an animal's head must not be cut off). */
   display: block; max-width: 100%; width: auto; height: auto; max-height: min(260px, 32dvh);
-  margin: 0 auto; border-radius: 12px; border: 3px solid rgba(90, 56, 24, 0.6); background: #d9c49a;
+  margin: 0 auto; border-radius: var(--radius-row); border: 1px solid var(--line); background: #d9c49a;
 }
 .lesson-photo figcaption { margin-top: 4px; text-align: center; }
 .photo-name { font-weight: 800; }
-.photo-credit { font-size: 18px; color: var(--ink-soft); font-style: italic; }
+.photo-credit { font-size: 1.125rem; color: var(--ink-soft); font-style: italic; }
 .reveal .lesson-photo { margin-top: 4px; }
 
 /* Steps hide parts until they're needed (a scene's question, Next): stronger than any display. */
@@ -109,49 +111,49 @@
    card gets a solid border and a tick by its name; one still to find has a dashed border. */
 .meet-count { font-weight: 800; color: var(--ink); margin-top: 4px !important; }
 .meet-list { list-style: none; padding: 0; margin: 8px 0 0 !important; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-.meet-card { padding: 8px 10px; border: 2px dashed rgba(90, 56, 24, 0.5); border-radius: 14px; background: rgba(255, 251, 241, 0.7); display: grid; grid-template-columns: 112px 1fr; gap: 10px; align-items: start; }
-.meet-card.found { border-style: solid; }
+.meet-card { padding: 8px 10px; border: 2px dashed var(--line-strong); border-radius: var(--radius-row); background: var(--row); display: grid; grid-template-columns: 112px 1fr; gap: 10px; align-items: start; }
+.meet-card.found { border: 1px solid var(--line); padding: 9px 11px; }
 .meet-card .lesson-photo { margin: 0; }
 .meet-card .lesson-photo img { width: 112px; height: 84px; max-height: none; object-fit: cover; border-width: 2px; }
 .meet-words { display: grid; gap: 6px; justify-items: start; }
-.meet-words .lesson-line { font-size: 18px; line-height: 1.4; }
+.meet-words .lesson-line { font-size: 1.125rem; line-height: 1.4; }
 .meet-name { font-weight: 800; line-height: 1.25; }
 .meet-card .zoom-icon { width: 30px; height: 30px; padding: 5px; right: 4px; bottom: 4px; }
-.meet-card.found .meet-name::before { content: '✓ '; color: var(--moss); }
+.meet-card.found .meet-name::before { content: '✓ '; color: var(--done); }
 
 /* "Tell me more" and the photo view: a parchment panel over a dimmed screen. */
 .more-btn { margin-top: 14px; }
 .btn.more-btn { white-space: normal; text-align: left; }
 /* Next is always there; until the step is answered it's grayed out and a line says why. */
-.panel[data-state="lesson"] .btn:disabled { opacity: 0.55; filter: grayscale(1); cursor: not-allowed; }
+.panel[data-state="lesson"] .btn:disabled { cursor: not-allowed; }
 /* Next and Back (and the line saying why Next waits) stay in view at the bottom of the card, even
    when the card scrolls. */
 .lesson-foot {
-  position: sticky; bottom: -26px; z-index: 1; margin: 0 -8px -26px; padding: 10px 8px 26px;
-  background: linear-gradient(180deg, rgba(248, 238, 214, 0), var(--parchment) 16px);
+  position: sticky; bottom: -24px; z-index: 1; margin: 0 -8px -24px; padding: 10px 8px 24px;
+  background: linear-gradient(180deg, rgba(255, 250, 238, 0), var(--card-solid) 16px);
 }
 .next-hint { font-weight: 700; text-align: right; color: var(--ink-soft); }
 .panel[data-state="lesson"] .lesson-foot .menu { margin-top: 6px; }
 .lesson-dialog {
-  box-sizing: border-box; width: min(820px, calc(100vw - 24px)); max-height: calc(100dvh - 24px);
-  padding: 18px 22px 22px; border: 3px solid var(--bark-dark); border-radius: 20px;
-  color: var(--ink); font-size: 20px; line-height: 1.45;
-  background: linear-gradient(180deg, var(--parchment-hi), var(--parchment));
-  box-shadow: 0 20px 60px rgba(20, 10, 2, 0.6);
+  box-sizing: border-box; width: min(49rem, calc(100vw - 24px)); max-height: calc(100dvh - 24px);
+  padding: 18px 22px 22px; border: 1px solid var(--line); border-radius: var(--radius-card);
+  color: var(--ink); font-size: 1.25rem; line-height: 1.45;
+  background: var(--card-solid);
+  box-shadow: var(--shadow-card);
 }
-.lesson-dialog::backdrop { background: rgba(14, 8, 2, 0.72); }
+.lesson-dialog::backdrop { background: var(--backdrop); }
 .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.dialog-title { margin: 0; font-family: var(--font-display); font-size: 30px; line-height: 1.15; }
+.dialog-title { margin: 0; font-family: var(--font-display); font-size: 1.875rem; line-height: 1.15; }
 .dialog-body > * + * { margin-top: 12px; }
 .dialog-body p { margin: 0; }
 .dialog-body > p + p { margin-top: 12px; }
 .photo-dialog img { cursor: zoom-out; display: block; max-width: 100%; max-height: calc(100dvh - 190px); margin: 0 auto; border-radius: 12px; }
 .photo-dialog .photo-credit { text-align: right; }
 .more-video { display: grid; gap: 8px; }
-.video-box { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #120b04; border: 3px solid var(--bark-dark); }
+.video-box { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-row); overflow: hidden; background: #120b04; }
 .video-box iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .video-link {
-  display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: #1d4f8c;
+  display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--link);
   text-decoration: underline; text-underline-offset: 3px; justify-self: end; text-align: right;
 }
 
@@ -201,8 +203,8 @@
 }
 .cue-captions[hidden] { display: none; }
 .cue-words { max-width: 860px; text-align: center; }
-.cue-line { margin: 0; font-size: 21px; font-style: italic; color: #e8dcc0; }
-.cue-line.now { font-size: 24px; font-style: normal; font-weight: 800; color: #fff7e2; }
+.cue-line { margin: 0; font-size: 1.3125rem; font-style: italic; color: #e8dcc0; }
+.cue-line.now { font-size: 1.5rem; font-style: normal; font-weight: 800; color: #fff7e2; }
 .cue-skip { flex: none; }
 @keyframes cue-fade { from { opacity: 0; } }
 
@@ -247,7 +249,7 @@
    the same in words. The leaf glides between parts (no glide under reduced motion). */
 .body-diagram { margin: 6px 0 2px; }
 .body-diagram svg { display: block; width: 100%; height: auto; }
-.body-caption { font-size: 16px; font-style: italic; text-align: center; margin-top: 2px; }
+.body-caption { font-size: 1rem; font-style: italic; text-align: center; margin-top: 2px; }
 .body-skin { fill: #d69a86; stroke: #6b3d2e; stroke-width: 3; }
 .body-band { fill: #c27a63; }
 .body-furrows { fill: none; stroke: rgba(107, 61, 46, 0.35); stroke-width: 1.5; }
@@ -261,8 +263,8 @@
 .body-label text { font: 800 24px/1 system-ui, sans-serif; fill: #2a1a10; }
 .body-label-line { fill: none; stroke: #2a1a10; stroke-width: 2.5; }
 .body-now:empty { display: none; }
-.body-now-on { padding: 8px 12px; border: 3px solid var(--ink); border-radius: 12px; background: rgba(255, 251, 241, 0.85); margin: 6px 0 10px; }
-.body-now .lesson-line { font-size: 18px; line-height: 1.4; margin: 2px 0 0 !important; }
+.body-now-on { padding: 8px 12px; border: 2px solid var(--line-strong); border-radius: var(--radius-row); background: var(--row); margin: 6px 0 10px; }
+.body-now .lesson-line { font-size: 1.125rem; line-height: 1.4; margin: 2px 0 0 !important; }
 .body-stops { margin: 6px 0 0 !important; padding-left: 28px; display: grid; gap: 6px; }
 .body-done { font-weight: 800; margin-top: 6px !important; }
 @media (prefers-reduced-motion: reduce) { .body-leaf { transition: none; } }

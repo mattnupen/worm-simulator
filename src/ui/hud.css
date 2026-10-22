@@ -1,29 +1,31 @@
-/* In-game HUD: the fps tag, the Pause button and the joystick. Same accessibility rules as
-   the cards: 18px+ text, 7:1 ink on parchment, 4px focus ring, 48px+ targets. */
+/* In-game HUD: the fps tag, the Pause button and the joystick, in the Leaf light style (tokens in
+   theme.css). Same accessibility rules as the cards: 18px+ text, 7:1 ink on cream, 4px focus ring,
+   48px+ targets. */
 
 /* ---------- fps tag (?fps=1, and always while the speed test runs) ---------- */
 .fps {
   position: fixed; z-index: 1; top: 12px; right: 12px; display: flex; align-items: center; gap: 8px;
-  padding: 6px 14px 6px 12px; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums;
-  color: var(--ink); background: linear-gradient(180deg, var(--parchment-hi), #f3e5c4);
-  border: 2px solid var(--bark); border-radius: 14px 18px 14px 18px / 18px 14px 18px 14px;
-  box-shadow: 0 3px 8px rgba(30, 14, 2, 0.35);
+  padding: 6px 14px 6px 12px; font-size: 1.125rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--ink); background: var(--card);
+  border: 1px solid var(--line); border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-float);
 }
 .fps::before {
-  content: ''; width: 10px; height: 10px; border-radius: 0 100% 0 100%;
-  background: linear-gradient(135deg, #e8892a, #b8481a);
+  content: ''; width: 10px; height: 10px; border-radius: 0 100% 0 100%; background: var(--leaf);
 }
 .fps:empty { display: none; }
 /* While crawling the Pause button owns the top-right corner. */
-[data-ui="crawl"] > .fps { top: 84px; }
+[data-ui="crawl"] > .fps { top: 76px; }
 /* Narrow screens: the hint card sits under Pause (parchment.css), so the tag goes beside Pause. */
 @media (max-width: 560px) { [data-ui="crawl"] > .fps { top: 22px; right: 165px; } }
 
 /* ---------- Pause button (crawl only) ---------- */
 .pause-btn.btn {
   position: fixed; z-index: 3; top: 12px; right: 12px; width: auto; min-width: 112px;
-  min-height: 60px; padding: 8px 18px; font-size: 21px;
+  min-height: 52px; padding: 6px 20px; font-size: 1.1875rem; font-weight: 600;
+  background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-float);
 }
+.pause-btn.btn:hover { background: var(--card-solid); }
 /* Hidden unless crawling, including before the first shell.show() sets data-ui. */
 :not([data-ui="crawl"]) > .pause-btn.btn { display: none; }
 
@@ -32,18 +34,17 @@
 .joystick {
   position: fixed; z-index: 1; left: 24px; bottom: 24px; width: 140px; height: 140px; border-radius: 50%;
   touch-action: none; cursor: grab;
+  box-sizing: border-box;
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 140' fill='%235a3818' fill-opacity='.7'%3E%3Cpath d='M70 9l9 10H61zM70 131l-9-10h18zM9 70l10-9v18zM131 70l-10 9V61z'/%3E%3C/svg%3E") center / 100% 100% no-repeat,
-    radial-gradient(circle, rgba(255, 248, 228, 0.35) 0 40%, rgba(255, 248, 228, 0.6) 41% 100%);
-  border: 3px solid rgba(61, 36, 12, 0.85);
-  box-shadow: inset 0 0 0 5px rgba(255, 250, 235, 0.35), 0 6px 18px rgba(30, 14, 2, 0.35);
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 140' fill='%23fffaee' fill-opacity='.9'%3E%3Cpath d='M70 9l9 10H61zM70 131l-9-10h18zM9 70l10-9v18zM131 70l-10 9V61z'/%3E%3C/svg%3E") center / 100% 100% no-repeat,
+    rgba(255, 250, 238, 0.22);
+  border: 2px solid rgba(255, 250, 238, 0.9);
+  box-shadow: 0 2px 10px rgba(30, 14, 2, 0.25);
 }
 .joystick-knob {
   position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px;
   box-sizing: border-box; border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle at 36% 30%, #fff8e2 0%, #f6cd73 55%, #d8913a 100%);
-  border: 3px solid var(--bark-dark);
-  box-shadow: inset 0 -3px 0 rgba(120, 60, 10, 0.25), 0 4px 8px rgba(30, 14, 2, 0.4);
+  background: var(--card-solid); box-shadow: 0 2px 6px rgba(30, 14, 2, 0.3);
 }
 
 /* ---------- Action prompt (crawl only; src/ui/actionPrompt.ts) ---------- */
@@ -52,21 +53,20 @@
 :not([data-ui="crawl"]) > .action-prompt { display: none; }
 .action-prompt.btn {
   position: fixed; z-index: 1; right: 24px; bottom: 24px; width: auto; min-width: 168px;
-  min-height: 72px; padding: 10px 20px; font-size: 22px;
+  min-height: 64px; padding: 8px 22px; font-size: 1.3125rem;
   touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .action-prompt[hidden] { display: none; }
 .action-prompt .action-icon[hidden] { display: none; }
-.action-prompt.held { transform: translateY(3px); box-shadow: inset 0 2px 4px rgba(90, 50, 10, 0.3), 0 1px 0 #6b3d12; }
+.action-prompt.held { transform: translateY(1px); background: var(--primary-hover); }
 .action-key {
-  margin-left: 4px; padding: 2px 8px; border-radius: 8px; font: 800 18px/1.2 var(--font-body);
-  color: var(--ink); background: var(--parchment-hi); border: 2px solid var(--bark-dark);
-  box-shadow: 0 2px 0 var(--bark-dark);
+  margin-left: 4px; padding: 2px 8px; border-radius: 6px; font: 500 1.125rem/1.2 var(--font-body);
+  color: var(--ink); background: rgba(255, 250, 238, 0.7);
 }
 /* Touch only (no hover, a coarse pointer): no keyboard, so no key chip; a bigger target. */
 @media (hover: none) and (pointer: coarse) {
   .action-key { display: none; }
-  .action-prompt.btn { min-width: 176px; min-height: 84px; font-size: 24px; }
+  .action-prompt.btn { min-width: 176px; min-height: 80px; font-size: 1.5rem; }
 }
 /* Narrow screens: the word under the icon, so the button stays clear of the joystick. */
 @media (max-width: 560px) {
@@ -75,5 +75,5 @@
 /* Under 360px even the stacked button would reach the joystick: a 20px word and slim sides keep
    it 8px+ clear (the longest word, "Close view", leaves about 17px). Still 18px+ text, 84px tall. */
 @media (max-width: 359px) {
-  .action-prompt.btn { right: 12px; padding: 8px 6px; font-size: 20px; }
+  .action-prompt.btn { right: 12px; padding: 8px 6px; font-size: 1.25rem; }
 }
