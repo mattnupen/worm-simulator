@@ -1,0 +1,66 @@
+/* The game's look in one place (Leaf light, Matt 2026-10-22). Every colour, font, corner, shadow
+   and text size the menus, HUD and lessons use is a token here; the other stylesheets only refer to
+   them, so a new theme is a change to this file.
+
+   Rules every theme keeps (CLAUDE.md, parent spec section 7): body text 18px+ at the Normal text
+   size, ink on the card colour at 7:1 or more, a 4px focus ring, nothing that carries meaning by
+   colour alone. Cards are see-through cream without blur (blur costs too much on Chromebooks). */
+:root {
+  /* ---------- Text ---------- */
+  --ink: #2b1a0c;             /* body text */
+  --ink-soft: #4a2f16;        /* second lines, notes (still 7:1+ on the card) */
+  --accent: #66290c;          /* small headings, icons */
+  --link: #1d4f8c;
+  --focus: #0f2a5e;           /* focus ring */
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "Noto Serif",
+    Georgia, "Times New Roman", serif;
+
+  /* ---------- Surfaces ---------- */
+  --card: rgba(255, 250, 238, 0.94);       /* every card, tab and HUD chip */
+  --card-solid: #fffaee;                   /* where something must be opaque (sticky footers, dialogs) */
+  --row: rgba(255, 255, 255, 0.72);        /* answer rows, list rows inside a card */
+  --row-picked: #fff3cf;                   /* a picked row (its radio or tick says so too) */
+  --tint: rgba(90, 56, 24, 0.08);          /* quiet buttons, empty progress */
+  --tint-strong: rgba(90, 56, 24, 0.16);   /* quiet buttons on hover, empty progress segments */
+  --line: rgba(90, 56, 24, 0.22);          /* thin card and row edges, dividers */
+  --line-strong: #3d240c;                  /* a picked row's edge, dashed locked marks */
+  --backdrop: rgba(14, 8, 2, 0.6);         /* behind a dialog */
+
+  /* ---------- Actions and states ---------- */
+  --primary: #f6b64a;          /* the one main button: Crawl, Next, Dig down */
+  --primary-hover: #f9c466;
+  --on-primary: var(--ink);
+  --done: #3f6b24;             /* a finished quest's mark (with a tick) */
+  --on-done: #ffffff;
+  --now: #e08a26;              /* the current quest's ring, the current step */
+  --leaf: #b8481a;             /* the title leaf */
+  --good: #dcebc9;             /* "the answer" tag (with a tick and words) */
+  --good-ink: #1f3a0e;
+
+  /* ---------- Shape ---------- */
+  --radius-card: 20px;
+  --radius-row: 12px;
+  --radius-pill: 999px;
+  --shadow-card: 0 10px 30px rgba(30, 14, 2, 0.18);
+  --shadow-float: 0 4px 12px rgba(30, 14, 2, 0.16);
+  --edge: clamp(16px, 3vw, 40px);
+  --edge-y: clamp(16px, 4vh, 40px);
+
+  /* ---------- Older names (the robin hunt and nest screens use these; keep until they move) ---------- */
+  --moss: #4d7a2c;
+  --bark: #5a3818;
+  --bark-dark: #3d240c;
+  --parchment: #f8eed6;
+  --parchment-hi: #fffaea;
+  --parchment-lo: #efdfbd;
+  --grain: none;
+  --card-radius: var(--radius-card);
+}
+
+/* ---------- Text size (Settings; src/ui/textSize.ts) ----------
+   Every text size is in rem, so this one value scales them all. Percentages keep the player's own
+   browser font setting. Normal is a little larger than before Leaf light (17px, was 16px). */
+html { font-size: 106.25%; }
+html[data-text-size="big"] { font-size: 118.75%; }
+html[data-text-size="bigger"] { font-size: 131.25%; }

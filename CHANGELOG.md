@@ -16,6 +16,10 @@ How to write an entry (for Matt and Claude):
 ## Coming next
 
 ### New
+- **A lighter look.** Menus, buttons and lessons are lighter and simpler, so you see more of the
+  forest. The text is a little bigger too.
+- **Text size.** In Settings, pick Normal, Big or Bigger to make all the words in the menus and
+  lessons easier to read.
 - **An opening scene.** The first time you press Crawl, a short movie plays from the ground: a
   school bus pulls up, a teacher sets down a tackle box, and a cup of bait worms falls off and
   spills. That's you, wriggling out of the dirt! The teacher explains why a loose bait worm is a

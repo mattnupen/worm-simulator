@@ -1,5 +1,6 @@
 import { isChoice, isPresetId, AUTO_ORDER, type GraphicsChoice, type PresetId } from '../render/graphics';
 import { DEFAULT_UNDERGROUND_VIEW, type UndergroundView } from '../underground/modeMachine';
+import { DEFAULT_TEXT_SIZE, isTextSize, type TextSize } from '../ui/textSize';
 
 // This key stays `version: 1` forever: older versions on the same origin read it, and one that
 // sees any other version falls back to its defaults. A breaking change needs a new key.
@@ -25,7 +26,8 @@ import { DEFAULT_UNDERGROUND_VIEW, type UndergroundView } from '../underground/m
  * will not reach that device. When a vote needs to, store the default in effect with each pick and
  * ignore a pick made under an older default (not built: V2 has no such vote yet).
  *
- * Sound (V3, Settings) is stored the same way: only once the player switches it.
+ * Sound (V3, Settings) is stored the same way: only once the player switches it. So is Text size
+ * (`textSize`, Matt 2026-10-22), so a later change to its default reaches every device that never chose.
  */
 export const SETTINGS_KEY = 'wormsim.settings';
 
@@ -38,6 +40,8 @@ export interface Settings {
   undergroundView: UndergroundView;
   /** Sound effects on or off (Settings, Matt 2026-10-12). Stored only once the player switches it. */
   sound: boolean;
+  /** Menu, HUD and lesson text size (Settings, Matt 2026-10-22). Stored only once the player picks it. */
+  textSize: TextSize;
 }
 
 export function isUndergroundView(v: unknown): v is UndergroundView {
@@ -46,6 +50,7 @@ export function isUndergroundView(v: unknown): v is UndergroundView {
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   version: 1, graphics: 'auto', autoSettled: null, undergroundView: DEFAULT_UNDERGROUND_VIEW, sound: true,
+  textSize: DEFAULT_TEXT_SIZE,
 });
 
 /** The two Storage methods we use, so tests can pass a fake. */
@@ -86,6 +91,7 @@ function resolve(o: Record<string, unknown> | null): Settings {
     autoSettled: isPresetId(o.autoSettled) && AUTO_ORDER.includes(o.autoSettled) ? o.autoSettled : null,
     undergroundView: isUndergroundView(o.undergroundView) ? o.undergroundView : DEFAULT_UNDERGROUND_VIEW,
     sound: typeof o.sound === 'boolean' ? o.sound : DEFAULT_SETTINGS.sound,
+    textSize: isTextSize(o.textSize) ? o.textSize : DEFAULT_TEXT_SIZE,
   };
 }
 
@@ -122,6 +128,7 @@ export function saveSettings(store: KeyValueStore | null, s: Settings): boolean 
       fields.undergroundView = s.undergroundView;
     }
     if (typeof kept?.sound === 'boolean' || s.sound !== DEFAULT_SETTINGS.sound) fields.sound = s.sound;
+    if (isTextSize(kept?.textSize) || s.textSize !== DEFAULT_TEXT_SIZE) fields.textSize = s.textSize;
     return write(store, kept ?? {}, fields);
   } catch {
     return false;
@@ -159,6 +166,7 @@ export function updateSettings(store: KeyValueStore | null, patch: Partial<Omit<
     fields.undergroundView = next.undergroundView;
   }
   if (patch.sound !== undefined || typeof kept?.sound === 'boolean') fields.sound = next.sound;
+  if (patch.textSize !== undefined || isTextSize(kept?.textSize)) fields.textSize = next.textSize;
   write(store, kept ?? {}, fields);
   return next;
 }

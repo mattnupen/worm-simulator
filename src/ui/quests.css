@@ -1,38 +1,53 @@
-/* The round's quests on Start (menus.ts): three numbered rows, each with its state in words and an
-   icon (a number, a tick or a lock), never colour alone. Same rules as every card: 18px+ text,
-   7:1 ink, 48px+ targets. */
-.quests { list-style: none; padding: 0; margin: 18px 0 0 !important; display: grid; gap: 10px; }
+/* The round's quests on Start (menus.ts): three numbered steps joined by a dotted worm trail, each
+   with its state in words and a mark (a number, a tick or a lock), never colour alone. Leaf light
+   (tokens in theme.css): no boxes, just the trail. Same rules as every card: 18px+ text, 7:1 ink,
+   48px+ targets. */
+.quests { list-style: none; padding: 0; margin: 4px 0 0 !important; display: grid; gap: 12px; position: relative; }
+/* The trail behind the marks, from the first mark's middle to the last's. */
+.quests::before {
+  content: ''; position: absolute; left: 16px; top: 28px; bottom: 28px;
+  border-left: 3px dotted var(--tint-strong);
+}
 .quest {
+  position: relative;
   display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "mark words btn";
-  gap: 6px 12px; align-items: center; padding: 10px 12px;
-  border: 2px solid rgba(90, 56, 24, 0.45); border-radius: 14px; background: rgba(255, 251, 241, 0.7);
+  gap: 6px 14px; align-items: center; min-height: 56px;
 }
-.quest-next { border-color: var(--bark-dark); border-width: 3px; background: #fff3cf; }
 .quest-mark {
-  grid-area: mark; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
-  border: 2px solid var(--bark); font-weight: 800; font-size: 19px; background: var(--parchment-hi);
+  grid-area: mark; display: grid; place-items: center; width: 34px; height: 34px; box-sizing: border-box;
+  border-radius: 50%; font-weight: 700; font-size: 1.125rem; background: var(--card-solid);
+  border: 3px solid var(--now); color: var(--ink);
 }
-.quest-icon { display: block; width: 22px; height: 22px; }
+.quest-icon { display: block; width: 20px; height: 20px; }
 .quest-icon svg { width: 100%; height: 100%; display: block; }
-.quest-done .quest-mark { color: var(--moss); }
-.quest-locked .quest-mark { color: var(--ink-soft); }
+.quest-done .quest-mark { background: var(--done); border-color: var(--done); color: var(--on-done); }
+.quest-locked .quest-mark { border: 2px dashed var(--line-strong); color: var(--ink-soft); }
 .quest-words { grid-area: words; min-width: 0; }
-.quest-name { font-weight: 800; font-size: 18px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
-.quest-status { font-size: 18px; color: var(--ink-soft); }
-.quest .btn { grid-area: btn; width: auto; max-width: 270px; min-height: 52px; font-size: 19px; padding: 6px 14px; }
-.btn:disabled { cursor: not-allowed; filter: none; transform: none; box-shadow: none; border-style: dashed; background: var(--parchment-lo); }
-.menu-row { grid-template-columns: 1fr 1fr; margin-top: 14px !important; }
-.menu-row .btn { min-height: 52px; font-size: 19px; }
+.quest-name { font-weight: 700; font-size: 1.25rem; color: var(--ink); }
+.quest-status { font-size: 1.125rem; color: var(--ink-soft); }
+.quest .btn { grid-area: btn; width: auto; max-width: 16rem; min-height: 52px; font-size: 1.1875rem; padding: 6px 18px; }
+/* A finished quest's button is a quiet text button: it can still be pressed (look again). */
+.quest-done .btn-secondary { background: none; font-weight: 500; text-decoration: underline; text-underline-offset: 4px; }
+.quest-done .btn-secondary:hover { background: var(--tint); }
+.btn:disabled {
+  cursor: not-allowed; transform: none; box-shadow: none;
+  background: none; border: 2px dashed var(--line-strong); color: var(--ink-soft);
+}
+/* Settings, Watch the opening: quiet buttons on one row, past a thin line. */
+.menu-row { grid-template-columns: 1fr 1fr; margin-top: 16px !important; padding-top: 12px; border-top: 1px solid var(--line); }
+.menu-row .btn { min-height: 48px; font-size: 1.125rem; font-weight: 500; background: none; justify-content: flex-start; padding: 6px 10px; }
+.menu-row .btn:hover { background: var(--tint); }
 .vote-note { margin-top: 10px !important; }
-.panel[data-state="start"] { width: min(640px, calc(100vw - 32px)); }
+.panel[data-state="start"] { width: min(34rem, calc(100vw - 32px)); }
 .panel[data-state="vote"] {
-  left: var(--edge); bottom: var(--edge-y); width: min(540px, calc(100vw - 32px));
+  left: var(--edge); bottom: var(--edge-y); width: min(32rem, calc(100vw - 32px));
   max-height: calc(100dvh - var(--edge-y) - 16px);
 }
 @media (max-width: 560px) {
   /* Narrow: the button goes under its words, full width. */
-  .quest { grid-template-columns: auto 1fr; grid-template-areas: "mark words" "btn btn"; padding: 10px 12px 12px; }
+  .quest { grid-template-columns: auto 1fr; grid-template-areas: "mark words" "btn btn"; }
   .quest .btn { width: 100%; max-width: none; }
+  .quests::before { display: none; }
 }
 @media (max-height: 820px) {
   /* The quests matter more than the one-line welcome on a short screen. */
