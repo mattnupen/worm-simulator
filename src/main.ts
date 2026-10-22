@@ -624,7 +624,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     }
     // Dig markers: on the surface in play only (never the opening, the speed test or below).
     digMarks?.frame(!runner.running && game.mode.mode === 'surface' && (state.screen === 'crawl' || still),
-      crawl.motion.head, game.prompt === 'digDown', clock / 1000, still ? 0 : elapsed / 1000);
+      still ? 0 : elapsed / 1000);
     // The nest scene poses the robin itself (the hunt's robin) while it plays.
     if (!nestScene.playing) hunt?.frame();
     robinPreview?.frame(clock / 1000, state.screen === 'crawl', crawl.motion.head, crawl.motion.heading);
