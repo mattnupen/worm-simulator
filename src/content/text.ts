@@ -19,8 +19,8 @@ export const GAME_CHOICE_PREFIX = 'Game choice: ';
 
 export const TEXT = {
   /** The crawl card's controls line (Matt, 2026-10-12: short). Arrow keys and Esc still work too. */
-  crawlHint: { kind: 'ui', text: 'Move with the W A S D keys. P to pause.' },
-  crawlHintTouch: { kind: 'ui', text: 'Move with the joystick. Tap Pause to stop.' },
+  missionShow: { kind: 'ui', text: 'Show the mission' },
+  missionHide: { kind: 'ui', text: 'Hide the mission' },
   digDown: { kind: 'ui', text: 'Dig down' },
   comeUp: { kind: 'ui', text: 'Come up' },
   viewWide: { kind: 'ui', text: 'Wide view' },

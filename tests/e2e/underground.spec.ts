@@ -328,7 +328,7 @@ test.describe('at 1366 x 768', () => {
       const labels = [...box.querySelectorAll<HTMLElement>('.cut-label:not([hidden])')].map((e) => ({
         text: e.textContent ?? '', size: parseFloat(getComputedStyle(e).fontSize), ...rect(e),
       }));
-      const controls = ['.joystick', '.action-prompt', '.pause-btn'].map((sel) => {
+      const controls = ['.joystick', '.action-prompt'].map((sel) => {
         const e = document.querySelector(sel);
         return { sel, ...(e ? rect(e) : { l: 0, t: 0, r: 0, b: 0 }) };
       }).filter((c) => c.r > c.l && c.b > c.t);
@@ -336,7 +336,7 @@ test.describe('at 1366 x 768', () => {
     });
     expect(got.labels.map((l) => l.text).sort()).toEqual([...LAYERS].sort());
     // The Pause button and the Action prompt show on a desktop; the joystick too.
-    expect(got.controls.map((c) => c.sel).sort()).toEqual(['.action-prompt', '.joystick', '.pause-btn']);
+    expect(got.controls.map((c) => c.sel).sort()).toEqual(['.action-prompt', '.joystick']);
     for (const l of got.labels) {
       expect(l.size, l.text).toBeGreaterThanOrEqual(18);
       // On screen (docked at the edge when the end itself is off screen).

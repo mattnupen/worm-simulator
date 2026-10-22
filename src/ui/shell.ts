@@ -1,6 +1,6 @@
-import { el, button } from './dom';
+import { el } from './dom';
 
-/** Which card is showing. CSS places the card and shows the joystick and Pause button from it. */
+/** Which card is showing. CSS places the card and shows the joystick from it. */
 export type UiState =
   | 'start' | 'crawl' | 'pause' | 'graphics' | 'speedTest' | 'running' | 'results' | 'lost' | 'lesson' | 'vote' | 'opening' | 'nest';
 
@@ -18,16 +18,15 @@ export interface Shell {
   setFps(fps: number, label: string, tier?: number): void;
 }
 
-export function createShell(root: HTMLElement, showFps: boolean, onPause: () => void): Shell {
+export function createShell(root: HTMLElement, showFps: boolean): Shell {
   const panel = el('div', '', 'panel');
   panel.setAttribute('role', 'region');
   panel.setAttribute('aria-live', 'polite');
   // Focusable by script only, so focus has somewhere sensible to land while crawling.
   panel.tabIndex = -1;
   const fpsTag = el('div', '', 'fps');
-  const pause = button('Pause', 'pause', 'secondary', onPause);
-  pause.el.classList.add('pause-btn');
-  root.append(panel, fpsTag, pause.el);
+  // No Pause button (Matt, 2026-10-22: it crowded phone screens). Esc or P still pauses.
+  root.append(panel, fpsTag);
   let lastFps = 0;
 
   return {
@@ -41,6 +40,7 @@ export function createShell(root: HTMLElement, showFps: boolean, onPause: () => 
       // A new card starts in its own place (the hint card underground moves: hintPlace.ts).
       delete panel.dataset.card;
       delete panel.dataset.at;
+      delete panel.dataset.folded;
       panel.replaceChildren(...children);
     },
     setFps(fps, label, tier) {

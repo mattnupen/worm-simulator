@@ -14,20 +14,6 @@
   content: ''; width: 10px; height: 10px; border-radius: 0 100% 0 100%; background: var(--leaf);
 }
 .fps:empty { display: none; }
-/* While crawling the Pause button owns the top-right corner. */
-[data-ui="crawl"] > .fps { top: 76px; }
-/* Narrow screens: the hint card sits under Pause (parchment.css), so the tag goes beside Pause. */
-@media (max-width: 560px) { [data-ui="crawl"] > .fps { top: 22px; right: 165px; } }
-
-/* ---------- Pause button (crawl only) ---------- */
-.pause-btn.btn {
-  position: fixed; z-index: 3; top: 12px; right: 12px; width: auto; min-width: 112px;
-  min-height: 52px; padding: 6px 20px; font-size: 1.1875rem; font-weight: 600;
-  background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-float);
-}
-.pause-btn.btn:hover { background: var(--card-solid); }
-/* Hidden unless crawling, including before the first shell.show() sets data-ui. */
-:not([data-ui="crawl"]) > .pause-btn.btn { display: none; }
 
 /* ---------- Joystick (crawl only) ---------- */
 :not([data-ui="crawl"]) > .joystick { display: none; }

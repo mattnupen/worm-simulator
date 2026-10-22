@@ -101,6 +101,8 @@ export type LessonStep =
     readonly kind: 'mission';
     readonly title: string;
     readonly notice: Line;
+    /** The mission in one short line, for the crawl card (Matt, 2026-10-22: one line on a phone). */
+    readonly short?: Line;
     readonly reminder: Line;
     readonly more?: never;
   };
@@ -227,6 +229,7 @@ export function lessonLines(lesson: Lesson): Record<string, Line> {
         break;
       case 'mission':
         at('notice', s.notice);
+        if (s.short) at('short', s.short);
         at('reminder', s.reminder);
         break;
     }

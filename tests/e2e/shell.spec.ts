@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { TEXT, shown } from '../../src/content/text';
+import { shown } from '../../src/content/text';
 import { CURRENT_LESSON } from '../../src/content/lessons';
 
 const PAGE = pathToFileURL(path.resolve('dist/index.html')).href;
@@ -45,13 +45,13 @@ test('keyboard only: crawl, pause with Esc, resume, reach Graphics and back to s
   await expect(button(page, 'Crawl')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(crawling(page)).toBeVisible();
-  // The crawl card (Matt, 2026-10-12): the short controls line, then the mission. No mushroom line.
-  await expect(crawling(page).locator('p').first()).toHaveText(shown(TEXT.crawlHint));
-  await expect(crawling(page).locator('p')).toHaveCount(CURRENT_LESSON ? 2 : 1);
-  // The lesson's question to think about while playing sits under the controls (Matt, 2026-10-12).
+  // The crawl card (Matt, 2026-10-22): only the mission, in one short line. No controls line, no Pause button.
   const mission = CURRENT_LESSON?.steps.find((st) => st.kind === 'mission');
-  if (mission?.kind === 'mission') await expect(crawling(page).locator('.hint-think')).toHaveText(shown(mission.notice));
-  await expect(button(page, 'Pause')).toBeVisible();
+  if (mission?.kind === 'mission') {
+    await expect(crawling(page).locator('p')).toHaveCount(1);
+    await expect(crawling(page).locator('.mission-words')).toHaveText(shown(mission.short ?? mission.notice));
+  }
+  await expect(page.getByRole('button', { name: 'Pause' })).toHaveCount(0);
   await page.keyboard.down('ArrowUp');
   await page.waitForTimeout(400);
   await page.keyboard.up('ArrowUp');
@@ -102,28 +102,33 @@ test('keyboard only: from Start reach Settings and Crawl; Esc leaves Settings', 
   expect(errors).toEqual([]);
 });
 
-test('the Pause button pauses, Resume restores the crawl, and Esc and P each toggle', async ({ page }) => {
+test('Esc and P each pause and resume; there is no Pause button (Matt, 2026-10-22)', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto(PAGE);
   await startCrawling(page);
-
-  await button(page, 'Pause').click();
-  await expect(paused(page)).toBeVisible();
-  await expect(button(page, 'Resume')).toBeFocused();
-  await expect(button(page, 'Pause')).toBeHidden();
-  await button(page, 'Resume').click();
-  await expect(crawling(page)).toBeVisible();
-  await expect(button(page, 'Pause')).toBeVisible();
-
   for (const key of ['Escape', 'KeyP']) {
     await page.keyboard.press(key);
     await expect(paused(page)).toBeVisible();
     await expect(button(page, 'Resume')).toBeFocused();
     await page.keyboard.press(key);
     await expect(crawling(page)).toBeVisible();
-    await expect(button(page, 'Pause')).toBeVisible();
   }
+  await expect(page.getByRole('button', { name: 'Pause' })).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test('the mission folds to its flag and opens again, and focus goes back to the card', async ({ page }) => {
+  await page.goto(PAGE);
+  await startCrawling(page);
+  const toggle = page.locator('.mission-toggle');
+  test.skip((await toggle.count()) === 0, 'this build has no lesson mission');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.mission-words')).toBeHidden();
+  await expect(page.locator('.panel')).toBeFocused();
+  await toggle.click();
+  await expect(page.locator('.mission-words')).toBeVisible();
 });
 
 test('the scene is frozen while paused and moves while crawling', async ({ page }) => {
@@ -184,7 +189,7 @@ test('switching presets live during Crawl (Low, Ultra, High and more) causes no 
   await page.goto(PAGE + '?fps=1');
   await startCrawling(page);
   for (const name of ['Low', 'Ultra', 'High', 'Medium', 'Ultra', 'Auto']) {
-    await button(page, 'Pause').click();
+    await page.keyboard.press('Escape');
     await button(page, 'Settings').click();
     await radio(page, name).check();
     await expect(radio(page, name)).toBeChecked();
@@ -254,7 +259,7 @@ test('the Settings screen\'s Back button returns focus to the Settings button th
   await button(page, 'Back').click();
   await expect(button(page, 'Settings')).toBeFocused();
   await startCrawling(page);
-  await button(page, 'Pause').click();
+  await page.keyboard.press('Escape');
   await expect(button(page, 'Resume')).toBeFocused();
   await button(page, 'Settings').click();
   await button(page, 'Back').click();
@@ -304,7 +309,7 @@ test('changing presets, once each has been shown, compiles no shader, offline, w
   const before = await compiles();
   expect(before).toBeGreaterThan(0);
   for (const name of ['Low', 'Medium', 'High', 'Ultra']) {
-    await button(page, 'Pause').click();
+    await page.keyboard.press('Escape');
     await button(page, 'Settings').click();
     await radio(page, name).check();
     await button(page, 'Back').click();

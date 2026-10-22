@@ -66,9 +66,8 @@ const MAX_FPS = FPS_CAP;
 
 const params = parseParams(location.search);
 const app = document.getElementById('app')!;
-let onPauseButton = (): void => {};
 // The card exists before any 3D setup, so a computer without WebGL 2 still gets a report.
-const shell = createShell(app, params.fps, () => onPauseButton());
+const shell = createShell(app, params.fps);
 
 let renderer: THREE.WebGLRenderer | null = null;
 try {
@@ -130,8 +129,9 @@ function start(renderer: THREE.WebGLRenderer): void {
   const camera = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
   /** The follow camera as play would draw it: the opening eases into it at its end. */
   const gameCam = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
-  /** The round's question to think about while crawling: the lesson's own "notice" line. */
-  const playQuestion = lesson?.steps.find((s): s is Extract<typeof s, { kind: 'mission' }> => s.kind === 'mission')?.notice;
+  /** The round's mission while crawling: the lesson's one-line version, else its full "notice" line. */
+  const missionStep = lesson?.steps.find((s): s is Extract<typeof s, { kind: 'mission' }> => s.kind === 'mission');
+  const playQuestion = missionStep?.short ?? missionStep?.notice;
   const crawl = new Crawl();
   const world = buildWorld(crawl);
   const keyboard = new KeyboardInput();
@@ -720,5 +720,4 @@ function start(renderer: THREE.WebGLRenderer): void {
     else return;
     e.preventDefault();
   });
-  onPauseButton = () => dispatch({ type: 'pause' });
 }

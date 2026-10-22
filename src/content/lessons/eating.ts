@@ -388,6 +388,7 @@ export const EATING: Lesson = {
       kind: 'mission',
       title: 'Your mission',
       notice: { kind: 'ui', text: 'Mission: Play like a game designer. Look for food your worm could eat, and notice where it is. Then decide how eating should work in the game, and why.' },
+      short: { kind: 'ui', text: 'Mission: Find food to eat.' },
       reminder: { kind: 'ui', text: 'After you play, your last quest is to vote in the Google Form.' },
     },
   ],
