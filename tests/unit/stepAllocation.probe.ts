@@ -1,7 +1,7 @@
 import { BurrowGame } from '../../src/underground/burrowGame';
 import { canDigAt } from '../../src/underground/digSpot';
-import { DigMarks } from '../../src/underground/digMarks';
-import { createSlab } from '../../src/underground/slab';
+import { Mounds } from '../../src/underground/mounds';
+import { setWormRise, wormSurface } from '../../src/worm/surfaceHeight';
 import { stepBurrowing, type Pointing } from '../../src/underground/burrowMotion';
 import { Crawl } from '../../src/game/crawl';
 import type { Vec2, Vec3 } from '../../src/core/vec';
@@ -154,19 +154,43 @@ const surface = bytesPerCall(() => {
   top.step(DT, TURNING, false);
   if (top.prompt === 'digDown') offered++;
 }) - bytesPerCall(replay);
-// The dig markers' sampler (digMarks.ts) over the same crawl, with an old opening to check too.
-const marker = new DigMarks();
-const markWorld = new BurrowGame(new Crawl(), { reducedMotion: () => false, saveView: () => {} }, 'wide');
-markWorld.openings.data.set([1, 0, 3, 0]);
-markWorld.openings.count = 1;
-markWorld.openings.burrow[0] = 0;
-markWorld.burrows.slabs[0] = createSlab(1, 3, 0.4, 1, 7);
-let marked = 0;
-const marks = bytesPerCall(() => {
+// The casting mounds (mounds.ts) over the same crawl: the worm's surface with their lift at every
+// body point, and the check against the openings (one opening on a mound, its version bumped now
+// and then so the check runs).
+const mounds = new Mounds();
+const moundOpenings = new BurrowGame(new Crawl(), { reducedMotion: () => false, saveView: () => {} }, 'wide').openings;
+moundOpenings.data.set([mounds.x[0], 0, mounds.z[0], 0]);
+moundOpenings.count = 1;
+const surf = { y: 0 };
+let rode = 0;
+let calls = 0;
+/** The worm's surface at every body point, as the crawl asks it, and the openings check. */
+const overMounds = (): void => {
   replay();
-  marker.step(replayed.motion, markWorld);
-  marked += marker.calls;
-}) - bytesPerCall(replay);
+  for (let i = 0; i < N; i++) {
+    const p = replayed.body[i];
+    if (wormSurface(p.x, p.z, surf).y > p.y + 0.05) rode++;
+  }
+  if (++calls % 50 === 0) moundOpenings.version++;
+  mounds.sync(moundOpenings);
+};
+/** The same, every body point drawn in onto mound 1 (all of the worm on its castings). */
+const onMound = (): void => {
+  replay();
+  for (let i = 0; i < N; i++) {
+    const p = replayed.body[i];
+    if (wormSurface(mounds.x[1] + p.x * 0.03, mounds.z[1] + p.z * 0.03, surf).y > p.y + 0.05) rode++;
+  }
+};
+// What the mounds add: the same calls with no mounds set are the baseline.
+const noMounds = bytesPerCall(overMounds);
+const noMound = bytesPerCall(onMound);
+setWormRise(mounds);
+const marks = Math.max(bytesPerCall(overMounds) - noMounds, bytesPerCall(onMound) - noMound);
+// The lift was really looked up (the replayed crawl may pass no mound): a mound's centre.
+if (mounds.rise(mounds.x[1], mounds.z[1]) > 0) rode++;
+setWormRise(null);
+const marked = rode;
 const alone = new Crawl();
 const crawl = bytesPerCall(() => alone.step(DT, TURNING), 1);
 

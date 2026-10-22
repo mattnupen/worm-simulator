@@ -68,7 +68,7 @@ export function writeCastings(w: MeshWriter, x: number, z: number, turn: number,
 
 /**
  * One casting lump at (cx, cy, cz), `s` across its middle: a knobbly, flattened ball of colour `c`
- * (aProp's rgb), paler on top where it dries. The middens' and the dig markers' (digMarkShape.ts).
+ * (aProp's rgb), paler on top where it dries. The middens' and the casting mounds' (digMarkShape.ts).
  */
 export function writeLump(w: MeshWriter, cx: number, cy: number, cz: number, s: number, c: readonly number[], rand: () => number): void {
   const { pos, index } = CRUMB;

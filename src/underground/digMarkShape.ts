@@ -5,12 +5,12 @@ import { lin, mix, type Rgb } from '../predators/robinGeom';
 import { writeLump } from './middenBits';
 
 /**
- * One dig marker's shape (V4 spec, revision 1 item 3), about its centre on the ground (y 0 the
- * litter's top), at real size: a nightcrawler's casting mound with its burrow open in the middle.
+ * One casting mound's shape (V4 spec, revision 1 item 3; placed by mounds.ts), about its centre on
+ * the ground (y 0 the litter's top), at real size: a nightcrawler's casting mound with its burrow open in the middle.
  * A low heap of dark castings (piled, knobbly pellets, as the middens of old openings, middens.ts)
  * round a round, open hole: a pale crumbly lip, dark walls going down, a black floor, so from the
  * low follow camera you see into it. The shape carries the meaning ("a worm hole here"), not
- * colour. Built once at load; the marker mesh (digMarkMesh.ts) places and scales copies of it.
+ * colour. Built once at load; the mound mesh (moundMesh.ts) places copies of it.
  *
  * Game choice: a real midden is about 5 cm across and its hole about as wide as the worm (Great
  * Lakes Worm Watch). This one is a little bigger (1.5 u, about 6.5 cm, next to the 15 cm worm) and
@@ -32,6 +32,8 @@ export const LIP_RING = 3;
 export const HOLE_R = RING_R[2];
 /** The heap's outer edge (u), at the litter's top. */
 export const MOUND_R = RING_R[8];
+/** The heap's top over the ground (u): its highest ring, a little over for its lumps. */
+export const MOUND_TOP = Math.max(...RING_UP) + 0.02;
 const SEGS = 22;
 /** Casting pellets piled on the heap (23 points each: about 1150 points a marker). */
 const PELLETS = 40;
@@ -90,7 +92,7 @@ function writeHeap(w: MeshWriter, rand: () => number): void {
 }
 
 /** The heap's height (u) at distance d from the centre, outside the hole (its rings, unjittered). */
-function heapAt(d: number): number {
+export function heapAt(d: number): number {
   let k = LIP_RING + 1;
   while (k < RING_R.length - 1 && RING_R[k] < d) k++;
   const f = Math.min(1, Math.max(0, (d - RING_R[k - 1]) / (RING_R[k] - RING_R[k - 1])));

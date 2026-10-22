@@ -45,7 +45,8 @@ How to write an entry (for Matt and Claude):
 ### Fixed
 - **Your tunnels stay.** Go back down your old hole and your old tunnels are still there.
 - **See where you can dig.** Little piles of worm poop (castings) with a hole in the middle show
-  spots where you can dig down.
+  spots where you can dig down. They are spread out over the forest floor and stay put, and your
+  worm crawls right over them.
 
 ## V3 · Predators (2026-10-12)
 
