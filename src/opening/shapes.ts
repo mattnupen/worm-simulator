@@ -200,3 +200,83 @@ export function tube(w: MeshWriter, pts: readonly [number, number][], y: number,
   }
   w.smoothNormals(first, firstIdx);
 }
+
+/**
+ * An ellipsoid round (cx, cy, cz), `rx`, `ry`, `rz` across, smooth-shaded. `dome`: only its top half
+ * (a toe cap, a heel, a fingertip resting on its flat side).
+ */
+export function ellipsoid(
+  w: MeshWriter, cx: number, cy: number, cz: number, rx: number, ry: number, rz: number, hex: number, dome = false, sides = 14,
+): void {
+  const p = rgb(hex);
+  const rings = dome ? 4 : 8;
+  const first = w.vertexCount;
+  for (let i = 0; i <= rings; i++) {
+    // From the top pole down to the equator (dome) or the bottom pole.
+    const v = (i / rings) * (dome ? Math.PI / 2 : Math.PI);
+    const sy = Math.cos(v);
+    const sr = Math.sin(v);
+    for (let k = 0; k <= sides; k++) {
+      const a = (k / sides) * Math.PI * 2;
+      const nx = Math.cos(a) * sr;
+      const nz = Math.sin(a) * sr;
+      // The normal of an ellipsoid: the unit sphere's, divided by the radii.
+      const gx = nx / rx;
+      const gy = sy / ry;
+      const gz = nz / rz;
+      const gl = Math.hypot(gx, gy, gz) || 1;
+      w.vertex(cx + nx * rx, cy + sy * ry, cz + nz * rz, gx / gl, gy / gl, gz / gl, p);
+    }
+  }
+  // Each face wound to face out from the middle.
+  const out = (i: number): [number, number, number] => {
+    const q = w.pos;
+    return [q[i * 3] - cx, q[i * 3 + 1] - cy, q[i * 3 + 2] - cz];
+  };
+  for (let i = 0; i < rings; i++) {
+    for (let k = 0; k < sides; k++) {
+      const a = first + i * (sides + 1) + k;
+      const b = a + sides + 1;
+      const [ox, oy, oz] = out(i === 0 ? b : a);
+      w.triFacing(a, a + 1, b, ox, oy, oz);
+      w.triFacing(a + 1, b + 1, b, ox, oy, oz);
+    }
+  }
+  if (dome) {
+    // Closed underneath, so it reads from below as well.
+    const mid = w.vertex(cx, cy, cz, 0, -1, 0, p);
+    const ring = w.vertexCount;
+    for (let k = 0; k <= sides; k++) {
+      const a = (k / sides) * Math.PI * 2;
+      w.vertex(cx + Math.cos(a) * rx, cy, cz + Math.sin(a) * rz, 0, -1, 0, p);
+    }
+    for (let k = 0; k < sides; k++) w.triFacing(mid, ring + k, ring + k + 1, 0, -1, 0);
+  }
+}
+
+/**
+ * A box from (x0, y0, z0) to (x1, y1, z1) with its four upright edges rounded to radius `r`: a
+ * moulded plastic case, a bus body's corners.
+ */
+export function roundedBox(
+  w: MeshWriter, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, r: number, hex: number,
+): void {
+  box(w, x0 + r, y0, z0, x1 - r, y1, z1, hex);
+  box(w, x0, y0, z0 + r, x1, y1, z1 - r, hex);
+  for (const x of [x0 + r, x1 - r]) for (const z of [z0 + r, z1 - r]) cylinder(w, x, z, y0, y1, r, 8, hex);
+}
+
+/**
+ * A thin flat disc facing +z or -z (`facing`) round (cx, cy, cz): a lamp, a reflector, a hubcap
+ * seen side on.
+ */
+export function disc(w: MeshWriter, cx: number, cy: number, cz: number, r: number, facing: 1 | -1, hex: number, sides = 12): void {
+  const p = rgb(hex);
+  const mid = w.vertex(cx, cy, cz, 0, 0, facing, p);
+  const ring = w.vertexCount;
+  for (let k = 0; k <= sides; k++) {
+    const a = (k / sides) * Math.PI * 2;
+    w.vertex(cx + Math.cos(a) * r, cy + Math.sin(a) * r, cz, 0, 0, facing, p);
+  }
+  for (let k = 0; k < sides; k++) w.triFacing(mid, ring + k, ring + k + 1, 0, 0, facing);
+}

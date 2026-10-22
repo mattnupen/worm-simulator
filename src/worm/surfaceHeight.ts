@@ -13,7 +13,16 @@ export interface WormSurface {
  */
 export function wormSurface(x: number, z: number, out: WormSurface = { y: 0 }): WormSurface {
   out.y = floorHeight(x, z);
+  if (lift) out.y += lift(x, z);
   return out;
+}
+
+/** Something the worm climbs over for now (the opening's spilled soil), as a height over the floor. */
+let lift: ((x: number, z: number) => number) | null = null;
+
+/** Sets (or, with null, clears) what the worm climbs over: the opening scene's spilled pile. */
+export function setSurfaceLift(fn: ((x: number, z: number) => number) | null): void {
+  lift = fn;
 }
 
 /** The belly line just touches the floor. */
