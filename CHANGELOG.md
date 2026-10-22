@@ -23,9 +23,12 @@ How to write an entry (for Matt and Claude):
   and watch it again with **Watch the opening** on the Start screen.
 - **A robin hunts you.** Stay on the surface too long and a robin comes. You'll hear its wings,
   see its shadow, the leaves shiver and a **Robin!** sign shows up. It runs, stops and stares,
-  just like a real robin. Dig down before it strikes and you're safe!
-- **Hold on!** If the robin grabs you, hold Space (or the button) to grip the soil with your
-  bristles and pull back down. Let go when the robin tugs, or your worm stretches too far and breaks.
+  just like a real robin. Dig deep before it strikes. If you're still in the top two layers of
+  leaves, it can pull you out!
+- **Hold on!** If the robin grabs you, the view turns sideways so you see the robin above and
+  your worm in the ground. A ring shrinks toward a dot: tap Space (or the button) just as it
+  touches the dot to pull back down. Make 5 good pulls to escape. Miss 3 and the robin wins.
+  (Game choice: real worms don't time their pulls.)
 - **If you lose,** your worm breaks and keeps going, shorter. Real worms can lose their tail end
   and live. Once in a while, the robin takes the whole worm to feed its babies.
 
@@ -36,7 +39,8 @@ How to write an entry (for Matt and Claude):
 
 ### Fixed
 - **Your tunnels stay.** Go back down your old hole and your old tunnels are still there.
-- **See where you can dig.** Little soil mounds with arrows show spots where you can dig down.
+- **See where you can dig.** Little piles of worm poop (castings) with a hole in the middle show
+  spots where you can dig down.
 
 ## V3 · Predators (2026-10-12)
 

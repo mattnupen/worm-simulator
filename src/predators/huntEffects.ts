@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import { litterTopHeight } from '../surface/litterDepth';
 import type { HeroLeaves } from '../surface/heroLeaves';
+import { UNITS_PER_CM } from '../surface/realScale';
 import { createWormShadowMaterial } from '../worm/wormMaterial';
+import { HUNT, type HuntState } from './hunt';
+import type { RobinPose } from './robin';
 
 /**
  * Two of the robin's warnings (V4 spec 1), with nothing new to compile:
@@ -20,6 +23,9 @@ import { createWormShadowMaterial } from '../worm/wormMaterial';
 const RIM = 18;
 /** Just over the litter's top, as the worm's contact shadow lies. */
 const LIFT = 0.05;
+/** A robin's spread wings (about 38 cm), and its body standing (cm). */
+const WINGS = 38 * UNITS_PER_CM;
+const BODY = 9 * UNITS_PER_CM;
 
 export class HuntShadow {
   readonly mesh: THREE.Mesh;
@@ -47,6 +53,17 @@ export class HuntShadow {
     this.mesh.frustumCulled = false;
     this.mesh.visible = false;
     scene.add(this.mesh);
+  }
+
+  /** Under robin `p` (hunt `h`): sweeping in under it as it flies in, then under its body, spreading and fading as it rises. */
+  follow(h: Readonly<HuntState>, p: Readonly<RobinPose>): void {
+    if (!p.visible) return this.hide();
+    if (h.phase === 'arrive' && h.t < HUNT.flyIn) {
+      const k = h.t / HUNT.flyIn;
+      return this.place(p.x, p.z, h.away, WINGS, BODY * 1.6, 0.35 + 0.4 * k * k * (3 - 2 * k));
+    }
+    const up = Math.min(1, p.lift / 40);
+    this.place(p.x, p.z, p.yaw, BODY + (WINGS - BODY) * up, (BODY + 4 * UNITS_PER_CM * up) * 1.3, 0.75 * (1 - up));
   }
 
   /** Hidden. */

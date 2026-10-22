@@ -14,6 +14,7 @@ import { clearBurrows, createBurrows } from './burrows';
 import { enterHome, sinkAtOnce } from './burrowHome';
 import { acrossCut, approachStep, createApproach, ON_CUT, pressDig, startApproach } from './burrowApproach';
 import { DigAsk } from './digAsk';
+import { frameHunt } from './huntFrame';
 import { startDig, startUp, stepMove, type MoveState } from './burrowMoves';
 import { setBodyLength, wormBody, WORM_SEGMENTS } from '../worm/bodyLength';
 
@@ -94,6 +95,13 @@ export class BurrowGame implements MoveState {
   nearTop = false;
   /** The dig-down's work left (burrowMoves.ts buildStage), one part a step; 0 when none. */
   stage = 0;
+  /**
+   * Where a robin hunting the worm underground stands along the cut (V4 revision 1; NaN: none):
+   * the cut camera frames it and the worm together (huntFrame.ts). The hunt sets it each step.
+   */
+  robinU = NaN;
+  /** A dip through dark soil over the view, 0 clear to 1 dark (the cut to the robin's grab; the hunt sets it). */
+  cutDip = 0;
   /** Whether the worm may dig where it lies, and into what (digAsk.ts; asked every few steps). */
   private readonly dig = new DigAsk();
   private wasAction = false;
@@ -217,6 +225,7 @@ export class BurrowGame implements MoveState {
     const p = this.camPrev;
     const w = this.worm;
     p.cu = c.cu.value; p.cv = c.cv.value; p.h = c.h.value; p.pitch = c.pitch.value;
+    if (Number.isFinite(this.robinU)) return frameHunt(this, dt, false);
     this.ask.aspect = this.aspect;
     followCut(c, this.view, this.slab!, w, this.ask, this.frame, dt);
   }

@@ -5,11 +5,12 @@ import { noise, playScheduled, thud } from './lessonSound';
  * cues, on the same output and Settings switch (lessonSound.ts). Sound only adds to the warning:
  * its words and icon are always on screen.
  * - arrive: wingbeats as it flies in and lands, then its call;
- * - tug: a hard pull on the worm;
+ * - tug: a hard pull on the worm (a missed beat);
+ * - good: the worm slipping a step back down (a good tap);
  * - escape: the worm sliding back down into the soil;
  * - leave: wingbeats as it flies off.
  */
-export type HuntSound = 'arrive' | 'tug' | 'escape' | 'leave';
+export type HuntSound = 'arrive' | 'tug' | 'good' | 'escape' | 'leave';
 
 /** Wingbeats a second (robinDemo.ts FLAP_HZ: a Game choice). */
 const BEATS = 9;
@@ -25,6 +26,10 @@ export function playHuntSound(kind: HuntSound): void {
         break;
       case 'tug':
         scrape(c, out, t, 0.35, 0.45);
+        break;
+      case 'good':
+        scrape(c, out, t, 0.2, 0.25);
+        thud(c, out, t + 0.12, 90, 0.12, 0.25);
         break;
       case 'escape':
         scrape(c, out, t, 0.6, 0.3);

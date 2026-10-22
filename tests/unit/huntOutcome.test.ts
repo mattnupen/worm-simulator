@@ -10,14 +10,12 @@ describe('what happens when the grip mini-game ends (V4 spec 3)', () => {
     expect(huntOutcome('escaped', 0.99, 0.6)).toBe('escaped');
   });
 
-  it('1 catch in 4 the robin gets the whole worm (a Game choice), pulled out or broken', () => {
+  it('1 catch in 4 the robin gets the whole worm (a Game choice); otherwise the worm breaks', () => {
     expect(WHOLE_WORM_CHANCE).toBe(0.25);
-    for (const r of ['pulledOut', 'broke'] as const) {
-      expect(huntOutcome(r, 0, 1)).toBe('taken');
-      expect(huntOutcome(r, 0.2499, 0.8)).toBe('taken');
-      expect(huntOutcome(r, 0.25, 1)).toBe('broke');
-      expect(huntOutcome(r, 0.9, 0.6)).toBe('tooShort');
-    }
+    expect(huntOutcome('pulledOut', 0, 1)).toBe('taken');
+    expect(huntOutcome('pulledOut', 0.2499, 0.8)).toBe('taken');
+    expect(huntOutcome('pulledOut', 0.25, 1)).toBe('broke');
+    expect(huntOutcome('pulledOut', 0.9, 0.6)).toBe('tooShort');
   });
 
   it('lengths go 1 → 0.8 → 0.6, and a break at 0.6 is too short (start again)', () => {
@@ -25,7 +23,7 @@ describe('what happens when the grip mini-game ends (V4 spec 3)', () => {
     let length = 1;
     const seen: number[] = [length];
     for (;;) {
-      const out = huntOutcome('broke', 0.5, length);
+      const out = huntOutcome('pulledOut', 0.5, length);
       if (out === 'tooShort') break;
       expect(out).toBe('broke');
       length = nextLength(length)!;

@@ -153,17 +153,17 @@ function start(renderer: THREE.WebGLRenderer): void {
   const hunt = params.hunt && !params.robin ? new HuntGame(world.scene, app, crawl, game, {
     // The robin got the whole worm: it flies it to its nest (the nest scene, with the hunt's own
     // robin), and afterNest starts the new life.
-    onWholeWorm: () => {
+    onWholeWorm: (_action, x, z, heading) => {
       hunt?.hide();
       nestFromHunt = true;
-      playNestScene(crawl.motion.head.x, crawl.motion.head.z, crawl.motion.heading);
+      playNestScene(x, z, heading);
     },
     startAgain: (action) => startAgain(action),
     reducedMotion: () => reduceMotion.matches,
-  }, Math.random, params.robinIn) : null;
-  /** While the robin holds the worm it doesn't crawl. */
-  const stillMove = { x: 0, y: 0 };
-  /** A touch screen: the grip panel says "Hold the button" (menus.ts reads the same query). */
+  }, Math.random, params.robinIn, renderer.domElement) : null;
+  // The robin's wobble turns the camera once it is posed each frame (V4 revision 1).
+  if (hunt) cut.shake = (cam) => hunt.shake(cam);
+  /** A touch screen: the grip panel says "Tap when the ring touches the dot" (menus.ts reads the same query). */
   const touchScreen = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
   /** The V4 nest scene (src/predators/nestScene.ts): built now, hidden, so warmShaders sees it. */
   const nestScene = new NestScene(world.scene, hunt?.robin);
@@ -369,7 +369,6 @@ function start(renderer: THREE.WebGLRenderer): void {
    */
   function startAgain(action: boolean): void {
     game.setWormLength(1);
-    crawl.release();
     hunt?.reset();
     game.enterBurrow(action);
     dirty = true;
@@ -569,9 +568,9 @@ function start(renderer: THREE.WebGLRenderer): void {
     const playing = state.screen === 'crawl' && !runner.running && !frozen();
     if (frozen()) game.hold(cmds.action);
     else if (playing && hunt?.held) {
-      // In the robin's bill: no crawling or digging; Action is the grip (the hunt reads it below).
+      // In the robin's bill: no crawling or digging; Action is the grip's tap (the hunt reads it
+      // below, and poses the worm and the side view itself).
       game.hold(cmds.action);
-      crawl.step(dt, stillMove);
     } else {
       game.step(dt, cmds.move, cmds.action, runner.running && params.dig);
       if (digMarks && state.screen === 'crawl' && !runner.running && game.mode.mode === 'surface') digMarks.step(crawl.motion, game);
@@ -624,7 +623,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     }
     // Dig markers: on the surface in play only (never the opening, the speed test or below).
     digMarks?.frame(!runner.running && game.mode.mode === 'surface' && (state.screen === 'crawl' || still),
-      crawl.motion.head, game.prompt === 'digDown', clock / 1000, still ? 0 : elapsed / 1000);
+      still ? 0 : elapsed / 1000);
     // The nest scene poses the robin itself (the hunt's robin) while it plays.
     if (!nestScene.playing) hunt?.frame();
     robinPreview?.frame(clock / 1000, state.screen === 'crawl', crawl.motion.head, crawl.motion.heading);

@@ -6,12 +6,15 @@ import { floorHeight, litterTopHeight } from '../surface/litterDepth';
 import { createPropMaterial } from '../render/propMaterial';
 import { MAX_OPENINGS, type Openings } from './openings';
 import { cameraProgress, type ModeState } from './modeMachine';
+import { mix } from '../predators/robinGeom';
+import { HOLE_FLOOR, LIP_RING, MOUND_R, RING_R as MARK_RING_R, RING_UP as MARK_RING_UP, LIP as MARK_LIP, WALL as MARK_WALL, WALL_TOP as MARK_WALL_TOP } from './digMarkShape';
 import { tint, writeCastings, writeLeafBits, BITS_INDEX, BITS_VERTS } from './middenBits';
 
 /**
- * Burrow openings on the surface (V2 spec 4.2, 6): a dark hole with a nightcrawler midden round it,
- * castings mixed with leaf bits, about 5 cm across (1.2 u) and 1-2 cm high (0.25-0.4 u over the
- * litter's top, Great Lakes Worm Watch). On the deep litter (litterDepth.ts) the heap is a plug of castings
+ * Burrow openings on the surface (V2 spec 4.2, 6): an open hole with a nightcrawler midden round it,
+ * castings mixed with leaf bits, about 5 cm across and 1-2 cm high (Great Lakes Worm Watch). Since
+ * V4 (revision 1 item 3) its heap and hole are the dig markers' (digMarkShape.ts: a little bigger,
+ * a labelled Game choice), so every place to dig down looks alike: a dark hole you can see into. On the deep litter (litterDepth.ts) the heap is a plug of castings
  * from the floor (where the burrow opens) up through the leaves, so it rises out of their top and,
  * seen through the hole over the buried worm, reaches down to the floor instead of hanging in the
  * litter. Where it lies over the buried worm it fades as the leaves do (the prop material's
@@ -23,14 +26,16 @@ import { tint, writeCastings, writeLeafBits, BITS_INDEX, BITS_VERTS } from './mi
 const FLOOR = -9;
 /**
  * The heap's rings out from the burrow (share of its radius) and their height over the litter's
- * top: the hole (a near-black disc well over the top, so neither the drawn top of the litter nor
- * its curled close-up leaves cross it), its shaft up to the crater's lip, the rim, the slope, its foot at the
- * litter's top, then tucked in under the leaves down to the floor.
+ * top, the dig markers': the hole's floor (near black, well over the top, so neither the drawn top
+ * of the litter nor its curled close-up leaves cross it), its dark walls up to the lip, the rim,
+ * the slope, its foot at the litter's top, then tucked in under the leaves down to the floor.
  */
-const RING_AT = [0, 0.16, 0.17, 0.3, 0.45, 0.62, 0.8, 0.95, 1.04, 0.7];
-const RING_UP = [0.17, 0.18, 0.2, 0.28, 0.26, 0.19, 0.1, 0.03, -0.06, FLOOR];
-/** Rings this far in are the hole: near black, at a fixed height (the heap's lean leaves them be). */
-const HOLE_RINGS = 3;
+const RING_AT = [0, ...MARK_RING_R.map((r) => r / MOUND_R), 0.7];
+const RING_UP = [HOLE_FLOOR, ...MARK_RING_UP, FLOOR];
+/** Rings this far in are the hole: dark, round, at a fixed height (the heap's lean leaves them be). */
+const HOLE_RINGS = 1 + LIP_RING;
+/** The ring tucked in under the leaves (the heap's profile runs from the lip to it). */
+const TUCK = RING_AT.length - 2;
 const SEGS = 26;
 
 /** Vertices and indices one midden needs (the heap; its castings and leaf bits). */
@@ -56,8 +61,8 @@ export interface Middens {
 
 /** The heap's height over the litter's top at share `t` of its radius (the hole and foot rings left out). */
 function profile(t: number): number {
-  let k = 3;
-  while (k < 8 && RING_AT[k] < t) k++;
+  let k = HOLE_RINGS + 1;
+  while (k < TUCK && RING_AT[k] < t) k++;
   const f = Math.min(1, Math.max(0, (t - RING_AT[k - 1]) / (RING_AT[k] - RING_AT[k - 1])));
   return RING_UP[k - 1] + (RING_UP[k] - RING_UP[k - 1]) * f;
 }
@@ -65,7 +70,7 @@ function profile(t: number): number {
 /** One midden round the opening at (x, z), on the litter's top there; `turn` and `seed` vary it. */
 function writeMidden(w: MeshWriter, x: number, z: number, turn: number, seed: number): void {
   const rand = mulberry32(seed);
-  const radius = 0.56 + rand() * 0.08;
+  const radius = MOUND_R * (0.95 + rand() * 0.1);
   const tall = 0.8 + rand() * 0.25;
   // An uneven outline and a lopsided heap (more castings on the side the worm reached out to).
   const p1 = rand() * 6.28;
@@ -85,14 +90,15 @@ function writeMidden(w: MeshWriter, x: number, z: number, turn: number, seed: nu
   for (let r = 1; r < RING_AT.length; r++) {
     for (let k = 0; k < SEGS; k++) {
       const a = (k / SEGS) * Math.PI * 2;
-      // Crumbly: rougher down the slope than on the crater's rim.
-      const rough = r === 3 ? 0.03 : r >= 4 && r <= 7 ? 0.09 : 0;
-      const d = RING_AT[r] * reach(a) * (1 + (rand() - 0.5) * rough);
+      // The hole and its lip stay round and level; the heap outside is crumbly down its slope.
+      const rough = r > HOLE_RINGS && r < TUCK ? 0.09 : 0;
+      const d = RING_AT[r] * (r > HOLE_RINGS ? reach(a) : radius) * (1 + (rand() - 0.5) * rough);
       const px = x + Math.cos(a) * d;
       const pz = z + Math.sin(a) * d;
-      const up = r < HOLE_RINGS ? RING_UP[r] : heap(RING_AT[r], a) + (rand() - 0.5) * rough;
+      const up = r <= HOLE_RINGS ? RING_UP[r] : heap(RING_AT[r], a) + (rand() - 0.5) * rough;
       const y = RING_UP[r] === FLOOR ? floorHeight(px, pz) : litterTopHeight(px, pz) + up;
-      const c = r < HOLE_RINGS ? HOLE_RGB : tint(CAST_HEX, rand, r === 3 ? 0.55 : 0.75 + rand() * 0.5, PROP.plain);
+      const c = r === 1 ? MARK_WALL : r < HOLE_RINGS ? MARK_WALL_TOP : r === HOLE_RINGS ? mix(MARK_LIP, MARK_WALL_TOP, rand() * 0.3)
+        : tint(CAST_HEX, rand, 0.75 + rand() * 0.5, PROP.plain);
       w.vertex(px, y, pz, 0, 1, 0, [c[0], c[1], c[2], PROP.plain]);
     }
   }
@@ -106,7 +112,7 @@ function writeMidden(w: MeshWriter, x: number, z: number, turn: number, seed: nu
     }
   }
   w.smoothNormals(first, firstIdx);
-  writeCastings(w, x, z, turn, rand, reach, heap);
+  writeCastings(w, x, z, turn, rand, reach, heap, RING_AT[HOLE_RINGS]);
   writeLeafBits(w, x, z, turn, radius, RING_UP[0], rand, reach, heap);
 }
 

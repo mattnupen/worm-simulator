@@ -18,6 +18,34 @@ rows of the V3 form export, as in that plan. **Builds on:** the robin model and 
 5. V4's lesson is **eating and getting energy** (worm anatomy, how and what worms eat), not
    natural dangers. It's researched in a separate thread. This spec covers only the game code.
 
+## Revision 1 (Matt, 2026-10-22, after playing the first build)
+
+Matt played the root build and changed four things. Where this revision and the sections below
+disagree, this revision wins.
+
+1. **The grip becomes a rhythm game.** The hold-and-let-go game was "confusing and unclear". New
+   design (replaces section 2's hold/Stretch rules):
+   - Each beat, the robin loosens its hold to get a new grip on the worm. A ring shrinks onto a dot
+     (one ring per beat). Tap Action (Space, a tap on the screen, or the on-screen button) when
+     the ring meets the dot.
+   - On time: the worm pulls down a step. Too early, too late or no tap: the robin pulls it up a step.
+   - **5 good taps escape; 3 misses and the robin wins** (Matt asked for 4 to 6). The robin wins as
+     in section 3: usually a break, 1 in 4 the whole worm.
+   - The timing is a labelled Game choice. Real robins tug again and again (Journey North), and a
+     worm grips with its setae, but worms don't time anything.
+   - Words and shapes, not colour: "Tap!" at the dot, "Good!" or "Missed" after each beat, and a
+     row of 5 worm pips filling for good taps plus 3 for misses. Nothing flashes.
+2. **The grab plays in the side view.** During a grab the camera switches to the soil cross-section
+   (the underground cut view), raised so the robin stands above the ground line and the worm is
+   seen being pulled up or pulling down through the layers.
+3. **Dig spots are casting mounds with a hole.** A small mound of worm castings with a clear dark
+   hole in the middle, no arrows (replaces 4.2's arrows).
+4. **A camera wobble** when the robin lands and on each tug (replaces 6.1). Short and gentle,
+   under 3 shakes a second so it never reads as flashing, and off with reduced motion.
+5. **Underground isn't fully safe.** In the top two layers (leaf litter and old leaves) the robin can
+   still hunt and grab the worm; from the humus down, the worm is safe. (Replaces 1.6's "underground
+   is safe".) Real: robins pull worms that are near the surface from their burrows (Journey North).
+
 ## 1. What a round with the robin looks like
 
 1. The worm crawls on the surface. After a while there (about 20 to 40 seconds, random), a robin

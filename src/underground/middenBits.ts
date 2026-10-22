@@ -9,7 +9,7 @@ import { litterTopHeight } from '../surface/litterDepth';
  * pulls in. Written once per new opening, with the heap's shape (`reach(a)`: its radius at angle
  * a; `heap(t, a)`: its height over the litter's top at share t of that) and its random sequence.
  */
-const LUMPS = 24;
+const LUMPS = 32;
 const LEAF_BITS = 9;
 /** A casting lump: a coarse unit sphere (7 x 4: 23 vertices, 42 triangles), indexed. */
 const CRUMB = (() => {
@@ -52,36 +52,45 @@ export function tint(hex: readonly string[], rand: () => number, dark: number, k
 type Reach = (a: number) => number;
 type Heap = (t: number, a: number) => number;
 
-/** The castings round the opening at (x, z). */
-export function writeCastings(w: MeshWriter, x: number, z: number, turn: number, rand: () => number, reach: Reach, heap: Heap): void {
+/** The castings round the opening at (x, z), clear of its hole (`holeT`: the hole's share of the heap's radius). */
+export function writeCastings(w: MeshWriter, x: number, z: number, turn: number, rand: () => number, reach: Reach, heap: Heap, holeT: number): void {
   // Castings: crumbly lumps half sunk in the heap, most of them round the crater.
-  const { pos, index } = CRUMB;
   for (let n = 0; n < LUMPS; n++) {
     const a = turn + (n / LUMPS) * Math.PI * 2 + rand() * 0.35;
-    const t = 0.3 + Math.pow(rand(), 1.4) * 0.6;
+    const t = holeT + 0.1 + Math.pow(rand(), 1.4) * (0.9 - holeT);
     const s = 0.04 + Math.pow(rand(), 2) * 0.06;
     const d = t * reach(a);
     const cx = x + Math.cos(a) * d;
     const cz = z + Math.sin(a) * d;
-    const cy = litterTopHeight(cx, cz) + heap(t, a) - s * 0.2;
-    const c = tint(LUMP_HEX, rand, 0.85 + rand() * 0.35, PROP.plain);
-    const c0 = c[0];
-    const c1 = c[1];
-    const c2 = c[2];
-    const f = w.vertexCount;
-    const fi = w.idx.length;
-    const q1 = rand() * 6;
-    const q2 = rand() * 6;
-    for (let i = 0; i < pos.length; i += 3) {
-      const lump = 1 + 0.18 * Math.sin(5 * pos[i] + 3 * pos[i + 2] + q1) + 0.12 * Math.sin(7 * pos[i + 1] + 4 * pos[i] + q2);
-      // Paler on top, where the crumbs dry.
-      const dry = 0.85 + 0.25 * Math.max(0, pos[i + 1]);
-      w.vertex(cx + pos[i] * s * lump, cy + pos[i + 1] * s * 0.65 * lump, cz + pos[i + 2] * s * lump, 0, 1, 0, [c0 * dry, c1 * dry, c2 * dry, PROP.plain]);
-    }
-    for (let i = 0; i < index.length; i += 3) w.tri(f + index[i], f + index[i + 1], f + index[i + 2]);
-    w.smoothNormals(f, fi);
+    writeLump(w, cx, litterTopHeight(cx, cz) + heap(t, a) - s * 0.2, cz, s, tint(LUMP_HEX, rand, 0.85 + rand() * 0.35, PROP.plain), rand);
   }
 }
+
+/**
+ * One casting lump at (cx, cy, cz), `s` across its middle: a knobbly, flattened ball of colour `c`
+ * (aProp's rgb), paler on top where it dries. The middens' and the dig markers' (digMarkShape.ts).
+ */
+export function writeLump(w: MeshWriter, cx: number, cy: number, cz: number, s: number, c: readonly number[], rand: () => number): void {
+  const { pos, index } = CRUMB;
+  const c0 = c[0];
+  const c1 = c[1];
+  const c2 = c[2];
+  const f = w.vertexCount;
+  const fi = w.idx.length;
+  const q1 = rand() * 6;
+  const q2 = rand() * 6;
+  for (let i = 0; i < pos.length; i += 3) {
+    const lump = 1 + 0.18 * Math.sin(5 * pos[i] + 3 * pos[i + 2] + q1) + 0.12 * Math.sin(7 * pos[i + 1] + 4 * pos[i] + q2);
+    // Paler on top, where the crumbs dry.
+    const dry = 0.85 + 0.25 * Math.max(0, pos[i + 1]);
+    w.vertex(cx + pos[i] * s * lump, cy + pos[i + 1] * s * 0.65 * lump, cz + pos[i + 2] * s * lump, 0, 1, 0, [c0 * dry, c1 * dry, c2 * dry, PROP.plain]);
+  }
+  for (let i = 0; i < index.length; i += 3) w.tri(f + index[i], f + index[i + 1], f + index[i + 2]);
+  w.smoothNormals(f, fi);
+}
+
+/** The points one lump takes. */
+export const LUMP_VERTS = CRUMB.pos.length / 3;
 
 /**
  * The leaf bits round the opening at (x, z), whose heap is `radius` across at most and whose hole's
@@ -90,12 +99,12 @@ export function writeCastings(w: MeshWriter, x: number, z: number, turn: number,
 export function writeLeafBits(
   w: MeshWriter, x: number, z: number, turn: number, radius: number, holeUp: number, rand: () => number, reach: Reach, heap: Heap,
 ): void {
-  // Leaf bits pulled in: three stand up out of the hole (a nightcrawler drags leaves in by an end),
-  // the rest lie on the heap's slope, clear of the crater so the hole shows.
+  // Leaf bits pulled in: one stands up out of the hole by its wall (a nightcrawler drags leaves in
+  // by an end), the rest lie on the heap's slope, clear of the crater so the hole shows.
   for (let n = 0; n < LEAF_BITS; n++) {
-    const standing = n < 3;
+    const standing = n === 0;
     const a = turn + (n / LEAF_BITS) * Math.PI * 2 + rand() * 0.6;
-    const t = standing ? 0.08 + rand() * 0.06 : 0.45 + rand() * 0.45;
+    const t = standing ? 0.17 + rand() * 0.03 : 0.45 + rand() * 0.45;
     const d = t * reach(a);
     const cx = x + Math.cos(a) * d;
     const cz = z + Math.sin(a) * d;

@@ -2,15 +2,25 @@ import { UNITS_PER_CM } from '../surface/realScale';
 import { HUNT, type HuntState } from './hunt';
 import type { RobinPose } from './robin';
 import { wingBeat } from './robinDemo';
-import type { TugState } from './tug';
-import { TUG } from './tug';
 
 /**
  * The robin's pose for the hunt (hunt.ts), with the same moves as the preview loop (robinDemo.ts):
  * flying in, short runs, the stare with its head tipped, the peck, the tug-of-war and flying off.
- * During a grab it follows the mini-game (tug.ts): it leans back as the warning, then tugs.
+ * During a grab it follows the mini-game (huntGrab.ts): bent down to the worm when the worm has
+ * pulled most of itself back in, leaning back when it has pulled the worm out; its bill loosening
+ * for a new grip as each ring meets the dot, and a hard tug after each miss.
  * Writes into `out`; allocates nothing.
  */
+
+/** How the robin holds the worm in a grab (huntGrab.ts sets it each step). */
+export interface GripLook {
+  /** How far out it has pulled the worm: 0 bent right down to the ground, 1 leaning back with most of it out. */
+  level: number;
+  /** 0..1: loosening its hold to get a new grip (the bill opens a little as the ring meets the dot). */
+  loosen: number;
+  /** 0..1: a hard tug, leaning back further (after a miss). */
+  tug: number;
+}
 
 const ease = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 /** 0 → 1 → 0 over [0, 1]. */
@@ -18,10 +28,10 @@ const bump = (k: number): number => (k <= 0 || k >= 1 ? 0 : Math.sin(Math.PI * k
 const RUN_STEPS = 4;
 
 /**
- * Poses the robin for hunt `h` (and the mini-game `tug` while it grabs). `ground(x, z)` is the
+ * Poses the robin for hunt `h` (and the grip `look` while it grabs). `ground(x, z)` is the
  * litter's top.
  */
-export function huntPose(h: HuntState, tug: TugState, ground: (x: number, z: number) => number, out: RobinPose): void {
+export function huntPose(h: HuntState, look: GripLook, ground: (x: number, z: number) => number, out: RobinPose): void {
   out.visible = h.phase !== 'away';
   out.yaw = h.yaw;
   out.lift = 0; out.crouch = 0; out.pitch = 0; out.stride = 0;
@@ -43,7 +53,7 @@ export function huntPose(h: HuntState, tug: TugState, ground: (x: number, z: num
         wingBeat(t, out);
         out.pitch = out.flying ? 0.6 : 0;
         out.yaw = h.away;
-        off = -(HUNT.landCm + 60) * k;
+        off = -(h.land + 60) * k;
       } else {
         // ...then hops round to face the worm as it settles.
         const k = ease((t - HUNT.flyIn) / HUNT.settle);
@@ -79,7 +89,7 @@ export function huntPose(h: HuntState, tug: TugState, ground: (x: number, z: num
       break;
     }
     case 'grab':
-      grabPose(tug, out);
+      grabPose(look, out);
       break;
     case 'miss': {
       // Straightens up and looks round, then goes. From a stare it first pecks the empty spot.
@@ -113,19 +123,15 @@ export function huntPose(h: HuntState, tug: TugState, ground: (x: number, z: num
   out.y = ground(out.x, out.z);
 }
 
-/** Holding the worm: bent down to it, leaning back before a tug, then pulling hard. */
-function grabPose(tug: TugState, out: RobinPose): void {
-  out.crouch = 0.4;
+/**
+ * Holding the worm: bent down to it (pitch 0.92 puts the bill at the ground) or leaning back as it
+ * pulls (pitch -0.3: the bill about 12 cm up, most of the worm out); legs braced as it pulls.
+ */
+export function grabPose(look: GripLook, out: RobinPose): void {
+  out.pitch = 0.92 - 1.2 * look.level - 0.3 * look.tug;
+  out.crouch = 0.35 + 0.3 * look.level + 0.2 * look.tug;
   out.headPitch = 0.35;
-  out.tail = -0.3;
-  out.bill = 0.1;
-  let back = 0;
-  if (tug.phase === 'lean') back = 0.5 * ease(tug.t / TUG.lean);
-  else if (tug.phase === 'tug') back = 0.5 + 0.3 * bump(tug.t / TUG.tugTime);
-  else if (tug.t < 0.3) back = 0.5 * (1 - ease(tug.t / 0.3));
-  // Down at the worm (0.6), easing back to upright and past it as it pulls.
-  out.pitch = 0.6 - back * 1.2;
-  out.crouch += 0.3 * back;
-  // The tail lifts as the body tips back, so its tip stays off the ground.
-  out.tail += 1.1 * back;
+  // The tail goes down as it bends in and lifts as it tips back, so its tip stays off the ground.
+  out.tail = out.pitch > 0.6 ? -0.3 - 0.7 * (out.pitch - 0.6) : -0.3 + 0.92 * (0.6 - out.pitch);
+  out.bill = 0.08 + 0.45 * look.loosen;
 }
