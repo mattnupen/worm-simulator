@@ -6,18 +6,16 @@ import { createHuntHud, type HuntHud } from '../ui/huntHud';
 import { playHuntSound } from '../ui/huntSound';
 import { litterTopHeight } from '../surface/litterDepth';
 import { UNITS_PER_CM } from '../surface/realScale';
-import {
-  createHold, holdFromBelow, holdFromSurface, leaveBelow, poseHeld, releaseHold, setBill, slideEnd, snapHeld, SLIDE_SPEED,
-} from '../underground/burrowGrab';
-import { frameHunt } from '../underground/huntFrame';
+import { leaveBelow } from '../underground/burrowLetGo';
 import { slabU } from '../underground/slab';
 import { HUNT, createHunt, endGrab, resetHunt, robinIn, robinShown, stepHunt, type HuntInput, type HuntPhase, type HuntState } from './hunt';
 import { huntPose } from './huntPose';
 import { huntOutcome, nextLength, type HuntOutcome } from './huntOutcome';
 import { GUSTS, HuntShadow, SHIVER_S, gust } from './huntEffects';
+import { HeldWorm } from './heldWorm';
 import { HuntGrab } from './huntGrab';
 import { HUNT_NOTES } from './huntNotes';
-import { placeOnCut, readWorm } from './huntPlace';
+import { readWorm } from './huntPlace';
 import { Robin } from './robin';
 import { Wobble } from './wobble';
 
@@ -39,9 +37,6 @@ const LOOK_FROM_CM = 60;
 const LOOK_FULL_CM = 18;
 /** How fast the look-up eases in and out (1/s): gentle, never a snap. */
 const LOOK_RATE = 1.6;
-/** The shadow: a robin's spread wings (about 38 cm), and its body standing (cm). */
-const WINGS_CM = 38;
-const BODY_CM = 9;
 /** The cut to the side view as it grabs on the surface: the screen dims as it strikes, then clears over this long (s). */
 const CUT_CLEAR_S = 0.4;
 const STRIKE_DIM = 0.55;
@@ -61,12 +56,11 @@ export class HuntGame {
   readonly hunt: HuntState;
   readonly grab = new HuntGrab();
   readonly wobble = new Wobble();
-  private readonly hold = createHold();
   private readonly hud: HuntHud;
   private readonly shadow: HuntShadow;
   // Number fields start as fractions: a field that first held a whole number had V8 box every fraction written later.
   private readonly input: HuntInput = { catchable: false, under: false, hx: 0.5, hz: 0.5, heading: 0.5 };
-  private readonly bill = { x: 0.5, y: 0.5, z: 0.5 };
+  private readonly worm: HeldWorm;
   private last: HuntPhase = 'away';
   private lastT = 0;
   /** The warning's leaf shiver: seconds into it (Infinity when none). */
@@ -74,9 +68,6 @@ export class HuntGame {
   private noteLeft = 0;
   /** This life's first grab shows the grip hint. */
   private hinted = false;
-  /** After the grab: the worm sliding down its hole until `slideTo` (then the burrower has it). */
-  private sliding = false;
-  private slideTo = 0;
 
   constructor(
     scene: THREE.Scene, root: HTMLElement, private readonly crawl: Crawl, private readonly game: BurrowGame,
@@ -86,6 +77,7 @@ export class HuntGame {
     this.hunt = createHunt(rand);
     if (firstIn !== null) robinIn(this.hunt, firstIn);
     scene.add(this.robin.mesh);
+    this.worm = new HeldWorm(game, this.robin);
     this.shadow = new HuntShadow(scene);
     this.hud = createHuntHud(root);
     // A tap or click on the game itself is a tap too (the ring's own panel and the button as well).
@@ -98,7 +90,7 @@ export class HuntGame {
 
   /** The robin holds the worm (or it is sliding back down its hole): no crawling or digging. */
   get held(): boolean {
-    return this.hunt.phase === 'grab' || this.sliding;
+    return this.hunt.phase === 'grab' || this.worm.sliding;
   }
 
   /** The Action prompt while the robin holds the worm ('grip': "Tap!"), else null (the game's own). */
@@ -146,17 +138,12 @@ export class HuntGame {
     const r = this.grab.rhythm;
     const end: HuntOutcome | null = h.phase === 'grab' && r.result !== 'none' ? huntOutcome(r.result, this.rand(), g.wormLength) : null;
     huntPose(h, this.grab.look, litterTopHeight, this.robin.pose);
-    if (end) this.finish(end, action);
-    else if (h.phase === 'grab') {
-      // The worm's head in the bill, the rest down its hole.
-      this.robin.billTip(this.bill);
-      setBill(this.hold, g.slab!, this.bill);
-      poseHeld(g, this.hold, dt);
-    }
-    if (this.sliding) this.slide(dt);
     // The side view frames the robin hunting a worm underground (and holding it).
     g.robinU = g.mode.mode !== 'surface' && g.slab && robinShown(h) && (h.under || this.held) ? slabU(g.slab, h.x, h.z) : NaN;
-    if (this.held && g.slab) frameHunt(g, dt, false);
+    if (end) this.finish(end, action);
+    // The worm's head in the bill, the rest down its hole; after, sliding back down it.
+    else if (h.phase === 'grab') this.worm.follow(dt);
+    if (this.worm.sliding) this.worm.slide(dt);
     // The surface strike dims toward the cut; the cut clears.
     g.cutDip = h.phase === 'strike' && !w.under ? STRIKE_DIM * ease(h.t / HUNT.strike) : Math.max(0, g.cutDip - dt / CUT_CLEAR_S);
     this.hud.grip(h.phase === 'grab' ? r : null, touch);
@@ -176,23 +163,8 @@ export class HuntGame {
 
   /** Each drawn frame: the robin's mesh and its shadow, from the last step's pose. */
   frame(): void {
-    const p = this.robin.pose;
     this.robin.update();
-    const h = this.hunt;
-    if (!p.visible) {
-      this.shadow.hide();
-      return;
-    }
-    if (h.phase === 'arrive' && h.t < HUNT.flyIn) {
-      // Under the robin as it flies in over the worm to where it lands, darkening as it comes down.
-      const k = ease(h.t / HUNT.flyIn);
-      this.shadow.place(p.x, p.z, h.away, WINGS_CM * CM, BODY_CM * 1.6 * CM, 0.35 + 0.4 * k);
-      return;
-    }
-    // Under its body; spreading and fading as it rises to fly off.
-    const up = Math.min(1, p.lift / 40);
-    const size = BODY_CM + (WINGS_CM - BODY_CM) * up;
-    this.shadow.place(p.x, p.z, p.yaw, size * CM, (BODY_CM + 4 * up) * 1.3 * CM, 0.75 * (1 - up));
+    this.shadow.follow(this.hunt, this.robin.pose);
   }
 
   /** The robin's wobble on the camera, as posed this frame (cutScene.ts shake). */
@@ -216,7 +188,7 @@ export class HuntGame {
     this.last = 'away';
     this.lastT = 0;
     this.grab.start();
-    this.sliding = false;
+    this.worm.sliding = false;
     this.shiverT = Infinity;
     this.hinted = false;
     this.game.robinU = NaN;
@@ -234,31 +206,10 @@ export class HuntGame {
     if (!this.host.reducedMotion()) this.shiverT = 0;
   }
 
-  /**
-   * The robin has the worm: into the side view at once. On the surface the worm gets a burrow where
-   * it lies (its tail end down a new hole); underground the robin pulls its front up through the
-   * litter. The robin stands on the cut's line, the rhythm starts, and the first grab's hint shows.
-   */
+  /** The robin has the worm: into the side view (from the surface, a cut that clears), the rhythm from its lead-in. */
   private grabbed(): void {
-    const g = this.game;
-    const h = this.hunt;
-    if (g.mode.mode === 'surface') {
-      // The tunnel leans away from the robin: which side of the head it stands along the heading.
-      const c = this.crawl.motion;
-      const ahead = (h.x - c.head.x) * Math.sin(c.heading) + (h.z - c.head.z) * Math.cos(c.heading);
-      holdFromSurface(g, this.hold, ahead >= 0 ? 1 : -1);
-      g.cutDip = 1;
-    } else holdFromBelow(g, this.hold);
     this.grab.start();
-    // From now on this robin is on the cut's line, as one that came for a worm underground.
-    h.under = true;
-    placeOnCut(g, h, this.hold, this.robin);
-    huntPose(h, this.grab.look, litterTopHeight, this.robin.pose);
-    this.robin.billTip(this.bill);
-    setBill(this.hold, g.slab!, this.bill);
-    snapHeld(g, this.hold);
-    g.robinU = slabU(g.slab!, h.x, h.z);
-    frameHunt(g, 0, g.cutDip >= 1);
+    if (this.worm.grab(this.hunt, this.grab.look)) this.game.cutDip = 1;
     if (this.hinted) return;
     this.hinted = true;
     this.note(HUNT_NOTES.grip, 7);
@@ -272,13 +223,13 @@ export class HuntGame {
       case 'escaped':
         endGrab(h, 'escaped');
         playHuntSound('escape');
-        this.startSlide();
+        this.worm.letGo();
         this.note(HUNT_NOTES.escaped, 2.5);
         break;
       case 'broke':
         endGrab(h, 'broke');
         g.setWormLength(nextLength(g.wormLength) ?? 1);
-        this.startSlide();
+        this.worm.letGo();
         this.note(HUNT_NOTES.broke, 5);
         break;
       case 'tooShort':
@@ -292,21 +243,6 @@ export class HuntGame {
         this.host.onWholeWorm(action, h.x, h.z, h.yaw);
         break;
     }
-  }
-
-  private startSlide(): void {
-    this.sliding = true;
-    this.slideTo = slideEnd(this.hold);
-  }
-
-  /** The worm slides down its hole, then the burrower has it (underground play goes on). */
-  private slide(dt: number): void {
-    const hold = this.hold;
-    hold.slide = Math.min(this.slideTo, hold.slide + SLIDE_SPEED * dt);
-    poseHeld(this.game, hold, dt);
-    if (hold.slide < this.slideTo) return;
-    this.sliding = false;
-    releaseHold(this.game);
   }
 
   /** Eases the camera's look-up toward the robin standing close to the head. */

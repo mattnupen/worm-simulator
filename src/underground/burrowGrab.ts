@@ -5,10 +5,9 @@ import { wormBody } from '../worm/bodyLength';
 import { advanceWave } from '../worm/wormShape';
 import { B_H, B_TOP, bound, boundaryOf, type Slab, type UV } from './slab';
 import { digDiscAt, type Eaten } from './soilGrid';
-import { placeBurrower, BREATH_HZ, TUNNEL_R } from './burrowMotion';
+import { BREATH_HZ, TUNNEL_R } from './burrowMotion';
 import { buildStage, type MoveState } from './burrowMoves';
 import { pressDig } from './burrowApproach';
-import { saveBurrow } from './burrows';
 
 /**
  * The worm in the robin's bill, seen in the side view (V4 spec revision 1): its front end up to the
@@ -16,7 +15,7 @@ import { saveBurrow } from './burrows';
  * bill: the bill, the top of the hole, then down a tunnel. As the robin leans back the bill rises
  * and more of the worm comes out (the body slides up its tunnel); as the worm pulls down, the robin
  * is drawn down after it. At the end the worm can slide down its hole (`slide`) and the burrower
- * takes over (releaseHold).
+ * takes over (burrowLetGo.ts).
  *
  * Two ways in:
  * - from the surface (holdFromSurface): the crawl lies on the litter, so a new burrow is dug at once
@@ -253,29 +252,4 @@ export function snapHeld(g: MoveState, h: Hold): void {
   w.prevV.set(w.v);
   g.prevW.set(g.offW);
   w.prevDir = w.dir;
-}
-
-/** Let go: the burrower takes the worm over where it lies in its hole, facing the way its head points. */
-export function releaseHold(g: MoveState): void {
-  const w = g.worm;
-  placeBurrower(w, w.u, w.v, w.dir, w.wave);
-  g.offW.fill(0);
-  g.prevW.fill(0);
-  for (let i = 0; i < N; i++) {
-    pt.u = w.u[i];
-    pt.v = w.v[i];
-    digDiscAt(g.grid, pt, TUNNEL_R, ate);
-  }
-  g.nearTop = false;
-}
-
-/**
- * Back to the surface view at once, the burrow's tunnels kept (the robin flies off with the whole
- * worm: the nest scene plays over the forest, then the new life starts in "your burrow").
- */
-export function leaveBelow(g: MoveState): void {
-  if (g.mode.mode !== 'surface' && !g.stage) saveBurrow(g.burrows, g.burrow, g.grid);
-  g.machine.reset();
-  g.stage = 0;
-  g.nearTop = false;
 }

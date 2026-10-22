@@ -76,9 +76,15 @@
 
 /* Small screens: the panel sits at the top under Pause, the note above the joystick and the button. */
 @media (max-width: 560px) {
-  .hunt-grip { top: 80px; right: 12px; left: 12px; transform: none; width: auto; padding: 10px 12px; gap: 4px; }
-  .hunt-ring { width: 132px; height: 132px; }
-  .hunt-ring-now { font-size: 22px; bottom: 2px; }
+  /* Low and compact (the ring beside its words), above the controls: the robin stands in the top of the view. */
+  .hunt-grip {
+    top: auto; bottom: 176px; right: 12px; left: 12px; transform: none; width: auto; padding: 8px 10px;
+    display: grid; grid-template-columns: 112px 1fr; column-gap: 10px; row-gap: 2px; align-items: center;
+  }
+  .hunt-grip > * { grid-column: 2; }
+  .hunt-grip-title { font-size: 19px; }
+  .hunt-ring { grid-column: 1; grid-row: 1 / span 4; width: 112px; height: 112px; }
+  .hunt-ring-now { font-size: 20px; bottom: 0; }
   .hunt-note { top: auto; bottom: 176px; left: 12px; right: 12px; transform: none; width: auto; max-width: none; }
   /* No room for both on a phone: the grip panel (what to do now) wins over the first grab's note. */
   #app:has(> .hunt-grip:not([hidden])) > .hunt-note { display: none; }

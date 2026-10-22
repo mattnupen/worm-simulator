@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { makeGame, digDown, run, DT, N, UP } from './burrowPlay';
 import {
-  createHold, headCatchable, holdFromBelow, holdFromSurface, leaveBelow, poseHeld, releaseHold, setBill, slideEnd, snapHeld,
+  createHold, headCatchable, holdFromBelow, holdFromSurface, poseHeld, setBill, slideEnd, snapHeld,
 } from '../../src/underground/burrowGrab';
+import { leaveBelow, releaseHold } from '../../src/underground/burrowLetGo';
 import { huntFrame } from '../../src/underground/huntFrame';
 import { AXIS_UP } from '../../src/underground/bodyPath';
 import { B_A, B_F, B_H, B_TOP, boundaryAt, createSlab } from '../../src/underground/slab';
