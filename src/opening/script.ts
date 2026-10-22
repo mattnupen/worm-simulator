@@ -245,6 +245,21 @@ export const CUP = { bottom: -0.7, top: 0.65, rBottom: 1.35, rTop: 1.55, lidR: 1
  * here (it grows and shrinks from there). It covers the worm until it crawls out.
  */
 export const SOIL = { x: 1.07, z: -0.55, yaw: LIE_YAW } as const;
+/**
+ * The spilled pile's lumps in its own frame (SOIL at the origin, turned by SOIL.yaw, at full size):
+ * [across x, across z, height, middle x, middle z]. A big mound against the cup's mouth (local z
+ * -0.85, the cup lying just behind it), tumbling out into smaller lumps toward +z. The worm crawls
+ * over them (opening.ts pileLift), so they are data both the mesh and the crawl read.
+ */
+export const PILE: readonly (readonly [number, number, number, number, number])[] = [
+  [1.3, 0.95, 1.0, 0, -0.85],
+  [1.05, 0.9, 0.6, 0.2, 0.3],
+  [0.85, 0.7, 0.34, -0.25, 1.2],
+  [0.32, 0.28, 0.22, 0.95, 1.65],
+  [0.26, 0.24, 0.18, -0.95, 0.75],
+  [0.22, 0.2, 0.14, 0.45, 2.15],
+  [0.18, 0.16, 0.12, -0.6, 2.0],
+];
 /** [t, size 0..1] of the spilled pile. */
 export const SOIL_SIZE: readonly Key[] = slow([
   [5.0, 0], [5.25, 1], [9.95, 1], [10.95, 0],

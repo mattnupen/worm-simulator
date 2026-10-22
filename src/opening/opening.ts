@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { litterTopHeight } from '../surface/litterDepth';
+import { floorHeight, litterTopHeight } from '../surface/litterDepth';
+import { setSurfaceLift } from '../worm/surfaceHeight';
 import { terrainHeight } from '../surface/terrain';
 import { pathDistance, sample, sample1, walkFoot, type FootPose, type Key } from './keys';
 import { buildOpeningActors, type OpeningActors, type Part } from './actors';
 import {
   BOX, BUS, CAMERA, EASE_END, EASE_START, HANDS_SHOWN, KIDS, LEAF, LEFT_HAND, LID, OPENING_END, RIGHT_HAND,
-  CUP, SOIL, SOIL_SIZE, TEACHER_PATH, TEACHER_SHOWN, TEACHER_YAW, TUB, TUB_ON_BOX, WORM, kidPath, wormMove,
+  CUP, PILE, SOIL, SOIL_SIZE, TEACHER_PATH, TEACHER_SHOWN, TEACHER_YAW, TUB, TUB_ON_BOX, WORM, kidPath, wormMove,
 } from './script';
 
 const M = 23.33;
@@ -69,7 +70,11 @@ export class Opening {
     this.leafLeft = true;
     this.actors.show(true);
     this.clearBusPath(true);
+    setSurfaceLift(this.lift);
   }
+
+  /** The worm crawls up over the spilled soil, not under it (Matt, 2026-10-22). */
+  private readonly lift = (x: number, z: number): number => pileLift(x, z, sample1(SOIL_SIZE, this.t));
 
   /**
    * Hides the far trees in the bus's way while the scene plays (Matt saw it drive through one) and
@@ -97,6 +102,7 @@ export class Opening {
   stop(): void {
     this.playing = false;
     this.clearBusPath(false);
+    setSurfaceLift(null);
     this.actors.bus.visible = false;
     this.actors.moving.visible = false;
     // The leaf stays (it would vanish in plain view otherwise) until keepLeaf lets it go.
@@ -359,4 +365,29 @@ export function inBusPath(x: number, z: number, r: number): boolean {
     if (Math.abs(across) < BUS_HALF + r && along < r && along > -BUS_LEN - r) return true;
   }
   return false;
+}
+
+/**
+ * How far above the floor the worm rests at (x, z) on the spilled pile at `size` (0 to 1): on top of
+ * its lumps, and on the leaves' top near it, so it crawls out over the soil in plain view rather
+ * than under it. Away from the pile it eases back down into the litter, where play keeps it.
+ */
+export function pileLift(x: number, z: number, size: number): number {
+  if (size <= 0.01) return 0;
+  const dx = (x - SOIL.x) / size;
+  const dz = (z - SOIL.z) / size;
+  // Into the pile's own frame (the mesh is turned by SOIL.yaw about y).
+  const c = Math.cos(SOIL.yaw);
+  const s = Math.sin(SOIL.yaw);
+  const lx = dx * c - dz * s;
+  const lz = dx * s + dz * c;
+  let top = 0;
+  let near = 0;
+  for (const [rx, rz, h, cx, cz] of PILE) {
+    const d = Math.hypot((lx - cx) / rx, (lz - cz) / rz);
+    if (d < 1) top = Math.max(top, h * Math.sqrt(1 - d * d));
+    near = Math.max(near, Math.min(1, Math.max(0, (1.6 - d) / 0.6)));
+  }
+  const leaves = Math.max(0, litterTopHeight(x, z) - floorHeight(x, z) - 0.05);
+  return near * Math.min(1, size * 4) * leaves + top * size;
 }
