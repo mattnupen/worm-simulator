@@ -19,7 +19,6 @@ import { LOCOMOTION } from './drive';
 import { disturbReach, type DisturbReach } from '../surface/leafScale';
 import { pushOut, slideMove } from '../surface/obstacles';
 import { CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
-import { layDown } from './crawlHold';
 
 export { WORM_SEGMENTS };
 /** The gap between body points at full length (bodyLength.ts holds the length now: `wormBody.spacing`). */
@@ -35,19 +34,11 @@ const BREATH_HZ = 0.22;
  */
 const MAP_CENTRE = 7;
 
-/** Held by the robin (V4): the head eases to the bill at this rate (1/s). */
-const HELD_RATE = 14;
 /** Looking up at a robin close by (V4 spec 6.2), at `lookUp` 1: the camera backs off and rises this far, and aims this much higher. */
 const LOOK_UP_BACK = 1.6;
 const LOOK_UP_RISE = 0.3;
 const LOOK_UP_AIM = 0.7;
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
-/** Puts a point on the floor, out of solid props (layDown, as the crawl rests its body). */
-const restSurf: WormSurface = { y: 0 };
-function restAt(p: Vec3): void {
-  pushOut(p, BODY_RADIUS);
-  p.y = bellyHeight(wormSurface(p.x, p.z, restSurf));
-}
 /** Scratch for interpolate: where the camera aims (cameraAim). */
 const aim: CameraAim = { ahead: 0, above: 0, upX: 0, upY: 1, upZ: 0 };
 
@@ -92,12 +83,6 @@ export class Crawl {
   private prevYaw = 0;
   private prevReach = 1;
   private readonly move: Vec2 = { x: 0, y: 0 };
-  /**
-   * V4: the robin holds the worm's head (src/predators/huntGame.ts). While `on`, each step eases the
-   * head to (x, y, z) (the bill tip: off the floor) instead of resting it on the floor; the body
-   * follows as always. release() lets go.
-   */
-  readonly held = { on: false, x: 0, y: 0, z: 0 };
   /**
    * V4: how much the camera looks up at a robin close by (0 not at all, 1 most), set each step by
    * the hunt, which eases it: the camera backs off a little, rises and aims higher, all on top of
@@ -145,16 +130,7 @@ export class Crawl {
     this.wave.phase = this.wave.activity = 0;
     this.prevWave.phase = this.prevWave.activity = 0;
     this.move.x = this.move.y = 0;
-    this.held.on = false;
     this.lookUp = this.prevLookUp = 0;
-  }
-
-  /** The robin lets go (or the worm is pulled free): the head and body rest on the floor again, at once. */
-  release(): void {
-    this.held.on = false;
-    const head = this.motion.head;
-    head.y = this.rest(head.x, head.z);
-    layDown(this.body, head, this.motion.heading, this.gap.value, restAt);
   }
 
   /**
@@ -226,12 +202,9 @@ export class Crawl {
   /** The body follows `head`, each trailing segment kept out of solid props and on its own surface (head first up a pile). */
   private trail(head: Vec3): void {
     followHead(this.body, head, this.gap.value);
-    const held = this.held.on;
     for (let i = 1; i < this.body.length; i++) {
       pushOut(this.body[i], BODY_RADIUS);
-      // Held up by the robin, the front hangs from the bill like a rope, never under the floor.
-      const r = this.rest(this.body[i].x, this.body[i].z);
-      this.body[i].y = held ? Math.max(r, this.body[i].y) : r;
+      this.body[i].y = this.rest(this.body[i].x, this.body[i].z);
     }
   }
 
@@ -260,15 +233,6 @@ export class Crawl {
     pushOut(head, BODY_RADIUS);
     // stepWorm stays flat and pure; the litter decides the height here.
     head.y = this.rest(head.x, head.z);
-    if (this.held.on) {
-      // In the robin's bill: eased from where it was toward the bill tip, never below the floor.
-      const g = this.held;
-      const k = 1 - Math.exp(-HELD_RATE * dt);
-      const p = this.prevHead;
-      head.x = p.x + (g.x - p.x) * k;
-      head.z = p.z + (g.z - p.z) * k;
-      head.y = Math.max(head.y, p.y + (g.y - p.y) * k);
-    }
     advanceWave(
       wave, hypot2(head.x - this.prevHead.x, head.z - this.prevHead.z), dt,
       LOCOMOTION.speed, wormBody.wavesPerUnit, BREATH_HZ,
