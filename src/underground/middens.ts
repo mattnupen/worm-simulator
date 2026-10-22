@@ -13,7 +13,7 @@ import { tint, writeCastings, writeLeafBits, BITS_INDEX, BITS_VERTS } from './mi
 /**
  * Burrow openings on the surface (V2 spec 4.2, 6): an open hole with a nightcrawler midden round it,
  * castings mixed with leaf bits, about 5 cm across and 1-2 cm high (Great Lakes Worm Watch). Since
- * V4 (revision 1 item 3) its heap and hole are the dig markers' (digMarkShape.ts: a little bigger,
+ * V4 (revision 1 item 3) its heap and hole are the casting mounds' (digMarkShape.ts: a little bigger,
  * a labelled Game choice), so every place to dig down looks alike: a dark hole you can see into. On the deep litter (litterDepth.ts) the heap is a plug of castings
  * from the floor (where the burrow opens) up through the leaves, so it rises out of their top and,
  * seen through the hole over the buried worm, reaches down to the floor instead of hanging in the
@@ -26,7 +26,7 @@ import { tint, writeCastings, writeLeafBits, BITS_INDEX, BITS_VERTS } from './mi
 const FLOOR = -9;
 /**
  * The heap's rings out from the burrow (share of its radius) and their height over the litter's
- * top, the dig markers': the hole's floor (near black, well over the top, so neither the drawn top
+ * top, the casting mounds': the hole's floor (near black, well over the top, so neither the drawn top
  * of the litter nor its curled close-up leaves cross it), its dark walls up to the lip, the rim,
  * the slope, its foot at the litter's top, then tucked in under the leaves down to the floor.
  */

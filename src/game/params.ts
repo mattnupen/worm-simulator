@@ -57,7 +57,7 @@ export interface GameParams {
    */
   nest: boolean;
   nestAt: number | null;
-  /** `?digMarks=0`: no dig markers on the ground (V4 spec 4.2; on unless turned off). */
+  /** `?digMarks=0`: no casting mounds on the ground, and none for the worm to crawl over (V4; on unless turned off). */
   digMarks: boolean;
 }
 
