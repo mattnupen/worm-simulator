@@ -16,7 +16,8 @@ real.
   game draws them that way (see "Real size" below).
 - **The worm has no eyes.** Expression comes from body motion and the moving prostomium.
 - Meaning is never carried by colour alone. Nothing flashes more than 3 times a second.
-- The camera is gentle, with no screen shake.
+- The camera is gentle. The one exception is a short wobble when a predator lands or tugs (Matt,
+  2026-10-22, V4): under 3 shakes a second, and off with reduced motion.
 
 ## Real size (V2 onward)
 - V2 removed World scale (Matt, 2026-10-06): the forest is drawn at real size only, next to a
