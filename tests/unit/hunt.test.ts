@@ -16,13 +16,13 @@ function run(s: HuntState, w: HuntInput, seconds: number, until?: HuntEvent): Hu
   return seen;
 }
 
-const worm = (over: Partial<HuntInput> = {}): HuntInput => ({ surface: true, hx: 0, hz: 0, heading: 0, ...over });
+const worm = (over: Partial<HuntInput> = {}): HuntInput => ({ catchable: true, under: false, hx: 0, hz: 0, heading: 0, ...over });
 
 describe('robin hunt', () => {
   it('waits only while the worm is on the surface, then warns and lands about a metre off, in front', () => {
     const s = createHunt(half);
     expect(s.wait).toBeCloseTo(HUNT.waitMin + HUNT.waitSpread / 2);
-    expect(run(s, worm({ surface: false }), 60)).toEqual([]);
+    expect(run(s, worm({ catchable: false }), 60)).toEqual([]);
     expect(run(s, worm(), 40, 'warn')).toEqual(['warn']);
     expect(Math.hypot(s.x, s.z) / UNITS_PER_CM).toBeCloseTo(HUNT.landCm, 3);
     expect(s.z).toBeGreaterThan(0);
@@ -50,8 +50,8 @@ describe('robin hunt', () => {
     const s = createHunt(half);
     robinIn(s, 0);
     run(s, worm(), 3);
-    expect(run(s, worm({ surface: false }), 1)).toEqual(['miss']);
-    expect(run(s, worm({ surface: false }), 5)).toEqual(['gone']);
+    expect(run(s, worm({ catchable: false }), 1)).toEqual(['miss']);
+    expect(run(s, worm({ catchable: false }), 5)).toEqual(['gone']);
     expect(s.phase).toBe('away');
     expect(s.wait).toBeGreaterThan(HUNT.waitMin - 0.01);
   });
@@ -83,22 +83,25 @@ describe('robin hunt', () => {
 
 describe('robin hunt pose', async () => {
   const { huntPose } = await import('../../src/predators/huntPose');
-  const { createTug, startTug, stepTug } = await import('../../src/predators/tug');
+  const { HuntGrab } = await import('../../src/predators/huntGrab');
   const { Robin } = await import('../../src/predators/robin');
 
   it('poses cleanly through a whole hunt and grab: no NaN, never below the ground', () => {
     const r = new Robin();
     const s = createHunt(half);
-    const tug = createTug();
+    const grab = new HuntGrab();
     robinIn(s, 0);
+    let grabbing = false;
     for (let t = 0; t < 40; t += DT) {
-      if (s.phase === 'grab') {
-        if (tug.result === 'none' && tug.elapsed === 0) startTug(tug, half);
-        stepTug(tug, DT, false, half);
-        if (tug.result !== 'none') endGrab(s, 'broke');
+      if (s.phase === 'grab' && !grabbing) {
+        grabbing = true;
+        grab.start();
       }
+      // No taps: the robin wins.
+      grab.step(DT, false, s.phase === 'grab');
+      if (s.phase === 'grab' && grab.rhythm.result !== 'none') endGrab(s, 'broke');
       stepHunt(s, DT, worm(), half);
-      huntPose(s, tug, () => 0, r.pose);
+      huntPose(s, grab.look, () => 0, r.pose);
       r.update();
       if (!r.pose.visible) continue;
       const pos = r.mesh.geometry.getAttribute('position').array as Float32Array;
@@ -107,6 +110,46 @@ describe('robin hunt pose', async () => {
       for (let i = 1; i < pos.length; i += 3) if (pos[i] !== 0 || pos[i - 1] !== 0) minY = Math.min(minY, pos[i]);
       expect(minY, `ground at ${t} (${s.phase})`).toBeGreaterThan(-0.6 * UNITS_PER_CM);
     }
-    expect(tug.result).toBe('pulledOut');
+    expect(grab.rhythm.result).toBe('pulledOut');
+  });
+
+  it('in the grab, the bill rises as the robin pulls the worm out and dips as the worm pulls back in', () => {
+    const r = new Robin();
+    const s = createHunt(half);
+    s.phase = 'grab';
+    const tip = { x: 0, y: 0, z: 0 };
+    const heights = [0, 0.5, 1].map((level) => {
+      huntPose(s, { level, loosen: 0, tug: 0 }, () => 0, r.pose);
+      r.billTip(tip);
+      return tip.y;
+    });
+    expect(heights[0]).toBeLessThan(0.3);
+    expect(heights[1]).toBeGreaterThan(heights[0] + 0.5);
+    expect(heights[2]).toBeGreaterThan(heights[1] + 0.5);
+  });
+});
+
+describe('the robin hunts a worm underground along the cut (revision 1)', () => {
+  it('lands along the cut, as close as landUnderCm, with no sideways spread', () => {
+    const s = createHunt(() => 0.9);
+    robinIn(s, 0);
+    const w = worm({ under: true, heading: Math.PI / 2 });
+    expect(run(s, w, 2, 'warn')).toEqual(['warn']);
+    expect(s.under).toBe(true);
+    expect(s.x / UNITS_PER_CM).toBeCloseTo(HUNT.landUnderCm, 3);
+    expect(Math.abs(s.z)).toBeLessThan(1e-9);
+    // And it closes in along that line.
+    run(s, w, 30, 'grab');
+    expect(s.phase).toBe('grab');
+    expect(Math.abs(s.z)).toBeLessThan(1e-9);
+  });
+
+  it('counts down only while the worm is catchable (surface or shallow)', () => {
+    const s = createHunt(half);
+    const wait = s.wait;
+    run(s, worm({ catchable: false, under: true }), 10);
+    expect(s.wait).toBe(wait);
+    run(s, worm({ under: true }), 5);
+    expect(s.wait).toBeLessThan(wait - 4.9);
   });
 });

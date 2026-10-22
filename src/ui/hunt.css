@@ -1,4 +1,4 @@
-/* ---------- The robin hunt (V4; src/ui/huntHud.ts) ---------- */
+/* ---------- The robin hunt (V4; src/ui/huntHud.ts, huntRing.ts) ---------- */
 /* Crawl only. Words and icons carry the meaning (never colour alone); nothing flashes or pulses. */
 :not([data-ui="crawl"]) > .hunt-warning,
 :not([data-ui="crawl"]) > .hunt-grip,
@@ -19,50 +19,47 @@
 .hunt-warning-do { font: 600 20px/1.3 var(--font-body); }
 
 .hunt-grip {
-  position: fixed; z-index: 1; left: 16px; top: 50%; transform: translateY(-50%);
+  /* The right side, level with the ground line: the hunt view frames the robin and worm left of centre. */
+  position: fixed; z-index: 1; right: 16px; top: 50%; transform: translateY(-50%);
   width: min(300px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 16px;
   color: var(--ink); background: var(--parchment-hi); border: 3px solid var(--bark-dark);
   box-shadow: 0 4px 10px rgba(30, 14, 2, 0.35);
-  display: flex; flex-direction: column; gap: 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
 }
 .hunt-grip[hidden] { display: none; }
 .hunt-grip-title { margin: 0; font: 800 22px/1.2 var(--font-display); }
-.hunt-say { margin: 0; min-height: 2.6em; font: 700 20px/1.3 var(--font-body); }
+.hunt-say { margin: 0; font: 700 18px/1.3 var(--font-body); }
 
-/* The Pull bar: Robin at the top, Burrow at the bottom, the worm marker between. */
-.hunt-bar { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.hunt-bar-end { display: inline-flex; align-items: center; gap: 6px; font: 700 18px/1.2 var(--font-body); }
-.hunt-bar-icon { width: 24px; height: 24px; }
-.hunt-bar-icon svg { width: 100%; height: 100%; }
-.hunt-bar-track {
-  position: relative; width: 40px; height: 160px; border-radius: 12px;
-  border: 3px solid var(--bark-dark);
-  /* Sky to soil, with a soil band at the bottom; the words at each end carry the meaning. */
-  background: linear-gradient(#cfe3ee 0%, #e9dcc0 55%, #8a5a33 85%, #5a3a1e 100%);
-}
-.hunt-bar-marker {
-  /* A worm: a rounded capsule with a ringed band (shape, not colour). */
-  position: absolute; left: 50%; width: 22px; height: 44px; margin-left: -11px; margin-top: -22px;
-  border-radius: 11px; background: #c98472; border: 3px solid var(--bark-dark);
-  box-shadow: inset 0 9px 0 -5px #9c5a4a;
-}
+/* The timing ring: a dot, a dashed circle where the ring meets it, and the ring shrinking onto it. */
+.hunt-ring { position: relative; width: 200px; height: 200px; }
+.hunt-ring svg { width: 100%; height: 100%; display: block; }
+.hunt-ring-dot { fill: var(--bark-dark); }
+.hunt-ring-guide { fill: none; stroke: var(--bark-dark); stroke-width: 3; stroke-dasharray: 7 6; }
+.hunt-ring-shrink { fill: none; stroke: var(--bark-dark); stroke-width: 9; }
+/* On time: the dashed circle turns solid and thick (a shape change), and "Tap!" shows under the dot. */
+.hunt-ring.is-now .hunt-ring-guide { stroke-width: 7; stroke-dasharray: none; }
+.hunt-ring-now { position: absolute; left: 0; right: 0; bottom: 6px; font: 800 26px/1 var(--font-display); }
+.hunt-ring-now[hidden] { display: none; }
 
-/* The Stretch meter: a bar that fills, and "Careful!" with a triangle when it's nearly full. */
-.hunt-stretch { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.hunt-stretch-word { font: 700 18px/1.2 var(--font-body); }
-.hunt-stretch-track {
-  flex: 1 1 120px; height: 20px; border-radius: 10px; overflow: hidden;
-  border: 3px solid var(--bark-dark); background: var(--parchment-lo);
+/* After each beat: an icon and a word ("Good!" with a check, "Missed" with a cross, and why). */
+.hunt-call {
+  margin: 0; min-height: 34px; display: inline-flex; align-items: center; gap: 8px;
+  font: 700 18px/1.2 var(--font-body);
 }
-.hunt-stretch-fill {
-  height: 100%; width: 0;
-  /* Stripes, so it reads as filling without its colour. */
-  background: repeating-linear-gradient(135deg, var(--bark-dark) 0 6px, #8a5a33 6px 12px);
-}
-.hunt-careful { flex-basis: 100%; display: inline-flex; align-items: center; gap: 6px; font: 800 20px/1.2 var(--font-body); }
-.hunt-careful[hidden] { display: none; }
-.hunt-careful-icon { width: 26px; height: 26px; color: var(--bark-dark); }
-.hunt-careful-icon svg { width: 100%; height: 100%; }
+.hunt-call[hidden] { display: inline-flex; visibility: hidden; }
+.hunt-call-icon { width: 30px; height: 30px; color: var(--bark-dark); }
+.hunt-call-icon[hidden] { display: none; }
+.hunt-call-icon svg { width: 100%; height: 100%; }
+.hunt-call-word { font: 800 24px/1.1 var(--font-display); }
+
+/* The pips: 5 rounded ones for good taps, 3 diamonds for misses; filled when earned. */
+.hunt-pips { display: grid; grid-template-columns: auto auto; align-items: center; gap: 6px 10px; }
+.hunt-pip-label { font: 700 18px/1.2 var(--font-body); text-align: right; }
+.hunt-pip-row { display: inline-flex; gap: 6px; }
+.hunt-pip { display: inline-block; border: 3px solid var(--bark-dark); background: transparent; }
+.hunt-pip-good { width: 14px; height: 24px; border-radius: 8px; }
+.hunt-pip-miss { width: 16px; height: 16px; margin: 0 3px; transform: rotate(45deg); }
+.hunt-pip.is-on { background: var(--bark-dark); }
 
 .hunt-note {
   position: fixed; z-index: 1; top: 16px; left: 50%; transform: translateX(-50%); margin: 0;
@@ -79,10 +76,11 @@
 
 /* Small screens: the panel sits at the top under Pause, the note above the joystick and the button. */
 @media (max-width: 560px) {
-  .hunt-grip { top: 84px; left: 12px; transform: none; width: min(260px, calc(100vw - 24px)); }
+  .hunt-grip { top: 80px; right: 12px; left: 12px; transform: none; width: auto; padding: 10px 12px; gap: 4px; }
+  .hunt-ring { width: 132px; height: 132px; }
+  .hunt-ring-now { font-size: 22px; bottom: 2px; }
   .hunt-note { top: auto; bottom: 176px; left: 12px; right: 12px; transform: none; width: auto; max-width: none; }
   /* No room for both on a phone: the grip panel (what to do now) wins over the first grab's note. */
   #app:has(> .hunt-grip:not([hidden])) > .hunt-note { display: none; }
-  .hunt-bar-track { height: 100px; }
   .hunt-warning { top: 80px; right: 12px; }
 }

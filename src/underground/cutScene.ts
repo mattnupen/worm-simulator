@@ -43,6 +43,11 @@ export interface CutScene {
    * card is up), so the first dig-down does not (spec 2026-10-08 section 4.3).
    */
   preload(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void;
+  /**
+   * Turns the camera a little once it is posed each frame, before the cut's clip is set from it
+   * (the robin's wobble, V4: src/predators/wobble.ts), or null.
+   */
+  shake: ((camera: THREE.PerspectiveCamera) => void) | null;
 }
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
@@ -156,8 +161,9 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
     focus.z = sp[2];
   }
 
-  return {
+  const scene: CutScene = {
     group,
+    shake: null,
     preload(renderer, camera) {
       // An addition to spec 4.3 (which only builds the pool at load), for the first-dig hitch: the
       // pool (about 11 MB: 7.9 MB of attributes and a 3.1 MB index) has its first bufferData the
@@ -192,6 +198,8 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
       if (m.mode === 'surface' || !s) {
         if (away) home(camera);
         world.sync(crawl, alpha, timeSec, camera);
+        scene.shake?.(camera);
+        hud.dip(game.cutDip);
         hud.labels(camera, null, false, width, height, NaN);
         return;
       }
@@ -211,10 +219,11 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
         lerp(q.pitch, c.pitch.value, alpha), cp);
       const p = cameraProgress(m);
       const e = smootherstep(p);
-      hud.dip(dipDarkness(m));
+      hud.dip(Math.max(dipDarkness(m), game.cutDip));
       poseWorm(s, alpha, timeSec);
       headAt.set(crawl.focus.x, crawl.focus.y, crawl.focus.z);
       const ahead = swingPose(surfCam, headAt, cp, s, p, CUT_MARGIN + offMost, camera);
+      scene.shake?.(camera);
       camera.updateMatrixWorld();
       camera.updateProjectionMatrix();
       if (ahead < Infinity) clipBeyond(camera, s, ahead);
@@ -249,4 +258,5 @@ export function createCutScene(game: BurrowGame, world: World, crawl: Crawl, hud
       }
     },
   };
+  return scene;
 }

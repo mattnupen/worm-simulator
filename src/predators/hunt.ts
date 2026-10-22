@@ -1,15 +1,21 @@
 import { UNITS_PER_CM } from '../surface/realScale';
 
 /**
- * The robin's hunt (V4 spec 1): when it comes, how it closes in, and when it strikes. A small
- * pure state machine; huntPose.ts turns it into the robin's pose and main.ts plays the warnings,
- * the grip mini-game (tug.ts) and what happens after.
+ * The robin's hunt (V4 spec 1, revision 1): when it comes, how it closes in, and when it strikes.
+ * A small pure state machine; huntPose.ts turns it into the robin's pose and huntGame.ts plays the
+ * warnings, the grip mini-game (rhythm.ts) and what happens after.
  *
- *   away --(time on the surface)--> arrive (warnings; flies in, lands about a metre off)
+ *   away --(time catchable)--> arrive (warnings; flies in, lands about a metre off)
  *   arrive --> stare --(still too far)--> dash --> stare ... --(within reach)--> strike
- *   strike --(worm still up top)--> grab --(the mini-game's end: endGrab)--> leave / miss / carry
- *   any time before the grab, the worm goes underground --> miss (pecks or looks round) --> leave
+ *   strike --(worm still catchable)--> grab --(the mini-game's end: endGrab)--> leave / miss / carry
+ *   any time before the grab, the worm gets out of reach --> miss (pecks or looks round) --> leave
  *   leave --> away
+ *
+ * Catchable (revision 1): on the surface, or underground with its head in the top two layers
+ * (leaf litter and old leaves). Real: robins pull worms that are near the surface out of their
+ * burrows (Journey North). For a worm underground the robin hunts along the cut, on the ground
+ * just behind it (huntGame.ts gives it the spot above the head): it lands closer
+ * (`landUnderCm`), along the cut, so the side view shows it all.
  *
  * The real hunt (Cornell, All About Birds): a short run, a stop, a stare with its head tipped.
  * Each stare is the player's time to act. Positions are world units; nothing allocates.
@@ -20,8 +26,10 @@ export const HUNT = {
   /** Time on the surface before a robin comes: from `waitMin` to `waitMin + waitSpread` seconds. */
   waitMin: 20,
   waitSpread: 20,
-  /** It lands this far from the worm's head... */
+  /** It lands this far from the worm's head (on the surface)... */
   landCm: 100,
+  /** ...or this far along the cut from the spot above the head (underground: on screen in the side view). */
+  landUnderCm: 32,
   /** ...somewhere in front of the worm, within this angle either side, so the player sees it. */
   landSpread: 0.8,
   /** Flying in, then settling on its legs. */
@@ -79,15 +87,25 @@ export interface HuntState {
   count: number;
   /** A miss began mid-strike (already leaning in), not from a stare (it pecks the empty spot first). */
   struck: boolean;
+  /** This robin came for a worm underground: it stays on the line along the cut. */
+  under: boolean;
+  /** How far off it landed (cm): its flight in comes from about this far past the worm. */
+  land: number;
 }
 
 /** Where the worm is, each step. */
 export interface HuntInput {
-  /** On the surface and free to move (not digging down, underground or coming up). */
-  surface: boolean;
-  /** The worm's head (world units) and heading. */
+  /**
+   * The robin can get the worm: on the surface and free to move, or underground with its head in
+   * the top two layers (not mid-move: digging down or coming up).
+   */
+  catchable: boolean;
+  /** Underground: the robin hunts along the cut (hx, hz is then the spot on the ground above the head). */
+  under: boolean;
+  /** Where the robin's bill must reach (world units): the worm's head, or the ground above it. */
   hx: number;
   hz: number;
+  /** The worm's heading on the surface; underground, the way along the cut the robin lands. */
   heading: number;
 }
 
@@ -95,6 +113,7 @@ export function createHunt(rand: () => number): HuntState {
   return {
     phase: 'away', t: 0, wait: HUNT.waitMin + HUNT.waitSpread * rand(), x: 0, z: 0, yaw: 0,
     fromX: 0, fromZ: 0, toX: 0, toZ: 0, stare: HUNT.stareMin, away: 0, withTail: false, count: 0, struck: false,
+    under: false, land: HUNT.landCm,
   };
 }
 
@@ -122,13 +141,15 @@ export function stepHunt(s: HuntState, dt: number, w: HuntInput, rand: () => num
   s.t += dt;
   switch (s.phase) {
     case 'away': {
-      if (!w.surface) return 'none';
+      if (!w.catchable) return 'none';
       s.wait -= dt;
       if (s.wait > 0) return 'none';
-      // Lands ahead of the worm, a little to one side, facing it.
-      const a = w.heading + (rand() * 2 - 1) * HUNT.landSpread;
-      s.x = w.hx + Math.sin(a) * HUNT.landCm * CM;
-      s.z = w.hz + Math.cos(a) * HUNT.landCm * CM;
+      // Lands ahead of the worm, a little to one side, facing it; underground, along the cut.
+      s.under = w.under;
+      s.land = w.under ? HUNT.landUnderCm : HUNT.landCm;
+      const a = w.heading + (w.under ? 0 : (rand() * 2 - 1) * HUNT.landSpread);
+      s.x = w.hx + Math.sin(a) * s.land * CM;
+      s.z = w.hz + Math.cos(a) * s.land * CM;
       s.yaw = a + Math.PI;
       s.away = a;
       s.withTail = false;
@@ -141,7 +162,7 @@ export function stepHunt(s: HuntState, dt: number, w: HuntInput, rand: () => num
       return 'none';
     case 'stare':
       face(s, w);
-      if (!w.surface) return missed(s, w);
+      if (!w.catchable) return missed(s, w);
       if (s.t < s.stare) return 'none';
       if (distCm(s, w) <= HUNT.reachCm * HUNT.lunge) startStrike(s, w);
       else startDash(s, w);
@@ -152,7 +173,7 @@ export function stepHunt(s: HuntState, dt: number, w: HuntInput, rand: () => num
     case 'strike':
       // A lunge: a step in as it leans, so its bill meets the head.
       if (!slide(s, HUNT.strike)) return 'none';
-      if (!w.surface) return missed(s, w);
+      if (!w.catchable) return missed(s, w);
       go(s, 'grab');
       return 'grab';
     case 'grab':
