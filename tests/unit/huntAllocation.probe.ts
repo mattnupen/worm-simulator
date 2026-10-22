@@ -4,7 +4,7 @@ import { frameHunt } from '../../src/underground/huntFrame';
 import { B_TOP, boundaryAt, slabX, slabZ } from '../../src/underground/slab';
 import { Crawl } from '../../src/game/crawl';
 import { HuntGrab } from '../../src/predators/huntGrab';
-import { createRhythm, startRhythm, stepRhythm } from '../../src/predators/rhythm';
+import { createGrip, startGrip, stepGrip } from '../../src/predators/grip';
 import { Wobble } from '../../src/predators/wobble';
 
 // Run by huntAllocation.test.ts, bundled as the game is and under `node --expose-gc` (as
@@ -39,22 +39,27 @@ function bytesPerCall(fn: () => void, tries = 4): number {
   return least;
 }
 
-// The rhythm alone: beats with a press now and then (on time, early or late), a new grab when one ends.
-const r = createRhythm();
+// Random numbers from a table made up front, so the probe's own rand makes no garbage.
+const TABLE = Float64Array.from({ length: 997 }, () => Math.random());
+let k = 0;
+const rand = (): number => TABLE[(k = (k + 1) % TABLE.length)];
+
+// The grip alone: taps now and then (in pulls and regrips), a new grab when one ends.
+const r = createGrip();
 let n = 0;
 let calls = 0;
-const rhythm = bytesPerCall(() => {
-  if (r.result !== 'none') startRhythm(r);
-  if (stepRhythm(r, DT, ++n % 67 === 0) !== 'none') calls++;
+const grip = bytesPerCall(() => {
+  if (r.result !== 'none') startGrip(r);
+  if (stepGrip(r, DT, ++n % 11 === 0, rand) === 'pull') calls++;
 });
 
-// The grab in play: the press edge, the rhythm and the robin's look.
+// The grab in play: the press edge, the grip and the robin's look.
 const grab = new HuntGrab();
 grab.start();
 let m = 0;
 const look = bytesPerCall(() => {
-  if (grab.rhythm.result !== 'none') grab.start();
-  grab.step(DT, ++m % 50 < 10, true);
+  if (grab.grip.result !== 'none') grab.start();
+  grab.step(DT, ++m % 14 < 4, true, rand);
 });
 
 // The worm held in the side view: the bill moving up and down, the body along its path, the camera.
@@ -82,4 +87,4 @@ const shake = bytesPerCall(() => {
   wobble.amount();
 });
 
-console.log(JSON.stringify({ rhythm, calls, look, held, shake, mode: game.mode.mode }));
+console.log(JSON.stringify({ grip, calls, look, held, shake, mode: game.mode.mode }));

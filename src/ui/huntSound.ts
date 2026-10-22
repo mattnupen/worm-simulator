@@ -5,8 +5,8 @@ import { noise, playScheduled, thud } from './lessonSound';
  * cues, on the same output and Settings switch (lessonSound.ts). Sound only adds to the warning:
  * its words and icon are always on screen.
  * - arrive: wingbeats as it flies in and lands, then its call;
- * - tug: a hard pull on the worm (a missed beat);
- * - good: the worm slipping a step back down (a good tap);
+ * - tug: a hard pull on the worm (each of the robin's pulls);
+ * - good: the worm gripping and slipping a step back down (a tap during a pull);
  * - escape: the worm sliding back down into the soil;
  * - leave: wingbeats as it flies off.
  */

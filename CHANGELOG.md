@@ -29,10 +29,11 @@ How to write an entry (for Matt and Claude):
   see its shadow, the leaves shiver and a **Robin!** sign shows up. It runs, stops and stares,
   just like a real robin. Dig deep before it strikes. If you're still in the top two layers of
   leaves, it can pull you out!
-- **Hold on!** If the robin grabs you, the view turns sideways so you see the robin above and
-  your worm in the ground. A ring shrinks toward a dot: tap Space (or the button) just as it
-  touches the dot to pull back down. Make 5 good pulls to escape. Miss 3 and the robin wins.
-  (Game choice: real worms don't time their pulls.)
+- **Hold on!** If the robin grabs you, the view turns sideways and zooms in on the robin and
+  your worm. When the robin pulls, tap Space (or the Tap button) to grip and pull back down.
+  Every tap uses energy, so don't just mash: rest while the robin gets a new grip. Run out of
+  energy, or get pulled all the way out, and the robin wins. (Game choice: real worms don't have
+  an energy bar.)
 - **If you lose,** your worm breaks and keeps going, shorter. Real worms can lose their tail end
   and live. Once in a while, the robin takes the whole worm to feed its babies.
 

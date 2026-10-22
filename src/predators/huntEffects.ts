@@ -5,6 +5,7 @@ import { UNITS_PER_CM } from '../surface/realScale';
 import { createWormShadowMaterial } from '../worm/wormMaterial';
 import { HUNT, type HuntState } from './hunt';
 import type { RobinPose } from './robin';
+import type { Crawl } from '../game/crawl';
 
 /**
  * Two of the robin's warnings (V4 spec 1), with nothing new to compile:
@@ -123,4 +124,24 @@ export function gust(p: HeroLeaves, n: number): void {
     p.vy[i] += GUST_HOP * (0.6 + 0.4 * r);
     p.spin[i] += GUST_SPIN * (r * 2 - 1);
   }
+}
+
+/** The camera looks up while the robin stands within this many cm of the head, most at LOOK_FULL_CM. */
+const LOOK_FROM_CM = 60;
+const LOOK_FULL_CM = 18;
+/** How fast the look-up eases in and out (1/s): gentle, never a snap. */
+const LOOK_RATE = 1.6;
+const smooth = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+
+/** Eases the crawl camera's look-up toward the robin (posed `p`) standing close to the head (`surface`: on the surface). */
+export function lookUp(c: Crawl, h: HuntState, p: RobinPose, dt: number, surface: boolean): void {
+  let want = 0;
+  const grounded = h.phase === 'stare' || h.phase === 'dash' || h.phase === 'strike' || h.phase === 'grab'
+    || h.phase === 'miss' || (h.phase === 'arrive' && h.t >= HUNT.flyIn);
+  if (surface && grounded) {
+    const head = c.motion.head;
+    const d = Math.hypot(p.x - head.x, p.z - head.z) / UNITS_PER_CM;
+    want = smooth((LOOK_FROM_CM - d) / (LOOK_FROM_CM - LOOK_FULL_CM));
+  }
+  c.lookUp += (want - c.lookUp) * (1 - Math.exp(-LOOK_RATE * dt));
 }

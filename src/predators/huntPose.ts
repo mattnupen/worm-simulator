@@ -7,8 +7,8 @@ import { wingBeat } from './robinDemo';
  * The robin's pose for the hunt (hunt.ts), with the same moves as the preview loop (robinDemo.ts):
  * flying in, short runs, the stare with its head tipped, the peck, the tug-of-war and flying off.
  * During a grab it follows the mini-game (huntGrab.ts): bent down to the worm when the worm has
- * pulled most of itself back in, leaning back when it has pulled the worm out; its bill loosening
- * for a new grip as each ring meets the dot, and a hard tug after each miss.
+ * pulled most of itself back in, leaning back when it has pulled the worm out; leaning back hard
+ * and yanking through each pull, and its bill loosening for a new grip between pulls.
  * Writes into `out`; allocates nothing.
  */
 
@@ -16,9 +16,9 @@ import { wingBeat } from './robinDemo';
 export interface GripLook {
   /** How far out it has pulled the worm: 0 bent right down to the ground, 1 leaning back with most of it out. */
   level: number;
-  /** 0..1: loosening its hold to get a new grip (the bill opens a little as the ring meets the dot). */
+  /** 0..1: loosening its hold to get a new grip (the bill opens a little between pulls). */
   loosen: number;
-  /** 0..1: a hard tug, leaning back further (after a miss). */
+  /** 0..1: pulling, leaning back further and bracing (through each pull). */
   tug: number;
 }
 
@@ -128,9 +128,11 @@ export function huntPose(h: HuntState, look: GripLook, ground: (x: number, z: nu
  * pulls (pitch -0.3: the bill about 12 cm up, most of the worm out); legs braced as it pulls.
  */
 export function grabPose(look: GripLook, out: RobinPose): void {
-  out.pitch = 0.92 - 1.2 * look.level - 0.3 * look.tug;
+  // Never further back than -0.42: past it the tail and feet reach below the ground.
+  out.pitch = Math.max(-0.42, 0.92 - 1.2 * look.level - 0.4 * look.tug);
   out.crouch = 0.35 + 0.3 * look.level + 0.2 * look.tug;
-  out.headPitch = 0.35;
+  // Head pulled back through a pull: the yank.
+  out.headPitch = 0.35 - 0.3 * look.tug;
   // The tail goes down as it bends in and lifts as it tips back, so its tip stays off the ground.
   out.tail = out.pitch > 0.6 ? -0.3 - 0.7 * (out.pitch - 0.6) : -0.3 + 0.92 * (0.6 - out.pitch);
   out.bill = 0.08 + 0.45 * look.loosen;

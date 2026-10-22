@@ -594,7 +594,8 @@ function start(renderer: THREE.WebGLRenderer): void {
       // ?prompt= shows one kind over the game's own and counts the presses (tests, screenshots).
       if (params.prompt && pressEdge.update(cmds.action)) app.dataset.actionPresses = String(++presses);
       const on = state.screen === 'crawl' && !runner.running && app.dataset.promptOff === undefined;
-      actionPrompt.set(on ? params.prompt ?? hunt?.prompt ?? game.prompt : null);
+      const held = hunt?.prompt;
+      actionPrompt.set(on ? params.prompt ?? (held !== undefined ? held : game.prompt) : null);
       // Gone down, come up, or the first visit's hint has had its time: the crawl card changes.
       if (state.screen === 'crawl' && shownCard !== cardNow()) draw();
     }
