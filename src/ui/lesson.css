@@ -244,27 +244,87 @@
   .cue-captions { flex-direction: column; gap: 8px; }
 }
 
-/* Body tour ("Follow the leaf"): a drawing of the worm's insides, head on the left. The part the
-   leaf is in gets a thick dark outline and a label above it, and the box under the drawing says
-   the same in words. The leaf glides between parts (no glide under reduced motion). */
+/* Body tour ("Follow the leaf", lessonBody.ts): a whole-worm map, then a big close-up of the
+   worm cut open that pans to the part the food is in. The card is wider on this step so the
+   close-up is large. The part the food is in gets a thick dark outline and a label; the box under
+   the drawing says the same in words. Motion: one slow pan per tap, and a few gentle loops (the
+   gizzard squeezing, food soaking into the blood), nothing near 3 flashes a second; none of it
+   under reduced motion. */
+.panel[data-state="lesson"]:has(.body-diagram) { width: min(62rem, calc(100vw - 32px)); }
 .body-diagram { margin: 6px 0 2px; }
-.body-diagram svg { display: block; width: 100%; height: auto; }
-.body-caption { font-size: 1rem; font-style: italic; text-align: center; margin-top: 2px; }
-.body-skin { fill: #d69a86; stroke: #6b3d2e; stroke-width: 3; }
-.body-band { fill: #c27a63; }
-.body-furrows { fill: none; stroke: rgba(107, 61, 46, 0.35); stroke-width: 1.5; }
-.body-tube { fill: none; stroke: #8a5a44; stroke-width: 7; stroke-linecap: round; }
-.body-part > * { fill: #b27a63; stroke: #6b3d2e; stroke-width: 2; }
-.body-part.seen > * { fill: #8a5a44; }
-.body-part.here > * { fill: #f2c14e; stroke: #2a1a10; stroke-width: 4; }
-.body-leaf { transition: transform 0.6s ease-in-out; }
-.body-leaf path { fill: #4f8a2c; stroke: #1f3d10; stroke-width: 1.5; }
-.body-leaf .body-leaf-vein { fill: none; stroke: #1f3d10; }
-.body-label text { font: 800 24px/1 system-ui, sans-serif; fill: #2a1a10; }
-.body-label-line { fill: none; stroke: #2a1a10; stroke-width: 2.5; }
+.body-map-head { display: flex; justify-content: space-between; font-size: 0.875rem; font-weight: 700; color: var(--muted, inherit); margin: 0 0 2px !important; }
+.body-map { display: block; width: 100%; height: 34px; }
+.body-close { display: block; width: 100%; height: auto; margin-top: 6px; border-radius: 14px; background: #efe2c8; border: 2px solid var(--line-strong, #6b3d2e); }
+.body-caption { font-size: 1rem; font-style: italic; text-align: center; margin-top: 4px; }
+.body-skin { fill: url(#worm-skin); stroke: #5a2f24; stroke-width: 3; }
+.body-map .body-skin { fill: #b9715d; stroke-width: 6; }
+.map-gut { stroke: #6b4a33; stroke-width: 18; }
+.body-window { fill: rgba(255, 255, 255, 0.25); stroke: #1b120c; vector-effect: non-scaling-stroke; stroke-width: 3; transition: transform 1s ease-in-out; }
+.body-clitellum { fill: #b8573f; opacity: 0.9; }
+.body-cavity { fill: #f6d5c6; stroke: #b56b57; stroke-width: 2; }
+.body-septa { fill: none; stroke: #d39a87; stroke-width: 2; }
+.body-furrows, .body-setae { fill: none; stroke: #4a261c; stroke-width: 2; stroke-linecap: round; }
+.body-vessel { fill: none; stroke: #b3261e; stroke-width: 5; stroke-linecap: round; }
+.body-vessel.ventral { stroke-width: 4; }
+.body-hearts { fill: none; stroke: #b3261e; stroke-width: 6; stroke-linecap: round; }
+.body-nerve { fill: none; stroke: #f0dc9a; stroke-width: 5; }
+.body-brain { fill: #f0dc9a; stroke: #b49a4a; stroke-width: 2; }
+.body-note { font: 700 15px/1 system-ui, sans-serif; fill: #5a3a2c; }
+.gut { stroke: #6b3d2e; stroke-width: 2; }
+.esophagus { fill: #d9a77e; }
+.pharynx { fill: #d2786a; stroke-width: 3; }
+.pharynx-muscles { fill: none; stroke: #c78878; stroke-width: 3; }
+.mouth { fill: #3a1d14; }
+.prostomium { fill: #9b5442; stroke: #5a2f24; stroke-width: 2; }
+.crop-sac { fill: #e9c49a; }
+.gizzard-wall { fill: #9c4a37; stroke-width: 3; }
+.gizzard-lumen { fill: #6b4a33; }
+.gizzard-muscle { fill: none; stroke: #7a3426; stroke-width: 3; }
+.intestine { fill: #c99a6a; }
+.gut-content { stroke: #6b4a33; stroke-width: 22; stroke-linecap: round; opacity: 0.85; }
+.typhlosole { stroke: #b07e52; stroke-width: 8; stroke-linecap: round; }
+.grit circle { fill: #a8a294; stroke: #6c675c; stroke-width: 0.8; }
+.anus { fill: #3a1d14; }
+.body-part.here .gut, .body-part.here .crop-sac, .body-part.here .gizzard-wall, .body-part.here .prostomium { stroke: #111; stroke-width: 6; }
+.body-world, .food, .body-label { transition-property: transform; transition-timing-function: ease-in-out; }
+.food-leaf-blade { fill: #7a9a32; stroke: #33461a; stroke-width: 2; }
+.food-leaf-vein { fill: none; stroke: #33461a; stroke-width: 1.5; }
+.food-leaf { transition: transform 0.8s ease, opacity 0.6s ease; transform: scale(1.5); }
+.food-crumbs path { fill: #6f7c2e; stroke: #33461a; stroke-width: 1; }
+.food-crumbs, .food-spit, .food-soak { opacity: 0; transition: opacity 0.6s ease; }
+.food-spit circle { fill: #dff1ff; stroke: #6c9bbd; stroke-width: 1.5; }
+.soak-dot { fill: #d1442f; }
+.food-casts ellipse { fill: #4a3426; stroke: #2a1c14; stroke-width: 1.5; }
+.food-casts { opacity: 0; transition: opacity 0.8s ease 0.6s; }
+.body-label text { font: 800 26px/1 system-ui, sans-serif; fill: #1b120c; paint-order: stroke; stroke: #efe2c8; stroke-width: 6px; }
+.body-label-line { fill: none; stroke: #1b120c; stroke-width: 3; }
+/* What happens to the food at each part. */
+.body-diagram[data-at="mouth"] .food-leaf { transform: scale(1.2); }
+.pharynx-move { transition: transform 0.8s ease-in-out; }
+.body-diagram[data-at="mouth"] .pharynx-move { transform: translateX(-34px); }
+.body-diagram[data-at="pharynx"] .food-leaf { transform: scale(0.95) rotate(-12deg); }
+.body-diagram[data-at="pharynx"] .food-spit { opacity: 1; }
+.body-diagram[data-at="crop"] .food-leaf { transform: scale(0.85) rotate(20deg); }
+.body-diagram[data-at="crop"] .crop-sac { transform-box: fill-box; transform-origin: center; transform: scale(1.12); transition: transform 0.8s ease; }
+.body-diagram[data-at="gizzard"] .food-leaf, .body-diagram[data-at="intestine"] .food-leaf, .body-diagram[data-at="casts"] .food-leaf { opacity: 0; transform: scale(0.4); }
+.body-diagram[data-at="gizzard"] .food-crumbs { opacity: 1; }
+.body-diagram[data-at="gizzard"] [data-part="gizzard"] { transform-box: fill-box; transform-origin: center; animation: gizzard-squeeze 1.2s ease-in-out 3; }
+.body-diagram[data-at="intestine"] .food-crumbs { opacity: 0.8; transform: scale(0.75); transition: opacity 0.6s ease, transform 0.8s ease; }
+.body-diagram[data-at="intestine"] .food-soak { opacity: 1; }
+.body-diagram[data-at="intestine"] .soak-dot { animation: soak 2.2s ease-in infinite; }
+.body-diagram[data-at="casts"] .food-casts { opacity: 1; }
+@keyframes gizzard-squeeze { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.84); } }
+@keyframes soak { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-46px); opacity: 0; } }
+.body-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; }
+.body-buttons .meet-count { margin: 0 !important; }
 .body-now:empty { display: none; }
-.body-now-on { padding: 8px 12px; border: 2px solid var(--line-strong); border-radius: var(--radius-row); background: var(--row); margin: 6px 0 10px; }
+.body-now-on { padding: 8px 12px; border: 2px solid var(--line-strong); border-radius: var(--radius-row); background: var(--row); margin: 8px 0 10px; }
 .body-now .lesson-line { font-size: 1.125rem; line-height: 1.4; margin: 2px 0 0 !important; }
 .body-stops { margin: 6px 0 0 !important; padding-left: 28px; display: grid; gap: 6px; }
-.body-done { font-weight: 800; margin-top: 6px !important; }
-@media (prefers-reduced-motion: reduce) { .body-leaf { transition: none; } }
+.body-done { font-weight: 800; margin-top: 8px !important; }
+@media (prefers-reduced-motion: reduce) {
+  .body-world, .food, .body-label, .body-window, .food-leaf, .food-crumbs, .food-spit, .food-soak, .food-casts, .crop-sac { transition: none !important; }
+  .pharynx-move { transition: none !important; }
+  .body-diagram [data-part="gizzard"], .body-diagram .soak-dot { animation: none !important; }
+  .body-diagram[data-at="intestine"] .soak-dot { transform: translateY(-24px); }
+}

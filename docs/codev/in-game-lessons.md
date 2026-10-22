@@ -35,7 +35,7 @@ steps, each one of these kinds:
 | `story` | One big idea in two or three short lines |
 | `predict` | A question with 2–4 answers (radio buttons), then "What scientists found". With `answer`, that option is marked "Correct" after a guess |
 | `sense` | A film-like moment over the forest (`shadow`, `thump` or `robin`): the card fades out, black bars close in, the cue plays with its sound, and the `scene` and cue words show as captions with Skip. When the cue ends, Skip becomes Next and waits for the student; then the card comes back with the question and the reveal |
-| `body` | "Follow the leaf": a code-drawn diagram of the worm's insides, captioned as a drawing. Each tap moves a bit of leaf to the next part and shows its name and fact; at the end the whole trip shows as a list. Next waits for the last part (V4) |
+| `body` | "Follow the leaf": a nightcrawler cut open from the side, drawn in code and captioned as a drawing (layout from school dissection guides, `docs/codev/research/eating.md`). A small whole-worm map sits over a big close-up that pans to the part the food is in and shows what happens there (grab, spit, store, grind with sand, soak into the blood, casts out). Each tap shows the part's name and fact; at the end the whole trip shows as a list, with "Watch the whole trip". Next waits for the last part (V4; redrawn bigger and more realistic, Matt 2026-10-22) |
 | `meet` | 2–6 animals as photo cards; "Find out" on each shows its fact (replaced `sort`, which Matt found confusing: it was a quiz where every answer was the same) |
 | `mission` | Always last: "While you play, notice…" and the reminder to vote on the form in Canvas |
 
