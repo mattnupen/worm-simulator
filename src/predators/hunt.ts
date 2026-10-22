@@ -3,7 +3,7 @@ import { UNITS_PER_CM } from '../surface/realScale';
 /**
  * The robin's hunt (V4 spec 1, revision 1): when it comes, how it closes in, and when it strikes.
  * A small pure state machine; huntPose.ts turns it into the robin's pose and huntGame.ts plays the
- * warnings, the grip mini-game (rhythm.ts) and what happens after.
+ * warnings, the grip mini-game (grip.ts) and what happens after.
  *
  *   away --(time catchable)--> arrive (warnings; flies in, lands about a metre off)
  *   arrive --> stare --(still too far)--> dash --> stare ... --(within reach)--> strike

@@ -5,13 +5,12 @@ import type { ActionKind } from '../ui/actionPrompt';
 import { createHuntHud, type HuntHud } from '../ui/huntHud';
 import { playHuntSound } from '../ui/huntSound';
 import { litterTopHeight } from '../surface/litterDepth';
-import { UNITS_PER_CM } from '../surface/realScale';
 import { leaveBelow } from '../underground/burrowLetGo';
 import { slabU } from '../underground/slab';
 import { HUNT, createHunt, endGrab, resetHunt, robinIn, robinShown, stepHunt, type HuntInput, type HuntPhase, type HuntState } from './hunt';
 import { huntPose } from './huntPose';
 import { huntOutcome, nextLength, type HuntOutcome } from './huntOutcome';
-import { GUSTS, HuntShadow, SHIVER_S, gust } from './huntEffects';
+import { GUSTS, HuntShadow, SHIVER_S, gust, lookUp } from './huntEffects';
 import { HeldWorm } from './heldWorm';
 import { HuntGrab } from './huntGrab';
 import { HUNT_NOTES } from './huntNotes';
@@ -32,22 +31,16 @@ export interface HuntHost {
   reducedMotion(): boolean;
 }
 
-/** The camera looks up while the robin stands within this many cm of the head, most at LOOK_FULL_CM. */
-const LOOK_FROM_CM = 60;
-const LOOK_FULL_CM = 18;
-/** How fast the look-up eases in and out (1/s): gentle, never a snap. */
-const LOOK_RATE = 1.6;
 /** The cut to the side view as it grabs on the surface: the screen dims as it strikes, then clears over this long (s). */
 const CUT_CLEAR_S = 0.4;
 const STRIKE_DIM = 0.55;
 
-const CM = UNITS_PER_CM;
 const ease = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
 /**
  * The robin hunt in play (V4 spec 1 to 3, revision 1): the robin and its hunt (hunt.ts), on the
- * surface or along the cut for a worm in the top two layers; the rhythm grip (huntGrab.ts) while it
- * holds the worm, seen in the side view (burrowGrab.ts, huntFrame.ts); the warnings, the wobble, the
+ * surface or along the cut for a worm in the top two layers; the grip mini-game (huntGrab.ts) while
+ * it holds the worm, seen in the side view (burrowGrab.ts, huntFrame.ts); the warnings, the wobble, the
  * camera's look-up, and what happens after. main.ts steps it each game step on the crawl screen and
  * draws it each frame. Allocates nothing per step or frame.
  */
@@ -66,8 +59,12 @@ export class HuntGame {
   /** The warning's leaf shiver: seconds into it (Infinity when none). */
   private shiverT = Infinity;
   private noteLeft = 0;
-  /** This life's first grab shows the grip hint. */
+  /** A note to show once this one has had its time (null: none). */
+  private nextNote: string | null = null;
+  /** The end of this life's first grab shows the grip's fact. */
   private hinted = false;
+  /** A touch screen, as of the last step (the Tap button shows only there). */
+  private touch = false;
 
   constructor(
     scene: THREE.Scene, root: HTMLElement, private readonly crawl: Crawl, private readonly game: BurrowGame,
@@ -80,7 +77,7 @@ export class HuntGame {
     this.worm = new HeldWorm(game, this.robin);
     this.shadow = new HuntShadow(scene);
     this.hud = createHuntHud(root);
-    // A tap or click on the game itself is a tap too (the ring's own panel and the button as well).
+    // A tap or click on the game itself is a tap too (the Energy panel and the button as well).
     const tap = (e: PointerEvent): void => {
       if (e.button === 0 && this.hunt.phase === 'grab') this.grab.tap();
     };
@@ -93,15 +90,21 @@ export class HuntGame {
     return this.hunt.phase === 'grab' || this.worm.sliding;
   }
 
-  /** The Action prompt while the robin holds the worm ('grip': "Tap!"), else null (the game's own). */
-  get prompt(): ActionKind | null {
-    return this.hunt.phase === 'grab' ? 'grip' : null;
+  /**
+   * The Action prompt while the robin holds the worm: on a touch screen the Tap button ('grip'),
+   * with a keyboard none (null: Space is the tap, and the grab shows no instructions). Undefined
+   * when not held: the game's own.
+   */
+  get prompt(): ActionKind | null | undefined {
+    if (this.hunt.phase !== 'grab') return undefined;
+    return this.touch ? 'grip' : null;
   }
 
-  /** A short line under the warning's place for `seconds` (the hooks' notes, too). */
-  note(text: string, seconds: number): void {
+  /** A short line for `seconds` (the hooks' notes, too); `then`: a note to follow it for 7 s. */
+  note(text: string, seconds: number, then: string | null = null): void {
     this.hud.note(text);
     this.noteLeft = seconds;
+    this.nextNote = then;
   }
 
   /**
@@ -109,10 +112,11 @@ export class HuntGame {
    * otherwise nothing moves and the HUD steps aside. `action`: the Action level (held, not pressed).
    */
   step(dt: number, active: boolean, action: boolean, touch: boolean): void {
+    this.touch = touch;
     if (!active) {
-      this.grab.step(dt, action, false);
+      this.grab.step(dt, action, false, this.rand);
       this.hud.warn(false, false);
-      this.hud.grip(null, touch);
+      this.hud.grip(null);
       return;
     }
     const h = this.hunt;
@@ -129,13 +133,15 @@ export class HuntGame {
     this.last = h.phase;
     this.lastT = h.t;
 
-    const call = this.grab.step(dt, action, h.phase === 'grab');
-    if (call === 'good') playHuntSound('good');
-    else if (call !== 'none') {
+    const tap = this.grab.step(dt, action, h.phase === 'grab', this.rand);
+    if (tap === 'grip') playHuntSound('good');
+    else if (tap === 'pull') {
+      // Each pull reads without colour or words: the robin's yank, the wobble, the sound, and for screen readers "Robin pulls!".
       playHuntSound('tug');
       this.wobble.kick(this.host.reducedMotion());
+      this.hud.pulled();
     }
-    const r = this.grab.rhythm;
+    const r = this.grab.grip;
     const end: HuntOutcome | null = h.phase === 'grab' && r.result !== 'none' ? huntOutcome(r.result, this.rand(), g.wormLength) : null;
     huntPose(h, this.grab.look, litterTopHeight, this.robin.pose);
     // The side view frames the robin hunting a worm underground (and holding it).
@@ -146,9 +152,9 @@ export class HuntGame {
     if (this.worm.sliding) this.worm.slide(dt);
     // The surface strike dims toward the cut; the cut clears.
     g.cutDip = h.phase === 'strike' && !w.under ? STRIKE_DIM * ease(h.t / HUNT.strike) : Math.max(0, g.cutDip - dt / CUT_CLEAR_S);
-    this.hud.grip(h.phase === 'grab' ? r : null, touch);
+    this.hud.grip(h.phase === 'grab' ? r : null);
     this.hud.warn(h.phase === 'arrive' || h.phase === 'stare' || h.phase === 'dash' || h.phase === 'strike', w.under);
-    this.lookUp(dt, g.mode.mode === 'surface');
+    lookUp(this.crawl, h, this.robin.pose, dt, g.mode.mode === 'surface');
     if (this.shiverT < SHIVER_S) {
       // The wingbeats' puffs: the loose leaves by the worm hop and turn.
       const n = Math.floor((this.shiverT + dt) * GUSTS) - Math.floor(this.shiverT * GUSTS);
@@ -157,7 +163,8 @@ export class HuntGame {
     }
     if (this.noteLeft > 0) {
       this.noteLeft -= dt;
-      if (this.noteLeft <= 0) this.hud.note(null);
+      if (this.noteLeft <= 0 && this.nextNote !== null) this.note(this.nextNote, 7);
+      else if (this.noteLeft <= 0) this.hud.note(null);
     }
   }
 
@@ -179,7 +186,7 @@ export class HuntGame {
     this.shadow.hide();
     this.wobble.stop();
     this.hud.warn(false, false);
-    this.hud.grip(null, false);
+    this.hud.grip(null);
   }
 
   /** A new life (or the speed test's reset): no robin, no grab, the hint again on the next grab. */
@@ -191,6 +198,7 @@ export class HuntGame {
     this.worm.sliding = false;
     this.shiverT = Infinity;
     this.hinted = false;
+    this.nextNote = null;
     this.game.robinU = NaN;
     this.game.cutDip = 0;
     this.crawl.lookUp = 0;
@@ -198,7 +206,7 @@ export class HuntGame {
     this.shadow.hide();
     this.wobble.stop();
     this.hud.warn(false, false);
-    this.hud.grip(null, false);
+    this.hud.grip(null);
   }
 
   private warned(): void {
@@ -206,36 +214,45 @@ export class HuntGame {
     if (!this.host.reducedMotion()) this.shiverT = 0;
   }
 
-  /** The robin has the worm: into the side view (from the surface, a cut that clears), the rhythm from its lead-in. */
+  /** The robin has the worm: into the side view (from the surface, a cut that clears), the grip from its lead-in. No note over it. */
   private grabbed(): void {
     this.grab.start();
     if (this.worm.grab(this.hunt, this.grab.look)) this.game.cutDip = 1;
-    if (this.hinted) return;
+    this.hud.note(null);
+    this.noteLeft = 0;
+    this.nextNote = null;
+  }
+
+  /** The grip's fact after this life's first grab (null after that). */
+  private fact(): string | null {
+    if (this.hinted) return null;
     this.hinted = true;
-    this.note(HUNT_NOTES.grip, 7);
+    return HUNT_NOTES.grip;
   }
 
   /** The mini-game's ending (spec 3). */
   private finish(end: HuntOutcome, action: boolean): void {
     const h = this.hunt;
     const g = this.game;
+    const tired = this.grab.grip.tired;
     switch (end) {
       case 'escaped':
         endGrab(h, 'escaped');
         playHuntSound('escape');
         this.worm.letGo();
-        this.note(HUNT_NOTES.escaped, 2.5);
+        this.note(HUNT_NOTES.escaped, 2.5, this.fact());
         break;
       case 'broke':
         endGrab(h, 'broke');
         g.setWormLength(nextLength(g.wormLength) ?? 1);
         this.worm.letGo();
-        this.note(HUNT_NOTES.broke, 5);
+        this.note(tired ? HUNT_NOTES.brokeTired : HUNT_NOTES.broke, 5, this.fact());
         break;
       case 'tooShort':
         endGrab(h, 'broke');
-        this.note(HUNT_NOTES.tooShort, 5);
+        // A new life (the hunt resets), then its note and the grip's fact.
         this.host.startAgain(action);
+        this.note(tired ? HUNT_NOTES.tooShortTired : HUNT_NOTES.tooShort, 5, this.fact());
         break;
       case 'taken':
         endGrab(h, 'taken');
@@ -243,21 +260,5 @@ export class HuntGame {
         this.host.onWholeWorm(action, h.x, h.z, h.yaw);
         break;
     }
-  }
-
-  /** Eases the camera's look-up toward the robin standing close to the head. */
-  private lookUp(dt: number, surface: boolean): void {
-    const h = this.hunt;
-    const p = this.robin.pose;
-    let want = 0;
-    const grounded = h.phase === 'stare' || h.phase === 'dash' || h.phase === 'strike' || h.phase === 'grab'
-      || h.phase === 'miss' || (h.phase === 'arrive' && h.t >= HUNT.flyIn);
-    if (surface && grounded) {
-      const head = this.crawl.motion.head;
-      const d = Math.hypot(p.x - head.x, p.z - head.z) / CM;
-      want = ease((LOOK_FROM_CM - d) / (LOOK_FROM_CM - LOOK_FULL_CM));
-    }
-    const c = this.crawl;
-    c.lookUp += (want - c.lookUp) * (1 - Math.exp(-LOOK_RATE * dt));
   }
 }

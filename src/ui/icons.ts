@@ -103,9 +103,13 @@ const ICONS = {
   /** A robin's side view (V4's "Robin!" warning): round body, tipped tail, bill, an eye. */
   bird: `<svg ${SVG} viewBox="0 0 24 24"><path d="M3 14.5l5.5-1.2C9 9.5 11.5 7 15 7c1.4 0 2.4.5 3.2 1.3L22 9l-3.2 1.4c.3 2.8-1 5.7-3.8 7.1L15.5 21h-1.6l-.5-3c-.6.1-1.2.1-1.8 0l-.4 3H9.6l.6-3.6C9.4 17 8.8 16.4 8.4 15.7z" fill="currentColor"/>
     <circle cx="16.6" cy="9.4" r="1" fill="#fffaf0"/></svg>`,
-  /** Tap in time: a ring round a dot (the grip mini-game's button). */
-  grip: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="9"/>
-    <circle cx="12" cy="12" r="3.6" fill="currentColor" stroke="none"/></svg>`,
+  /** Tap: a fingertip pressing, with two short lines either side (the grip mini-game's button). */
+  grip: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"
+      stroke-linejoin="round"><path d="M10 21v-9.5a2 2 0 0 1 4 0V15l3.2.8a2 2 0 0 1 1.5 2.3L18.2 21"/>
+    <path d="M6.5 6.5L4.5 4.5M12 4V2M17.5 6.5l2-2"/></svg>`,
+  /** A lightning bolt (the grip mini-game's Energy bar). */
+  energy: `<svg ${SVG} viewBox="0 0 24 24"><path d="M13.5 2L4.5 13.5h6L9.5 22l10-12.5h-6.2z" fill="currentColor"
+      stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`,
 } as const;
 
 export type IconName = keyof typeof ICONS;

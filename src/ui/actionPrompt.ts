@@ -5,8 +5,8 @@ import { TEXT, shown } from '../content/text';
 /**
  * What one press of Action (Space, or the touch Action button) will do now (V2 spec 4 and 7):
  * dig down on the surface, come up near the top underground, or switch to the Wide or the Close
- * view deeper down. While a robin holds the worm (V4), it is the grip mini-game's "Hold on": held,
- * not pressed (src/predators/tug.ts).
+ * view deeper down. While a robin holds the worm (V4), on a touch screen it is the grip mini-game's
+ * "Tap!" (each press is one tap: src/predators/grip.ts).
  */
 export type ActionKind = 'digDown' | 'comeUp' | 'viewWide' | 'viewClose' | 'grip';
 
