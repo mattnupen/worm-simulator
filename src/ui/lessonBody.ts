@@ -2,7 +2,7 @@ import type { BodyPart } from '../content/lessons/lesson';
 
 /**
  * The `body` step's diagram (content/lessons/lesson.ts): a nightcrawler cut open from the side,
- * head on the left, drawn in code and captioned as a drawing. Two views:
+ * head on the left, drawn in code. Two views:
  * - a big close-up (222 drawing units tall) that pans along the worm to the part the food is in, and shows what happens to
  *   it there: the pharynx reaches out and grabs the leaf, spit wets it, the crop swells with it, the
  *   gizzard squeezes it into crumbs against grains of sand, food soaks from the intestine into the
@@ -217,13 +217,13 @@ export interface BodyDiagram {
   show(part: BodyPart | null, name: string, seen: ReadonlySet<BodyPart>): void;
 }
 
-export function bodyDiagram(caption: string): BodyDiagram {
+export function bodyDiagram(): BodyDiagram {
   const fig = document.createElement('figure');
   fig.className = 'body-diagram';
   const W = closeWidth();
   const mapW = END + 180;
   fig.innerHTML = `
-<p class="body-map-head" aria-hidden="true"><span>Head</span><span>The whole worm</span><span>Tail</span></p>
+<p class="body-map-head" aria-hidden="true"><span>Head</span><span>Tail</span></p>
 <svg class="body-map" viewBox="-20 40 ${mapW} 200" preserveAspectRatio="none" aria-hidden="true">
   ${wormDrawing(false)}
   <rect class="body-window" x="0" y="44" width="${W}" height="192" rx="24"/>
@@ -244,9 +244,7 @@ export function bodyDiagram(caption: string): BodyDiagram {
     </g>
     <g class="body-label" hidden><text y="42" text-anchor="middle"></text><path class="body-label-line" d="M0 48 L0 70"/></g>
   </g>
-</svg>
-<figcaption class="body-caption"></figcaption>`;
-  (fig.querySelector('figcaption') as HTMLElement).textContent = caption;
+</svg>`;
   const world = fig.querySelector('.body-world') as SVGGElement;
   const food = fig.querySelector('.food') as SVGGElement;
   const label = fig.querySelector('.body-label') as SVGGElement;

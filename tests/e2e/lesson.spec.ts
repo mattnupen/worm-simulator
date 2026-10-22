@@ -103,7 +103,6 @@ async function playThrough(page: Page, l: Lesson): Promise<void> {
     } else if (step.kind === 'body') {
       // Follow the leaf: each tap shows the next part, in words and on the drawing; Next waits for the last.
       await expect(next).toBeDisabled();
-      await expect(card(page, l).getByText(`Follow the leaf through all ${step.stops.length} parts to go on.`)).toBeVisible();
       const follow = button(page, 'Follow the leaf');
       for (const [j, s] of step.stops.entries()) {
         await follow.click();
