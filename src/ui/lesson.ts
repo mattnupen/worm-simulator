@@ -91,6 +91,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
     const here = at;
     const moreBtn = step.more ? moreButton(shell.root, step.more) : null;
     const hint = el('p', waitHint(step), 'next-hint');
+    hint.hidden = !hint.textContent;
     const onAnswer = (): void => {
       // First answer on this step: Next wakes up, and Tell me more appears. Focus stays put, so
       // the reveal can be read.
@@ -220,7 +221,8 @@ function interactive(step: LessonStep): boolean {
 /** Beside a grayed-out Next: what to do first, in words. */
 function waitHint(step: LessonStep): string {
   if (step.kind === 'meet') return `Tap Find out on all ${step.cards.length} to go on.`;
-  if (step.kind === 'body') return `Follow the leaf through all ${step.stops.length} parts to go on.`;
+  // The body tour's own count ("Part 2 of 6") already says what is left.
+  if (step.kind === 'body') return '';
   return 'Pick an answer to go on.';
 }
 
@@ -427,7 +429,7 @@ function meet(step: Extract<LessonStep, { kind: 'meet' }>, c: BodyCtx): HTMLElem
  */
 function body(step: Extract<LessonStep, { kind: 'body' }>, c: BodyCtx): HTMLElement[] {
   const intro = readable(el('p', step.intro, 'lead lesson-question'));
-  const diagram = bodyDiagram('A drawing, not to scale: inside a nightcrawler, cut open from the side.');
+  const diagram = bodyDiagram();
   const count = el('p', '', 'meet-count');
   count.setAttribute('aria-live', 'polite');
   const now = el('div', '', 'body-now');

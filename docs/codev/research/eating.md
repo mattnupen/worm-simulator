@@ -92,7 +92,7 @@ each under 90 KB, cropped to 640 × 480.
 
 ## The body diagram (redrawn 2026-10-22, Matt: "more realistic and larger")
 The "Follow the leaf" drawing (`src/ui/lessonBody.ts`) follows two school dissection guides. It is
-still a drawing, captioned "not to scale".
+still a drawing (Matt dropped the "not to scale" caption as noise, 2026-10-22).
 
 | What the drawing shows | Source | Supporting quote |
 |---|---|---|
