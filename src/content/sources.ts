@@ -51,7 +51,9 @@ export type SourceId =
   | 'sciencelearn-earthworm'
   | 'usbg-earthworms'
   | 'esb-biology'
-  | 'esb-food';
+  | 'esb-food'
+  | 'carolina-dissection'
+  | 'hst-dissection';
 
 export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'mndnr-humus': {
@@ -290,6 +292,20 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     publisher: 'Earthworm Society of Britain',
     url: 'https://www.earthwormsoc.org.uk/node/61',
     checked: '2026-10-21',
+  },
+  'carolina-dissection': {
+    title: 'Earthworm Dissection',
+    publisher: 'Carolina Biological Supply Company',
+    short: 'Carolina Biological',
+    url: 'https://knowledge.carolina.com/discipline/life-science/anatomy-and-physiology/earthworm-dissection/',
+    checked: '2026-10-22',
+  },
+  'hst-dissection': {
+    title: 'Earthworm Dissection Guide',
+    publisher: 'Home Science Tools Learning Center',
+    short: 'Home Science Tools',
+    url: 'https://learning-center.homesciencetools.com/article/earthworm-dissection/',
+    checked: '2026-10-22',
   },
 };
 

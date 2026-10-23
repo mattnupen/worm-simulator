@@ -90,6 +90,27 @@ and identification.
 The robin photo is reused from the predators lesson. Files are in `src/content/lessons/photos/`,
 each under 90 KB, cropped to 640 × 480.
 
+## The body diagram (redrawn 2026-10-22, Matt: "more realistic and larger")
+The "Follow the leaf" drawing (`src/ui/lessonBody.ts`) follows two school dissection guides. It is
+still a drawing (Matt dropped the "not to scale" caption as noise, 2026-10-22).
+
+| What the drawing shows | Source | Supporting quote |
+|---|---|---|
+| Prostomium over the mouth at the front | Home Science Tools, *Earthworm Dissection Guide* | "the fleshy bump over its mouth, called the prostomium" |
+| Pharynx just inside the mouth | Home Science Tools | "This is the light-colored organ just inside the mouth." |
+| Five hearts around the esophagus, behind the pharynx (used as a fact) | Home Science Tools; Carolina, *Earthworm Dissection* | "Behind the pharynx are five dark loops wrapped around the esophagus." / "the 5 pairs of aortic arches, or hearts, which circle the esophagus" |
+| Crop, then gizzard | Home Science Tools | "Food from the esophagus is temporarily stored in the crop." "Food comes from the crop into the gizzard, where it is ground up." |
+| One long intestine to the anus (used as a fact) | Home Science Tools | "The intestine is the long tube extending from the gizzard all the way to the anus." |
+| Dorsal blood vessel over the gut, nerve cord along the bottom | Home Science Tools | "a dark line extending from the hearts over the top of the crop"; "the long white nerve cord running along the length of the worm" |
+| Brain (cerebral ganglia) and the nerve cord from it | Carolina | "Identify the cerebral ganglia and the ventral nerve cord that extends from them" |
+| Septa between segments (used as a fact) | Carolina | "Identify the thin walls between each segment. These are called septa." |
+| Clitellum about a third of the way back | Carolina; Home Science Tools | "The clitellum is the enlarged structure that begins at segment 31." / "About one-third of the way back from the mouth" |
+| Food soaking from the intestine into the body, sand in the gizzard, casts out the back | Science Learning Hub; U.S. Botanic Garden | facts 1, 3, 6 and 7 above |
+
+Simplified on purpose: 100 segments (real nightcrawlers have more), the crop and gizzard placed by
+the usual textbook layout (not sourced to a segment number), and the dots that rise from the
+intestine to the blood vessel stand for food being taken in.
+
 ## Videos
 None in the lesson yet: every video must be watched before it ships. Candidates for Matt to watch:
 - "The One Show: George McGavin, Earthworms and Fallen Leaves" (https://www.youtube.com/watch?v=EODCIY-3E0M)

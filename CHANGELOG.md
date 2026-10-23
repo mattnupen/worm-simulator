@@ -23,7 +23,7 @@ How to write an entry (for Matt and Claude):
 - **An opening scene.** The first time you press Crawl, a short movie plays from the ground: a
   school bus pulls up, a teacher sets down a tackle box, and a cup of bait worms falls off and
   spills. That's you, wriggling out of the dirt! The teacher explains why a loose bait worm is a
-  problem for the forest. Captions show every line and sound. Press Esc or Enter to skip it,
+  problem for the forest. Captions show every line and sound, and the people speak in a funny babble. Press Esc or Enter to skip it,
   and watch it again with **Watch the opening** on the Start screen.
 - **A robin hunts you.** Stay on the surface too long and a robin comes. You'll hear its wings,
   see its shadow, the leaves shiver and a **Robin!** sign shows up. It runs, stops and stares,

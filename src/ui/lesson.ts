@@ -8,7 +8,7 @@ import type { BodyStop, Cue, Lesson, LessonStep, More, Photo, Video } from '../c
 import { PHOTO_URLS } from '../content/lessons/photos';
 import { youTubeId } from '../content/lessons/lesson';
 import { playCueSound, stopCueSound } from './lessonSound';
-import { BODY_SVG, LEAF_START_X, labelX, leafX } from './lessonBody';
+import { bodyDiagram } from './lessonBody';
 
 /**
  * Whether lessons show sources as links (new tab) and play "Tell me more" videos in the panel
@@ -91,6 +91,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
     const here = at;
     const moreBtn = step.more ? moreButton(shell.root, step.more) : null;
     const hint = el('p', waitHint(step), 'next-hint');
+    hint.hidden = !hint.textContent;
     const onAnswer = (): void => {
       // First answer on this step: Next wakes up, and Tell me more appears. Focus stays put, so
       // the reveal can be read.
@@ -220,7 +221,8 @@ function interactive(step: LessonStep): boolean {
 /** Beside a grayed-out Next: what to do first, in words. */
 function waitHint(step: LessonStep): string {
   if (step.kind === 'meet') return `Tap Find out on all ${step.cards.length} to go on.`;
-  if (step.kind === 'body') return `Follow the leaf through all ${step.stops.length} parts to go on.`;
+  // The body tour's own count ("Part 2 of 6") already says what is left.
+  if (step.kind === 'body') return '';
   return 'Pick an answer to go on.';
 }
 
@@ -419,19 +421,15 @@ function meet(step: Extract<LessonStep, { kind: 'meet' }>, c: BodyCtx): HTMLElem
 }
 
 /**
- * "Follow the leaf": the worm's insides as a drawing. Each tap moves the leaf bit to the next part,
- * labels it on the drawing, and shows that part's name and fact in a box under it. Once the leaf
- * reaches the last part, the box becomes the whole trip as a numbered list, and Next wakes up.
- * Back keeps the parts already seen.
+ * "Follow the leaf": the worm's insides as a drawing (lessonBody.ts). Each tap pans the big
+ * close-up to the next part and shows what happens to the food there, labels it, and shows the
+ * part's name and fact in a box under it. Once the leaf reaches the last part, the box becomes the
+ * whole trip as a numbered list, Next wakes up, and "Watch the whole trip" plays it again from the
+ * mouth. Back keeps the parts already seen.
  */
 function body(step: Extract<LessonStep, { kind: 'body' }>, c: BodyCtx): HTMLElement[] {
   const intro = readable(el('p', step.intro, 'lead lesson-question'));
-  const fig = el('figure', '', 'body-diagram');
-  fig.innerHTML = BODY_SVG;
-  fig.append(el('figcaption', 'A drawing, not to scale: inside an earthworm, head on the left.', 'body-caption'));
-  const svg = fig.querySelector('svg') as SVGSVGElement;
-  const leaf = svg.querySelector('.body-leaf') as SVGGElement;
-  const label = svg.querySelector('.body-label') as SVGGElement;
+  const diagram = bodyDiagram();
   const count = el('p', '', 'meet-count');
   count.setAttribute('aria-live', 'polite');
   const now = el('div', '', 'body-now');
@@ -441,25 +439,25 @@ function body(step: Extract<LessonStep, { kind: 'body' }>, c: BodyCtx): HTMLElem
     if (c.opened.size === step.stops.length) c.onAnswer();
   });
   follow.el.classList.add('btn-small');
+  let replay = 0;
+  const again = button('Watch the whole trip', 'play', 'secondary', () => {
+    clearTimeout(replay);
+    const go = (i: number): void => {
+      if (!diagram.el.isConnected) return;
+      const s = step.stops[i];
+      diagram.show(s.part, s.name, new Set(step.stops.slice(0, i + 1).map((x) => x.part)));
+      if (i + 1 < step.stops.length) replay = window.setTimeout(() => go(i + 1), i + 1 === step.stops.length - 1 ? 3600 : 2400);
+    };
+    go(0);
+  });
+  again.el.classList.add('btn-small');
   const stopWords = (s: BodyStop): HTMLElement[] => [readable(el('p', s.name, 'meet-name')), line(s.fact)];
 
   const show = (): void => {
     const seen = c.opened.size;
-    const here = seen - 1;
-    const stop = here >= 0 ? step.stops[here] : undefined;
+    const stop = seen > 0 ? step.stops[seen - 1] : undefined;
     count.textContent = `Part ${seen} of ${step.stops.length}`;
-    leaf.setAttribute('transform', `translate(${stop ? leafX(stop.part) : LEAF_START_X} 110)`);
-    for (const part of svg.querySelectorAll<SVGGElement>('.body-part')) {
-      const i = step.stops.findIndex((s) => s.part === part.dataset.part);
-      part.classList.toggle('seen', i >= 0 && i < seen);
-      part.classList.toggle('here', i === here);
-    }
-    label.toggleAttribute('hidden', !stop);
-    if (stop) {
-      label.setAttribute('transform', `translate(${labelX(stop.part)} 0)`);
-      (label.querySelector('text') as SVGTextElement).textContent = stop.name;
-      (label.querySelector('.body-label-line') as SVGPathElement).setAttribute('d', `M${leafX(stop.part) - labelX(stop.part)} 74 L0 34`);
-    }
+    diagram.show(stop?.part ?? null, stop?.name ?? '', new Set(step.stops.slice(0, seen).map((s) => s.part)));
     const finished = seen === step.stops.length;
     if (finished) {
       const trip = el('ol', '', 'body-stops');
@@ -474,9 +472,12 @@ function body(step: Extract<LessonStep, { kind: 'body' }>, c: BodyCtx): HTMLElem
     }
     now.classList.toggle('body-now-on', !!stop && !finished);
     follow.el.hidden = finished;
+    again.el.hidden = !finished;
   };
   show();
-  return [intro, fig, count, now, follow.el];
+  const buttons = el('div', '', 'body-buttons');
+  buttons.append(count, follow.el, again.el);
+  return [intro, diagram.el, now, buttons];
 }
 
 /**

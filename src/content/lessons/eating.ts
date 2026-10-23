@@ -192,6 +192,24 @@ export const EATING: Lesson = {
           },
           {
             kind: 'fact',
+            text: 'Just behind the pharynx, five loops (the hearts) wrap around the esophagus, the tube that leads to the crop.',
+            source: 'hst-dissection',
+            verified: true,
+          },
+          {
+            kind: 'fact',
+            text: 'The intestine is one long tube, from the gizzard all the way to the back end.',
+            source: 'hst-dissection',
+            verified: true,
+          },
+          {
+            kind: 'fact',
+            text: 'Thin walls called septa separate the worm\'s segments inside.',
+            source: 'carolina-dissection',
+            verified: true,
+          },
+          {
+            kind: 'fact',
             text: 'An earthworm breathes through its thin skin.',
             source: 'usbg-earthworms',
             verified: true,

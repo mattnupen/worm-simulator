@@ -44,6 +44,11 @@ of the screen, clear of the worm.
   bus's way are hidden while the scene plays (their instance matrices only). The kids run between the
   worm's leaf and the fallen birch log, the teacher stops clear of the big maple and the cup, and a
   walker's feet come together when it stands still (Matt, 2026-10-19).
+- Matt's notes (2026-10-22): rounder, more detailed props (boots and sneakers with soles, toe caps
+  and laces; trousers with cuffs; hands with fingers; a moulded tackle box; bus lamps, window
+  pillars, wheel arches and mirror); a babble voice for each spoken line, one blip per letter like
+  Animal Crossing (`babble.ts`), until real voices; and the worm climbs over the spilled soil
+  (`pileLift`, through `setSurfaceLift` in `src/worm/surfaceHeight.ts`) instead of under it.
 - Draw calls during the scene: 18–31 across presets (budget 40). The meshes are hidden outside
   the scene. The speed test never plays it.
 - Accessibility: captions carry everything (sound only adds); captions are white on see-through black bars (Matt, 2026-10-16), sized for phones;

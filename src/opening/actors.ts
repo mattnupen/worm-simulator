@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { createPropMaterial } from '../render/propMaterial';
 import { leafShape } from '../surface/leafShapes';
 import type { MeshWriter } from '../surface/meshWriter';
-import { box, cylinder, heap, tube, wheel, withGain, writer } from './shapes';
-import { CUP, KIDS, LEAF } from './script';
+import { box, cylinder, disc, ellipsoid, heap, roundedBox, tube, wheel, withGain, writer } from './shapes';
+import { CUP, KIDS, LEAF, PILE } from './script';
 
 /**
  * The opening's props, built once at load and hidden (src/opening/opening.ts poses them). Three
@@ -40,6 +40,19 @@ const SOIL_MID = 0x4d3a29;
 const BAIT = 0xb8705a;
 const MAPLE = 0xd2582f;
 const WHITE = 0xe9e6de;
+const LACE = 0xd8cfb8;
+const RED_LAMP = 0xc0281c;
+const AMBER_LAMP = 0xf0a020;
+const HEADLAMP = 0xf3ecd2;
+const STITCH = 0xc79a52;
+
+/** `hex` darkened (or lightened, f > 1) by `f`: a cuff, a seam, a shadowed band. */
+const shade = (hex: number, f: number): number => {
+  const r = Math.min(255, Math.round(((hex >> 16) & 255) * f));
+  const g = Math.min(255, Math.round(((hex >> 8) & 255) * f));
+  const b = Math.min(255, Math.round((hex & 255) * f));
+  return (r << 16) | (g << 8) | b;
+};
 
 /** One moving piece: its vertices in the shared buffer, its rest shape, where it is this frame. */
 export interface Part {
@@ -79,26 +92,57 @@ function buildBus(): THREE.BufferGeometry {
   const w = writer();
   const half = 1.25 * M; // 2.5 m wide
   const len = 12 * M;
-  // Body and black skirt.
-  withGain(2.2, () => box(w, -half, 0.55 * M, -len, half, 3.2 * M, 0, BUS_YELLOW));
+  // Body (rounded corners) and black skirt.
+  withGain(2.2, () => {
+    roundedBox(w, -half, 0.55 * M, -len, half, 3.2 * M, 0, 4, BUS_YELLOW);
+    // The window pillars stand proud of the glass.
+    for (let z = -2.4 * M; z > -len + 20; z -= 0.92 * M) box(w, -half - 0.55, 2.1 * M, z - 3, -half + 1, 2.85 * M, z, BUS_YELLOW);
+    // The front's hood line.
+    box(w, -half + 3, 2.05 * M, -0.4, half - 3, 2.12 * M, 0.5, BUS_YELLOW);
+  });
   box(w, -half - 0.3, 0.38 * M, -len + 10, half + 0.3, 0.62 * M, -2, BUS_BLACK);
   // Rub rails and the window band along the door side and the front.
   for (const y of [1.02, 1.55]) box(w, -half - 0.5, y * M, -len, -half + 2, y * M + 0.9, -1, BUS_BLACK);
-  box(w, -half - 0.4, 2.15 * M, -len + 20, -half + 2, 2.8 * M, -2.4 * M, GLASS);
-  // Front bumper and the front face's grille.
+  box(w, -half - 0.4, 2.1 * M, -len + 20, -half + 2, 2.85 * M, -2.4 * M, GLASS);
+  // Black rubber under and over the windows.
+  box(w, -half - 0.6, 2.06 * M, -len + 20, -half + 2, 2.1 * M, -2.4 * M, BUS_BLACK);
+  box(w, -half - 0.6, 2.85 * M, -len + 20, -half + 2, 2.89 * M, -2.4 * M, BUS_BLACK);
+  // Amber side markers along the skirt, and the windscreen.
+  for (const z of [-4 * M, -7 * M, -10.5 * M]) box(w, -half - 0.7, 0.85 * M, z, -half, 0.95 * M, z + 1.6, AMBER_LAMP);
+  box(w, -half + 3, 2.15 * M, -0.2, half - 3, 2.95 * M, 0.45, GLASS);
+  // Front bumper, grille and lamps: headlamps low, the flashing red and amber pairs up top.
   box(w, -half - 1, 0.32 * M, -1, half + 1, 0.62 * M, 3, BUS_BLACK);
   box(w, -0.6 * M, 0.8 * M, -0.5, 0.6 * M, 1.3 * M, 0.6, BUS_BLACK);
+  for (let y = 0.86; y < 1.28; y += 0.1) box(w, -0.55 * M, y * M, 0.55, 0.55 * M, y * M + 0.6, 0.75, STEEL);
+  for (const x of [-0.9 * M, 0.9 * M]) {
+    box(w, x - 0.22 * M, 0.85 * M, -0.2, x + 0.22 * M, 1.25 * M, 0.6, BUS_BLACK);
+    disc(w, x, 1.05 * M, 0.65, 0.15 * M, 1, HEADLAMP);
+    disc(w, x + (x < 0 ? 0 : 0), 3.02 * M, 0.55, 0.11 * M, 1, x < 0 ? RED_LAMP : RED_LAMP);
+    disc(w, x * 0.62, 3.02 * M, 0.55, 0.09 * M, 1, AMBER_LAMP);
+  }
+  // The crossing mirror on its arm at the front corner, door side.
+  box(w, -half - 0.6 * M, 2.0 * M, 2, -half + 0.4, 2.06 * M, 3.2, BUS_BLACK);
+  box(w, -half - 0.6 * M, 1.4 * M, 2, -half - 0.54 * M, 2.06 * M, 3.2, BUS_BLACK);
+  ellipsoid(w, -half - 0.6 * M, 1.3 * M, 3.4, 0.16 * M, 0.2 * M, 0.12 * M, BUS_BLACK, false, 10);
   // The doorway (dark inside, two steps), behind the folding door panels (parts).
   const d0 = -1.15 * M;
   const d1 = -0.3 * M;
   box(w, -half - 0.6, 0.6 * M, d0, -half + 0.4, 2.9 * M, d1, 0x1d1b19);
   box(w, -half - 1.6, 0.36 * M, d0 + 0.5, -half + 6, 0.42 * M, d1 - 0.5, STEEL);
   box(w, -half + 4, 0.72 * M, d0 + 0.5, -half + 12, 0.78 * M, d1 - 0.5, STEEL);
-  // Wheels (front and rear, both sides) in dark wheel wells.
+  // Wheels (front and rear, both sides) under rounded wheel arches, with mud flaps behind.
   for (const z of [-1.7 * M, -9 * M]) {
-    box(w, -half - 0.35, 0.3 * M, z - 0.62 * M, half + 0.35, 1.08 * M, z + 0.62 * M, 0x1a1816);
+    for (let k = 0; k < 5; k++) {
+      const a0 = (k / 5) * Math.PI;
+      const a1 = ((k + 1) / 5) * Math.PI;
+      const zA = z - Math.cos(a0) * 0.62 * M;
+      const zB = z - Math.cos(a1) * 0.62 * M;
+      const top = 0.5 * M + Math.max(Math.sin(a0), Math.sin(a1)) * 0.6 * M;
+      box(w, -half - 0.35, 0.3 * M, Math.min(zA, zB), half + 0.35, top, Math.max(zA, zB), 0x1a1816);
+    }
     wheel(w, -half + 4, 0.5 * M, z, 0.5 * M, 0.32 * M, -1, TYRE, HUB);
     wheel(w, half - 4, 0.5 * M, z, 0.5 * M, 0.32 * M, 1, TYRE, HUB);
+    box(w, -half - 0.4, 0.15 * M, z - 0.78 * M, -half + 0.6, 0.62 * M, z - 0.74 * M, BUS_BLACK);
   }
   // Undercarriage, shadowed.
   box(w, -half + 6, 0.12 * M, -len + 20, half - 6, 0.56 * M, -0.6 * M, 0x1b1a18);
@@ -139,23 +183,66 @@ class PartWriter {
   }
 }
 
-/** A leg: a tapered cylinder from the ankle (y = 0) up `length`, its colour `hex`. */
+/** A leg in trousers: tapered from the knee down to a turned-up cuff at the ankle (y = 0), `length` up. */
 const leg = (length: number, r: number, hex: number) => (w: MeshWriter): void => {
-  cylinder(w, 0, 0, 0, length, r, 8, hex, { top: true, bottom: true }, r * 1.3);
+  cylinder(w, 0, 0, 0, length, r, 12, hex, { top: true, bottom: true }, r * 1.3);
+  // The cuff, a shade darker, and the knee a touch fuller.
+  cylinder(w, 0, 0, 0, 0.9, r * 1.1, 12, shade(hex, 0.78), { top: true, bottom: true });
+  ellipsoid(w, 0, length * 0.55, 0.25, r * 1.18, length * 0.12, r * 1.18, hex, false, 12);
 };
 
-/** A shoe or boot, toe toward +z, sole on y = 0: `l` long, `wd` wide, `h` high. */
-const shoe = (l: number, wd: number, h: number, upper: number, sole: number, trim?: number) => (w: MeshWriter): void => {
-  box(w, -wd / 2, 0, -l * 0.35, wd / 2, h * 0.25, l * 0.65, sole);
-  box(w, -wd / 2 + 0.05, h * 0.25, -l * 0.35, wd / 2 - 0.05, h, l * 0.15, upper);
-  box(w, -wd / 2 + 0.1, h * 0.25, l * 0.15, wd / 2 - 0.1, h * 0.62, l * 0.62, trim ?? upper);
+/**
+ * A walking boot, toe toward +z, sole on y = 0: `l` long, `wd` wide, `h` to the top of the shaft. A
+ * lugged sole, a rounded leather upper with a darker toe cap and stitching, a padded collar, laces.
+ */
+const boot = (l: number, wd: number, h: number) => (w: MeshWriter): void => {
+  const sole = 0.55;
+  box(w, -wd / 2, 0, -l * 0.3, wd / 2, sole, l * 0.42, SOLE);
+  ellipsoid(w, 0, sole / 2, l * 0.42, wd / 2, sole / 2, l * 0.2, SOLE, false, 12);
+  ellipsoid(w, 0, sole / 2, -l * 0.3, wd / 2, sole / 2, l * 0.08, SOLE, false, 12);
+  for (let z = -l * 0.25; z < l * 0.5; z += 0.7) box(w, -wd / 2 - 0.04, 0.05, z, wd / 2 + 0.04, 0.22, z + 0.3, shade(SOLE, 0.7));
+  ellipsoid(w, 0, sole, l * 0.06, wd / 2 - 0.02, h * 0.42, l * 0.47, BOOT, true, 14);
+  ellipsoid(w, 0, sole, l * 0.36, wd / 2 - 0.05, h * 0.26, l * 0.17, shade(BOOT, 0.72), true, 12);
+  box(w, -wd / 2 - 0.01, sole + 0.12, -l * 0.3, wd / 2 + 0.01, sole + 0.2, l * 0.3, STITCH);
+  cylinder(w, 0, -l * 0.17, sole, h, wd / 2 - 0.08, 12, BOOT, { top: true, bottom: false });
+  cylinder(w, 0, -l * 0.17, h - 0.4, h + 0.05, wd / 2 + 0.02, 12, shade(BOOT, 0.6), { top: true, bottom: false });
+  for (let i = 0; i < 4; i++) {
+    const z = l * (0.12 - i * 0.07);
+    box(w, -wd * 0.3, sole + h * (0.36 + i * 0.12), z, wd * 0.3, sole + h * (0.36 + i * 0.12) + 0.14, z + 0.18, LACE);
+  }
 };
 
-/** A hand reaching down (fingers toward -y from the wrist at the origin) and its sleeve above. */
+/**
+ * A sneaker, toe toward +z, sole on y = 0: a white midsole rounded at both ends, a coloured upper with
+ * a white toe cap, laces across the top and a heel tab.
+ */
+const sneaker = (l: number, wd: number, h: number, upper: number) => (w: MeshWriter): void => {
+  const sole = 0.5;
+  box(w, -wd / 2, 0, -l * 0.3, wd / 2, sole, l * 0.4, WHITE);
+  ellipsoid(w, 0, sole / 2, l * 0.4, wd / 2, sole / 2, l * 0.22, WHITE, false, 12);
+  ellipsoid(w, 0, sole / 2, -l * 0.3, wd / 2, sole / 2, l * 0.1, WHITE, false, 12);
+  box(w, -wd / 2 - 0.03, 0, -l * 0.3, wd / 2 + 0.03, 0.12, l * 0.4, shade(upper, 0.45));
+  ellipsoid(w, 0, sole, l * 0.05, wd / 2 - 0.03, h * 0.55, l * 0.45, upper, true, 14);
+  ellipsoid(w, 0, sole, l * 0.38, wd / 2 - 0.06, h * 0.3, l * 0.16, WHITE, true, 12);
+  cylinder(w, 0, -l * 0.18, sole, h, wd / 2 - 0.1, 12, upper, { top: true, bottom: false });
+  box(w, -0.25, h - 0.3, -l * 0.18 - wd / 2 + 0.02, 0.25, h + 0.35, -l * 0.18 - wd / 2 + 0.3, shade(upper, 0.6));
+  for (let i = 0; i < 3; i++) {
+    const z = l * (0.2 - i * 0.09);
+    box(w, -wd * 0.28, sole + h * (0.36 + i * 0.07), z, wd * 0.28, sole + h * (0.36 + i * 0.07) + 0.12, z + 0.16, WHITE);
+  }
+};
+
+/** A hand reaching down (fingers toward -y from the wrist at the origin), its cuff and sleeve above. */
 const hand = (w: MeshWriter): void => {
-  box(w, -0.95, -4.2, -0.4, 0.95, 0, 0.4, SKIN);
-  box(w, -1.15, -2.2, -0.2, -0.75, -0.4, 0.5, SKIN); // thumb
-  cylinder(w, 0, 0, 0.4, 24, 1.15, 8, SLEEVE);
+  cylinder(w, 0, 0, -0.9, 0.2, 0.62, 10, SKIN, { top: false, bottom: false });
+  ellipsoid(w, 0, -1.7, 0, 0.98, 1.05, 0.45, SKIN, false, 12);
+  for (const [x, len] of [[-0.66, 1.5], [-0.22, 1.8], [0.22, 1.7], [0.64, 1.3]] as const) {
+    cylinder(w, x, 0.02, -2.4 - len, -2.3, 0.2, 8, SKIN, { top: false, bottom: false }, 0.22);
+    ellipsoid(w, x, -2.4 - len, 0.02, 0.2, 0.22, 0.2, SKIN, false, 8);
+  }
+  ellipsoid(w, -1.02, -1.9, 0.3, 0.3, 0.95, 0.3, SKIN, false, 8); // thumb
+  cylinder(w, 0, 0, 0, 1.4, 1.22, 12, shade(SLEEVE, 0.75));
+  cylinder(w, 0, 0, 1.4, 24, 1.15, 12, SLEEVE);
 };
 
 export function buildOpeningActors(): OpeningActors {
@@ -168,22 +255,32 @@ export function buildOpeningActors(): OpeningActors {
   const pw = new PartWriter();
   const teacherLegs: [Part, Part] = [pw.part(leg(0.92 * M, 1.6, PANTS)), pw.part(leg(0.92 * M, 1.6, PANTS))];
   const teacherBoots: [Part, Part] = [
-    pw.part(shoe(6.4, 2.6, 2.9, BOOT, SOLE)),
-    pw.part(shoe(6.4, 2.6, 2.9, BOOT, SOLE)),
+    pw.part(boot(6.4, 2.6, 2.9)),
+    pw.part(boot(6.4, 2.6, 2.9)),
   ];
   const kids = KIDS.map((k) => ({
     legs: [pw.part(leg(0.72 * M, 1.15, k.pants)), pw.part(leg(0.72 * M, 1.15, k.pants))] as [Part, Part],
-    shoes: [pw.part(shoe(5.4, 2.1, 2.2, k.shoe, WHITE, WHITE)), pw.part(shoe(5.4, 2.1, 2.2, k.shoe, WHITE, WHITE))] as [Part, Part],
+    shoes: [pw.part(sneaker(5.4, 2.1, 2.2, k.shoe)), pw.part(sneaker(5.4, 2.1, 2.2, k.shoe))] as [Part, Part],
   }));
   const hands: [Part, Part] = [pw.part(hand), pw.part(hand)];
   // The tackle box: centred on its middle at the bottom, 9.3 long (z), 4.7 wide and tall.
   const tackle = pw.part((w) => {
-    box(w, -2.35, 0, -4.65, 2.35, 3.3, 4.65, BOX_GREEN);
-    box(w, -2.4, 3.3, -4.7, 2.4, 4.7, 4.7, BOX_LID);
-    box(w, -0.3, 4.7, -2.2, 0.3, 6.1, -1.7, HANDLE);
-    box(w, -0.3, 4.7, 1.7, 0.3, 6.1, 2.2, HANDLE);
-    box(w, -0.3, 5.7, -2.2, 0.3, 6.3, 2.2, HANDLE);
-    box(w, -2.45, 2.6, -0.6, -2.35, 3.6, 0.6, STEEL); // the latch
+    roundedBox(w, -2.35, 0.1, -4.65, 2.35, 3.25, 4.65, 0.45, BOX_GREEN);
+    box(w, -2.1, 0, -4.4, 2.1, 0.12, 4.4, shade(BOX_GREEN, 0.6)); // the foot
+    box(w, -2.4, 3.15, -4.7, 2.4, 3.35, 4.7, shade(BOX_GREEN, 0.7)); // the seam
+    roundedBox(w, -2.4, 3.35, -4.7, 2.4, 4.6, 4.7, 0.5, BOX_LID);
+    ellipsoid(w, 0, 4.6, 0, 2.2, 0.22, 4.4, BOX_LID, true, 14);
+    // Two latches on the front, the hinge along the back.
+    for (const z of [-2.6, 2.6]) {
+      box(w, -2.52, 2.5, z - 0.5, -2.35, 3.7, z + 0.5, STEEL);
+      box(w, -2.6, 3.45, z - 0.35, -2.5, 3.65, z + 0.35, shade(STEEL, 0.7));
+    }
+    box(w, 2.35, 3.15, -3.8, 2.5, 3.45, 3.8, shade(BOX_GREEN, 0.55));
+    // The handle: two posts and a rounded grip.
+    for (const z of [-1.95, 1.95]) cylinder(w, 0, z, 4.7, 5.9, 0.28, 8, HANDLE);
+    box(w, -0.32, 5.7, -1.95, 0.32, 6.25, 1.95, HANDLE);
+    ellipsoid(w, 0, 5.98, -1.95, 0.32, 0.3, 0.32, HANDLE, false, 8);
+    ellipsoid(w, 0, 5.98, 1.95, 0.32, 0.3, 0.32, HANDLE, false, 8);
   });
   // The night crawler cup (CUP: milky white, a turquoise snap-on lid), centred on its middle, axis y,
   // open end at +y. Some soil stays inside after the spill.
@@ -205,13 +302,8 @@ export function buildOpeningActors(): OpeningActors {
   // cup's mouth (at local z -0.85, the cup lying just behind it), tumbling out into smaller lumps and
   // crumbs toward +z, with bait worms on it.
   const soil = pw.part((w) => {
-    heap(w, 1.3, 0.95, 1.0, SOIL_DARK, 1.7, 0, -0.85);
-    heap(w, 1.05, 0.9, 0.6, SOIL_MID, 0.4, 0.2, 0.3);
-    heap(w, 0.85, 0.7, 0.34, SOIL_DARK, 2.9, -0.25, 1.2);
-    heap(w, 0.32, 0.28, 0.22, SOIL_MID, 3.3, 0.95, 1.65);
-    heap(w, 0.26, 0.24, 0.18, SOIL_DARK, 4.1, -0.95, 0.75);
-    heap(w, 0.22, 0.2, 0.14, SOIL_MID, 5.2, 0.45, 2.15);
-    heap(w, 0.18, 0.16, 0.12, SOIL_DARK, 6.0, -0.6, 2.0);
+    const seeds = [1.7, 0.4, 2.9, 3.3, 4.1, 5.2, 6.0];
+    PILE.forEach(([rx, rz, h, cx, cz], i) => heap(w, rx, rz, h, i % 2 ? SOIL_MID : SOIL_DARK, seeds[i], cx, cz));
     tube(w, [[-1.0, -0.9], [-0.85, -0.5], [-1.05, -0.15], [-0.9, 0.2]], 0.42, 0.11, BAIT);
     tube(w, [[0.55, 0.5], [0.75, 0.8], [0.6, 1.1], [0.85, 1.35]], 0.32, 0.1, BAIT);
     tube(w, [[-0.5, 1.45], [-0.75, 1.7], [-0.6, 2.0]], 0.08, 0.09, BAIT);
