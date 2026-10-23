@@ -103,10 +103,10 @@ function gutColor(x: number, th: number, out: THREE.Color): void {
   out.lerp(C.gizzard, smooth(16.85, 17.2, s));
   // The gizzard's tough wall: faint fibres running round it.
   out.multiplyScalar(1 - 0.12 * bump(s, 16.9, 19.3) * (0.5 + 0.5 * Math.sin(s * 2 * Math.PI * 4)));
-  out.lerp(C.wall, smooth(19.0, 19.6, s));
+  out.lerp(C.wall, smooth(19.4, 20.0, s));
   // Chloragogen tissue: yellow-brown cells coating the intestine, fine and soft.
   const gran = fbm2(x * 7, th * 7, 3, 5, 0);
-  out.lerp(C.chloragogen, smooth(19.2, 20.5, s) * (0.5 + 0.2 * smooth(0.3, 0.7, gran)));
+  out.lerp(C.chloragogen, smooth(19.4, 20.2, s) * (0.6 + 0.2 * smooth(0.3, 0.7, gran)));
   // The septa pinch the intestine; the pinches sit a little darker.
   if (s > ORGANS.intestineFrom) out.multiplyScalar(0.85 + 0.15 * Math.sin((s % 1) * Math.PI));
 }
@@ -133,13 +133,13 @@ function tube(m: Mesher, xs: number[], th0: number, th1: number, cols: number, a
 
 /** Wall thickness of the opened intestine, and the typhlosole's depth (fractions of its radius). */
 const WALL = 0.1;
-const TYPHLO = 0.42;
+const TYPHLO = 0.5;
 const inward = new THREE.Vector3();
 
 /** The intestine's inner lining, with the typhlosole folding down from the roof. */
 export function liningPoint(x: number, th: number, o: THREE.Vector3): void {
   const a = Math.abs(Math.atan2(Math.sin(th), Math.cos(th)));
-  const fold = TYPHLO * Math.exp(-((a / 0.2) ** 2));
+  const fold = TYPHLO * Math.exp(-((a / 0.26) ** 2));
   gutPoint(x, th, o);
   // gutPoint with lift -1 is one unit further in, so (that - o) is the inward direction.
   gutPoint(x, th, inward, -1).sub(o);

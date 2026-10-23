@@ -33,8 +33,11 @@ export function dorsalVessel(x: number, out: THREE.Vector3): THREE.Vector3 {
   // down into each pinch.
   const k = smooth(segStart(ORGANS.crop[0] - 2), segStart(ORGANS.crop[0]), x);
   if (k > 0) {
-    let top = out.y;
-    for (const d of [-0.7, -0.35, 0.35, 0.7]) top = Math.max(top, gutPoint(x + d, 0, a, r * 0.92).y);
+    // A smooth maximum over a window (log-sum-exp), so the line has no corners.
+    let sum = 0;
+    const K = 8;
+    for (let d = -0.9; d <= 0.91; d += 0.15) sum += Math.exp(K * gutPoint(x + d, 0, a, r * 0.92).y);
+    const top = Math.max(out.y, Math.log(sum / 13) / K + 0.03);
     out.y += (top - out.y) * k;
   }
   return out;

@@ -133,7 +133,7 @@ export function buildSetae(): { far: Mesher; near: Mesher; rest: Mesher; patch: 
   const paint = (u: number, _v: number, _p: THREE.Vector3, o: THREE.Color) => o.copy(amber).lerp(tip, u);
   const a = new THREE.Vector3();
   const b = new THREE.Vector3();
-  for (let seg = 2; seg <= SEGMENTS; seg++) {
+  for (let seg = 2; seg < SEGMENTS; seg++) {
     const x = segMid(seg) - 0.08 * segmentLength(seg);
     if (x > LENGTH - 0.4) continue;
     for (const side of [1, -1]) {

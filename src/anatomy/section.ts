@@ -57,7 +57,7 @@ export function buildSection(): SectionParts {
   ring(out.gut, front, (th, o) => { gutPoint(x, th, o, -0.07); }, (th, o) => { gutPoint(x, th, o, 0.02); }, flatColor('#c39a45'), 96);
   ring(out.gut, front, lining, (th, o) => { gutPoint(x, th, o, -0.07); }, flatColor('#d7a993'), 96);
   const centre = new THREE.Vector3(x, gutCentreY(x, sampleBody(x, { s: 0, w: 0, h: 0, yc: 0 })) - 0.25, 0);
-  ring(out.gut, front, (_th, o) => o.copy(centre), lining, flatColor('#5b4330'), 96);
+  ring(out.gut, front, (_th, o) => o.copy(centre), lining, flatColor('#7a5a3e'), 96);
   // Blood vessels and the nerve cord.
   const red = flatColor('#8e1222');
   disc(out.blood, top, dorsalVessel(x, new THREE.Vector3()), R.dorsal, red);

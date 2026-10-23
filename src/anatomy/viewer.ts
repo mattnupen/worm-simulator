@@ -191,9 +191,9 @@ function studioComposer(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camer
   composer.setPixelRatio(Math.min(2, window.devicePixelRatio));
   composer.addPass(new RenderPass(scene, camera));
   const ao = new GTAOPass(scene, camera, w, h);
-  ao.updateGtaoMaterial({ radius: 1.2, distanceExponent: 1.5, thickness: 1.5, scale: 1.1, samples: 16 });
+  ao.updateGtaoMaterial({ radius: 2.0, distanceExponent: 1.4, thickness: 2.0, scale: 1.25, samples: 16 });
   ao.updatePdMaterial({ radius: 6, rings: 2, samples: 16 });
-  ao.blendIntensity = 0.85;
+  ao.blendIntensity = 1;
   // See-through layers (the ghost skin, septa, sacs) cast no occlusion.
   const hide = ao as unknown as { _overrideVisibility: () => void; _visibilityCache: THREE.Object3D[] };
   const base = hide._overrideVisibility.bind(ao);

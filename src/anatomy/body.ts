@@ -115,7 +115,7 @@ export function bodyPoint(x: number, th: number, depth: number, out: THREE.Vecto
   let k = 1 - depth;
   const g = furrow(x);
   const sad = saddle(b.s, th);
-  k -= g * (0.024 - 0.017 * sad) * sharp;
+  k -= g * (0.024 - 0.013 * sad) * sharp;
   if (b.s >= 2 && b.s <= SEGMENTS) {
     const f = b.s % 1;
     k += 0.004 * Math.sin(f * Math.PI) * sharp;
@@ -132,7 +132,7 @@ export function bodyPoint(x: number, th: number, depth: number, out: THREE.Vecto
       k -= 0.028 * Math.exp(-(d / 0.11) * (d / 0.11)) * smooth(TUBE_FRONT + 0.35, TUBE_FRONT + 0.8, x) * smooth(segStart(2), segStart(2) - 0.15, x);
       k -= 0.16 * mouthMask(x, th);
     }
-    if (x > LENGTH - 0.6) k -= 0.12 * anusMask(x, th);
+    if (x > LENGTH - 0.6) k -= 0.05 * anusMask(x, th);
   }
   const c = Math.cos(th);
   // The belly is a little flat; behind the clitellum the whole section flattens into a paddle,
@@ -169,7 +169,7 @@ const C = {
   dorsalBack: new THREE.Color('#6e3a40'),
   tip: new THREE.Color('#c48a78'),
   tail: new THREE.Color('#d9a690'),
-  clitellum: new THREE.Color('#96564e'),
+  clitellum: new THREE.Color('#b0684e'),
   gland: new THREE.Color('#e7c0a6'),
   dark: new THREE.Color('#3a1418'),
   vessel: new THREE.Color('#6a1422'),
@@ -180,22 +180,22 @@ const work = new THREE.Color();
 export function skinColor(x: number, th: number, out: THREE.Color): THREE.Color {
   const s = segmentAt(x);
   const d = Math.cos(th);
-  const back = smooth(-0.2, 0.75, d);
+  const back = smooth(-0.45, 0.85, d);
   const fade = smooth(50, 150, s);
   work.copy(C.dorsalFront).lerp(C.dorsalBack, fade);
   out.copy(C.belly).lerp(work, back * (0.96 - 0.3 * fade));
   // The clitellum: a saddle over the back and sides, not under the belly.
   const clit = saddle(s, th);
-  out.lerp(C.clitellum, clit * 0.8);
+  out.lerp(C.clitellum, clit * 0.7);
   // Its glandular surface: a fine, even grain.
-  out.multiplyScalar(1 + clit * (fbm2(x * 7, th * 16, 2, 23, 0) - 0.5) * 0.45);
+  out.multiplyScalar(1 + clit * (fbm2(x * 16, th * 30, 2, 23, 0) - 0.5) * 0.18);
   // Furrows show paler, with fewer pigment cells; the dorsal vessel shows through the back.
   out.multiplyScalar(1 - furrow(x) * 0.2 * (1 - clit));
   const mid = Math.exp(-(th / 0.07) * (th / 0.07)) + Math.exp(-(((2 * Math.PI - th) / 0.07) ** 2));
   out.lerp(C.vessel, mid * 0.28 * (1 - fade * 0.6) * smooth(3, 8, s));
   const sw = swellings(s, th);
   out.lerp(C.gland, Math.min(1, sw * 9));
-  if (s >= ORGANS.firstDorsalPore && furrow(x) > 0.75 && Math.min(th, 2 * Math.PI - th) < 0.035) out.lerp(C.dark, 0.6);
+  if (s >= ORGANS.firstDorsalPore && furrow(x) > 0.75 && Math.min(th, 2 * Math.PI - th) < 0.025) out.lerp(C.dark, 0.3);
   const n = fbm2(x * 0.9, th * 6, 3, 11, 0) - 0.5;
   out.multiplyScalar(1 + n * 0.12);
   // The prostomium's tip is one even colour (back and belly tones meet there in a point otherwise).
