@@ -17,9 +17,6 @@ export type Line =
   | { readonly kind: 'gameChoice'; readonly text: string };
 
 export const TEXT = {
-  /** The crawl card's controls line (Matt, 2026-10-12: short). Arrow keys and Esc still work too. */
-  missionShow: { kind: 'ui', text: 'Show the mission' },
-  missionHide: { kind: 'ui', text: 'Hide the mission' },
   digDown: { kind: 'ui', text: 'Dig down' },
   comeUp: { kind: 'ui', text: 'Come up' },
   viewWide: { kind: 'ui', text: 'Wide view' },
@@ -127,6 +124,25 @@ export const TEXT = {
   nestWiggleChoice: { kind: 'gameChoice', text: 'A worm a bird is carrying rarely gets away like this. The chance to wiggle free is just for the game.' },
   nestSource: { kind: 'ui', text: 'Source:' },
   nestContinue: { kind: 'ui', text: 'Keep going' },
+  // The game menu (src/ui/gameMenu.ts; Matt, 2026-10-23): one tab, an icon column, a small card.
+  menuOpen: { kind: 'ui', text: 'Open the menu' },
+  menuClose: { kind: 'ui', text: 'Close the menu' },
+  menuMission: { kind: 'ui', text: 'Mission' },
+  menuRounds: { kind: 'ui', text: 'Rounds' },
+  menuSettings: { kind: 'ui', text: 'Settings' },
+  menuAbout: { kind: 'ui', text: 'About' },
+  menuPause: { kind: 'ui', text: 'Pause' },
+  menuResume: { kind: 'ui', text: 'Resume' },
+  menuToStart: { kind: 'ui', text: 'Back to start' },
+  roundsOpening: { kind: 'ui', text: 'Watch the opening again' },
+  roundsHere: { kind: 'ui', text: "You're playing this one" },
+  roundsPlay: { kind: 'ui', text: 'Play' },
+  roundsSoon: { kind: 'ui', text: 'Coming soon' },
+  roundsChanges: { kind: 'ui', text: 'What changed in each round' },
+  aboutMade: { kind: 'ui', text: '6th graders help make this game. Each round they learn about worms, play, and vote on what to build next.' },
+  aboutPrivate: { kind: 'ui', text: 'No accounts. No tracking.' },
+  aboutSource: { kind: 'ui', text: 'Source:' },
+  paused: { kind: 'ui', text: 'Paused' },
 } as const satisfies Record<string, Line>;
 
 export type TextKey = keyof typeof TEXT;

@@ -113,6 +113,18 @@ const ICONS = {
   /** A lightning bolt (the grip mini-game's Energy bar). */
   energy: `<svg ${SVG} viewBox="0 0 24 24"><path d="M13.5 2L4.5 13.5h6L9.5 22l10-12.5h-6.2z" fill="currentColor"
       stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`,
+  /** Three lines: the game menu's tab (gameMenu.ts). */
+  menu: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
+      stroke-linecap="round"><path d="M4 6.5h16M4 12h16M4 17.5h11"/></svg>`,
+  /** Three dots and lines: the game menu's Rounds page. */
+  list: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+      stroke-linecap="round"><path d="M10 6h10M10 12h10M10 18h10"/>
+    <circle cx="5" cy="6" r="1.6" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/>
+    <circle cx="5" cy="18" r="1.6" fill="currentColor" stroke="none"/></svg>`,
+  /** An "i" in a circle: the game menu's About page. */
+  info: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+      stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6"/>
+    <circle cx="12" cy="7.4" r="1.4" fill="currentColor" stroke="none"/></svg>`,
 } as const;
 
 export type IconName = keyof typeof ICONS;

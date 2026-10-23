@@ -16,7 +16,7 @@ function watchErrors(page: Page): string[] {
 
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 const scene = (page: Page) => page.getByRole('region', { name: shown(TEXT.nestLabel) });
-const crawling = (page: Page) => page.getByRole('region', { name: 'Crawling' });
+const crawling = (page: Page) => page.locator('#app[data-ui="crawl"]');
 
 test('?nest=1: "Watch the nest scene" leads Start; Esc skips to the fact card, and Keep going goes to play', async ({ page, context }) => {
   const errors = watchErrors(page);
