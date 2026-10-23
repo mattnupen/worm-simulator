@@ -70,15 +70,23 @@ export class LabelLayer {
       it.dot.style.display = on ? '' : 'none';
       if (on) visible.push({ id, x: (this.p.x + 1) * 0.5 * width, y: (1 - this.p.y) * 0.5 * height });
     }
-    // Alternate above and below the body, left to right, so neighbours never overlap.
+    // A label goes above the body for a part in its upper half and below for one in its lower half,
+    // so leader lines never cross the body to reach it. Neighbours on the same side that would
+    // overlap step further out instead.
     visible.sort((a, b) => a.x - b.x);
+    const midY = visible.reduce((s, v) => s + v.y, 0) / Math.max(1, visible.length);
+    const lastRight = { up: [] as number[], down: [] as number[] };
     visible.forEach((v, i) => {
       const it = this.items.get(v.id)!;
-      const up = i % 2 === 0;
-      const reach = Math.min(170, height * 0.2) + (i % 4 >= 2 ? 44 : 0);
+      const up = Math.abs(v.y - midY) < 6 ? i % 2 === 0 : v.y < midY;
       const w = it.button.offsetWidth;
       const h = it.button.offsetHeight;
       const lx = Math.max(left + 8, Math.min(width - w - 8, v.x - w / 2));
+      const rows = lastRight[up ? 'up' : 'down'];
+      let row = 0;
+      while (row < rows.length && rows[row] > lx - 12) row++;
+      rows[row] = lx + w;
+      const reach = Math.min(150, height * 0.17) + row * (h + 10);
       const ly = Math.max(8, Math.min(height - h - 8, up ? v.y - reach - h : v.y + reach));
       it.button.style.transform = `translate(${lx}px, ${ly}px)`;
       it.line.setAttribute('x1', String(v.x));

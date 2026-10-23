@@ -66,13 +66,15 @@ export function buildRepro(): ReproParts {
     ORGANS.seminalVesicles.forEach((n, i) => {
       const big = [0.55, 0.85, 1.12][i];
       const x = segAt(n, 0.66);
-      const g = gutPoint(x, side * 1.1, new THREE.Vector3(), 0.7 * big);
+      // Low on the side of the esophagus, reaching up its flank: each sac sits right on the edge of
+      // the sperm reservoir (in 10 or 11) and joins it by a short, wide neck.
+      const g = gutPoint(x, side * 1.6, new THREE.Vector3(), 0.55 * big);
+      g.y = floorY(x) + 1.35 + 0.95 * big;
       vesicle(m, g, V(0.34 * segmentLength(n) * (0.8 + 0.3 * big), 1.0 * big, 0.82 * big), n * 7 + (side > 0 ? 1 : 2));
-      // Each sac buds off the sperm reservoir below it (in 10 or 11), by a short neck.
-      const rx = segAt(n <= 10 ? 10 : 11, 0.52);
-      const base = V(rx, floorY(rx) + 1.15, side * 0.75);
-      const mid = V((g.x + base.x) / 2, (g.y + base.y) / 2 - 0.1, side * (Math.abs(g.z) + 0.75) / 2 + side * 0.25);
-      sweep(m, [g.clone(), mid, base], (t) => 0.14 * big * (1 - 0.45 * t) + 0.06, IVORY, { radial: 10, per: 0.1 });
+      const rx = segAt(n <= 10 ? 10 : 11, n === 9 ? 0.15 : n === 12 ? 0.85 : 0.52);
+      const base = V(rx, floorY(rx) + 1.3, side * 0.8);
+      const foot = V(g.x, g.y - 0.8 * big, g.z * 0.95);
+      sweep(m, [foot, V((foot.x + base.x) / 2, base.y + 0.05, (foot.z + base.z) / 2), base], () => 0.2 * big + 0.06, IVORY, { radial: 10, per: 0.1 });
     });
     // Testes (small, near the front wall of 10 and 11, beside the nerve cord) and sperm funnels.
     for (let n = ORGANS.testes[0]; n <= ORGANS.testes[1]; n++) {
@@ -97,7 +99,7 @@ export function buildRepro(): ReproParts {
   for (let n = ORGANS.testes[0]; n <= ORGANS.testes[1]; n++) {
     const x = segAt(n, 0.52);
     // Above the nerve cord, never through it.
-    blob(out.sacs, V(x, floorY(x) + 0.95, 0), V(0.42 * segmentLength(n), 0.4, 0.95), PEARL, { rows: 20, cols: 28 });
+    blob(out.sacs, V(x, floorY(x) + 1.15, 0), V(0.42 * segmentLength(n), 0.4, 0.95), PEARL, { rows: 20, cols: 28 });
   }
   for (const side of [1, -1]) {
     const w = side > 0 ? out.near : out.far;

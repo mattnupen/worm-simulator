@@ -39,7 +39,8 @@ export const ANCHORS: Record<AnatomyPartId, Anchor> = {
   crop: inn(() => gutPoint(segStart(16), SIDE, V(0, 0, 0))),
   gizzard: inn(() => gutPoint(segStart(18), SIDE, V(0, 0, 0))),
   intestine: inn(() => gutPoint(segMid(20), SIDE, V(0, 0, 0))),
-  hearts: inn(() => gutPoint(segAt(9, 0.3), -0.6, V(0, 0, 0), 0.4)),
+  // On the near heart in segment 9, at the side of the esophagus (its fattest part).
+  hearts: inn(() => gutPoint(segAt(9, 0.3), SIDE, V(0, 0, 0), 0.44)),
   dorsalVessel: inn(() => dorsalVessel(segMid(28), V(0, 0, 0))),
   ventralVessel: inn(() => ventralVessel(segMid(25), V(0, 0, 0))),
   brain: inn(() => gutPoint(segMid(3), 0, V(0, 0, 0), 0.3)),

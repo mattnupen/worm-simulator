@@ -36,8 +36,8 @@ export function dorsalVessel(x: number, out: THREE.Vector3): THREE.Vector3 {
     // A smooth maximum over a window (log-sum-exp), so the line has no corners.
     let sum = 0;
     const K = 8;
-    for (let d = -0.9; d <= 0.91; d += 0.15) sum += Math.exp(K * gutPoint(x + d, 0, a, r * 0.92).y);
-    const top = Math.max(out.y, Math.log(sum / 13) / K + 0.03);
+    for (let d = -1.5; d <= 1.51; d += 0.15) sum += Math.exp(K * gutPoint(x + d, 0, a, r * 0.92).y);
+    const top = Math.max(out.y, Math.log(sum / 21) / K + 0.03);
     out.y += (top - out.y) * k;
   }
   return out;
@@ -50,12 +50,19 @@ export function nerveCord(x: number, out: THREE.Vector3): THREE.Vector3 {
 
 /** Centre of the ventral vessel: under the gut, above the nerve cord. */
 export function ventralVessel(x: number, out: THREE.Vector3): THREE.Vector3 {
-  gutPoint(x, Math.PI, b, 0);
+  // Averaged over a short stretch, so it bends smoothly under the crop and gizzard.
+  let y = 0;
+  for (let d = -0.8; d <= 0.81; d += 0.2) y += ventralRaw(x + d);
   nerveCord(x, out);
-  const low = out.y + R.cord + R.ventral + 0.05;
-  const high = b.y - R.ventral - 0.03;
-  out.y = Math.max(low, Math.min(high, (low + high) / 2));
+  out.y = Math.max(out.y + R.cord + R.ventral + 0.05, y / 9);
   return out;
+}
+
+function ventralRaw(x: number): number {
+  gutPoint(x, Math.PI, b, 0);
+  const low = floorY(x) + R.cord + 0.14 + R.cord + R.ventral + 0.05;
+  const high = b.y - R.ventral - 0.03;
+  return Math.max(low, Math.min(high, (low + high) / 2));
 }
 
 /** Centre of the subneural vessel, under the cord. */

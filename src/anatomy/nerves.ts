@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../core/random';
-import { bodyPoint, prostomiumCentre } from './body';
+import { bodyPoint, insideWall, prostomiumCentre } from './body';
 import { gutPoint } from './gut';
 import { Mesher } from './mesher';
 import { CORD_START, R, nerveCord } from './axes';
@@ -50,8 +50,8 @@ export function buildNerves(): { inner: Mesher; far: Mesher; near: Mesher; rest:
     // Nerves forward into the prostomium and round the mouth.
     for (let k = 0; k < 3; k++) {
       const lc = prostomiumCentre(new THREE.Vector3());
-      // Kept well inside the small prostomium.
-      const end = new THREE.Vector3(lc.x + 0.1 + 0.3 * k, lc.y - 0.15 - 0.25 * k, side * (0.1 + 0.2 * k));
+      // Each ends on the inside of the head's wall, where it picks up touch and light.
+      const end = insideWall(lc.x + 0.1 + 0.35 * k, side * (0.5 + 0.55 * k), 0.02, new THREE.Vector3());
       const mid = new THREE.Vector3().lerpVectors(c, end, 0.5);
       mid.y += 0.15;
       sweep(inner, [c.clone().add(new THREE.Vector3(-0.3, 0, 0)), mid, end], (t) => 0.05 * (1 - 0.5 * t), paint, { radial: 6, per: 0.1 });

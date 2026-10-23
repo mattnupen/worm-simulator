@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../core/random';
-import { bodyPoint } from './body';
+import { bodyPoint, insideWall } from './body';
 import { OPEN_FROM, gutPoint } from './gut';
 import { Mesher } from './mesher';
 import { CORD_START, R, dorsalVessel, subneural, ventralVessel } from './axes';
@@ -83,14 +83,15 @@ export function buildBlood(): BloodParts {
   const xEnd = LENGTH - 2.5;
   // The dorsal vessel, from over the pharynx (where it splits into branches) to the tail.
   const x0 = segStart(3) + 0.4;
-  sweep(inner, along(x0, xEnd, 0.3, dorsalVessel), (t) => R.dorsal * (0.7 + 0.3 * Math.min(1, t * 20)), red, { radial: 12, per: 0.2, caps: true });
+  sweep(inner, along(x0, xEnd, 0.15, dorsalVessel), (t) => R.dorsal * (0.7 + 0.3 * Math.min(1, t * 20)), red, { radial: 12, per: 0.2, caps: true });
   for (const side of [1, -1]) {
     const a = dorsalVessel(x0 + 0.1, new THREE.Vector3());
-    const pts = [a, gutPoint(segStart(2) + 0.8, side * 0.5, new THREE.Vector3(), 0.08), gutPoint(segStart(2), side * 0.9, new THREE.Vector3(), 0.06), gutPoint(0.8, side * 1.2, new THREE.Vector3(), 0.05)];
-    sweep(inner, pts, (t) => 0.09 * (1 - 0.5 * t), red, { radial: 6, caps: true });
+    const pts = [a, gutPoint(segStart(2) + 0.8, side * 0.5, new THREE.Vector3(), 0.08), gutPoint(segStart(2), side * 0.9, new THREE.Vector3(), 0.06), gutPoint(0.8, side * 1.2, new THREE.Vector3(), 0.05), insideWall(0.2, side * 1.5, 0.03, new THREE.Vector3())];
+    // It branches out onto the head's wall, so it never ends in mid-air.
+    sweep(inner, pts, (t) => 0.09 * (1 - 0.35 * t), red, { radial: 6, caps: true });
   }
   // The ventral vessel and the subneural vessel.
-  sweep(inner, along(segStart(4), xEnd, 0.3, ventralVessel), () => R.ventral, red, { radial: 10, per: 0.2, caps: true });
+  sweep(inner, along(segStart(4), xEnd, 0.15, ventralVessel), () => R.ventral, red, { radial: 10, per: 0.2, caps: true });
   sweep(inner, along(CORD_START, xEnd, 0.4, subneural), () => R.subneural, red, { radial: 6, per: 0.3, caps: true });
   // Five pairs of hearts, beaded and swollen, looping from the dorsal vessel round the esophagus.
   for (let n = ORGANS.hearts[0]; n <= ORGANS.hearts[1]; n++) {
