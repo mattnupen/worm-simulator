@@ -56,7 +56,7 @@ export function furrow(x: number): number {
 
 /** 1 over the back and sides of the clitellum's segments, fading out low on the sides. */
 export function saddle(s: number, th: number): number {
-  const along = smooth(CLITELLUM[0] - 0.6, CLITELLUM[0] + 0.6, s) * smooth(CLITELLUM[1] + 1.6, CLITELLUM[1] + 0.4, s);
+  const along = smooth(CLITELLUM[0] - 1.0, CLITELLUM[0] + 0.9, s) * smooth(CLITELLUM[1] + 1.9, CLITELLUM[1] + 0.3, s);
   return along * smooth(-0.45, -0.02, Math.cos(th));
 }
 
@@ -186,11 +186,11 @@ export function skinColor(x: number, th: number, out: THREE.Color): THREE.Color 
   out.copy(C.belly).lerp(work, back * (0.96 - 0.3 * fade));
   // The clitellum: a saddle over the back and sides, not under the belly.
   const clit = saddle(s, th);
-  out.lerp(C.clitellum, clit * 0.7);
+  out.lerp(C.clitellum, clit * 0.6);
   // Its glandular surface: a fine, even grain.
   out.multiplyScalar(1 + clit * (fbm2(x * 16, th * 30, 2, 23, 0) - 0.5) * 0.18);
   // Furrows show paler, with fewer pigment cells; the dorsal vessel shows through the back.
-  out.multiplyScalar(1 - furrow(x) * 0.2 * (1 - clit));
+  out.multiplyScalar(1 - furrow(x) * 0.2 * (1 - 0.6 * clit));
   const mid = Math.exp(-(th / 0.07) * (th / 0.07)) + Math.exp(-(((2 * Math.PI - th) / 0.07) ** 2));
   out.lerp(C.vessel, mid * 0.28 * (1 - fade * 0.6) * smooth(3, 8, s));
   const sw = swellings(s, th);

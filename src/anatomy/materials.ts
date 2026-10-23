@@ -74,23 +74,23 @@ vec3 microBump(vec3 p) {
 export function createMaterials(): AnatomyMaterials {
   return {
     skin: addScatter(wet({
-      roughness: 0.62, clearcoat: 0.32, clearcoatRoughness: 0.32, sheen: 0.12, sheenRoughness: 0.5,
+      roughness: 0.6, clearcoat: 0.42, clearcoatRoughness: 0.3, sheen: 0.12, sheenRoughness: 0.5,
       sheenColor: new THREE.Color('#c06060'), iridescence: 0.55, iridescenceIOR: 1.38,
       iridescenceThicknessRange: [260, 520],
     }), '#ff5a3c', 0.85, 0.16, 0.18),
     skinGhost: wet({
       transparent: true, opacity: 0.2, depthWrite: false, roughness: 0.45, clearcoat: 0.4, side: THREE.FrontSide,
     }),
-    wall: wet({ roughness: 0.55, clearcoat: 0.5, side: THREE.FrontSide }),
+    wall: wet({ roughness: 0.66, clearcoat: 0.18, clearcoatRoughness: 0.5, side: THREE.FrontSide }),
     setae: wet({ roughness: 0.3, clearcoat: 0.8 }),
-    gut: addScatter(wet({ roughness: 0.58, clearcoat: 0.3, clearcoatRoughness: 0.42 }), '#ff8a60', 0.5, 0.08),
+    gut: addScatter(wet({ roughness: 0.58, clearcoat: 0.3, clearcoatRoughness: 0.42 }), '#ff8a60', 0.3, 0.04),
     blood: addScatter(wet({ roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 }), '#ff3030', 0.6, 0.05),
     nerve: wet({ roughness: 0.42, clearcoat: 0.7 }),
     repro: addScatter(wet({ roughness: 0.5, clearcoat: 0.55, sheen: 0.4, sheenColor: new THREE.Color('#fff4e0') }), '#ffd0a0', 0.5, 0.08),
     reproSac: wet({ roughness: 0.55, clearcoat: 0.35, sheen: 0.6, sheenColor: new THREE.Color('#fff8f0'), transparent: true, opacity: 0.82 }),
     nephridia: wet({ roughness: 0.4, clearcoat: 0.8 }),
-    muscle: wet({ roughness: 0.55, clearcoat: 0.5, side: THREE.DoubleSide }),
+    muscle: wet({ roughness: 0.62, clearcoat: 0.25, clearcoatRoughness: 0.45, side: THREE.DoubleSide }),
     skinGame: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 }),
-    septa: wet({ roughness: 0.35, clearcoat: 0.7, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }),
+    septa: wet({ roughness: 0.5, clearcoat: 0.3, transparent: true, opacity: 0.42, depthWrite: true, side: THREE.DoubleSide }),
   };
 }

@@ -114,15 +114,15 @@ export function buildCutWall(xs: readonly number[]): Mesher {
       (u, _v, _p, o) => paint(x0, u, o), { flip: true });
   }
   // The inner face of the far wall: longitudinal muscle bundles under a thin shiny lining.
-  wallSheet(m, xs, 0, ic, FAR, 96, T, (x, th, out) => {
-    const bundle = 0.5 + 0.5 * Math.sin(th * 46);
+  wallSheet(m, xs, 0, ic, FAR, 128, T, (x, th, out) => {
+    const bundle = 0.5 + 0.5 * Math.sin(th * 30);
     fibre.copy(lin).lerp(deep, 0.35 * bundle);
     // Baked occlusion: the wall is darker deep in the cavity behind the gut, and in each septum's
     // corner at the furrows, as it would be under real light.
     const deepIn = Math.max(0, -Math.sin(th));
     const corner = furrow(x);
     out.copy(fibre).multiplyScalar((0.94 + 0.08 * Math.sin(x * 3.1)) * (1 - 0.22 * deepIn * deepIn) * (1 - 0.18 * corner));
-  }, { flip: true, ripple: (_x, th) => -0.006 * Math.sin(th * 46) });
+  }, { flip: true, ripple: (_x, th) => -0.004 * Math.sin(th * 30) });
   return m;
 }
 

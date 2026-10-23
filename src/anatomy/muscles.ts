@@ -75,14 +75,15 @@ export function buildMuscles(): MuscleParts {
       const col = new THREE.Color(thick ? '#e9c3b7' : '#f2d8cf');
       const inner = new THREE.Vector3();
       const outer = new THREE.Vector3();
-      m.surface(3, b - a > 4 ? 64 : 32, (u, v, o) => {
+      m.surface(5, b - a > 4 ? 64 : 32, (u, v, o) => {
         const th = a + (b - a) * v;
         gutPoint(x, th, inner, 0.02);
-        bodyPoint(x, th, T, outer);
+        // The outer edge runs a little way into the wall, so the join never shows a gap.
+        bodyPoint(x, th, T * 0.85, outer);
         o.lerpVectors(inner, outer, u);
         // A septum bows forward a little between its edges.
         o.x -= 0.12 * Math.sin(u * Math.PI);
-      }, (u, _v, _q, o) => o.copy(col).multiplyScalar(0.95 + 0.05 * u), { wrapV: b - a > 4 });
+      }, (u, _v, _q, o) => o.copy(col).multiplyScalar(u < 0.2 ? 0.82 : 0.95 + 0.05 * u), { wrapV: b - a > 4 });
     }
   }
   // Strands from the pharynx out to the body wall: they pull it open to suck in food.

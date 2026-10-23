@@ -28,23 +28,26 @@ export function buildNephridia(): { far: Mesher; near: Mesher; rest: Mesher } {
       const funnel = insideWall(x0 - 0.06, side * (Math.PI - 0.42), 0.3, new THREE.Vector3());
       blob(m, funnel, new THREE.Vector3(0.07, 0.13, 0.11), paint, { amp: 0.2, freq: 5, seed: n, rows: 8, cols: 10 });
       const pts: THREE.Vector3[] = [funnel.clone()];
-      // Through the septum, then three neat loops lying against the side wall, low down: the same
-      // shape in every segment, mirrored left and right.
+      // Through the septum, then hairpin loops lying flat against the side wall: each one runs up
+      // the wall and back down. Every segment's loops differ a little, as in a real worm.
       pts.push(insideWall(x0 + 0.12 * len, side * (Math.PI - 0.55), 0.24, new THREE.Vector3()));
-      const N = 54;
+      const tall = 0.5 + 0.12 * Math.sin(n * 1.7 + side);
+      const lean = 0.06 * Math.sin(n * 2.3 - side);
+      const N = 60;
       for (let i = 0; i <= N; i++) {
         const t = i / N;
         const phi = t * 3 * 2 * Math.PI;
-        const x = x0 + len * (0.25 + 0.4 * t + 0.12 * Math.sin(phi));
-        const th = Math.PI - (0.85 + 0.2 * Math.cos(phi));
-        pts.push(insideWall(x, side * th, 0.2 + 0.05 * Math.cos(phi), new THREE.Vector3()));
+        const up = 0.5 - 0.5 * Math.cos(phi);
+        const x = x0 + len * (0.22 + 0.5 * t + (0.05 + lean) * Math.sin(phi));
+        const th = Math.PI - (0.68 + tall * up * (1 - 0.25 * t));
+        pts.push(insideWall(x, side * th, 0.18 + 0.04 * up, new THREE.Vector3()));
       }
       // The bladder, then the duct out to the pore low on the side.
       const bl = insideWall(x0 + 0.8 * len, side * (Math.PI - 0.62), 0.16, new THREE.Vector3());
       blob(m, bl, new THREE.Vector3(0.13, 0.1, 0.1), paint, { rows: 8, cols: 10 });
       pts.push(bl);
       pts.push(insideWall(x0 + 0.88 * len, side * (Math.PI - 0.6), -0.02, new THREE.Vector3()));
-      sweep(m, pts, () => 0.065, paint, { radial: 7, per: 0.05 });
+      sweep(m, pts, (u) => 0.05 + 0.03 * u, paint, { radial: 7, per: 0.05 });
     }
   }
   return out;

@@ -34,7 +34,7 @@ export const OPEN_FROM = 20;
 /** Radius of the gut at segment position s, before its cross-section shaping. */
 export function gutRadius(s: number, w: number): number {
   let r = 0.26 + 0.34 * smooth(0.9, 2.6, s);
-  r = smax(r, 1.4 * bump(s, 2.3, 6.1, 1.7));
+  r = smax(r, 1.12 * bump(s, 2.3, 6.1, 1.7));
   r = smax(r, 0.62 * smooth(5.4, 6.4, s));
   // The crop: a thin, soft sac; the gizzard: a firm, wider barrel right behind it.
   r = smax(r, 1.4 * bump(s, ORGANS.crop[0] - 0.7, ORGANS.crop[1] + 1.15, 1.6), 0.35);
@@ -89,8 +89,8 @@ export function gutPoint(x: number, th: number, out: THREE.Vector3, lift = 0): T
 const C = {
   pharynx: new THREE.Color('#c98577'),
   esophagus: new THREE.Color('#d0a08a'),
-  gland: new THREE.Color('#efe3cc'),
-  crop: new THREE.Color('#f0dccd'),
+  gland: new THREE.Color('#d9c09f'),
+  crop: new THREE.Color('#dcb9a6'),
   gizzard: new THREE.Color('#b8957c'),
   wall: new THREE.Color('#7d6a4a'),
   chloragogen: new THREE.Color('#c99c48'),
@@ -104,6 +104,8 @@ function gutColor(x: number, th: number, out: THREE.Color): void {
   // The pharynx's thick muscle: faint fibres running round and along it.
   out.multiplyScalar(1 - 0.07 * smooth(6.2, 5.4, s) * (0.5 + 0.5 * Math.sin(th * 26 + Math.sin(x * 6))));
   out.lerp(C.esophagus, smooth(5.4, 6.6, s));
+  // The mouth opening: the cavity's front end shows as a dark hole.
+  out.lerp(C.dark, 0.8 * smooth(0.4, 0.08, x));
   out.lerp(C.gland, Math.min(1, (calciferous(s, th) - 1) * 1.8));
   out.lerp(C.crop, smooth(14.7, 15.2, s));
   out.lerp(C.gizzard, smooth(16.85, 17.2, s));
