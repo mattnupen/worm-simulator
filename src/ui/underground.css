@@ -26,8 +26,6 @@
 
 /* ---------- First visit's hint card (src/ui/undergroundHint.ts) ---------- */
 .panel .hint-fact { margin-top: 10px; font-size: 1.125rem; }
-/* The Game choice line: "Game choice:" is part of its text (content/text.ts shown()). */
-.panel .hint-note { margin-top: 6px; font-size: 1.125rem; font-style: italic; color: var(--ink-soft); }
 
 /* ---------- Reduced motion: going down or up dips through dark soil instead of swinging ---------- */
 .cut-fade {

@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { SOURCES } from '../../src/content/sources';
-import { TEXT, GAME_CHOICE_PREFIX, lineProblems, shown, type Line } from '../../src/content/text';
+import { TEXT, lineProblems, shown, type Line } from '../../src/content/text';
 
 describe('content: science honesty', () => {
   it('every shown line is labelled, and every fact is sourced and verified', () => {
     expect(lineProblems(TEXT)).toEqual([]);
   });
 
-  it('catches an unsourced or unverified fact, an empty line and a doubled prefix', () => {
+  it('catches an unsourced or unverified fact, an empty line and a "Game choice" label', () => {
     // As a later edit might slip past the types (a cast, a JSON import).
     const bad = {
       noSource: { kind: 'fact', text: 'Worms eat leaves.', source: 'my-blog', verified: true },
@@ -22,9 +22,9 @@ describe('content: science honesty', () => {
       'noSource: unknown source "my-blog"',
       'unchecked: not verified',
       'empty: empty',
-      'twice: has the game-choice prefix twice',
+      'twice: labelled "Game choice"',
       'odd: unknown kind',
-      'shouting: has the game-choice prefix twice',
+      'shouting: labelled "Game choice"',
       'missing: empty',
     ]);
   });
@@ -50,14 +50,11 @@ describe('content: science honesty', () => {
     expect(Object.keys(SOURCES)).toEqual(expect.arrayContaining(['wormwatch-ecogroups', 'mndnr-humus', 'wormwatch-forest']));
   });
 
-  it('a game choice is shown labelled; other lines as written', () => {
-    expect(shown(TEXT.burrowChoice)).toBe(
-      'Game choice: In the game you can dig any way you like.',
-    );
+  it('lines are shown as written, with no "Game choice" label (Matt, 2026-10-23)', () => {
+    expect(shown(TEXT.burrowChoice)).toBe('In the game you can dig any way you like.');
     expect(TEXT.burrowFact).toMatchObject({ kind: 'fact', source: 'wormwatch-ecogroups', verified: true });
     expect(shown(TEXT.burrowFact)).toBe('Real nightcrawlers dig one burrow that goes straight down, as deep as 2 meters.');
     expect(SOURCES['wormwatch-ecogroups'].checked).toBe('2026-10-21');
-    expect(GAME_CHOICE_PREFIX).toBe('Game choice: ');
     expect(shown(TEXT.digDown)).toBe('Dig down');
   });
 

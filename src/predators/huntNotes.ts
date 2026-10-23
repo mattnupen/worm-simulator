@@ -13,13 +13,13 @@ const tired = noted(TEXT.huntTired);
  * string. Every line comes from src/content/text.ts.
  */
 export const HUNT_NOTES = {
-  /** After the first grab of a life: why the robin has to tug, and the energy bar's label. */
-  grip: `${noted(TEXT.huntGripFact)} ${noted(TEXT.huntEnergyChoice)}`,
+  /** After the first grab of a life: why the robin has to tug. */
+  grip: noted(TEXT.huntGripFact),
   escaped: noted(TEXT.huntEscaped),
   broke: noted(TEXT.huntBroke),
-  tooShort: `${noted(TEXT.huntTooShort)} ${noted(TEXT.huntNewLife)}`,
-  taken: `${noted(TEXT.huntTaken)} ${noted(TEXT.huntNewLife)}`,
+  tooShort: noted(TEXT.huntTooShort),
+  taken: noted(TEXT.huntTaken),
   /** The same endings when the energy ran out. */
   brokeTired: `${tired} ${noted(TEXT.huntBroke)}`,
-  tooShortTired: `${tired} ${noted(TEXT.huntTooShort)} ${noted(TEXT.huntNewLife)}`,
+  tooShortTired: `${tired} ${noted(TEXT.huntTooShort)}`,
 } as const;

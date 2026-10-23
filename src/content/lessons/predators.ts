@@ -7,7 +7,7 @@ import type { Lesson } from './lesson';
  * Careful with the mole: the famous "worms flee up from a digging mole" study (Catania 2008) was a
  * native Florida worm, not the nightcrawler. A nightcrawler's sourced escape is the other way:
  * zipping back down its burrow. The lesson teaches that contrast; a game that has nightcrawlers
- * flee up must label it "Game choice".
+ * flee up makes it a game choice (recorded, never stated as fact).
  *
  * Photos are real (Matt, 2026-10-12): CC BY 4.0 from iNaturalist, credited on screen. Their pages
  * are in docs/codev/research/predators.md.

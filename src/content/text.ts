@@ -5,7 +5,9 @@ import { SOURCES, type SourceId } from './sources';
  * - `ui`: a label or instruction, no claim about the world;
  * - `fact`: a claim about real worms or forests: it names its source (src/content/sources.ts)
  *   and is `verified: true` once someone has checked the source says it;
- * - `gameChoice`: something the game does that real worms do not; shown with "Game choice: ".
+ * - `gameChoice`: something the game does that real worms do not. It is the record that the game
+ *   bends the truth here, and it is never shown in the game (Matt, 2026-10-23: no "Game choice"
+ *   labels on screen). A fact is still never bent: anything stated as true is a sourced `fact`.
  * The types reject a fact without a source or with `verified` other than true, and
  * tests/unit/content.test.ts checks the same at run time (lineProblems).
  */
@@ -13,9 +15,6 @@ export type Line =
   | { readonly kind: 'ui'; readonly text: string }
   | { readonly kind: 'fact'; readonly text: string; readonly source: SourceId; readonly verified: true }
   | { readonly kind: 'gameChoice'; readonly text: string };
-
-/** Shown before every game-choice line. */
-export const GAME_CHOICE_PREFIX = 'Game choice: ';
 
 export const TEXT = {
   /** The crawl card's controls line (Matt, 2026-10-12: short). Arrow keys and Esc still work too. */
@@ -43,6 +42,7 @@ export const TEXT = {
     source: 'journeynorth-robin-tug',
     verified: true,
   },
+  // Game choices: the record of what the game bends, never shown (Matt, 2026-10-23).
   huntEnergyChoice: { kind: 'gameChoice', text: 'Real worms don\'t have an energy bar. It\'s just for the game.' },
   // What happens when the robin wins (V4 spec 3; src/predators/huntGame.ts).
   huntBroke: {
@@ -122,14 +122,14 @@ export const TEXT = {
 
 export type TextKey = keyof typeof TEXT;
 
-/** The string the player sees: a game-choice line is labelled "Game choice: ". */
+/** The string the player sees. (Game-choice lines are records, never put on screen.) */
 export function shown(line: Line): string {
-  return line.kind === 'gameChoice' ? GAME_CHOICE_PREFIX + line.text : line.text;
+  return line.text;
 }
 
 /**
  * Everything wrong with `lines` (empty: all fine): a fact whose source is not in SOURCES or that
- * is not verified, any empty line, and a game-choice line that already starts with the prefix.
+ * is not verified, any empty line, and a game-choice line labelled "Game choice".
  * The build's guard (tests/unit/content.test.ts) runs it over TEXT.
  */
 export function lineProblems(lines: Readonly<Record<string, Line>>): string[] {
@@ -140,7 +140,7 @@ export function lineProblems(lines: Readonly<Record<string, Line>>): string[] {
       if (!Object.prototype.hasOwnProperty.call(SOURCES, line.source)) out.push(`${key}: unknown source "${String(line.source)}"`);
       if (line.verified !== true) out.push(`${key}: not verified`);
     } else if (line.kind === 'gameChoice') {
-      if (String(line.text ?? '').toLowerCase().startsWith(GAME_CHOICE_PREFIX.trim().toLowerCase())) out.push(`${key}: has the game-choice prefix twice`);
+      if (String(line.text ?? '').toLowerCase().startsWith('game choice')) out.push(`${key}: labelled "Game choice"`);
     } else if (line.kind !== 'ui') {
       // Unreachable by the types; catches a cast or JSON import with a kind we do not show.
       out.push(`${key}: unknown kind`);

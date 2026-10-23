@@ -352,7 +352,7 @@ test.describe('at 1366 x 768', () => {
     expect(errors).toEqual([]);
   });
 
-  test('the first visit\'s hint card comes after the swing: the fact, then the Game choice line, at an edge', async ({ page }) => {
+  test('the first visit\'s hint card comes after the swing: the fact last, at an edge', async ({ page }) => {
     test.setTimeout(120_000);
     const errors = watchErrors(page);
     const seen = await recordPlaces(page);
@@ -375,14 +375,11 @@ test.describe('at 1366 x 768', () => {
     expect(s.slice(first, arrived).map((e) => e.place)).toEqual(s.slice(first, arrived).map(() => 'diggingDown'));
     expect(s[arrived].t - s[first].t).toBeLessThan(400);
     expect(s.slice(arrived).filter((e) => e.place !== 'underground')).toEqual([]);
-    // The real fact first, then the Game choice line (science honesty).
+    // The real fact is last: no "look, don't eat" while playing (Matt, 2026-10-12), and no
+    // "Game choice" line (Matt, 2026-10-23).
     const lines = await card.locator('p').allTextContents();
-    const fact = lines.indexOf(shown(TEXT.burrowFact));
-    expect(fact).toBeGreaterThanOrEqual(0);
-    expect(lines[fact + 1]).toBe(shown(TEXT.burrowChoice));
-    expect(shown(TEXT.burrowChoice)).toMatch(/^Game choice: /);
-    // The Game choice line is last: no "look, don't eat" while playing (Matt, 2026-10-12).
-    expect(lines[lines.length - 1]).toBe(shown(TEXT.burrowChoice));
+    expect(lines[lines.length - 1]).toBe(shown(TEXT.burrowFact));
+    expect(lines.join(' ')).not.toMatch(/game choice/i);
     // Off the worm's head: hintPlace.ts keeps it at the top or the bottom edge, away from the head
     // (the head's screen position has no page hook, so this checks where it was put).
     await expect(card).toHaveAttribute('data-at', /^(top|bottom)$/);

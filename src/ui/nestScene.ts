@@ -60,7 +60,7 @@ export function showNestScene(shell: Shell, onSkip: () => void, onContinue: () =
   };
 }
 
-/** The fact card: what the scene showed, its source, and the labelled game choice. */
+/** The fact card: what the scene showed, and its source. */
 function factCard(onContinue: () => void): HTMLElement {
   const card = el('div', '', 'nest-card');
   const fact = TEXT.nestFact;
@@ -78,7 +78,6 @@ function factCard(onContinue: () => void): HTMLElement {
     el('h1', shown(TEXT.nestTitle), 'screen-title'),
     factP,
     from,
-    el('p', shown(TEXT.nestSeason), 'nest-choice'),
     button(shown(TEXT.nestContinue), 'play', 'primary', onContinue).el,
   );
   return card;
