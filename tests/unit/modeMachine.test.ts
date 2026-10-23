@@ -447,3 +447,20 @@ describe('the surface / underground state machine (spec 4, 10)', () => {
     expect(moveDuration(m.state)).toBeCloseTo(SINK_S + SWING_S, 9);
   });
 });
+
+describe('comeUpNow (V4 hot fix: the worm headed out to a place it can come up)', () => {
+  it('starts coming up from underground only, as a press there would, and the move runs as usual', () => {
+    const surface = createModeMachine();
+    expect(surface.comeUpNow(false)).toBe(false);
+    expect(surface.state.mode).toBe('surface');
+    const m = undergroundMachine();
+    expect(m.comeUpNow(false)).toBe(true);
+    expect(m.state.mode).toBe('comingUp');
+    expect(m.comeUpNow(false)).toBe(false);
+    const pressed = undergroundMachine();
+    expect(tap(pressed, false, true)).toBe('startUp');
+    expect(m.state).toEqual({ ...pressed.state, t: 0 });
+    expect(runMove(m, false).events).toEqual(['emerge']);
+    expect(m.state.mode).toBe('surface');
+  });
+});

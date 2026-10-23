@@ -19,6 +19,8 @@ export const HUNT_NOTES = {
   broke: noted(TEXT.huntBroke),
   tooShort: noted(TEXT.huntTooShort),
   taken: noted(TEXT.huntTaken),
+  /** Wiggled out of the robin's bill on the way to its nest (nestWiggle.ts). */
+  wiggledFree: noted(TEXT.nestWiggledFree),
   /** The same endings when the energy ran out. */
   brokeTired: `${tired} ${noted(TEXT.huntBroke)}`,
   tooShortTired: `${tired} ${noted(TEXT.huntTooShort)}`,

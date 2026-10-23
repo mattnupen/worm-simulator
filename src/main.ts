@@ -51,12 +51,14 @@ import { Robin } from './predators/robin';
 import { LESSON_ROBIN_STILL, lessonRobinPose, robinShot } from './predators/lessonRobin';
 import { litterTopHeight } from './surface/litterDepth';
 import { HuntGame } from './predators/huntGame';
+import { resetHunt } from './predators/hunt';
+import { crawlDebug, crawlStart } from './game/crawlDebug';
 import { HUNT_NOTES } from './predators/huntNotes';
 import { NestScene } from './predators/nestScene';
 import { EatingFilm } from './eatingFilm/film';
 import { FILM_END } from './eatingFilm/script';
 import type { FilmView, LessonFilm } from './ui/lessonFilm';
-import { NEST_TIMES, nestCaptionAt } from './predators/nestScript';
+import { NEST_TIMES } from './predators/nestScript';
 import { playNestSound } from './predators/nestSound';
 import { showNestScene, type NestOverlay } from './ui/nestScene';
 import { createMoundView } from './underground/moundMesh';
@@ -203,6 +205,9 @@ function start(renderer: THREE.WebGLRenderer): void {
   }
   // ?wormLength=0.6: the worm starts that much shorter (V4's broken worm, for review).
   if (params.wormLength !== null) { game.setWormLength(params.wormLength); crawl.reset(); }
+  // ?at=x,z,deg: the crawl starts there (tests, screenshots); ?debug=1: the head for e2e tests.
+  if (params.at) crawl.reset(crawl.hero.count, crawlStart(params.at), params.at.heading);
+  if (params.debug) (window as unknown as { __wormDebug: unknown }).__wormDebug = crawlDebug(crawl);
   // The opening scene (src/opening/): its props join the scene now, hidden, so warmShaders sees them.
   const opening = new Opening(world.scene);
   /** ?robin=1: the V4 robin's preview loop ahead of the worm (Matt's review). */
@@ -234,6 +239,15 @@ function start(renderer: THREE.WebGLRenderer): void {
   const nestFrom = { x: 0, z: 0, heading: 0 };
   /** The nest scene playing came from a hunt (not the ?nest=1 preview from Start). */
   let nestFromHunt = false;
+  /**
+   * Wiggling free on the way up (src/predators/nestWiggle.ts): Space presses (edges only, so a held
+   * key is one press) and taps on the scene. Nothing on screen tells the player. ?nestEscape=1 makes
+   * every roll succeed (tests) and lets the Start preview wiggle too.
+   */
+  const nestPress = createPressEdge();
+  const nestRand = params.nestEscape ? () => 0 : Math.random;
+  /** Where the worm landed after wiggling free, as play's body (head first). */
+  const landBody = Array.from({ length: WORM_SEGMENTS }, () => ({ x: 0, y: 0, z: 0 }));
   /**
    * After the nest scene's fact card, back to play. After a hunt that is a new life: full length,
    * underground in your burrow. The ?nest=1 preview from Start lost no life, so it plays on as is.
@@ -509,7 +523,9 @@ function start(renderer: THREE.WebGLRenderer): void {
     // The worm is in the robin's bill now (the scene draws it).
     world.worm.group.visible = false;
     const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    nestScene.start(nestFrom.x, nestFrom.z, nestFrom.heading, reduced);
+    nestScene.start(nestFrom.x, nestFrom.z, nestFrom.heading, reduced, nestFromHunt || params.nestEscape);
+    // A Space held into the scene (the grip's) is not a wiggle.
+    nestPress.update(keyboard.down.has('Space'));
     // ?nestAt=: run the scene to that second now, then hold it there (screenshots).
     if (params.nestAt !== null) {
       while (nestScene.t < Math.min(params.nestAt, NEST_TIMES.end)) {
@@ -532,6 +548,31 @@ function start(renderer: THREE.WebGLRenderer): void {
   /** The fact card's "Keep going" (or Esc on it): the scene goes, play's view is back. */
   function endNestScene(): void {
     if (!nestScene.playing) return;
+    closeNest();
+    if (state.screen === 'nest') afterNest();
+  }
+
+  /**
+   * The worm wiggled out of the robin's bill and has landed on the forest floor: play goes on right
+   * there, at the same length (no new life), and the robin is gone (its wait starts again, as after
+   * an escape). The hunt's note says so; nothing before ever told the player they could.
+   */
+  function wiggledFree(): void {
+    const heading = nestScene.landing(SPACING * game.wormLength, landBody);
+    nestFromHunt = false;
+    closeNest();
+    crawl.reset(crawl.hero.count, landBody, heading);
+    // The Space being mashed is not a dig on arrival.
+    game.hold(keyboard.down.has('Space'));
+    if (hunt) {
+      resetHunt(hunt.hunt, Math.random);
+      hunt.note(HUNT_NOTES.wiggledFree, 4);
+    }
+    dispatch({ type: 'nestDone' });
+  }
+
+  /** The nest scene goes and play's view is back. */
+  function closeNest(): void {
     nestScene.stop();
     stopCueSound();
     world.worm.group.visible = true;
@@ -539,7 +580,6 @@ function start(renderer: THREE.WebGLRenderer): void {
     camera.updateProjectionMatrix();
     nestOverlay = null;
     dirty = true;
-    if (state.screen === 'nest') afterNest();
   }
 
   /** Draws the screen's card, then the game menu's parts that follow it (the Pause icon, an open page). */
@@ -584,8 +624,8 @@ function start(renderer: THREE.WebGLRenderer): void {
         captions.set(captionAt(opening.t));
         return;
       case 'nest':
-        nestOverlay = showNestScene(shell, skipNest, endNestScene);
-        nestOverlay.set(nestCaptionAt(nestScene.t), nestScene.dark);
+        nestOverlay = showNestScene(shell, skipNest, endNestScene, () => nestScene.press(nestRand));
+        nestOverlay.set(nestScene.caption, nestScene.dark);
         return;
       case 'crawl':
         shownCard = cardNow();
@@ -666,7 +706,14 @@ function start(renderer: THREE.WebGLRenderer): void {
     }
     if (state.screen === 'nest' && nestScene.playing) {
       // ?nestAt= holds it still at that second.
+      if (nestPress.update(keyboard.down.has('Space'))) nestScene.press(nestRand);
       if (params.nestAt === null || nestScene.t < params.nestAt) nestScene.step(dt);
+      if (nestScene.landed) {
+        wiggledFree();
+        keyboard.endStep();
+        actionPrompt.endStep();
+        return;
+      }
       if (nestScene.done && nestOverlay && shell.panel.dataset.phase !== 'card') nestOverlay.showCard();
       keyboard.endStep();
       actionPrompt.set(null);
@@ -684,6 +731,8 @@ function start(renderer: THREE.WebGLRenderer): void {
       game.step(dt, cmds.move, cmds.action, runner.running && params.dig);
       // A mound an opening was just made on stops lifting the worm before its next step.
       mounds?.sync(game.openings, game.mode);
+      // ?probe=1 (tests only): where the worm is underground.
+      if (params.probe) app.dataset.worm = `${game.worm.u[0].toFixed(3)} ${game.worm.v[0].toFixed(3)} ${game.worm.backing ? 1 : 0} ${game.heading ? 1 : 0}`;
     }
     hunt?.step(dt, playing, cmds.action, touchScreen);
     if (!frozen()) {
@@ -735,7 +784,7 @@ function start(renderer: THREE.WebGLRenderer): void {
       cut.sync(alpha, clock / 1000, gameCam, window.innerWidth, window.innerHeight);
       nestScene.pose(alpha, camera);
       world.syncWorm(world.pose, crawl.focus, camera, false);
-      nestOverlay?.set(nestCaptionAt(nestScene.t), nestScene.dark);
+      nestOverlay?.set(nestScene.caption, nestScene.dark);
     } else {
       cut.sync(alpha, clock / 1000, camera, window.innerWidth, window.innerHeight);
       opening.keepLeaf(crawl.motion.head.x, crawl.motion.head.z, game.mode.mode === 'surface');

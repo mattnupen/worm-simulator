@@ -3,6 +3,7 @@ import { canDigAt } from '../../src/underground/digSpot';
 import { Mounds } from '../../src/underground/mounds';
 import { setWormRise, wormSurface } from '../../src/worm/surfaceHeight';
 import { stepBurrowing, type Pointing } from '../../src/underground/burrowMotion';
+import { createHeadOut, outStep, startOut } from '../../src/underground/burrowOut';
 import { Crawl } from '../../src/game/crawl';
 import type { Vec2, Vec3 } from '../../src/core/vec';
 
@@ -20,6 +21,7 @@ if (typeof gc !== 'function') {
 const DT = 1 / 60;
 const STILL: Vec2 = { x: 0, y: 0 };
 const TURNING: Vec2 = { x: 0.3, y: 1 };
+const STILL_WAY: Pointing = { du: 0, dv: 0 };
 /** Warm-up calls: V8's optimizing compiler takes over in the background some thousands in. */
 const WARM = 20000;
 
@@ -96,6 +98,65 @@ const backing = bytesPerCall(() => {
   backWay.du = du / l;
   backWay.dv = dv / l;
   stepBurrowing(w, rev.slab!, rev.grid, rev.solids, backWay, DT);
+});
+
+// Backing across the body (burrowBack.ts roomToTurn checks each step for room to turn the way
+// pointed): the stick about 100 degrees off the neck; each time backing ends the worm is put back.
+let sides = 0;
+const sideBacking = bytesPerCall(() => {
+  if (!w.backing) {
+    sides++;
+    w.u.set(kept.u); w.v.set(kept.v); w.prevU.set(kept.u); w.prevV.set(kept.v);
+    tr.u.set(kept.tu); tr.v.set(kept.tv); tr.arc.set(kept.arc); tr.at.set(kept.at); tr.len.set(kept.len);
+    tr.n = kept.n;
+    tr.backed = false;
+    w.dir = w.prevDir = kept.dir;
+    w.speed = w.want = 0;
+    w.backing = true;
+    w.backSpent = false;
+  }
+  const neck = Math.atan2(w.v[0] - w.v[1], w.u[0] - w.u[1]) + 1.75;
+  backWay.du = Math.cos(neck);
+  backWay.dv = Math.sin(neck);
+  stepBurrowing(w, rev.slab!, rev.grid, rev.solids, backWay, DT);
+});
+
+// Heading out (burrowOut.ts: the worm crawls to a place where it can come up, pointed by it), from
+// where the dig left it to the nearest such place, then on to another (8 u along), and back, and so
+// on: only steps are measured (finding a place runs once per press, placing the worm once per visit).
+const out = game();
+out.enterNow();
+for (let i = 0; i < 1500; i++) out.step(DT, STILL, false, true);
+const ow = out.worm;
+const headState = createHeadOut();
+startOut(headState, ow, out.slab!, out.emerge, false);
+const places = [ow.outTo, ow.outTo > 0 ? ow.outTo - 6 : ow.outTo + 6];
+// Only those two places allow coming up (so the worm is ready only at them).
+const em = out.emerge;
+for (let j = 0; j < em.count; j++) {
+  const u = (em.first + j) * 0.05;
+  if (Math.abs(u - places[0]) > 0.3 && Math.abs(u - places[1]) > 0.3) em.sides[j] = 0;
+  else em.sides[j] = 3;
+}
+let outs = 0;
+let goings = 0;
+const awayWay: Pointing = { du: 0.5, dv: 0.5 };
+const headingOut = bytesPerCall(() => {
+  if (outStep(headState, ow, out.slab!, out.emerge, STILL_WAY, headState.way, DT) === 'going') {
+    goings++;
+    stepBurrowing(ow, out.slab!, out.grid, out.solids, headState.way, DT);
+    return;
+  }
+  // There (ready to come up): on toward the other place, by hand until it is no longer ready.
+  if (ow.outTo !== places[(outs + 1) % 2]) {
+    outs++;
+    ow.outTo = places[outs % 2];
+    headState.t = headState.since = headState.tries = 0;
+    headState.best = Infinity;
+  }
+  awayWay.du = ow.outTo > ow.u[0] ? 1 : -1;
+  awayWay.dv = -0.3;
+  stepBurrowing(ow, out.slab!, out.grid, out.solids, awayWay, DT);
 });
 
 // canDigAt over bodies as the crawl leaves them, turning as it goes.
@@ -195,6 +256,6 @@ const alone = new Crawl();
 const crawl = bytesPerCall(() => alone.step(DT, TURNING), 1);
 
 console.log(JSON.stringify({
-  underground, backing, backs, cuts, canDigAt: dig, surface, marks, marked, crawl,
+  underground, backing, backs, cuts, sideBacking, sides, headingOut, outs, goings, canDigAt: dig, surface, marks, marked, crawl,
   modes: [under.mode.mode, top.mode.mode], digs, offered,
 }));

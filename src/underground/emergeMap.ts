@@ -181,9 +181,9 @@ export function emergeSides(m: EmergeMap, u: number): number {
 
 /**
  * Whether the worm can come up with its head at u: the whole body can lie out on the floor along
- * the cut one way or the other. FOR THE GAME (Task 15): Action means "Come up" only where
- * `nearTop && canEmergeAt(map, head u)`; near the top elsewhere it stays the view switch.
- * Allocation-free.
+ * the cut one way or the other. The climb out starts at once only where `nearTop &&
+ * canEmergeAt(map, head u)`; at the top elsewhere Action still comes up, the worm first heading out
+ * to the nearest u where this holds (V4 hot fix: burrowOut.ts). Allocation-free.
  */
 export function canEmergeAt(m: EmergeMap, u: number): boolean {
   return emergeSides(m, u) !== 0;

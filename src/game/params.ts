@@ -18,6 +18,11 @@ export interface GameParams {
   prompt: ActionKind | null;
   /** `?dig=1`: the speed test digs underground instead of crawling (V2 perf gates). */
   dig: boolean;
+  /**
+   * `?probe=1`: the page shows where the worm is underground (#app data-worm: "u v backing
+   * heading", the head along the cut and its height), for tests only.
+   */
+  probe: boolean;
   /** `?lesson=1` or `?lesson=<id>`: open straight on the in-game lesson (Matt's review, screenshots). */
   lesson: boolean;
   /**
@@ -58,12 +63,31 @@ export interface GameParams {
   nest: boolean;
   nestAt: number | null;
   /**
+   * `?nestEscape=1` (tests and review): the worm always wiggles free once the hidden meter is high,
+   * and the Start preview (?nest=1) lets it wiggle too. Without it only a hunt's catch can, by chance.
+   */
+  nestEscape: boolean;
+  /**
    * `?eatingAt=31`: the eating lesson's film (src/eatingFilm/) jumps to that second when it starts
    * and holds there (screenshots; with `?lesson=eating`).
    */
   eatingAt: number | null;
   /** `?digMarks=0`: no casting mounds on the ground, and none for the worm to crawl over (V4; on unless turned off). */
   digMarks: boolean;
+  /**
+   * `?at=x,z,deg`: the crawl starts there (world units), facing that way (0 faces +z), when play
+   * starts without the opening (tests and screenshots: the worm beside a rock or the log).
+   */
+  at: { x: number; z: number; heading: number } | null;
+  /** `?debug=1`: window.__wormDebug reads the worm's head and heading (e2e tests). */
+  debug: boolean;
+}
+
+/** `?at=x,z,deg` as a place and heading (radians), or null when missing or not three numbers. */
+function place(p: URLSearchParams): GameParams['at'] {
+  const v = (p.get('at') ?? '').split(',').map((t) => (t.trim() === '' ? NaN : Number(t)));
+  if (v.length !== 3 || !v.every(Number.isFinite)) return null;
+  return { x: v[0], z: v[1], heading: (v[2] * Math.PI) / 180 };
 }
 
 /** A number param, or null when it is missing or not a finite number. */
@@ -83,6 +107,7 @@ export function parseParams(search: string): GameParams {
     speedTest: p.get('speedtest') === '1',
     prompt: prompt !== null && (ACTION_KINDS as readonly string[]).includes(prompt) ? (prompt as ActionKind) : null,
     dig: p.get('dig') === '1',
+    probe: p.get('probe') === '1',
     lesson: p.has('lesson') && p.get('lesson') !== '0',
     opening: p.get('opening') === '1' ? true : p.get('opening') === '0' ? false : null,
     openingAt: num(p, 'openingAt'),
@@ -96,7 +121,10 @@ export function parseParams(search: string): GameParams {
     robinIn: num(p, 'robinIn'),
     nest: p.get('nest') === '1',
     nestAt: num(p, 'nestAt'),
+    nestEscape: p.get('nestEscape') === '1',
     digMarks: p.get('digMarks') !== '0',
     eatingAt: num(p, 'eatingAt'),
+    at: place(p),
+    debug: p.get('debug') === '1',
   };
 }

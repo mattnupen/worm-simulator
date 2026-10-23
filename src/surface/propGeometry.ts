@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { icosphere, type MeshWriter } from './meshWriter';
 import { terrainHeight } from './terrain';
-import { rockLump, rockLy } from './rockShape';
+import { rockPoint } from './rockShape';
 
 /**
  * Low-poly, solid forest-floor props written into a shared MeshWriter ('aProp': linear rgb
@@ -13,6 +13,8 @@ export const PROP = { plain: 0, stone: 1, plant: 2 } as const;
 const col = new THREE.Color();
 const col2 = new THREE.Color();
 const TAU = Math.PI * 2;
+/** Scratch for writeRock: one vertex (rockPoint). */
+const at = new Float64Array(3);
 
 /** Ground height at (x, z): the soil, or the soil plus the litter mound clutter rests on. */
 export type GroundAt = (x: number, z: number) => number;
@@ -27,18 +29,10 @@ export function writeRock(w: MeshWriter, x: number, z: number, size: number, see
   const first = w.vertexCount;
   const firstIdx = w.idx.length;
   const g = terrainHeight(x, z);
-  const yaw = seed * TAU;
-  const c = Math.cos(yaw);
-  const s = Math.sin(yaw);
   col.set(['#948a7e', '#9c8e80', '#857d72'][Math.floor(seed * 3) % 3]);
   for (let i = 0; i < pos.length; i += 3) {
-    const dx = pos[i];
-    const dy = pos[i + 1];
-    const dz = pos[i + 2];
-    const lump = rockLump(dx, dy, dz, seed);
-    const lx = dx * size * lump * 1.15;
-    const lz = dz * size * lump * 0.9;
-    w.vertex(x + lx * c - lz * s, g - size * 0.18 + rockLy(dy, size, lump), z + lx * s + lz * c, 0, 1, 0, [col.r, col.g, col.b, code(PROP.stone, 0)]);
+    rockPoint(pos[i], pos[i + 1], pos[i + 2], x, z, g, size, seed, at);
+    w.vertex(at[0], at[1], at[2], 0, 1, 0, [col.r, col.g, col.b, code(PROP.stone, 0)]);
   }
   for (let i = 0; i < index.length; i += 3) w.tri(first + index[i], first + index[i + 1], first + index[i + 2]);
   w.smoothNormals(first, firstIdx);

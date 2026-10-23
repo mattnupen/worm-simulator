@@ -1,27 +1,35 @@
 import { describe, it, expect } from 'vitest';
 import { parseParams } from '../../src/game/params';
 
-const NO_ROBIN = { robin: false, robinAt: null, robinTurn: 0, robinDist: 9, robinCam: null, wormLength: null, hunt: true, robinIn: null, nest: false, nestAt: null, digMarks: true, eatingAt: null };
+const NO_ROBIN = { robin: false, robinAt: null, robinTurn: 0, robinDist: 9, robinCam: null, wormLength: null, hunt: true, robinIn: null, nest: false, nestAt: null, nestEscape: false, digMarks: true, eatingAt: null, at: null, debug: false };
 
 describe('parseParams', () => {
   it('defaults: no forced preset, no fps tag, not quick, Start screen', () => {
-    expect(parseParams('')).toEqual({ preset: null, fps: false, quick: false, speedTest: false, prompt: null, dig: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
+    expect(parseParams('')).toEqual({ preset: null, fps: false, quick: false, speedTest: false, prompt: null, dig: false, probe: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
   });
   it('reads ?preset=, ?fps=1, ?quick=1 and ?speedtest=1', () => {
     expect(parseParams('?preset=ultra&fps=1&quick=1&speedtest=1'))
-      .toEqual({ preset: 'ultra', fps: true, quick: true, speedTest: true, prompt: null, dig: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
+      .toEqual({ preset: 'ultra', fps: true, quick: true, speedTest: true, prompt: null, dig: false, probe: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
   });
   it('ignores an unknown preset (and Auto, which is not a preset)', () => {
     expect(parseParams('?preset=extreme').preset).toBeNull();
     expect(parseParams('?preset=auto').preset).toBeNull();
   });
   it('ignores V1\'s ?scale= (V2 is real size only)', () => {
-    expect(parseParams('?scale=classic&preset=low')).toEqual({ preset: 'low', fps: false, quick: false, speedTest: false, prompt: null, dig: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
+    expect(parseParams('?scale=classic&preset=low')).toEqual({ preset: 'low', fps: false, quick: false, speedTest: false, prompt: null, dig: false, probe: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
   });
   it('reads ?prompt= (tests and screenshots) and ignores an unknown kind', () => {
     expect(parseParams('?prompt=digDown').prompt).toBe('digDown');
     expect(parseParams('?prompt=viewClose').prompt).toBe('viewClose');
     expect(parseParams('?prompt=fly').prompt).toBeNull();
+  });
+  it('reads ?at=x,z,deg (a start place for tests) and ?debug=1, ignoring anything else', () => {
+    expect(parseParams('?at=1.5,-7,90').at).toEqual({ x: 1.5, z: -7, heading: Math.PI / 2 });
+    expect(parseParams('?at=1,2').at).toBeNull();
+    expect(parseParams('?at=1,,3').at).toBeNull();
+    expect(parseParams('?at=a,b,c').at).toBeNull();
+    expect(parseParams('?debug=1').debug).toBe(true);
+    expect(parseParams('?debug=yes').debug).toBe(false);
   });
   it('reads ?dig=1: the speed test digs underground (V2 perf gates)', () => {
     expect(parseParams('?speedtest=1&dig=1').dig).toBe(true);
@@ -53,6 +61,11 @@ describe('parseParams', () => {
     expect(parseParams('?nest=1&nestAt=6.5')).toMatchObject({ nest: true, nestAt: 6.5 });
     expect(parseParams('?nest=yes&nestAt=soon')).toMatchObject({ nest: false, nestAt: null });
   });
+  it('reads ?nestEscape=1 (the wiggle-free test switch), off otherwise', () => {
+    expect(parseParams('?nestEscape=1').nestEscape).toBe(true);
+    expect(parseParams('?nestEscape=yes').nestEscape).toBe(false);
+    expect(parseParams('').nestEscape).toBe(false);
+  });
 });
 
 describe('the eating film preview', () => {
@@ -61,5 +74,9 @@ describe('the eating film preview', () => {
     expect(parseParams('?lesson=eating').eatingAt).toBeNull();
     // A lesson id opens it straight away too, even when it is this build's lesson.
     expect(parseParams('?lesson=eating').lesson).toBe(true);
+  });
+  it('reads ?probe=1 (tests: where the worm is underground)', () => {
+    expect(parseParams('?probe=1').probe).toBe(true);
+    expect(parseParams('?probe=0').probe).toBe(false);
   });
 });
