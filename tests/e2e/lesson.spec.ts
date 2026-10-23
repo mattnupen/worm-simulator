@@ -103,7 +103,8 @@ async function playThrough(page: Page, l: Lesson): Promise<void> {
     } else if (step.kind === 'body') {
       // The eating film plays over the whole screen, its caption on the card: outside first, then
       // each part as the food reaches it (its name big over the scene too), then the midden. Pause
-      // holds it; every caption can be read at any pace in "Read the whole trip"; Next waits for the end.
+      // holds it and the timeline scrubs it; every caption can be read at any pace in "Read the whole
+      // trip"; Next waits for the end.
       await expect(next).toBeDisabled();
       await expect(card(page, l).getByText('Watch it to the end to go on.')).toBeVisible();
       const caption = card(page, l).locator('.film-caption');
@@ -116,8 +117,14 @@ async function playThrough(page: Page, l: Lesson): Promise<void> {
       await expect(card(page, l).locator('.film-trip').getByText(shown(step.midden))).toBeVisible();
       await expect(page.locator('.film-label')).toHaveText(step.stops[0].name, { timeout: 60_000 });
       await expect(caption).toContainText(shown(step.stops[0].fact));
-      // Game time, not wall time: the software renderer can play it slower than 53 s.
-      await expect(next).toBeEnabled({ timeout: 180_000 });
+      // The timeline: drag back to the start (the outside caption again), then near the end.
+      const timeline = card(page, l).getByRole('slider', { name: 'Timeline' });
+      await timeline.fill('0');
+      await expect(caption).toContainText(shown(step.outside));
+      await timeline.fill('50');
+      await expect(caption).toContainText(shown(step.midden));
+      // Game time, not wall time: the software renderer can play the last seconds slowly.
+      await expect(next).toBeEnabled({ timeout: 60_000 });
       await expect(caption).toContainText(shown(step.midden));
       await expect(button(page, 'Replay')).toBeVisible();
     } else if (step.kind === 'meet') {
@@ -243,8 +250,8 @@ test('the quests open in order: Learn, then Play, then Vote; "I voted" finishes 
 
   // Learn done, 5 minutes played: Vote is next.
   await page.evaluate(() => {
-    localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] }));
-    localStorage.setItem('wormsim.quests', JSON.stringify({ version: 1, rounds: { 3: { playSeconds: 300, voted: false } } }));
+    localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators', 'eating'] }));
+    localStorage.setItem('wormsim.quests', JSON.stringify({ version: 1, rounds: { 4: { playSeconds: 300, voted: false } } }));
   });
   await page.reload();
   await expect(button(page, 'Vote')).toBeFocused();
@@ -261,12 +268,12 @@ test('the quests open in order: Learn, then Play, then Vote; "I voted" finishes 
   await expect(button(page, 'Crawl')).toBeFocused();
   await expect(page.getByText('Done. Thanks for voting!')).toBeVisible();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.quests') ?? 'null'));
-  expect(saved.rounds['3']).toEqual({ playSeconds: 300, voted: true });
+  expect(saved.rounds['4']).toEqual({ playSeconds: 300, voted: true });
   expect(errors).toEqual([]);
 });
 
 test('Play counts real crawling toward its 5 minutes, and keeps it when paused', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
+  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators', 'eating'] })));
   // Straight to play: the opening scene is not play time.
   await page.goto(PAGE + '?opening=0');
   await expect(page.getByText('0 of 5 minutes played')).toBeVisible();
@@ -275,9 +282,9 @@ test('Play counts real crawling toward its 5 minutes, and keeps it when paused',
   await page.keyboard.press('Escape');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.quests') ?? 'null'));
   // Game time, not wall time: a slow software renderer runs fewer steps than 7 s of play.
-  expect(saved.rounds['3'].playSeconds).toBeGreaterThanOrEqual(2);
-  expect(saved.rounds['3'].playSeconds).toBeLessThan(10);
-  expect(saved.rounds['3'].voted).toBe(false);
+  expect(saved.rounds['4'].playSeconds).toBeGreaterThanOrEqual(2);
+  expect(saved.rounds['4'].playSeconds).toBeLessThan(10);
+  expect(saved.rounds['4'].voted).toBe(false);
 });
 
 for (const other of ALL_LESSONS.filter((l) => l !== CURRENT_LESSON)) {

@@ -9,13 +9,17 @@ export interface LessonFilm {
   /** Starts the film from the beginning (Replay too); `view` hears where it is each drawn frame. */
   play(view: FilmView): void;
   setPaused(paused: boolean): void;
+  /** Jumps to second `t` (the timeline). */
+  seek(t: number): void;
+  /** The film's length, in seconds. */
+  readonly length: number;
   /** The forest shows again. */
   stop(): void;
 }
 
 /** The lesson's side of the film: main.ts calls `set` each drawn frame and reads `inset`. */
 export interface FilmView {
-  set(beat: Beat, dark: number, done: boolean): void;
+  set(beat: Beat, dark: number, done: boolean, t: number): void;
   /** How many pixels at the bottom of the screen the card covers (the shot centres above it). */
   readonly inset: number;
 }
@@ -28,7 +32,7 @@ export function closeFilm(root: HTMLElement): void {
 /**
  * The `body` step as a film: the 3D scene fills the screen and the card sits at the bottom as a
  * caption bar. The caption is the beat's fact (each part's name in bold, and big over the scene);
- * Pause and Replay; "Read the whole trip" has every caption as a list, to read at any pace. Once
+ * a timeline (Play/Pause and a slider); "Read the whole trip" has every caption as a list, to read at any pace. Once
  * it has played to the end, `onDone` (Next wakes up). Without a film (no WebGL path, tests of the
  * card alone) it is just the list.
  */
@@ -65,30 +69,60 @@ export function filmBody(
   const fact = el('p', '', 'lesson-line');
   caption.append(name, fact);
 
+  // The timeline: one small Play/Pause button (Replay at the end) and a slider to scrub through
+  // the film (Matt, 2026-10-23: "a slider timeline, simple and clean"). Dragging holds the film
+  // still; it plays on from there once let go, unless it was paused.
   let paused = false;
-  const pause = button('Pause', 'pause', 'secondary', () => setPaused(!paused));
-  pause.el.classList.add('btn-small');
+  let ended = false;
+  let scrubbing = false;
+  const toggle = button('Pause', 'pause', 'secondary', () => {
+    if (ended) {
+      setPaused(false);
+      film.play(view);
+    } else setPaused(!paused);
+  });
+  toggle.el.classList.add('film-toggle');
+  const showToggle = (): void => {
+    const [text, mark] = ended ? ['Replay', 'replay'] as const : paused ? ['Play', 'play'] as const : ['Pause', 'pause'] as const;
+    toggle.setLabel(text);
+    toggle.el.querySelector('.btn-icon')?.replaceWith(icon(mark, 'btn-icon'));
+  };
   const setPaused = (p: boolean): void => {
     paused = p;
-    film.setPaused(p);
-    pause.setLabel(p ? 'Play' : 'Pause');
-    pause.el.querySelector('.btn-icon')?.replaceWith(icon(p ? 'play' : 'pause', 'btn-icon'));
+    film.setPaused(p || scrubbing);
+    showToggle();
   };
-  const replay = button('Replay', 'back', 'secondary', () => {
-    setPaused(false);
-    pause.el.hidden = false;
-    film.play(view);
+  const slider = el('input', '', 'film-slider');
+  slider.type = 'range';
+  slider.min = '0';
+  slider.max = String(film.length);
+  slider.step = '0.1';
+  slider.value = '0';
+  slider.setAttribute('aria-label', 'Timeline');
+  const fill = (t: number): void => slider.style.setProperty('--p', `${(t / film.length) * 100}%`);
+  slider.addEventListener('input', () => {
+    const t = Number(slider.value);
+    film.seek(t);
+    fill(t);
   });
-  replay.el.classList.add('btn-small');
+  const hold = (on: boolean): void => {
+    scrubbing = on;
+    film.setPaused(paused || on);
+  };
+  slider.addEventListener('pointerdown', () => hold(true));
+  for (const ev of ['pointerup', 'pointercancel', 'change'] as const) slider.addEventListener(ev, () => hold(false));
+  const timeline = el('div', '', 'film-timeline');
+  timeline.append(toggle.el, slider);
   const controls = el('div', '', 'film-controls');
-  controls.append(pause.el, replay.el, trip);
+  controls.append(timeline, trip);
 
   let beat: Beat | null = null;
   let dark = -1;
-  let ended = false;
+  let shownT = -1;
+  let spoken = -1;
   const view = {
     inset: 0,
-    set(b: Beat, d: number, done: boolean): void {
+    set(b: Beat, d: number, done: boolean, t: number): void {
       if (b !== beat) {
         beat = b;
         const stop = step.stops.find((s) => s.part === b);
@@ -105,11 +139,22 @@ export function filmBody(
         dark = dd;
         veil.style.opacity = String(dd);
       }
-      if (done && !ended) {
-        ended = true;
-        pause.el.hidden = true;
-        onDone();
-      } else if (!done) ended = false;
+      const tt = Math.round(t * 10) / 10;
+      if (tt !== shownT && !scrubbing) {
+        shownT = tt;
+        slider.value = String(tt);
+        fill(tt);
+      }
+      const sec = Math.floor(t);
+      if (sec !== spoken) {
+        spoken = sec;
+        slider.setAttribute('aria-valuetext', `${sec} of ${Math.round(film.length)} seconds${label.textContent ? `: ${label.textContent}` : ''}`);
+      }
+      if (done !== ended) {
+        ended = done;
+        showToggle();
+        if (done) onDone();
+      }
     },
   };
   // The card's height, for where the shot centres; kept up to date as the card changes size.

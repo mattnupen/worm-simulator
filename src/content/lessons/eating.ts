@@ -107,6 +107,7 @@ export const EATING: Lesson = {
             verified: true,
           },
         ],
+        video: { title: 'Worms pull leafs underground to eat them.', channel: 'Get Wild', url: 'https://www.youtube.com/watch?v=00GpoMJWt1s' },
       },
       photo: {
         file: 'robin',
@@ -239,6 +240,7 @@ export const EATING: Lesson = {
             verified: true,
           },
         ],
+        video: { title: 'Earthworm digestive system', channel: 'MooMooMath and Science', url: 'https://www.youtube.com/watch?v=K8rAvIf5GZQ' },
       },
     },
     {
@@ -335,6 +337,7 @@ export const EATING: Lesson = {
             verified: true,
           },
         ],
+        video: { title: 'Worms! - time lapse footage of Rothamsted wormery', channel: 'AHDB Cereals & Oilseeds', url: 'https://www.youtube.com/watch?v=oYSrOSKDSH8' },
       },
     },
     {
@@ -398,6 +401,7 @@ export const EATING: Lesson = {
             verified: true,
           },
         ],
+        video: { title: 'Great Lakes Worm Watch: Invasive Earthworms', channel: 'UMN Natural Resources Research Institute', url: 'https://www.youtube.com/watch?v=BpMvZCeep54' },
       },
     },
     {

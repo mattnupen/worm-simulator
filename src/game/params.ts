@@ -18,7 +18,7 @@ export interface GameParams {
   prompt: ActionKind | null;
   /** `?dig=1`: the speed test digs underground instead of crawling (V2 perf gates). */
   dig: boolean;
-  /** `?lesson=1`: open straight on the in-game lesson (Matt's review, screenshots). */
+  /** `?lesson=1` or `?lesson=<id>`: open straight on the in-game lesson (Matt's review, screenshots). */
   lesson: boolean;
   /**
    * `?opening=1`: the first Crawl plays the opening even on a device that has seen it (Matt's
@@ -83,7 +83,7 @@ export function parseParams(search: string): GameParams {
     speedTest: p.get('speedtest') === '1',
     prompt: prompt !== null && (ACTION_KINDS as readonly string[]).includes(prompt) ? (prompt as ActionKind) : null,
     dig: p.get('dig') === '1',
-    lesson: p.get('lesson') === '1',
+    lesson: p.has('lesson') && p.get('lesson') !== '0',
     opening: p.get('opening') === '1' ? true : p.get('opening') === '0' ? false : null,
     openingAt: num(p, 'openingAt'),
     robin: p.get('robin') === '1',
