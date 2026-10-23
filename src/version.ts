@@ -33,3 +33,12 @@ export const ROUNDS: readonly { number: number; name: string; about: string }[] 
   { number: 3, name: 'Predators', about: 'Learn which animals hunt worms, then design a predator for the game.' },
   { number: 4, name: 'Eating', about: 'Follow a leaf through a worm\'s body, and dig away from a hungry robin.' },
 ];
+
+/**
+ * How many rounds the unit has (docs/codev/roadmap.md: V1–V8). The game menu's Rounds page lists the
+ * ones after ROUNDS as "Coming soon", with no link (Matt, 2026-10-23).
+ */
+export const PLANNED_ROUNDS = 8;
+
+/** "What changed in each round": the student-friendly changelog on GitHub (the repo is public). */
+export const CHANGELOG_URL = 'https://github.com/mattnupen/worm-simulator/blob/main/CHANGELOG.md';

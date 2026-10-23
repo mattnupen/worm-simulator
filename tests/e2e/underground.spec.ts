@@ -120,7 +120,7 @@ test('keyboard only: dig down, dig around, switch the camera, pause, come up', a
   await page.goto(PAGE);
   await expect(button(page, 'Crawl')).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('region', { name: 'Crawling' })).toBeVisible();
+  await expect(page.locator('#app[data-ui="crawl"]')).toBeVisible();
   await expect(prompt(page, 'Dig down')).toBeVisible({ timeout: SLOW });
   await hold(page, 'Space');
   await place(page, 'underground');
@@ -133,11 +133,19 @@ test('keyboard only: dig down, dig around, switch the camera, pause, come up', a
   await hold(page, 'Space');
   await expect(prompt(page, 'Wide view')).toBeVisible({ timeout: SLOW });
   expect((await saved(page)).undergroundView).toBe('close');
-  // Pause and resume underground.
-  await page.keyboard.press('Escape');
+  // Pause and resume underground, from the game menu with the keyboard (Tab reaches its tab first).
+  await page.keyboard.press('Tab');
+  await expect(button(page, 'Open the menu')).toBeFocused();
+  await page.keyboard.press('Enter');
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Tab');
+  await expect(button(page, 'Pause')).toBeFocused();
+  await page.keyboard.press('Enter');
   await expect(page.getByRole('region', { name: 'Paused' })).toBeVisible();
   await expect(page.locator('.action-prompt')).toBeHidden();
+  await page.getByRole('region', { name: 'Paused' }).getByRole('button', { name: 'Resume' }).press('Enter');
+  // Esc folds the menu and hands the keys back to the worm.
   await page.keyboard.press('Escape');
+  await expect(button(page, 'Open the menu')).toBeVisible();
   await place(page, 'underground');
   await expect(prompt(page, 'Wide view')).toBeVisible({ timeout: SLOW });
   // Up into the litter, then Action comes up.
@@ -146,7 +154,7 @@ test('keyboard only: dig down, dig around, switch the camera, pause, come up', a
   await hold(page, 'Space');
   await place(page, 'comingUp');
   await place(page, 'surface');
-  await expect(page.getByRole('region', { name: 'Crawling' })).toBeVisible();
+  await expect(page.locator('#app[data-ui="crawl"]')).toBeVisible();
   await expect(prompt(page, 'Dig down')).toBeVisible({ timeout: SLOW });
   expect(errors).toEqual([]);
 });
@@ -335,7 +343,7 @@ test.describe('at 1366 x 768', () => {
       return { labels, controls };
     });
     expect(got.labels.map((l) => l.text).sort()).toEqual([...LAYERS].sort());
-    // The Pause button and the Action prompt show on a desktop; the joystick too.
+    // The Action prompt shows on a desktop; the joystick too.
     expect(got.controls.map((c) => c.sel).sort()).toEqual(['.action-prompt', '.joystick']);
     for (const l of got.labels) {
       expect(l.size, l.text).toBeGreaterThanOrEqual(18);

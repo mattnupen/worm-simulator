@@ -6,7 +6,7 @@ const start = initialScreens();
 
 describe('screens', () => {
   it('opens on Start, or straight on the speed test when asked', () => {
-    expect(start).toEqual({ screen: 'start', graphicsFrom: 'start', recommended: null, applied: false });
+    expect(start).toEqual({ screen: 'start', recommended: null, applied: false });
     expect(initialScreens(true).screen).toBe('speedTest');
   });
 
@@ -14,7 +14,7 @@ describe('screens', () => {
     expect(run(start, { type: 'crawl' }).screen).toBe('crawl');
   });
 
-  it('crawl -> Esc/P/Pause -> pause -> Resume -> crawl', () => {
+  it('crawl -> the menu\'s Pause -> pause -> Resume -> crawl', () => {
     const paused = run(start, { type: 'crawl' }, { type: 'pause' });
     expect(paused.screen).toBe('pause');
     expect(run(paused, { type: 'resume' }).screen).toBe('crawl');
@@ -25,27 +25,14 @@ describe('screens', () => {
   });
 
   it('a hidden tab changes nothing outside crawl', () => {
-    for (const s of [start, run(start, { type: 'speedTest' }), run(start, { type: 'graphics' })]) {
+    for (const s of [start, run(start, { type: 'speedTest' }), run(start, { type: 'lesson' })]) {
       expect(transition(s, { type: 'hidden' })).toBe(s);
     }
   });
 
-  it('start -> Graphics -> graphics -> Back -> start', () => {
-    const g = run(start, { type: 'graphics' });
-    expect(g.screen).toBe('graphics');
-    expect(g.graphicsFrom).toBe('start');
-    expect(run(g, { type: 'back' }).screen).toBe('start');
-  });
-
-  it('pause -> Graphics -> graphics -> Back -> pause', () => {
-    const g = run(start, { type: 'crawl' }, { type: 'pause' }, { type: 'graphics' });
-    expect(g.screen).toBe('graphics');
-    expect(g.graphicsFrom).toBe('pause');
-    expect(run(g, { type: 'back' }).screen).toBe('pause');
-  });
-
-  it('pause -> Back to start -> start', () => {
+  it('crawl or pause -> the menu\'s Back to start -> start', () => {
     expect(run(start, { type: 'crawl' }, { type: 'pause' }, { type: 'toStart' }).screen).toBe('start');
+    expect(run(start, { type: 'crawl' }, { type: 'toStart' }).screen).toBe('start');
   });
 
   it('start -> Speed test -> speedTest -> done -> results -> Back to start -> start', () => {
@@ -79,12 +66,11 @@ describe('screens', () => {
 
   it('ignores events that do not apply to the current screen (same object back)', () => {
     const cases: [ScreenState, ScreenEvent][] = [
-      [start, { type: 'pause' }], [start, { type: 'resume' }], [start, { type: 'back' }],
+      [start, { type: 'pause' }], [start, { type: 'resume' }],
       [start, { type: 'toStart' }], [start, { type: 'testDone', recommended: 'high' }],
-      [run(start, { type: 'crawl' }), { type: 'graphics' }],
       [run(start, { type: 'crawl' }), { type: 'speedTest' }],
       [run(start, { type: 'speedTest' }), { type: 'crawl' }],
-      [run(start, { type: 'graphics' }), { type: 'crawl' }],
+      [run(start, { type: 'crawl' }, { type: 'pause' }), { type: 'crawl' }],
     ];
     for (const [s, e] of cases) expect(transition(s, e)).toBe(s);
   });
@@ -131,14 +117,15 @@ describe('screens: the opening scene', () => {
     expect(run(start, { type: 'lesson' }, { type: 'opening' }).screen).toBe('opening');
   });
 
-  it('pause -> opening (the preview link offers it there) -> crawl', () => {
+  it('crawl or pause -> opening (the menu\'s Rounds page) -> crawl', () => {
     const paused = run(start, { type: 'crawl' }, { type: 'pause' });
     expect(run(paused, { type: 'opening' }, { type: 'openingDone' }).screen).toBe('crawl');
+    expect(run(start, { type: 'crawl' }, { type: 'opening' }, { type: 'openingDone' }).screen).toBe('crawl');
   });
 
-  it('opens only from Start, the lesson or Pause, and does not pause', () => {
-    const crawling = run(start, { type: 'crawl' });
-    expect(transition(crawling, { type: 'opening' })).toBe(crawling);
+  it('opens only from Start, the lesson, play or Pause, and does not pause', () => {
+    const vote = run(start, { type: 'vote' });
+    expect(transition(vote, { type: 'opening' })).toBe(vote);
     expect(transition(start, { type: 'openingDone' })).toBe(start);
     const opening = run(start, { type: 'opening' });
     expect(transition(opening, { type: 'pause' })).toBe(opening);

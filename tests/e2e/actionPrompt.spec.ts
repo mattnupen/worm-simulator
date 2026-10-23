@@ -18,11 +18,24 @@ const contrast = (a: string, b: string) => {
 };
 
 const prompt = (page: Page) => page.locator('.action-prompt');
+const resume = (page: Page) => page.getByRole('region', { name: 'Paused' }).getByRole('button', { name: 'Resume' });
+
+/**
+ * Pause from the game menu with the keyboard (Esc no longer pauses: Matt, 2026-10-23), so no click
+ * lands on the page. Tab reaches the menu's tab first; Pause is its column's last icon.
+ */
+async function pause(page: Page): Promise<void> {
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await expect(resume(page)).toBeVisible();
+}
 const presses = (page: Page) => page.locator('#app').getAttribute('data-action-presses');
 
 async function crawl(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Crawl', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Crawling' })).toBeVisible();
+  await expect(page.locator('#app[data-ui="crawl"]')).toBeVisible();
   // The first crawling frames compile the litter's reacting shader (a second or more in software
   // WebGL): let them pass, so presses land in steady frames.
   await page.waitForTimeout(1500);
@@ -96,19 +109,18 @@ test.describe('on a touch screen', () => {
     await expect.poll(() => presses(page)).toBe('2');
   });
 
-  test('pausing mid-tap: the lift clicks nothing on the Pause card', async ({ page }) => {
+  test('pausing mid-tap: the lift clicks nothing on the Paused chip', async ({ page }) => {
     await page.goto(PAGE + '?prompt=digDown');
     await crawl(page);
     const box = (await page.getByRole('button', { name: 'Dig down' }).boundingBox())!;
     const cdp = await page.context().newCDPSession(page);
     const touchPoints = [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }];
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints });
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible();
+    await pause(page);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await page.waitForTimeout(500);
-    // Still paused: the tap's click did not land on "Back to start" (or anything else).
-    await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible();
+    // Still paused: the tap's click did not land on Resume (or anything else).
+    await expect(resume(page)).toBeVisible();
   });
 });
 
@@ -163,21 +175,21 @@ test('with a keyboard: icon, word and a Space chip; Space presses Action once pe
   await expect(btn).not.toBeFocused();
   await expect(btn).toHaveAttribute('tabindex', '-1');
   // It goes with the crawl: hidden when paused.
-  await page.keyboard.press('Escape');
+  await pause(page);
   await expect(btn).toBeHidden();
 });
 
 test('Space on a focused Crawl or Resume button starts or resumes, and is never also an Action press', async ({ page }) => {
   await page.goto(PAGE + '?prompt=digDown');
-  const crawling = page.getByRole('region', { name: 'Crawling' });
+  const crawling = page.locator('#app[data-ui="crawl"]');
   await expect(page.getByRole('button', { name: 'Crawl', exact: true })).toBeFocused();
   await page.keyboard.press('Space');
   await expect(crawling).toBeVisible();
   // Let the first crawling frames (and their steps) run: still no press.
   await page.waitForTimeout(1500);
   expect(await presses(page)).toBeNull();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: 'Resume' })).toBeFocused();
+  await pause(page);
+  await expect(resume(page)).toBeFocused();
   await page.keyboard.press('Space');
   await expect(crawling).toBeVisible();
   await page.waitForTimeout(800);
@@ -194,6 +206,6 @@ test('without ?prompt= the game sets the prompt: none on the Start card, Dig dow
   await crawl(page);
   // The worm may dig where it starts.
   await expect(page.getByRole('button', { name: 'Dig down' })).toBeVisible();
-  await page.keyboard.press('Escape');
+  await pause(page);
   await expect(prompt(page)).toBeHidden();
 });
