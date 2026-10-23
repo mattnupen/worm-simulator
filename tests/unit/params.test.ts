@@ -5,18 +5,18 @@ const NO_ROBIN = { robin: false, robinAt: null, robinTurn: 0, robinDist: 9, robi
 
 describe('parseParams', () => {
   it('defaults: no forced preset, no fps tag, not quick, Start screen', () => {
-    expect(parseParams('')).toEqual({ preset: null, fps: false, quick: false, speedTest: false, prompt: null, dig: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
+    expect(parseParams('')).toEqual({ preset: null, fps: false, quick: false, speedTest: false, prompt: null, dig: false, probe: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
   });
   it('reads ?preset=, ?fps=1, ?quick=1 and ?speedtest=1', () => {
     expect(parseParams('?preset=ultra&fps=1&quick=1&speedtest=1'))
-      .toEqual({ preset: 'ultra', fps: true, quick: true, speedTest: true, prompt: null, dig: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
+      .toEqual({ preset: 'ultra', fps: true, quick: true, speedTest: true, prompt: null, dig: false, probe: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
   });
   it('ignores an unknown preset (and Auto, which is not a preset)', () => {
     expect(parseParams('?preset=extreme').preset).toBeNull();
     expect(parseParams('?preset=auto').preset).toBeNull();
   });
   it('ignores V1\'s ?scale= (V2 is real size only)', () => {
-    expect(parseParams('?scale=classic&preset=low')).toEqual({ preset: 'low', fps: false, quick: false, speedTest: false, prompt: null, dig: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
+    expect(parseParams('?scale=classic&preset=low')).toEqual({ preset: 'low', fps: false, quick: false, speedTest: false, prompt: null, dig: false, probe: false, lesson: false, opening: null, openingAt: null, ...NO_ROBIN });
   });
   it('reads ?prompt= (tests and screenshots) and ignores an unknown kind', () => {
     expect(parseParams('?prompt=digDown').prompt).toBe('digDown');
@@ -61,5 +61,9 @@ describe('the eating film preview', () => {
     expect(parseParams('?lesson=eating').eatingAt).toBeNull();
     // A lesson id opens it straight away too, even when it is this build's lesson.
     expect(parseParams('?lesson=eating').lesson).toBe(true);
+  });
+  it('reads ?probe=1 (tests: where the worm is underground)', () => {
+    expect(parseParams('?probe=1').probe).toBe(true);
+    expect(parseParams('?probe=0').probe).toBe(false);
   });
 });

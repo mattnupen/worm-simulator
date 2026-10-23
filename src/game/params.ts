@@ -18,6 +18,11 @@ export interface GameParams {
   prompt: ActionKind | null;
   /** `?dig=1`: the speed test digs underground instead of crawling (V2 perf gates). */
   dig: boolean;
+  /**
+   * `?probe=1`: the page shows where the worm is underground (#app data-worm: "u v backing
+   * heading", the head along the cut and its height), for tests only.
+   */
+  probe: boolean;
   /** `?lesson=1` or `?lesson=<id>`: open straight on the in-game lesson (Matt's review, screenshots). */
   lesson: boolean;
   /**
@@ -83,6 +88,7 @@ export function parseParams(search: string): GameParams {
     speedTest: p.get('speedtest') === '1',
     prompt: prompt !== null && (ACTION_KINDS as readonly string[]).includes(prompt) ? (prompt as ActionKind) : null,
     dig: p.get('dig') === '1',
+    probe: p.get('probe') === '1',
     lesson: p.has('lesson') && p.get('lesson') !== '0',
     opening: p.get('opening') === '1' ? true : p.get('opening') === '0' ? false : null,
     openingAt: num(p, 'openingAt'),
