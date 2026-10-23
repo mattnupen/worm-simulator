@@ -251,7 +251,7 @@ const QUEST_NAMES: Record<QuestId, string> = { learn: 'Learn', play: 'Play', vot
 
 function questStatus(q: Quest, minutes: number): string {
   if (q.state === 'done') return 'done';
-  if (q.state === 'locked') return q.id === 'play' ? 'after Learn' : 'after Play';
+  if (q.state === 'locked') return `after ${(q.waitsOn ?? []).map((id) => QUEST_NAMES[id]).join(' and ')}`;
   return q.id === 'play' ? `${minutes} of ${PLAY_GOAL_SECONDS / 60} minutes` : 'to do';
 }
 

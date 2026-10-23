@@ -23,6 +23,10 @@ How to write an entry (for Matt and Claude):
 - **Back up.** Press S, the down arrow, or pull the joystick down and your worm crawls backward,
   tail first. No more getting stuck against trees and rocks.
 - **Climb over rocks and logs.** Your worm crawls right up and over them. Trees are still too tall.
+- **Start playing right away.** On the Start screen, Learn and Play are both open, so you can
+  crawl first and learn later. Vote opens once you've done both.
+- **A new menu.** Tap the tab at the top left for your mission, every round, the opening, Settings,
+  and Pause.
 
 ### New
 - The Start screen says **Version 4 · Eating** under the title.

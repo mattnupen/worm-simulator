@@ -1,7 +1,8 @@
 /**
- * The round's quest list (Matt, 2026-10-12): 1 Learn, 2 Play, 3 Vote, done in order. A quest opens
- * only once the one before it is done, so a student can't jump ahead. Pure, so the Start screen
- * and the tests share one rule.
+ * The round's quest list (Matt, 2026-10-12): 1 Learn, 2 Play, 3 Vote. Learn and Play are both open
+ * from the start, so a student can just start playing (Matt, 2026-10-23); Vote opens once both are
+ * done, because the form asks about the lesson and the game. Pure, so the Start screen and the
+ * tests share one rule.
  */
 export type QuestId = 'learn' | 'play' | 'vote';
 export type QuestState = 'done' | 'next' | 'locked';
@@ -16,21 +17,31 @@ export interface QuestProgress {
   readonly voted: boolean;
 }
 
-export interface Quest { readonly id: QuestId; readonly state: QuestState }
+export interface Quest {
+  readonly id: QuestId;
+  readonly state: QuestState;
+  /** For a locked quest: the quests still to finish before it opens. */
+  readonly waitsOn?: readonly QuestId[];
+}
 
 export function playDone(p: QuestProgress): boolean {
   return p.playSeconds >= PLAY_GOAL_SECONDS;
 }
 
-/** The three quests in order. Each one is done, next (the first not done), or locked behind it. */
+/** The three quests in order: Learn and Play always open, Vote locked until both are done. */
 export function quests(p: QuestProgress): readonly Quest[] {
-  const done: Record<QuestId, boolean> = { learn: p.learned, play: p.learned && playDone(p), vote: p.learned && playDone(p) && p.voted };
-  let open = true;
-  return (['learn', 'play', 'vote'] as const).map((id) => {
-    const state: QuestState = done[id] ? 'done' : open ? 'next' : 'locked';
-    if (!done[id]) open = false;
-    return { id, state };
-  });
+  const played = playDone(p);
+  const waitsOn: QuestId[] = [];
+  if (!p.learned) waitsOn.push('learn');
+  if (!played) waitsOn.push('play');
+  const vote: Quest = p.learned && played
+    ? { id: 'vote', state: p.voted ? 'done' : 'next' }
+    : { id: 'vote', state: 'locked', waitsOn };
+  return [
+    { id: 'learn', state: p.learned ? 'done' : 'next' },
+    { id: 'play', state: played ? 'done' : 'next' },
+    vote,
+  ];
 }
 
 /** Whole minutes played toward the goal, for "2 of 5 minutes". */
