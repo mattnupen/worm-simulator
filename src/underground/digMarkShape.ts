@@ -35,8 +35,8 @@ export const MOUND_R = RING_R[8];
 /** The heap's top over the ground (u): its highest ring, a little over for its lumps. */
 export const MOUND_TOP = Math.max(...RING_UP) + 0.02;
 const SEGS = 22;
-/** Casting pellets piled on the heap (23 points each: about 1150 points a marker). */
-const PELLETS = 40;
+/** Casting pellets piled on the heap (23 points each: about 780 points a mound; 10 mounds are always out). */
+const PELLETS = 24;
 
 /** Castings: dark grey-brown, as the middens' (sRGB); the pellets a little paler (drying). */
 const CAST = [lin(0x2c231d), lin(0x382d25), lin(0x43372d), lin(0x30271f)];
