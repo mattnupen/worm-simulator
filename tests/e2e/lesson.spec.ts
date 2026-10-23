@@ -55,8 +55,10 @@ async function playThrough(page: Page, l: Lesson): Promise<void> {
       await expect(card(page, l).getByText('Pick an answer to go on.')).toBeVisible();
       await card(page, l).getByRole('radio', { name: step.options[(step.answer + 1) % step.options.length] }).check();
       await expect(next).toBeEnabled();
-      await expect(card(page, l).getByText('You will find out at the end of Learn.', { exact: false })).toBeVisible();
+      await expect(card(page, l).getByText('You\'ll find out if you\'re right at the end.')).toBeVisible();
       await expect(card(page, l).getByText('What scientists found')).toHaveCount(0);
+      // Nothing sourced shows yet, so there is no Sources button (Matt, 2026-10-23).
+      await expect(button(page, 'Sources')).toBeHidden();
       await expect(card(page, l).getByText('Correct')).toHaveCount(0);
     } else if (step.kind === 'mission' && l.steps[0].kind === 'guess') {
       // The mission shows the first guess beside what scientists found, for the form.
@@ -84,9 +86,9 @@ async function playThrough(page: Page, l: Lesson): Promise<void> {
       const fact = step.reveal.find((l) => l.kind === 'fact');
       if (fact && fact.kind === 'fact') {
         await expect(card(page, l).getByText(shown(fact))).toBeVisible();
-        // Sources stay off the card: the Sources panel links each one, opening in a new tab,
-        // with the photo credits.
-        await expect(card(page, l).getByRole('link')).toHaveCount(0);
+        // Sources stay off the card (the only link there is a video's "Open on YouTube"): the
+        // Sources panel links each one, opening in a new tab, with the photo credits.
+        await expect(card(page, l).locator('a:not(.video-link)')).toHaveCount(0);
         await button(page, 'Sources').click();
         const list = page.getByRole('dialog', { name: 'Sources for this page' });
         const src = list.getByRole('link', { name: new RegExp(`^${escape(SOURCES[fact.source].title)}`) });
@@ -103,8 +105,7 @@ async function playThrough(page: Page, l: Lesson): Promise<void> {
     } else if (step.kind === 'body') {
       // The eating film plays over the whole screen, its caption on the card: outside first, then
       // each part as the food reaches it (its name big over the scene too), then the midden. Pause
-      // holds it and the timeline scrubs it; every caption can be read at any pace in "Read the whole
-      // trip"; Next waits for the end.
+      // holds it and the timeline scrubs it; Next waits for the end.
       await expect(next).toBeDisabled();
       await expect(card(page, l).locator('.next-hint')).toBeHidden();
       const caption = card(page, l).locator('.film-caption');
@@ -112,9 +113,7 @@ async function playThrough(page: Page, l: Lesson): Promise<void> {
       await button(page, 'Pause').click();
       await expect(button(page, 'Play')).toBeVisible();
       await button(page, 'Play').click();
-      await card(page, l).getByText('Read the whole trip').click();
-      for (const s of step.stops) await expect(card(page, l).locator('.film-trip').getByText(shown(s.fact))).toBeVisible();
-      await expect(card(page, l).locator('.film-trip').getByText(shown(step.midden))).toBeVisible();
+      await expect(card(page, l).getByText('Read the whole trip')).toHaveCount(0);
       await expect(page.locator('.film-label')).toHaveText(step.stops[0].name, { timeout: 60_000 });
       await expect(caption).toContainText(shown(step.stops[0].fact));
       // The timeline: drag back to the start (the outside caption again), then near the end.
@@ -136,6 +135,22 @@ async function playThrough(page: Page, l: Lesson): Promise<void> {
       }
       await expect(card(page, l).getByText(`Found ${step.cards.length} of ${step.cards.length}`)).toBeVisible();
       await expect(next).toBeEnabled();
+      // A food card says whether worms eat it: a tick or a cross.
+      for (const c of step.cards) {
+        if (c.eats === undefined) continue;
+        await expect(card(page, l).locator('.meet-card', { hasText: c.name })).toHaveAttribute('data-eats', c.eats ? 'yes' : 'no');
+      }
+    } else if (step.kind === 'story') {
+      if (step.list) {
+        // The designer's questions: a numbered list under its heading.
+        await expect(card(page, l).getByRole('heading', { name: step.list.title })).toBeVisible();
+        await expect(card(page, l).locator('ol.lesson-list > li')).toHaveCount(step.list.items.length);
+      }
+      if (!step.lines.some((x) => x.kind === 'fact') && !step.photo) await expect(button(page, 'Sources')).toBeHidden();
+    }
+    // A video picked for the step itself shows on the card (once the question is answered).
+    if ((step.kind === 'story' || step.kind === 'sense') && step.video) {
+      await expect(card(page, l).locator('iframe[src^="https://www.youtube-nocookie.com/embed/"]')).toHaveCount(1);
     }
     // Any photo opens bigger, with its credit. Esc closes only that view, and so does a tap on
     // the big photo.

@@ -53,7 +53,9 @@ export type SourceId =
   | 'esb-biology'
   | 'esb-food'
   | 'carolina-dissection'
-  | 'hst-dissection';
+  | 'hst-dissection'
+  | 'purdue-corn-leaves'
+  | 'naturewatch-wormfacts';
 
 export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'mndnr-humus': {
@@ -306,6 +308,20 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     short: 'Home Science Tools',
     url: 'https://learning-center.homesciencetools.com/article/earthworm-dissection/',
     checked: '2026-10-22',
+  },
+  'purdue-corn-leaves': {
+    title: 'Do Earthworms Eat Corn Leaves?',
+    publisher: 'Purdue University Extension, Pest&Crop newsletter',
+    short: 'Purdue Extension',
+    url: 'https://extension.entm.purdue.edu/newsletters/pestandcrop/article/do-earthworms-eat-corn-leaves',
+    checked: '2026-10-23',
+  },
+  'naturewatch-wormfacts': {
+    title: 'Worm facts',
+    publisher: 'WormWatch, NatureWatch Canada',
+    short: 'NatureWatch',
+    url: 'https://www.naturewatch.ca/wormwatch/how-to-guide/worm-facts/',
+    checked: '2026-10-23',
   },
 };
 

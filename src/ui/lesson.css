@@ -52,12 +52,11 @@
 }
 .reveal[hidden] { display: none; }
 /* Guess first: nothing is revealed on the step; the mission shows the guess and the answer. */
-.guess-hint, .guess-later { font-size: 1.1875rem; font-style: italic; }
+.guess-later { font-size: 1.1875rem; font-style: italic; }
 .guess-later[hidden] { display: none; }
 .guess-recap { margin-bottom: 12px; }
 .guess-pick, .guess-answer { font-size: 1.25rem; font-weight: 700; }
 .guess-answer { display: flex; align-items: center; gap: 6px; }
-.guess-form { font-size: 1.125rem; font-style: italic; margin-top: 8px !important; }
 .reveal-head { font-weight: 700; font-size: 1.125rem; color: var(--accent); margin-bottom: 6px !important; }
 /* Sources: listed in a panel (the Sources button, and the end of Tell me more), not on the card. */
 .source-head { font-weight: 700; font-size: 1.125rem; color: var(--accent); }
@@ -120,6 +119,14 @@
 .meet-name { font-weight: 800; line-height: 1.25; }
 .meet-card .zoom-icon { width: 30px; height: 30px; padding: 5px; right: 4px; bottom: 4px; }
 .meet-card.found .meet-name::before { content: '✓ '; color: var(--done); }
+/* A food card says whether worms eat it: a tick, or a cross (shape and words, not colour alone). */
+.meet-card.found[data-eats="yes"] .meet-name::before { content: '✓ ' / 'Eats it: '; }
+.meet-card.found[data-eats="no"] .meet-name::before { content: '✗ ' / 'Does not eat it: '; color: #9a2412; }
+/* The designer's questions: a numbered list under its own heading. */
+.lesson-list-title { margin: 14px 0 4px; font-family: var(--font-display); font-size: 1.5rem; line-height: 1.2; }
+.lesson-list { margin: 0 !important; padding-left: 1.6em; display: grid; gap: 4px; }
+.lesson-list li::marker { font-weight: 800; }
+.lesson-list .lesson-line { margin: 0 !important; }
 
 /* "Tell me more" and the photo view: a parchment panel over a dimmed screen. */
 .more-btn { margin-top: 14px; }
@@ -147,7 +154,13 @@
 .dialog-body > * + * { margin-top: 12px; }
 .dialog-body p { margin: 0; }
 .dialog-body > p + p { margin-top: 12px; }
-.photo-dialog img { cursor: zoom-out; display: block; max-width: 100%; max-height: calc(100dvh - 190px); margin: 0 auto; border-radius: 12px; }
+/* A tapped photo fills almost the whole screen, as big as its width and height allow (Matt, 2026-10-23). */
+.lesson-dialog.photo-dialog { width: calc(100vw - 24px); max-width: none; padding: 12px 16px 14px; }
+.photo-dialog .dialog-body > * + * { margin-top: 6px; }
+.photo-dialog img {
+  cursor: zoom-out; display: block; margin: 0 auto; border-radius: 12px; object-fit: contain;
+  width: 100%; height: calc(100dvh - 24px - 12px - 14px - 58px - 40px);
+}
 .photo-dialog .photo-credit { text-align: right; }
 .more-video { display: grid; gap: 8px; }
 .video-box { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-row); overflow: hidden; background: #120b04; }
@@ -302,10 +315,6 @@
   background: var(--card-solid); border: 3px solid var(--accent); box-shadow: var(--shadow-float);
 }
 .film-slider:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
-.film-trip[open] { flex-basis: 100%; }
-.film-trip summary { display: inline-flex; align-items: center; min-height: 48px; padding: 0 4px; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-.film-trip summary:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
-.film-trip[open] .body-stops { max-height: 30dvh; overflow: auto; }
 .body-stops { margin: 6px 0 0 !important; padding-left: 28px; display: grid; gap: 6px; }
 .body-stop .lesson-line { font-size: 1.125rem; line-height: 1.4; margin: 2px 0 0 !important; }
 .film-veil { position: fixed; inset: 0; z-index: 1; background: #000; opacity: 0; pointer-events: none; }

@@ -19,7 +19,8 @@ import { type Line } from '../text';
  *   sorting and no trick question (Matt, 2026-10-12: the sort felt like a quiz with an obvious answer).
  * - `body`: a 3D film of a worm eating (src/eatingFilm/): outside, it pulls a leaf into its burrow
  *   (`outside`); inside, cut open, the food goes through each stop in turn, its name and fact as the
- *   caption; then the midden (`midden`). Pause and Replay; Next waits until it has played once.
+ *   caption; then the midden (`midden`). A timeline plays and scrubs it; Next waits until it has
+ *   played to the end.
  * Any step but the mission can have `more`: a "Tell me more" panel with extra sourced facts for
  * students who want to read on. Nothing in it is needed for the round.
  * - `guess`: optional, and only as the first step. One question asked before anything is taught
@@ -45,7 +46,11 @@ export type LessonStep =
     readonly kind: 'story';
     readonly title: string;
     readonly lines: readonly Line[];
+    /** A numbered list under its own heading, after the lines (the designer's questions). */
+    readonly list?: { readonly title: string; readonly items: readonly Line[] };
     readonly photo?: Photo;
+    /** A video shown on the step itself, after the lines (Matt, 2026-10-23: good videos always show). */
+    readonly video?: Video;
     readonly more?: More;
   }
   | {
@@ -81,6 +86,8 @@ export type LessonStep =
     readonly more?: More;
     /** Shown with the reveal: the real animal. */
     readonly photo?: Photo;
+    /** Shown with the reveal, on the step itself. */
+    readonly video?: Video;
   }
   | {
     readonly kind: 'meet';
@@ -124,7 +131,8 @@ export type Cue = 'shadow' | 'thump' | 'robin';
  */
 export type PhotoFile =
   | 'robin' | 'woodcock' | 'mole' | 'shrew' | 'garter-snake' | 'toad' | 'salamander'
-  | 'nightcrawler' | 'basswood' | 'sugar-maple' | 'red-oak' | 'white-pine';
+  | 'nightcrawler' | 'basswood' | 'sugar-maple' | 'red-oak' | 'white-pine'
+  | 'duff' | 'balsam-fir' | 'trillium';
 
 export interface Photo {
   readonly file: PhotoFile;
@@ -150,6 +158,12 @@ export interface MeetCard {
   readonly photo: Photo;
   /** Shown when the player taps "Find out". */
   readonly fact: Line;
+  /**
+   * For food cards: whether the worm eats it. Once found, a tick or a cross shows it (Matt,
+   * 2026-10-23: a tick on a food worms skip read as "yes, it eats that"). Without it, a tick only
+   * says the card is found.
+   */
+  readonly eats?: boolean;
 }
 
 /**
@@ -199,7 +213,12 @@ export function lessonLines(lesson: Lesson): Record<string, Line> {
     switch (s.kind) {
       case 'story':
         s.lines.forEach((l, j) => at(`line.${j}`, l));
+        if (s.list) {
+          at('list', ui(s.list.title));
+          s.list.items.forEach((l, j) => at(`list.${j}`, l));
+        }
         if (s.photo) at('photo', ui(s.photo.name));
+        if (s.video) at('video', ui(s.video.title));
         break;
       case 'guess':
         at('question', ui(s.question));
@@ -215,6 +234,7 @@ export function lessonLines(lesson: Lesson): Record<string, Line> {
         s.options.forEach((o, j) => at(`option.${j}`, ui(o)));
         s.reveal.forEach((l, j) => at(`reveal.${j}`, l));
         if (s.photo) at('photo', ui(s.photo.name));
+        if (s.kind === 'sense' && s.video) at('video', ui(s.video.title));
         break;
       case 'meet':
         at('intro', ui(s.intro));

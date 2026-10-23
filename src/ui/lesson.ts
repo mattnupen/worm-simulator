@@ -67,6 +67,8 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
   let sceneTimer = 0;
   /** The step whose scene is playing, so its end can focus that step's question. */
   let watchedAt = -1;
+  /** Shows the Sources button once the page shows a source (draw sets it). */
+  let sourcesCheck = (): void => {};
 
   /** The opening guess and the student's pick, for the mission step's recap. */
   const guessed = (): BodyCtx['guess'] => {
@@ -104,6 +106,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
       next.el.disabled = false;
       hint.hidden = true;
       if (moreBtn) moreBtn.hidden = false;
+      sourcesCheck();
     };
     const ctx: BodyCtx = {
       root: shell.root, at, onAnswer, replay: () => startScene(true), film: a.film,
@@ -127,11 +130,16 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
       read.el.classList.add('btn-small');
       tools.append(read.el);
     }
-    if (step.kind !== 'mission' || ctx.guess) {
-      const src = button('Sources', 'external', 'secondary', () => sourcesDialog(shell.root, panel(), src.el));
-      src.el.classList.add('btn-small');
-      tools.append(src.el);
-    }
+    // Sources only where the page shows a fact or a photo (Matt, 2026-10-23: no empty Sources).
+    const src = button('Sources', 'external', 'secondary', () => sourcesDialog(shell.root, panel(), src.el));
+    src.el.classList.add('btn-small');
+    tools.append(src.el);
+    const showSources = (): void => {
+      const p = panel();
+      const { facts, credits } = p ? shownSources(p) : { facts: [], credits: [] };
+      src.el.hidden = step.kind !== 'body' && !facts.length && !credits.length;
+    };
+    sourcesCheck = showSources;
     const exit = button('Back to start', 'home', 'secondary', () => leave(a.onStart));
     exit.el.classList.add('btn-small');
     tools.append(exit.el);
@@ -144,6 +152,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
       tools,
       foot,
     ]);
+    sourcesCheck();
     if (step.kind === 'sense') startScene(!watched.has(at));
     else cue.clear();
     if (!(step.kind === 'sense' && cue.watching())) heading.focus({ preventScroll: true });
@@ -261,8 +270,21 @@ function stepBody(step: LessonStep, c: BodyCtx): HTMLElement[] {
   switch (step.kind) {
     case 'guess':
       return guessBody(step, c);
-    case 'story':
-      return [...step.lines.map((l) => line(l, 'lead')), ...(step.photo ? [photo(c.root, step.photo)] : [])];
+    case 'story': {
+      const out = step.lines.map((l) => line(l, 'lead'));
+      if (step.list) {
+        const list = el('ol', '', 'lesson-list');
+        for (const l of step.list.items) {
+          const li = el('li');
+          li.append(line(l, 'lead'));
+          list.append(li);
+        }
+        out.push(readable(el('h2', step.list.title, 'lesson-list-title')), list);
+      }
+      if (step.photo) out.push(photo(c.root, step.photo));
+      if (LESSON_LINKS && step.video) out.push(video(step.video));
+      return out;
+    }
     case 'predict':
       return [
         ...(step.photo ? [photo(c.root, step.photo)] : []),
@@ -304,6 +326,7 @@ function choose(step: Extract<LessonStep, { kind: 'predict' | 'sense' }>, c: Bod
   const found = el('div', '', 'reveal');
   const head = readable(el('p', 'What scientists found', 'reveal-head'));
   found.append(head, ...(step.kind === 'sense' && step.photo ? [photo(c.root, step.photo)] : []), ...step.reveal.map((l) => line(l)));
+  if (LESSON_LINKS && step.kind === 'sense' && step.video) found.append(video(step.video));
   const labels: HTMLLabelElement[] = [];
   const mark = (): void => {
     labels.forEach((lab, i) => {
@@ -352,7 +375,7 @@ function guessBody(step: Extract<LessonStep, { kind: 'guess' }>, c: BodyCtx): HT
   const legend = el('legend', step.question, 'lead lesson-question');
   readable(legend);
   set.append(legend);
-  const later = readable(el('p', 'Got it! You will find out at the end of Learn.', 'guess-later'));
+  const later = readable(el('p', 'You\'ll find out if you\'re right at the end.', 'guess-later'));
   later.setAttribute('aria-live', 'polite');
   step.options.forEach((o, i) => {
     const lab = el('label', '', 'choice');
@@ -372,8 +395,7 @@ function guessBody(step: Extract<LessonStep, { kind: 'guess' }>, c: BodyCtx): HT
     set.append(lab);
   });
   later.hidden = !c.picks.has(c.at);
-  const hint = readable(el('p', 'Just guess. Nobody sees your answer.', 'guess-hint'));
-  return [hint, set, later];
+  return [set, later];
 }
 
 /** On the mission: the student's first guess, then what scientists found, with its facts. */
@@ -384,7 +406,6 @@ function recap(g: NonNullable<BodyCtx['guess']>): HTMLElement {
   const found = el('p', '', 'guess-answer');
   found.append(icon('check', 'tag-icon'), readable(el('span', `Scientists found: ${g.step.options[g.step.answer]}`)));
   box.append(found, ...g.step.reveal.map((l) => line(l)));
-  box.append(readable(el('p', 'The form will ask what you guessed first.', 'guess-form')));
   return box;
 }
 
@@ -418,6 +439,7 @@ function meet(step: Extract<LessonStep, { kind: 'meet' }>, c: BodyCtx): HTMLElem
     find.el.hidden = isOpen;
     fact.hidden = !isOpen;
     li.classList.toggle('found', isOpen);
+    if (card.eats !== undefined) li.dataset.eats = card.eats ? 'yes' : 'no';
     const words = el('div', '', 'meet-words');
     words.append(name, find.el, fact);
     li.append(photo(c.root, card.photo, true), words);
@@ -486,7 +508,6 @@ function sourceList(facts: readonly SourceId[], credits: readonly string[]): HTM
 function sourcesDialog(root: HTMLElement, panel: HTMLElement | null, from: HTMLElement): void {
   const { facts, credits } = panel ? shownSources(panel) : { facts: [], credits: [] };
   const body = sourceList(facts, credits);
-  if (!facts.length) body.unshift(el('p', 'Answer the question first: the sources come with what scientists found.'));
   openDialog(root, 'sources-dialog', 'Sources for this page', body, from);
 }
 
@@ -730,7 +751,10 @@ interface Reader {
 function readAloud(): Reader {
   let run = 0;
   let btn: Button | null = null;
+  let awake: (() => void) | null = null;
   const reset = (): void => {
+    awake?.();
+    awake = null;
     for (const e of document.querySelectorAll('.reading')) e.classList.remove('reading');
     clearWord();
     if (btn) {
@@ -757,6 +781,10 @@ function readAloud(): Reader {
       b.setLabel('Stop');
       b.el.querySelector('.btn-icon')?.replaceWith(icon('stop', 'btn-icon'));
       const parts = [...panel.querySelectorAll<HTMLElement>('[data-read]')].filter((e) => e.getClientRects().length > 0);
+      // The first words were lost (Matt, 2026-10-23): the speakers (Bluetooth especially) wake up
+      // only once sound starts, and speaking straight after cancel() can clip too. So a near-silent
+      // sound keeps the output awake while it reads, and the first line waits a moment for it.
+      awake = keepAudioAwake();
       const say = (i: number): void => {
         if (id !== run) return;
         for (const e of document.querySelectorAll('.reading')) e.classList.remove('reading');
@@ -774,7 +802,7 @@ function readAloud(): Reader {
         u.onerror = () => { if (id === run) reset(); };
         speechSynthesis.speak(u);
       };
-      say(0);
+      window.setTimeout(() => say(0), WAKE_MS);
     },
   };
 }
@@ -816,6 +844,34 @@ function clearWord(): void {
 function localVoice(): SpeechSynthesisVoice | null {
   if (typeof speechSynthesis === 'undefined') return null;
   return speechSynthesis.getVoices().find((v) => v.localService && v.lang.startsWith('en')) ?? null;
+}
+
+/** How long Read aloud waits after waking the speakers, before the first line. */
+const WAKE_MS = 450;
+
+/**
+ * Plays a sound far too quiet to hear (about -80 dB) until the returned function stops it, so the
+ * device's audio output stays awake between and at the start of the spoken lines. Made on the
+ * device; nothing is fetched.
+ */
+function keepAudioAwake(): () => void {
+  const Ctor = typeof AudioContext === 'undefined' ? null : AudioContext;
+  if (!Ctor) return () => {};
+  try {
+    const c = new Ctor();
+    const buf = c.createBuffer(1, c.sampleRate, c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 1e-4;
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    src.connect(c.destination);
+    src.start();
+    void c.resume();
+    return () => { try { src.stop(); } catch { /* already stopped */ } void c.close(); };
+  } catch {
+    return () => {};
+  }
 }
 
 function stopSpeaking(): void {

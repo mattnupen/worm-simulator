@@ -7,8 +7,8 @@ import type { Lesson } from './lesson';
  * (checked 2026-10-21).
  *
  * Careful with the leaf order: Worm Watch's ranking (basswood, then sugar maple, then oak) is for
- * nightcrawlers, so the cards say nightcrawlers. The body tour's diagram is a drawing made in code,
- * labelled as one; the photos are real (CC BY 4.0 from iNaturalist, credited on screen).
+ * nightcrawlers, so the cards say nightcrawlers. The body tour is a 3D film made in code; the photos
+ * are real (CC BY 4.0 from iNaturalist, credited on screen).
  */
 export const EATING: Lesson = {
   id: 'eating',
@@ -18,7 +18,7 @@ export const EATING: Lesson = {
       // The round's form asks this same question again, word for word (/mnt/project-files/v4/v4-google-form.md).
       kind: 'guess',
       title: 'Guess first!',
-      question: 'An earthworm grabs a bite of leaf. How does it break the leaf into tiny bits?',
+      question: 'How does an earthworm break a leaf into tiny bits to eat?',
       options: ['It chews it with tiny teeth', 'It grinds it inside its body, with bits of sand', 'It sucks out the juice and leaves the rest'],
       answer: 1,
       reveal: [
@@ -49,10 +49,10 @@ export const EATING: Lesson = {
         { kind: 'ui', text: 'To a worm like you, that leaf layer is dinner.' },
       ],
       photo: {
-        file: 'nightcrawler',
-        name: 'Nightcrawler',
-        alt: 'A pink-brown nightcrawler with an orange band on its body lies among dead brown leaves on dark soil at night, next to a coin.',
-        credit: 'Photo: Jay Maudsley, iNaturalist, CC BY 4.0',
+        file: 'duff',
+        name: 'Duff: the leaf layer',
+        alt: 'Big green trillium leaves and one white flower grow up through a thick layer of dry brown fallen leaves on the forest floor.',
+        credit: 'Photo: Charlie Pavlisich, iNaturalist, CC BY 4.0',
       },
     },
     {
@@ -107,8 +107,8 @@ export const EATING: Lesson = {
             verified: true,
           },
         ],
-        video: { title: 'Worms pull leafs underground to eat them.', channel: 'Get Wild', url: 'https://www.youtube.com/watch?v=00GpoMJWt1s' },
       },
+      video: { title: 'Worms pull leafs underground to eat them.', channel: 'Get Wild', url: 'https://www.youtube.com/watch?v=00GpoMJWt1s' },
       photo: {
         file: 'robin',
         name: 'American robin',
@@ -246,7 +246,7 @@ export const EATING: Lesson = {
     {
       kind: 'meet',
       title: 'Picky eaters',
-      intro: 'Nightcrawlers are picky about leaves. Tap "Find out" on each one.',
+      intro: 'Nightcrawlers are picky eaters. Tap "Find out" on each one.',
       cards: [
         {
           name: 'Basswood',
@@ -262,6 +262,7 @@ export const EATING: Lesson = {
             source: 'wormwatch-trees',
             verified: true,
           },
+          eats: true,
         },
         {
           name: 'Sugar maple',
@@ -277,6 +278,7 @@ export const EATING: Lesson = {
             source: 'wormwatch-trees',
             verified: true,
           },
+          eats: true,
         },
         {
           name: 'Red oak',
@@ -292,6 +294,7 @@ export const EATING: Lesson = {
             source: 'wormwatch-trees',
             verified: true,
           },
+          eats: true,
         },
         {
           name: 'White pine',
@@ -307,6 +310,39 @@ export const EATING: Lesson = {
             source: 'wormwatch-trees',
             verified: true,
           },
+          eats: false,
+        },
+        {
+          name: 'Balsam fir',
+          photo: {
+            file: 'balsam-fir',
+            name: 'Balsam fir branches',
+            alt: 'Flat, soft-looking green needles along the branches of a young balsam fir tree.',
+            credit: 'Photo: Nick Kleinschmidt, iNaturalist, CC BY 4.0',
+          },
+          fact: {
+            kind: 'fact',
+            text: 'Fir trees are conifers too, like pines. Worms find conifer needles hard to eat.',
+            source: 'wormwatch-trees',
+            verified: true,
+          },
+          eats: false,
+        },
+        {
+          name: 'Living plants',
+          photo: {
+            file: 'trillium',
+            name: 'Large-flowered trillium',
+            alt: 'A white trillium flower with three petals and big green leaves, growing among other green plants on the forest floor.',
+            credit: 'Photo: Rose Zappa, iNaturalist, CC BY 4.0',
+          },
+          fact: {
+            kind: 'fact',
+            text: 'Nightcrawlers would rather not eat living, healthy plants. They like dead leaves that have started to rot.',
+            source: 'purdue-corn-leaves',
+            verified: true,
+          },
+          eats: false,
         },
       ],
       more: {
@@ -321,6 +357,12 @@ export const EATING: Lesson = {
           {
             kind: 'fact',
             text: 'Earthworms eat dead and rotting plants and animals. They may even like eating fungi best.',
+            source: 'esb-food',
+            verified: true,
+          },
+          {
+            kind: 'fact',
+            text: 'Some worms live in rotting logs. They eat the soft bits that have already started to rot.',
             source: 'esb-food',
             verified: true,
           },
@@ -359,6 +401,12 @@ export const EATING: Lesson = {
           source: 'wormwatch-soil',
           verified: true,
         },
+        {
+          kind: 'fact',
+          text: 'Over half a million earthworms can live in one hectare of soil (about one and a half soccer fields). Together, they can eat 9 tonnes of leaves, stems and dead roots in a year.',
+          source: 'naturewatch-wormfacts',
+          verified: true,
+        },
       ],
     },
     {
@@ -375,6 +423,12 @@ export const EATING: Lesson = {
           kind: 'fact',
           text: 'Big trees survive. But many tree seedlings, ferns and wildflowers that grow in the duff don\'t make it.',
           source: 'mndnr-earthworms',
+          verified: true,
+        },
+        {
+          kind: 'fact',
+          text: 'Many insects and other small animals live in the duff. When it is gone, there can be far fewer of them.',
+          source: 'wormwatch-invertebrates',
           verified: true,
         },
         {
@@ -400,9 +454,21 @@ export const EATING: Lesson = {
             source: 'wormwatch-soil',
             verified: true,
           },
+          {
+            kind: 'fact',
+            text: 'Ovenbirds build their nests on the forest floor. Where the leaf layer got thinner, fewer of their nests succeeded.',
+            source: 'wormwatch-vertebrates',
+            verified: true,
+          },
+          {
+            kind: 'fact',
+            text: 'Small animals like voles hide and find food in the leaf layer, so they may lose out too.',
+            source: 'wormwatch-vertebrates',
+            verified: true,
+          },
         ],
-        video: { title: 'Great Lakes Worm Watch: Invasive Earthworms', channel: 'UMN Natural Resources Research Institute', url: 'https://www.youtube.com/watch?v=BpMvZCeep54' },
       },
+      video: { title: 'Michigan Isn\'t Supposed to Have Earthworms', channel: 'Alexis Dahl', url: 'https://www.youtube.com/watch?v=cYR9fEU6zPg' },
     },
     {
       // Game design thinking (Matt, 2026-10-21, from Liz England's "The Door Problem"): designers
@@ -412,17 +478,24 @@ export const EATING: Lesson = {
       title: 'Think like a game designer',
       lines: [
         { kind: 'ui', text: 'Game designers ask lots of questions, then decide. Even a door in a game needs answers: Can you open it? How do you know? What happens next?' },
-        { kind: 'ui', text: 'Your worm needs food. So ask: What can my worm eat, and how do I know it\'s food?' },
-        { kind: 'ui', text: 'How does my worm eat it? What happens when it eats, or when it doesn\'t?' },
-        { kind: 'ui', text: 'Should it work like a real worm, or be changed to be more fun? Why?' },
-        { kind: 'ui', text: 'Who is the game for? What makes you and your classmates want to keep playing?' },
+        { kind: 'ui', text: 'Your worm needs food. Designers decide how that works in the game.' },
       ],
+      list: {
+        title: 'As You Play, Think about:',
+        items: [
+          { kind: 'ui', text: 'What can my worm eat, and how do I know it\'s food?' },
+          { kind: 'ui', text: 'How does my worm eat it?' },
+          { kind: 'ui', text: 'What about a worm eating should be realistic, and what can change?' },
+          { kind: 'ui', text: 'Why does the player need to eat in the game? What happens if they don\'t eat enough?' },
+          { kind: 'ui', text: 'Who is the game for? What makes you and your classmates want to keep playing?' },
+        ],
+      },
     },
     {
       kind: 'mission',
       title: 'Your mission',
-      notice: { kind: 'ui', text: 'Mission: Play like a game designer. Look for food your worm could eat, and notice where it is. Then decide how eating should work in the game, and why.' },
-      short: { kind: 'ui', text: 'Mission: Find food to eat.' },
+      notice: { kind: 'ui', text: 'Mission: How should your worm get food? What happens when it eats food? What happens if the player doesn\'t eat enough food?' },
+      short: { kind: 'ui', text: 'Mission: How should your worm get food?' },
       reminder: { kind: 'ui', text: 'After you play, your last quest is to vote in the Google Form.' },
     },
   ],
