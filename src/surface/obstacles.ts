@@ -1,6 +1,7 @@
 import { treeSites, trunkFootOf } from './treeSites';
 import { heroLog, LOG_END, LOG_FOOT, logEnd, rocks, ROCK_FOOT } from './propPlacement';
 import { terrainHeight } from './terrain';
+import { climbAt, MAX_CLIMB } from './climbSurface';
 
 /**
  * The solid things on the forest floor, as footprints on the ground (pure; Step 1b spec 4.4):
@@ -50,13 +51,16 @@ let deepestId = -1;
 
 /**
  * How far (m) the point (x, z) lies inside the deepest footprint grown by `pad` (0 or less: clear
- * of them all), and in `out` the direction straight out of it. Allocates nothing.
+ * of them all), and in `out` the direction straight out of it. Footprints no taller than `climb`
+ * are left out: the worm passes MAX_CLIMB (climbSurface.ts), so it crawls over the rocks and the log
+ * and only the trunks stop it. Allocates nothing.
  */
-export function obstacleDepth(x: number, z: number, pad: number, out: ObstacleHit): number {
+export function obstacleDepth(x: number, z: number, pad: number, out: ObstacleHit, climb = -Infinity): number {
   const { round, log } = footprints();
   let best = -Infinity;
   deepestId = -1;
   for (let o = 0; o < round.length; o += 4) {
+    if (round[o + 3] <= climb) continue;
     const dx = x - round[o];
     const dz = z - round[o + 1];
     const lim = round[o + 2] + pad;
@@ -75,6 +79,7 @@ export function obstacleDepth(x: number, z: number, pad: number, out: ObstacleHi
     }
   }
   // The log: a capsule along its axis.
+  if (log.top <= climb) return best;
   const t = Math.max(-log.half, Math.min(log.half, (x - log.x) * log.dx + (z - log.z) * log.dz));
   const dx = x - (log.x + log.dx * t);
   const dz = z - (log.z + log.dz * t);
@@ -101,10 +106,10 @@ const slideHit: ObstacleHit = { nx: 0, nz: 0 };
  * first, a few times over for footprints that touch: a body point pushed into a trunk, rock or
  * the log slides along its edge. Returns how far it moved in all. Allocates nothing.
  */
-export function pushOut(p: { x: number; z: number }, radius: number): number {
+export function pushOut(p: { x: number; z: number }, radius: number, climb = -Infinity): number {
   let moved = 0;
   for (let k = 0; k < 3; k++) {
-    const into = obstacleDepth(p.x, p.z, radius, slideHit);
+    const into = obstacleDepth(p.x, p.z, radius, slideHit, climb);
     if (!(into > 0)) break;
     p.x += slideHit.nx * into;
     p.z += slideHit.nz * into;
@@ -200,17 +205,18 @@ function consider(ax: number, az: number): void {
  * there, instead of being pushed from one side to the other. The play area's edges (|x|, |z| up
  * to `half`) are fixed edges too: a slide never carries the point out of it, and where a footprint
  * crosses one the point stops in that notch. Writes the result into `to`, and leaves `to` exactly
- * as it was when the move is clear of every footprint. Allocates nothing.
+ * as it was when the move is clear of every footprint. Footprints no taller than `climb` are not
+ * edges (obstacleDepth). Allocates nothing.
  */
 export function slideMove(
-  from: { x: number; z: number }, to: { x: number; z: number }, radius: number, half = Infinity,
+  from: { x: number; z: number }, to: { x: number; z: number }, radius: number, half = Infinity, climb = -Infinity,
 ): void {
   wantX = to.x - from.x;
   wantZ = to.z - from.z;
   met = 0;
   let props = 0;
   for (let k = 0; k < 5; k++) {
-    if (obstacleDepth(to.x, to.z, radius, contact) > 0) {
+    if (obstacleDepth(to.x, to.z, radius, contact, climb) > 0) {
       // Three footprints with no way between them: pushOut sees to it.
       if (props === 3) return;
       // Its edge as seen from where the point was: the line touching it at its point nearest there.
@@ -257,24 +263,27 @@ export function slideMove(
 
 /**
  * Whether ground point (x, z) at height y lies inside a footprint (grown by `pad`) that stands
- * taller than y there. A rock or the log counts as a prism its footprint's full width all the way
- * up to its top (the drawn prop narrows toward the top), which errs on the side of "inside".
+ * taller than y there. A trunk counts as a prism its footprint's full width all the way up. The
+ * rocks and the log, which the worm crawls over (MAX_CLIMB), count as ground: inside where y is
+ * under the worm's ride over them (climbSurface.ts: their drawn tops, a little proud).
  */
 export function insideTall(x: number, z: number, y: number, pad = 0): boolean {
   const { round, log } = footprints();
+  let low = false;
   for (let o = 0; o < round.length; o += 4) {
     const dx = x - round[o];
     const dz = z - round[o + 1];
     const r = round[o + 2] + pad;
-    if (dx * dx + dz * dz < r * r && terrainHeight(round[o], round[o + 1]) + round[o + 3] > y) return true;
+    if (!(dx * dx + dz * dz < r * r)) continue;
+    if (round[o + 3] <= MAX_CLIMB) low = true;
+    else if (terrainHeight(round[o], round[o + 1]) + round[o + 3] > y) return true;
   }
   const t = Math.max(-log.half, Math.min(log.half, (x - log.x) * log.dx + (z - log.z) * log.dz));
-  const cx = log.x + log.dx * t;
-  const cz = log.z + log.dz * t;
-  const dx = x - cx;
-  const dz = z - cz;
+  const dx = x - (log.x + log.dx * t);
+  const dz = z - (log.z + log.dz * t);
   const lr = log.r + pad;
-  return dx * dx + dz * dz < lr * lr && terrainHeight(cx, cz) + log.top > y;
+  if (dx * dx + dz * dz < lr * lr) low = true;
+  return low && climbAt(x, z) > y;
 }
 
 /** Samples along the sight line, then halvings of the first blocked stretch. */
@@ -338,6 +347,8 @@ export function pushOutTall(p: { x: number; y: number; z: number }, pad: number)
     let nx = 0;
     let nz = 0;
     for (let o = 0; o < round.length; o += 4) {
+      // Rocks are ground to the camera (CameraClearance.keepOut keeps it over them).
+      if (round[o + 3] <= MAX_CLIMB) continue;
       const dx = p.x - round[o];
       const dz = p.z - round[o + 1];
       const lim = round[o + 2] + pad;
@@ -351,17 +362,20 @@ export function pushOutTall(p: { x: number; y: number; z: number }, pad: number)
         nz = d > 1e-9 ? dz / d : 0;
       }
     }
-    const t = Math.max(-log.half, Math.min(log.half, (p.x - log.x) * log.dx + (p.z - log.z) * log.dz));
-    const cx = log.x + log.dx * t;
-    const cz = log.z + log.dz * t;
-    const dx = p.x - cx;
-    const dz = p.z - cz;
-    const d = Math.sqrt(dx * dx + dz * dz);
-    const push = (log.r + pad) * pushShare(terrainHeight(cx, cz) + log.top, p.y) - d;
-    if (push > best) {
-      best = push;
-      nx = d > 1e-9 ? dx / d : -log.dz;
-      nz = d > 1e-9 ? dz / d : log.dx;
+    // So is the log, unless it were too tall to climb.
+    if (log.top > MAX_CLIMB) {
+      const t = Math.max(-log.half, Math.min(log.half, (p.x - log.x) * log.dx + (p.z - log.z) * log.dz));
+      const cx = log.x + log.dx * t;
+      const cz = log.z + log.dz * t;
+      const dx = p.x - cx;
+      const dz = p.z - cz;
+      const d = Math.sqrt(dx * dx + dz * dz);
+      const push = (log.r + pad) * pushShare(terrainHeight(cx, cz) + log.top, p.y) - d;
+      if (push > best) {
+        best = push;
+        nx = d > 1e-9 ? dx / d : -log.dz;
+        nz = d > 1e-9 ? dz / d : log.dx;
+      }
     }
     if (!(best > 0)) break;
     p.x += nx * best;

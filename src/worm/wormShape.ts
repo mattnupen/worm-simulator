@@ -195,13 +195,14 @@ export interface WaveState {
  * Advances the contraction wave by one simulation step. While crawling the phase follows the
  * distance travelled (`wavesPerUnit`), so the thick, shortened segments stay planted on the
  * ground as the body slides past them, like a real earthworm. At rest a slow `restHz`
- * breathing wave keeps the body alive. Mutates `state`.
+ * breathing wave keeps the body alive. `dir` -1 runs the wave backward (backing up, tail first:
+ * the segments stay planted as the body slides the other way). Mutates `state`.
  */
 export function advanceWave(
-  state: WaveState, moved: number, dt: number, fullSpeed: number, wavesPerUnit: number, restHz: number,
+  state: WaveState, moved: number, dt: number, fullSpeed: number, wavesPerUnit: number, restHz: number, dir = 1,
 ): void {
   if (!(dt > 0)) return;
   const target = Math.min(1, Math.max(0, moved / dt / fullSpeed));
   state.activity += (target - state.activity) * (1 - Math.exp(-3 * dt));
-  state.phase += Math.max(0, moved) * wavesPerUnit + dt * restHz * (1 - state.activity);
+  state.phase += dir * Math.max(0, moved) * wavesPerUnit + dt * restHz * (1 - state.activity);
 }

@@ -51,6 +51,7 @@ import { Robin } from './predators/robin';
 import { LESSON_ROBIN_STILL, lessonRobinPose, robinShot } from './predators/lessonRobin';
 import { litterTopHeight } from './surface/litterDepth';
 import { HuntGame } from './predators/huntGame';
+import { crawlDebug, crawlStart } from './game/crawlDebug';
 import { HUNT_NOTES } from './predators/huntNotes';
 import { NestScene } from './predators/nestScene';
 import { EatingFilm } from './eatingFilm/film';
@@ -162,6 +163,9 @@ function start(renderer: THREE.WebGLRenderer): void {
   }
   // ?wormLength=0.6: the worm starts that much shorter (V4's broken worm, for review).
   if (params.wormLength !== null) { game.setWormLength(params.wormLength); crawl.reset(); }
+  // ?at=x,z,deg: the crawl starts there (tests, screenshots); ?debug=1: the head for e2e tests.
+  if (params.at) crawl.reset(crawl.hero.count, crawlStart(params.at), params.at.heading);
+  if (params.debug) (window as unknown as { __wormDebug: unknown }).__wormDebug = crawlDebug(crawl);
   // The opening scene (src/opening/): its props join the scene now, hidden, so warmShaders sees them.
   const opening = new Opening(world.scene);
   /** ?robin=1: the V4 robin's preview loop ahead of the worm (Matt's review). */

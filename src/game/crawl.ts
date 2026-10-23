@@ -1,13 +1,13 @@
 import type * as THREE from 'three';
 import { hypot2, copy3 as copy, vec3s as blank, type Vec2, type Vec3 } from '../core/vec';
 import { stepFollowCamInto, type FollowCamState } from '../surface/followCamera';
-import { createBody, followHead } from '../worm/body';
+import { createBody } from '../worm/body';
 import { clampToNeck, stepWormInto, type WormMotion } from '../worm/locomotion';
 import { advanceWave, type WaveState } from '../worm/wormShape';
 import { WORM_HALF_WIDTH, type WormPose } from '../worm/wormMesh';
 import { FULL_SPACING, WORM_SEGMENTS, wormBody } from '../worm/bodyLength';
 import { EasedGap } from '../worm/easedGap';
-import { bellyHeight, wormSurface, type WormSurface } from '../worm/surfaceHeight';
+import { bellyHeight, crawlSurface, type WormSurface } from '../worm/surfaceHeight';
 import { floorHeight } from '../surface/litterDepth';
 import { createDisturbance, recentre, stampBody, decay, clearDisturbance, type DisturbanceMap } from '../surface/disturbance';
 import {
@@ -17,7 +17,7 @@ import {
 import { createPushers, fitPushers, packPushers } from './pushers';
 import { LOCOMOTION } from './drive';
 import { disturbReach, type DisturbReach } from '../surface/leafScale';
-import { pushOut, slideMove } from '../surface/obstacles';
+import { BackState, backUp, moveOnFloor, trailHead } from './crawlMove';
 import { CameraClearance, cameraAim, type CameraAim } from './cameraClearance';
 
 export { WORM_SEGMENTS };
@@ -131,6 +131,7 @@ export class Crawl {
     this.prevWave.phase = this.prevWave.activity = 0;
     this.move.x = this.move.y = 0;
     this.lookUp = this.prevLookUp = 0;
+    this.backed.on = false;
   }
 
   /**
@@ -194,21 +195,28 @@ export class Crawl {
     stepHeroLeaves(this.hero, dt, this.pushers, this.push.count, h.x, h.z, this.motion.heading, floorHeight);
   }
 
-  /** Belly height at (x, z): on the floor under the litter. */
+  /** Belly height at (x, z): on the floor under the litter, or up on a rock or the log (crawlMove.ts calls it). */
+  restAt(x: number, z: number): number {
+    return this.rest(x, z);
+  }
+
+  /** Belly height at (x, z): on the floor under the litter, or up on a rock or the log. */
   private rest(x: number, z: number): number {
-    return bellyHeight(wormSurface(x, z, this.surf));
+    return bellyHeight(crawlSurface(x, z, this.surf));
   }
 
-  /** The body follows `head`, each trailing segment kept out of solid props and on its own surface (head first up a pile). */
+  /** Backing up: the tail's way, and how far it moved this step (backUp keeps it). */
+  private readonly backed = new BackState();
+
+  /** The body follows `head`, each trailing segment kept out of trunks and on its own surface (head first up a pile). */
   private trail(head: Vec3): void {
-    followHead(this.body, head, this.gap.value);
-    for (let i = 1; i < this.body.length; i++) {
-      pushOut(this.body[i], BODY_RADIUS);
-      this.body[i].y = this.rest(this.body[i].x, this.body[i].z);
-    }
+    trailHead(this.body, head, this.gap.value, BODY_RADIUS, this);
   }
 
-  /** One fixed step. `move`: x turns right, y crawls forward (backward input is ignored). */
+  /**
+   * One fixed step. `move`: x turns right, y crawls forward; pulled back past the pivot zone (S, the
+   * down arrow, the stick pulled down) the worm backs up, tail first (crawlMove.ts).
+   */
   step(dt: number, move: Vec2): void {
     const { body, prevBody, wave } = this;
     for (let i = 0; i < body.length; i++) copy(prevBody[i], body[i]);
@@ -221,26 +229,31 @@ export class Crawl {
     this.prevLookUp = this.lookUp;
     snapshotHeroLeaves(this.hero);
 
-    this.move.x = move.x;
-    this.move.y = Math.max(0, move.y);
-    this.motion.heading = clampToNeck(this.motion.heading, body[0], body[1], MAX_NECK_BEND);
-    stepWormInto(this.motion, this.move, dt, LOCOMOTION);
     const head = this.motion.head;
-    // Trunks, rocks and the log are solid: the head slides along their edge (spec 4.4), and stops
-    // in a notch where two meet, or where one crosses the play area's edge (stepWorm's clamp,
-    // which a slide must not undo). pushOut is the safety net (a hair inside by rounding).
-    slideMove(this.prevHead, head, BODY_RADIUS, LOCOMOTION.halfSize);
-    pushOut(head, BODY_RADIUS);
-    // stepWorm stays flat and pure; the litter decides the height here.
-    head.y = this.rest(head.x, head.z);
-    advanceWave(
-      wave, hypot2(head.x - this.prevHead.x, head.z - this.prevHead.z), dt,
-      LOCOMOTION.speed, wormBody.wavesPerUnit, BREATH_HZ,
-    );
+    const back = move.y <= -(LOCOMOTION.pivotZone ?? 0);
+    if (back) {
+      // The gap eases first here: the tail leads, and the body follows it at the new gap.
+      this.gap.step(dt);
+      this.motion.heading = backUp(
+        body, head, this.motion.heading, move, dt, LOCOMOTION, this.gap.value, BODY_RADIUS, this, this.backed,
+      );
+    } else {
+      this.backed.on = false;
+      this.move.x = move.x;
+      this.move.y = Math.max(0, move.y);
+      this.motion.heading = clampToNeck(this.motion.heading, body[0], body[1], MAX_NECK_BEND);
+      stepWormInto(this.motion, this.move, dt, LOCOMOTION);
+      // stepWorm stays flat and pure (clamped to the play area); the floor, the rocks and the log
+      // decide the pace and the height, and the head slides along the trunks (spec 4.4).
+      moveOnFloor(this.prevHead, head, BODY_RADIUS, LOCOMOTION.halfSize, this);
+      this.gap.step(dt);
+    }
+    const moved = back ? this.backed.moved : hypot2(head.x - this.prevHead.x, head.z - this.prevHead.z);
+    // Backing up, the contraction wave runs the other way (tail to head).
+    advanceWave(wave, moved, dt, back ? LOCOMOTION.speed * 0.5 : LOCOMOTION.speed, wormBody.wavesPerUnit, BREATH_HZ, back ? -1 : 1);
     // The gap eases toward the worm's length; the leaves feel the length it is going to.
-    this.gap.step(dt);
     fitPushers(this.push, this.gap.to);
-    this.trail(head);
+    if (!back) this.trail(head);
     const view = this.clearance.follow(head, dt);
     this.clearance.update(view, this.cam, dt);
     stepFollowCamInto(this.cam, view, this.motion.heading, dt, this.clearance.opts);
