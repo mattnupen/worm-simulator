@@ -34,8 +34,8 @@ How to write an entry (for Matt and Claude):
   Every tap uses energy, so don't just mash: rest while the robin gets a new grip. Run out of
   energy, or get pulled all the way out, and the robin wins. (Game choice: real worms don't have
   an energy bar.)
-- **If you lose,** your worm breaks and keeps going, shorter. Real worms can lose their tail end
-  and live. Once in a while, the robin takes the whole worm to feed its babies.
+- **If you lose,** the robin carries you off to its nest to feed its babies. Then you start
+  again in the ground.
 
 ### Because you voted
 - The robin was your top pick for a predator (11 of 36). Your warnings are in: a sound, a

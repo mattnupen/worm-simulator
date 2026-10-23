@@ -22,4 +22,5 @@ export const HUNT_NOTES = {
   /** The same endings when the energy ran out. */
   brokeTired: `${tired} ${noted(TEXT.huntBroke)}`,
   tooShortTired: `${tired} ${noted(TEXT.huntTooShort)}`,
+  takenTired: `${tired} ${noted(TEXT.huntTaken)}`,
 } as const;

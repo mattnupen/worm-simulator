@@ -18,6 +18,11 @@ rows of the V3 form export, as in that plan. **Builds on:** the robin model and 
 5. V4's lesson is **eating and getting energy** (worm anatomy, how and what worms eat), not
    natural dangers. It's researched in a separate thread. This spec covers only the game code.
 
+## Revision 3 (Matt, 2026-10-23)
+
+Every catch takes the worm to the nest: `WHOLE_WORM_CHANCE` is 1, so the worm no longer breaks
+(the break code stays for tuning). Wins over the older sections.
+
 ## Revision 2 (Matt, 2026-10-22, after playing revision 1 on his phone)
 
 Revision 2 wins over Revision 1 and the older sections where they differ.

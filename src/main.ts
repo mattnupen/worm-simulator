@@ -195,7 +195,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (nestFromHunt) {
       nestFromHunt = false;
       startAgain(false);
-      hunt?.note(HUNT_NOTES.taken, 5);
+      hunt?.note(hunt.takenTired ? HUNT_NOTES.takenTired : HUNT_NOTES.taken, 5);
     }
     dispatch({ type: 'nestDone' });
   };
