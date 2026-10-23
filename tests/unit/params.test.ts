@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseParams } from '../../src/game/params';
 
-const NO_ROBIN = { robin: false, robinAt: null, robinTurn: 0, robinDist: 9, robinCam: null, wormLength: null, hunt: true, robinIn: null, nest: false, nestAt: null, digMarks: true, eatingAt: null };
+const NO_ROBIN = { robin: false, robinAt: null, robinTurn: 0, robinDist: 9, robinCam: null, wormLength: null, hunt: true, robinIn: null, nest: false, nestAt: null, nestEscape: false, digMarks: true, eatingAt: null };
 
 describe('parseParams', () => {
   it('defaults: no forced preset, no fps tag, not quick, Start screen', () => {
@@ -52,6 +52,11 @@ describe('parseParams', () => {
   it('reads the nest scene preview (?nest=1, ?nestAt=) and ignores anything else', () => {
     expect(parseParams('?nest=1&nestAt=6.5')).toMatchObject({ nest: true, nestAt: 6.5 });
     expect(parseParams('?nest=yes&nestAt=soon')).toMatchObject({ nest: false, nestAt: null });
+  });
+  it('reads ?nestEscape=1 (the wiggle-free test switch), off otherwise', () => {
+    expect(parseParams('?nestEscape=1').nestEscape).toBe(true);
+    expect(parseParams('?nestEscape=yes').nestEscape).toBe(false);
+    expect(parseParams('').nestEscape).toBe(false);
   });
 });
 

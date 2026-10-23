@@ -9,7 +9,12 @@ import { Robin } from './robin';
 import { Nest } from './nest';
 import { TRUNK_GAP } from './nestShape';
 import { NEST_FOV, cameraAt, planCamera } from './nestCamera';
-import { NEST_TIMES, darkAt, makeSetup, nestlingAt, robinAt, type NestSetup } from './nestScript';
+import { NEST_TIMES, darkAt, makeSetup, nestCaptionAt, nestlingAt, robinAt, type NestSetup } from './nestScript';
+import { NestWiggle, WIGGLE } from './nestWiggle';
+import { DROP_CLEAR, clearOfTrunks, fallCamera, fallShot, ropeToBody } from './nestFall';
+import { WORM_POINTS } from './wormCarry';
+import type { TextKey } from '../content/text';
+import type { Vec3 } from '../core/vec';
 
 /** How high the nest's cup sits (cm above the ground): robin nests are usually low in a tree. */
 export const NEST_HEIGHT_CM = 180;
@@ -46,6 +51,16 @@ export class NestScene {
   /** The time the worm's rope was last moved to. */
   private wormT = 0;
   playing = false;
+  /** Wiggling free on the way up (nestWiggle.ts): hidden; after a drop, the fall plays instead. */
+  readonly wiggle = new NestWiggle();
+  /** Seconds since it wiggled free, at this and the last step. */
+  private fallT = 0;
+  private prevFallT = 0;
+  private readonly fallFrom = [0, 0, 0];
+  private readonly fallTo = [0, 0, 0];
+  private readonly fallGround = [0, 0, 0];
+  private readonly fallWorm = [0, 0, 0];
+  private readonly rope = new Float64Array(WORM_POINTS * 3);
   /** Reduced motion: still shots, cut between (nestCamera.ts). */
   private reduced = false;
   private readonly site = nestSite();
@@ -88,8 +103,10 @@ export class NestScene {
    * From the top: the robin stands at (x, z) on the forest floor facing `heading`, the worm in its
    * bill. `reduced`: still shots instead of camera moves.
    */
-  start(x: number, z: number, heading: number, reduced: boolean): void {
+  start(x: number, z: number, heading: number, reduced: boolean, canWiggle = false): void {
     this.t = this.prevT = this.wormT = 0;
+    this.fallT = this.prevFallT = 0;
+    this.wiggle.reset(canWiggle);
     this.playing = true;
     this.reduced = reduced;
     makeSetup(x, litterTopHeight(x, z), z, heading, this.site, this.setup);
@@ -123,16 +140,61 @@ export class NestScene {
 
   /** The scene has played to its end (the fact card comes next). */
   get done(): boolean {
-    return this.t >= NEST_TIMES.end;
+    return this.t >= NEST_TIMES.end && !this.wiggle.escaped;
+  }
+
+  /** It wiggled free and has lain on the floor a moment: play goes on there (main.ts). */
+  get landed(): boolean {
+    return this.wiggle.escaped && this.fallT >= WIGGLE.fallHold;
   }
 
   /** How dark the screen is now (0..1): the overlay's darkness (ui/nestScene.ts). */
   get dark(): number {
-    return darkAt(this.t);
+    return this.wiggle.escaped ? 0 : darkAt(this.t);
+  }
+
+  /** This moment's caption (none once it is free). */
+  get caption(): TextKey | null {
+    return this.wiggle.escaped ? null : nestCaptionAt(this.t);
+  }
+
+  /**
+   * A press of Space or a tap (an edge, never a held key): the worm thrashes, and may wiggle free
+   * (then the robin lets go and it falls). False when wiggling does not count now (a tap then skips).
+   */
+  press(rand: () => number): boolean {
+    if (!this.playing || !this.wiggle.open(this.t)) return false;
+    // Over a trunk's foot (coming in to the nest) it may thrash, but cannot get free.
+    this.nest.toWorld(this.nest.worm.point(WORM_POINTS >> 1, this.w));
+    const free = this.wiggle.press(clearOfTrunks(this.w.x, this.w.z, DROP_CLEAR) ? this.t : WIGGLE.until, rand);
+    this.nest.worm.flick(this.wiggle.side, this.reduced ? WIGGLE.reducedScale : 1);
+    if (free) this.drop();
+    return true;
+  }
+
+  /** Where it landed, as play's body (`out`, head first, `gap` apart, world units); returns its heading. */
+  landing(gap: number, out: Vec3[]): number {
+    for (let i = 0; i < WORM_POINTS; i++) {
+      this.nest.toWorld(this.nest.worm.point(i, this.w));
+      this.rope[i * 3] = this.w.x; this.rope[i * 3 + 1] = this.w.y; this.rope[i * 3 + 2] = this.w.z;
+    }
+    return ropeToBody(this.rope, gap, out);
+  }
+
+  /** The robin lets go: the worm falls, and the camera comes down to the floor to watch it land. */
+  private drop(): void {
+    this.nest.worm.drop();
+    this.fallT = this.prevFallT = 0;
+    this.fallFrom[0] = this.pos[0]; this.fallFrom[1] = this.pos[1]; this.fallFrom[2] = this.pos[2];
+    this.nest.toWorld(this.nest.worm.point(WORM_POINTS >> 1, this.w));
+    this.fallGround[0] = this.w.x; this.fallGround[2] = this.w.z;
+    this.fallGround[1] = litterTopHeight(this.w.x, this.w.z);
+    fallShot(this.w.x, this.w.z, this.pos[0], this.pos[2], this.fallTo);
   }
 
   /** Skip: straight to the end (the dark and the fact card). */
   skip(): void {
+    if (this.wiggle.escaped) return;
     this.t = this.prevT = NEST_TIMES.end;
   }
 
@@ -140,22 +202,36 @@ export class NestScene {
   step(dt: number): void {
     this.prevT = this.t;
     this.t = Math.min(NEST_TIMES.end, this.t + dt);
+    this.wiggle.step(dt);
+    this.prevFallT = this.fallT;
+    if (this.wiggle.escaped) this.fallT += dt;
   }
 
   /** Poses the robin, the nestlings, the worm and the camera for this frame, `alpha` between steps. */
   pose(alpha: number, camera: THREE.PerspectiveCamera): void {
     const T = this.prevT + (this.t - this.prevT) * alpha;
     robinAt(T, this.setup, this.robin.pose);
+    const free = this.wiggle.escaped;
+    // A thrash jerks its head a little; once the worm is free its bill opens as it flies on.
+    const shake = this.wiggle.thrash * (this.reduced ? WIGGLE.reducedScale : 1);
+    this.robin.pose.headYaw += 0.12 * shake * Math.sin(T * 23);
+    if (free) this.robin.pose.bill = Math.max(this.robin.pose.bill, 0.35);
     this.robin.update();
     for (let i = 0; i < this.nest.chicks.length; i++) nestlingAt(T, i, this.nest.chicks[i]);
     this.pins();
     // The rope moves on by the frame's time (never back: a held frame stands still).
     const dt = Math.min(0.1, Math.max(0, T - this.wormT));
     this.wormT = Math.max(this.wormT, T);
+    this.nest.worm.thrash = shake;
     this.nest.worm.step(dt, this.a, this.b, this.c);
-    this.nest.worm.shown = T < NEST_TIMES.fed;
+    this.nest.worm.shown = free || T < NEST_TIMES.fed;
     this.nest.update();
-    cameraAt(T, this.setup, this.robin.pose, this.reduced, this.pos, this.look);
+    if (free) {
+      this.nest.toWorld(this.nest.worm.point(WORM_POINTS >> 1, this.w));
+      this.fallWorm[0] = this.w.x; this.fallWorm[1] = this.w.y; this.fallWorm[2] = this.w.z;
+      const s = this.prevFallT + (this.fallT - this.prevFallT) * alpha;
+      fallCamera(s, this.fallFrom, this.fallTo, this.fallWorm, this.fallGround, this.reduced, this.pos, this.look);
+    } else cameraAt(T, this.setup, this.robin.pose, this.reduced, this.pos, this.look);
     camera.position.set(this.pos[0], this.pos[1], this.pos[2]);
     camera.up.copy(this.up);
     camera.lookAt(this.look[0], this.look[1], this.look[2]);

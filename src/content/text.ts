@@ -116,6 +116,10 @@ export const TEXT = {
   },
   // Minnesota Breeding Bird Atlas: robins breed in "the summer's breeding season". The game is in fall.
   nestSeason: { kind: 'gameChoice', text: 'real robins raise their babies in spring and summer, not in fall.' },
+  // Wiggling free on the way to the nest (V4 hot fix; src/predators/nestWiggle.ts). Nothing on
+  // screen tells the player they can; this line only shows after they do.
+  nestWiggledFree: { kind: 'ui', text: 'You wiggled free!' },
+  nestWiggleChoice: { kind: 'gameChoice', text: 'A worm a bird is carrying rarely gets away like this. The chance to wiggle free is just for the game.' },
   nestSource: { kind: 'ui', text: 'Source:' },
   nestContinue: { kind: 'ui', text: 'Keep going' },
 } as const satisfies Record<string, Line>;

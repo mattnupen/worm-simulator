@@ -58,6 +58,11 @@ export interface GameParams {
   nest: boolean;
   nestAt: number | null;
   /**
+   * `?nestEscape=1` (tests and review): the worm always wiggles free once the hidden meter is high,
+   * and the Start preview (?nest=1) lets it wiggle too. Without it only a hunt's catch can, by chance.
+   */
+  nestEscape: boolean;
+  /**
    * `?eatingAt=31`: the eating lesson's film (src/eatingFilm/) jumps to that second when it starts
    * and holds there (screenshots; with `?lesson=eating`).
    */
@@ -96,6 +101,7 @@ export function parseParams(search: string): GameParams {
     robinIn: num(p, 'robinIn'),
     nest: p.get('nest') === '1',
     nestAt: num(p, 'nestAt'),
+    nestEscape: p.get('nestEscape') === '1',
     digMarks: p.get('digMarks') !== '0',
     eatingAt: num(p, 'eatingAt'),
   };
