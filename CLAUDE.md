@@ -100,8 +100,9 @@ holds what that means for the code and the repo.
   one version, ship the smallest meaningful slice. Specs and plans still go in
   `docs/superpowers/` and name the version they serve.
 - **Each build shows its version** on the Start screen under the title, such as "Version 3 · Predators"
-  (`VERSION_TITLE` in `src/version.ts`). The Start screen's "Versions" list shows every round
-  ("Round N: Name" and one sentence, linking to `/vN/`); add the new round to `ROUNDS` there.
+  (`VERSION_TITLE` in `src/version.ts`). The game menu's Rounds page (`src/ui/gameMenu.ts`, the tab
+  at the top left) shows every round ("Round N: Name" and one sentence, linking to `/vN/`, then the
+  rounds still to come up to `PLANNED_ROUNDS`); add the new round to `ROUNDS` there.
 - **Versioned URLs.** Each released version is a frozen single-file snapshot served at
   `/vN/`. A snapshot is never rebuilt or edited, except for an emergency fix noted in its
   version doc. The root `/` follows `main` as Matt's preview, and students only get version links.

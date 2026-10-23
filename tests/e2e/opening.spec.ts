@@ -17,7 +17,15 @@ function watchErrors(page: Page): string[] {
 
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 const scene = (page: Page) => page.getByRole('region', { name: 'Opening' });
-const crawling = (page: Page) => page.getByRole('region', { name: 'Crawling' });
+/** In play: the crawl screen (the surface shows no card, so the page's own state says so). */
+const crawling = (page: Page) => page.locator('#app[data-ui="crawl"]');
+const menu = (page: Page) => page.getByRole('navigation', { name: 'Game menu' });
+/** The game menu's Rounds page (Matt, 2026-10-23): the opening's replay is its first line. */
+async function openRounds(page: Page): Promise<void> {
+  await menu(page).getByRole('button', { name: 'Open the menu' }).click();
+  await menu(page).getByRole('button', { name: 'Rounds', exact: true }).click();
+}
+const replay = (page: Page) => button(page, shown(TEXT.roundsOpening));
 
 // A student who has finished this version's lesson but not yet seen its opening.
 test.beforeEach(async ({ page }) => {
@@ -48,12 +56,20 @@ test('the first Crawl plays the opening with captions; Esc skips straight to pla
   await page.keyboard.press('Escape');
   await expect(crawling(page)).toBeVisible();
 
-  // Seen: the next Crawl goes straight to play, and Start offers the opening to watch again.
+  // Seen: the next Crawl goes straight to play, and the menu's Rounds page offers it again, on
+  // Start and in play.
   await page.reload();
   await button(page, 'Crawl').click();
   await expect(crawling(page)).toBeVisible();
+  await openRounds(page);
+  await replay(page).click();
+  await expect(scene(page)).toBeVisible();
+  await expect(menu(page)).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(crawling(page)).toBeVisible();
   await page.reload();
-  await button(page, shown(TEXT.openingWatch)).click();
+  await openRounds(page);
+  await replay(page).click();
   await expect(scene(page)).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(crawling(page)).toBeVisible();
@@ -66,6 +82,9 @@ test('the scene plays to its end by itself and hands over to play', async ({ pag
   const errors = watchErrors(page);
   await page.goto(PAGE);
   await expect(button(page, shown(TEXT.openingWatch))).toHaveCount(0);
+  await openRounds(page);
+  await expect(replay(page)).toHaveCount(0);
+  await button(page, 'Close the menu').click();
   await button(page, 'Crawl').click();
   await expect(scene(page)).toBeVisible();
   // The teacher's sourced warning is captioned (a slow software renderer runs the scene slowly).
@@ -81,7 +100,7 @@ test('?opening=0 goes straight to play', async ({ page }) => {
   await expect(crawling(page)).toBeVisible();
 });
 
-test('the preview link (?opening=1) leads Start with the opening, and Pause offers it again', async ({ browser }) => {
+test('the preview link (?opening=1) leads Start with the opening, and the menu offers it again in play', async ({ browser }) => {
   // A brand-new device: Learn is not done, so Crawl is locked, but the preview still opens it.
   const page = await browser.newPage();
   const errors = watchErrors(page);
@@ -92,18 +111,18 @@ test('the preview link (?opening=1) leads Start with the opening, and Pause offe
   await expect(scene(page)).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(crawling(page)).toBeVisible();
-  await page.keyboard.press('Escape');
-  await button(page, shown(TEXT.openingWatch)).click();
+  await openRounds(page);
+  await replay(page).click();
   await expect(scene(page)).toBeVisible();
   expect(errors).toEqual([]);
   await page.close();
 });
 
-test('students never see Watch the opening on Pause', async ({ page }) => {
+test('students never see the opening\'s replay before they have seen it', async ({ page }) => {
   await page.goto(PAGE + '?opening=0');
   await button(page, 'Crawl').click();
   await expect(crawling(page)).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('region', { name: 'Paused' })).toBeVisible();
-  await expect(button(page, shown(TEXT.openingWatch))).toHaveCount(0);
+  await openRounds(page);
+  await expect(page.getByRole('region', { name: 'Rounds' })).toBeVisible();
+  await expect(replay(page)).toHaveCount(0);
 });

@@ -1,8 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { shown } from '../../src/content/text';
+import { TEXT, shown } from '../../src/content/text';
 import { CURRENT_LESSON } from '../../src/content/lessons';
+import { CHANGELOG_URL, PLANNED_ROUNDS, ROUNDS, VERSION } from '../../src/version';
 
 const PAGE = pathToFileURL(path.resolve('dist/index.html')).href;
 /** The speed test with 1.5 s phases, for tests that only need it to run. */
@@ -20,12 +21,30 @@ function watchErrors(page: Page): string[] {
 
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 const radio = (page: Page, name: string) => page.getByRole('radio', { name: new RegExp(`^${name}`) });
-const crawling = (page: Page) => page.getByRole('region', { name: 'Crawling' });
+/** In play: the crawl screen (the surface shows no card, so the page's own state says so). */
+const crawling = (page: Page) => page.locator('#app[data-ui="crawl"]');
 const paused = (page: Page) => page.getByRole('region', { name: 'Paused' });
+/** The Paused chip's Resume (the menu's Pause icon is named Resume too while paused). */
+const resume = (page: Page) => paused(page).getByRole('button', { name: 'Resume' });
+const menu = (page: Page) => page.getByRole('navigation', { name: 'Game menu' });
 
 async function startCrawling(page: Page): Promise<void> {
   await button(page, 'Crawl').click();
   await expect(crawling(page)).toBeVisible();
+}
+
+/** Opens the game menu's column, if it is shut, then the named page (or just the column). */
+async function openMenu(page: Page, pageName?: string): Promise<void> {
+  const tab = menu(page).getByRole('button', { name: 'Open the menu' });
+  if (await tab.count()) await tab.click();
+  if (pageName) await menu(page).getByRole('button', { name: pageName, exact: true }).click();
+}
+
+/** Pause with the game menu's Pause icon (Esc and P no longer pause: Matt, 2026-10-23). */
+async function pauseGame(page: Page): Promise<void> {
+  await openMenu(page);
+  await menu(page).getByRole('button', { name: 'Pause', exact: true }).click();
+  await expect(paused(page)).toBeVisible();
 }
 
 
@@ -39,96 +58,160 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('keyboard only: crawl, pause with Esc, resume, reach Graphics and back to start', async ({ page }) => {
+test('keyboard only: crawl, open the menu, pause, resume, reach Settings and back to start', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto(PAGE);
   await expect(button(page, 'Crawl')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(crawling(page)).toBeVisible();
-  // The crawl card (Matt, 2026-10-22): only the mission, in one short line. No controls line, no Pause button.
-  const mission = CURRENT_LESSON?.steps.find((st) => st.kind === 'mission');
-  if (mission?.kind === 'mission') {
-    await expect(crawling(page).locator('p')).toHaveCount(1);
-    await expect(crawling(page).locator('.mission-words')).toHaveText(shown(mission.short ?? mission.notice));
-  }
+  // Play shows no card (Matt, 2026-10-23: the mission is in the menu), and no Pause button.
+  await expect(page.getByRole('region', { name: 'Crawling' })).toBeHidden();
   await expect(page.getByRole('button', { name: 'Pause' })).toHaveCount(0);
   await page.keyboard.down('ArrowUp');
   await page.waitForTimeout(400);
   await page.keyboard.up('ArrowUp');
+  // Esc and P do not pause.
+  for (const key of ['Escape', 'KeyP']) {
+    await page.keyboard.press(key);
+    await page.waitForTimeout(200);
+    await expect(paused(page)).toHaveCount(0);
+  }
 
-  await page.keyboard.press('Escape');
-  await expect(button(page, 'Resume')).toBeFocused();
+  // Tab reaches the menu's tab first.
+  await page.keyboard.press('Tab');
+  await expect(button(page, 'Open the menu')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(button(page, 'Close the menu')).toBeFocused();
+  for (const name of ['Mission', 'Rounds', 'Settings', 'About', 'Pause']) {
+    await page.keyboard.press('Tab');
+    await expect(button(page, name)).toBeFocused();
+  }
+  await page.keyboard.press('Enter');
+  await expect(paused(page)).toBeVisible();
+  await expect(resume(page)).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(crawling(page)).toBeVisible();
 
-  await page.keyboard.press('KeyP');
-  await expect(button(page, 'Resume')).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(button(page, 'Settings')).toBeFocused();
-  await page.keyboard.press('Enter');
-  await expect(radio(page, 'Auto')).toBeFocused();
+  await openMenu(page, 'Settings');
+  await expect(page.getByRole('region', { name: 'Settings' })).toBeVisible();
+  await expect(radio(page, 'Auto')).toBeChecked();
+  // Esc hides the page and puts focus on its icon; Esc again folds the column.
   await page.keyboard.press('Escape');
-  // Focus returns to the button that opened Settings.
+  await expect(page.getByRole('region', { name: 'Settings' })).toHaveCount(0);
   await expect(button(page, 'Settings')).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(button(page, 'Back to start')).toBeFocused();
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
+  await expect(button(page, 'Settings')).toHaveCount(0);
+
+  await openMenu(page, 'Mission');
+  await button(page, 'Back to start').click();
   await expect(button(page, 'Crawl')).toBeFocused();
+  await expect(button(page, 'Mission')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
-test('keyboard only: from Start reach Settings and Crawl; Esc leaves Settings', async ({ page }) => {
+test('keyboard only: from Start, Tab reaches Crawl, then the menu; there is no Settings or Versions button', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto(QUICK);
   await expect(button(page, 'Crawl')).toBeFocused();
-  // Vote is still locked (a disabled button), so Tab goes on to Graphics.
-  await page.keyboard.press('Tab');
-  await expect(button(page, 'Settings')).toBeFocused();
+  for (const name of ['Settings', 'Versions', 'Speed test', 'Watch the opening']) await expect(button(page, name)).toHaveCount(0);
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Shift+Tab');
+  await expect(button(page, 'Open the menu')).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(radio(page, 'Auto')).toBeChecked();
+  // On Start there is nothing to pause.
+  await expect(button(page, 'Mission')).toBeVisible();
+  await expect(button(page, 'Pause')).toBeHidden();
+  await button(page, 'Settings').click();
+  await radio(page, 'Auto').focus();
   await page.keyboard.press('ArrowDown');
   await expect(radio(page, 'Low')).toBeChecked();
   await expect(radio(page, 'Low')).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(button(page, 'Settings')).toBeFocused();
-
-  // No Speed test button on Start (Matt, 2026-10-12): it opens with ?speedtest=1.
-  await expect(button(page, 'Speed test')).toHaveCount(0);
-  await page.keyboard.press('Shift+Tab');
-  await expect(button(page, 'Crawl')).toBeFocused();
-
-  await page.keyboard.press('Enter');
+  await button(page, 'Close the menu').click();
+  await button(page, 'Crawl').click();
   await expect(crawling(page)).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test('Esc and P each pause and resume; there is no Pause button (Matt, 2026-10-22)', async ({ page }) => {
+test('the menu\'s Pause and the Paused chip\'s Resume pause and resume; the menu stays open', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto(PAGE);
   await startCrawling(page);
-  for (const key of ['Escape', 'KeyP']) {
-    await page.keyboard.press(key);
-    await expect(paused(page)).toBeVisible();
-    await expect(button(page, 'Resume')).toBeFocused();
-    await page.keyboard.press(key);
-    await expect(crawling(page)).toBeVisible();
-  }
-  await expect(page.getByRole('button', { name: 'Pause' })).toHaveCount(0);
+  await pauseGame(page);
+  await expect(resume(page)).toBeFocused();
+  await expect(menu(page).getByRole('button', { name: 'Resume' })).toBeVisible();
+  await menu(page).getByRole('button', { name: 'Resume' }).click();
+  await expect(crawling(page)).toBeVisible();
+  await expect(menu(page).getByRole('button', { name: 'Pause' })).toBeVisible();
+  await menu(page).getByRole('button', { name: 'Pause' }).click();
+  await resume(page).click();
+  await expect(crawling(page)).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test('the mission folds to its flag and opens again, and focus goes back to the card', async ({ page }) => {
+test('the Mission page shows the round\'s mission and quests; the game keeps going while it is open', async ({ page }) => {
   await page.goto(PAGE);
   await startCrawling(page);
-  const toggle = page.locator('.mission-toggle');
-  test.skip((await toggle.count()) === 0, 'this build has no lesson mission');
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  await toggle.click();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.locator('.mission-words')).toBeHidden();
-  await expect(page.locator('.panel')).toBeFocused();
-  await toggle.click();
-  await expect(page.locator('.mission-words')).toBeVisible();
+  await openMenu(page, 'Mission');
+  const card = page.getByRole('region', { name: 'Mission' });
+  const mission = CURRENT_LESSON?.steps.find((st) => st.kind === 'mission');
+  if (mission?.kind === 'mission') {
+    await expect(card.locator('.menu-mission')).toHaveText(shown(mission.short ?? mission.notice).replace(/^Mission:\s*/, ''));
+  }
+  await expect(card.getByRole('list', { name: "This round's quests" }).getByRole('listitem')).toHaveCount(3);
+  await expect(paused(page)).toHaveCount(0);
+  const canvas = page.locator('canvas').first();
+  await page.keyboard.down('ArrowUp');
+  await page.waitForTimeout(300);
+  const a = await canvas.screenshot();
+  await page.waitForTimeout(800);
+  const b = await canvas.screenshot();
+  await page.keyboard.up('ArrowUp');
+  expect(a.equals(b)).toBe(false);
+});
+
+test('the Rounds page lists every round, links the older ones, and links the changelog', async ({ page }) => {
+  await page.goto(PAGE);
+  await openMenu(page, 'Rounds');
+  const card = page.getByRole('region', { name: 'Rounds' });
+  for (const r of ROUNDS) {
+    const title = `Round ${r.number}: ${r.name}`;
+    if (r.number === VERSION.number) {
+      await expect(card.getByText(title)).toBeVisible();
+      await expect(card.getByRole('link', { name: title })).toHaveCount(0);
+    } else {
+      await expect(card.getByRole('link', { name: title })).toHaveAttribute('href', `/v${r.number}/`);
+    }
+  }
+  for (let n = ROUNDS.length + 1; n <= PLANNED_ROUNDS; n++) {
+    await expect(card.getByText(`Round ${n}`, { exact: true })).toBeVisible();
+  }
+  await expect(card.getByText('Coming soon')).toHaveCount(PLANNED_ROUNDS - ROUNDS.length);
+  const changes = card.getByRole('link', { name: /What changed in each round/ });
+  await expect(changes).toHaveAttribute('href', CHANGELOG_URL);
+  await expect(changes).toHaveAttribute('target', '_blank');
+  // The opening has been seen, so its replay leads the page.
+  await expect(card.getByRole('button', { name: 'Watch the opening again' })).toBeVisible();
+});
+
+test('the About page says who makes the game, with its fact\'s source', async ({ page }) => {
+  await page.goto(PAGE);
+  await openMenu(page, 'About');
+  const card = page.getByRole('region', { name: 'About' });
+  await expect(card.getByText(shown(TEXT.openingInvasive))).toBeVisible();
+  await expect(card.getByRole('link', { name: /Minnesota DNR/ })).toHaveAttribute('target', '_blank');
+  await expect(card.getByText(/Game choice/)).toHaveCount(0);
+});
+
+test('a phone: the menu fits, and its card sits under the icons', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(PAGE);
+  await startCrawling(page);
+  await openMenu(page, 'Settings');
+  const card = await page.getByRole('region', { name: 'Settings' }).boundingBox();
+  const icons = await button(page, 'Settings').boundingBox();
+  expect(card!.y).toBeGreaterThan(icons!.y + icons!.height - 1);
+  expect(card!.x + card!.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
 test('the scene is frozen while paused and moves while crawling', async ({ page }) => {
@@ -145,20 +228,20 @@ test('the scene is frozen while paused and moves while crawling', async ({ page 
   await page.keyboard.up('ArrowUp');
   expect(moving1.equals(moving2)).toBe(false);
 
-  await page.keyboard.press('Escape');
-  await expect(paused(page)).toBeVisible();
+  await pauseGame(page);
   await page.waitForTimeout(500);
-  const still1 = await canvas.screenshot();
+  // The Paused chip over the canvas rises in with a CSS animation, which the slow software
+  // renderer can still be drawing; finish it so only the 3D scene is compared.
+  const still1 = await canvas.screenshot({ animations: 'disabled' });
   await page.waitForTimeout(1000);
-  const still2 = await canvas.screenshot();
+  const still2 = await canvas.screenshot({ animations: 'disabled' });
   expect(still1.equals(still2)).toBe(true);
 });
 
 test('a chosen preset (picked with the arrow keys) is still selected after a reload', async ({ page }) => {
   await page.goto(PAGE);
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Enter');
-  await expect(radio(page, 'Auto')).toBeFocused();
+  await openMenu(page, 'Settings');
+  await radio(page, 'Auto').focus();
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
   await expect(radio(page, 'High')).toBeChecked();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
@@ -167,17 +250,16 @@ test('a chosen preset (picked with the arrow keys) is still selected after a rel
   expect(saved).not.toHaveProperty('scale');
 
   await page.reload();
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Enter');
+  await openMenu(page, 'Settings');
   await expect(radio(page, 'High')).toBeChecked();
   await expect(radio(page, 'Auto')).not.toBeChecked();
 
   // And Auto, chosen again with the keyboard, comes back as Auto.
+  await radio(page, 'High').focus();
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowUp');
   await expect(radio(page, 'Auto')).toBeChecked();
   await page.reload();
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Enter');
+  await openMenu(page, 'Settings');
   await expect(radio(page, 'Auto')).toBeChecked();
   const auto = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
   expect(auto.graphics).toBe('auto');
@@ -188,13 +270,12 @@ test('switching presets live during Crawl (Low, Ultra, High and more) causes no 
   // ?fps=1 puts the active preset's name in the fps tag, so a switch that did nothing shows.
   await page.goto(PAGE + '?fps=1');
   await startCrawling(page);
+  // The game keeps going while the Settings page is open: switch, then crawl on.
+  await openMenu(page, 'Settings');
   for (const name of ['Low', 'Ultra', 'High', 'Medium', 'Ultra', 'Auto']) {
-    await page.keyboard.press('Escape');
-    await button(page, 'Settings').click();
     await radio(page, name).check();
     await expect(radio(page, name)).toBeChecked();
-    await button(page, 'Back').click();
-    await button(page, 'Resume').click();
+    await page.locator('canvas').first().click({ position: { x: 900, y: 500 } });
     await expect(crawling(page)).toBeVisible();
     await page.keyboard.down('ArrowUp');
     await page.waitForTimeout(300);
@@ -233,7 +314,7 @@ test('a hidden tab pauses the crawl', async ({ page }) => {
     document.dispatchEvent(new Event('visibilitychange'));
   });
   await expect(paused(page)).toBeVisible();
-  await expect(button(page, 'Resume')).toBeFocused();
+  await expect(resume(page)).toBeFocused();
 });
 
 test('a crash while crawling shows the Something went wrong card with a Reload button', async ({ page }) => {
@@ -253,19 +334,6 @@ test('a crash while crawling shows the Something went wrong card with a Reload b
   await expect(button(page, 'Reload the page')).toBeFocused();
 });
 
-test('the Settings screen\'s Back button returns focus to the Settings button that opened it', async ({ page }) => {
-  await page.goto(PAGE);
-  await button(page, 'Settings').click();
-  await button(page, 'Back').click();
-  await expect(button(page, 'Settings')).toBeFocused();
-  await startCrawling(page);
-  await page.keyboard.press('Escape');
-  await expect(button(page, 'Resume')).toBeFocused();
-  await button(page, 'Settings').click();
-  await button(page, 'Back').click();
-  await expect(button(page, 'Settings')).toBeFocused();
-});
-
 test('no World scale in V2: the Start menu has no such button, and a V1 save with one still loads and keeps it', async ({ page }) => {
   const errors = watchErrors(page);
   // A V1 save, in storage before the page's first script runs (the page loads once).
@@ -273,13 +341,13 @@ test('no World scale in V2: the Start menu has no such button, and a V1 save wit
   await page.goto(PAGE + '?scale=hybrid');
   await expect(button(page, 'Crawl')).toBeFocused();
   await expect(page.getByRole('button', { name: /World scale/ })).toHaveCount(0);
-  await button(page, 'Settings').click();
+  await openMenu(page, 'Settings');
   await expect(radio(page, 'Low')).toBeChecked();
   await radio(page, 'Medium').check();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
   // V1, frozen at /v1/, shares this key: its scale is kept, untouched.
   expect(saved).toEqual({ version: 1, graphics: 'medium', autoSettled: null, scale: 'classic' });
-  await button(page, 'Back').click();
+  await button(page, 'Close the menu').click();
   await startCrawling(page);
   await page.keyboard.down('ArrowUp');
   await page.waitForTimeout(400);
@@ -308,12 +376,10 @@ test('changing presets, once each has been shown, compiles no shader, offline, w
   const compiles = () => page.evaluate(() => (window as unknown as { __compiles: number }).__compiles);
   const before = await compiles();
   expect(before).toBeGreaterThan(0);
+  await openMenu(page, 'Settings');
   for (const name of ['Low', 'Medium', 'High', 'Ultra']) {
-    await page.keyboard.press('Escape');
-    await button(page, 'Settings').click();
     await radio(page, name).check();
-    await button(page, 'Back').click();
-    await button(page, 'Resume').click();
+    await page.locator('canvas').first().click({ position: { x: 900, y: 500 } });
     await page.keyboard.down('ArrowUp');
     await page.waitForTimeout(400);
     await page.keyboard.up('ArrowUp');
@@ -325,7 +391,7 @@ test('changing presets, once each has been shown, compiles no shader, offline, w
 
 test('Settings has Sound on or off, saved only once switched', async ({ page }) => {
   await page.goto(PAGE);
-  await button(page, 'Settings').click();
+  await openMenu(page, 'Settings');
   await expect(page.getByRole('region', { name: 'Settings' })).toBeVisible();
   await expect(radio(page, 'On')).toBeChecked();
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
@@ -333,7 +399,7 @@ test('Settings has Sound on or off, saved only once switched', async ({ page }) 
   await radio(page, 'Off').check();
   await expect.poll(async () => (await saved())?.sound).toBe(false);
   await page.reload();
-  await button(page, 'Settings').click();
+  await openMenu(page, 'Settings');
   await expect(radio(page, 'Off')).toBeChecked();
 });
 
@@ -342,7 +408,7 @@ test('Settings has Text size (Normal, Big, Bigger): it applies at once and is sa
   const rootPx = () => page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
   // Normal is a little larger than the browser's 16px (Matt, 2026-10-22).
   expect(await rootPx()).toBeCloseTo(17, 0);
-  await button(page, 'Settings').click();
+  await openMenu(page, 'Settings');
   await expect(radio(page, 'Normal')).toBeChecked();
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
   expect((await saved())?.textSize).toBeUndefined();
@@ -354,6 +420,6 @@ test('Settings has Text size (Normal, Big, Bigger): it applies at once and is sa
   expect(after).toBeGreaterThan(before);
   await page.reload();
   expect(await rootPx()).toBeCloseTo(21, 0);
-  await button(page, 'Settings').click();
+  await openMenu(page, 'Settings');
   await expect(radio(page, 'Bigger')).toBeChecked();
 });
