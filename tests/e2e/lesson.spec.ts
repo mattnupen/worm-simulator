@@ -106,7 +106,7 @@ async function playThrough(page: Page, l: Lesson): Promise<void> {
       // holds it and the timeline scrubs it; every caption can be read at any pace in "Read the whole
       // trip"; Next waits for the end.
       await expect(next).toBeDisabled();
-      await expect(card(page, l).getByText('Watch it to the end to go on.')).toBeVisible();
+      await expect(card(page, l).locator('.next-hint')).toBeHidden();
       const caption = card(page, l).locator('.film-caption');
       await expect(caption).toContainText(shown(step.outside));
       await button(page, 'Pause').click();
