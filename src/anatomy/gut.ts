@@ -29,7 +29,7 @@ const bs: BodySample = { s: 0, w: 0, h: 0, yc: 0 };
 /** Where the gut starts: just inside the mouth, under the prostomium. */
 export const GUT_START = -0.1;
 /** The intestine is shown opened from here back to the end of the cutaway. */
-export const OPEN_FROM = 22;
+export const OPEN_FROM = 20;
 
 /** Radius of the gut at segment position s, before its cross-section shaping. */
 export function gutRadius(s: number, w: number): number {
@@ -37,10 +37,10 @@ export function gutRadius(s: number, w: number): number {
   r = smax(r, 1.4 * bump(s, 2.3, 6.1, 1.7));
   r = smax(r, 0.62 * smooth(5.4, 6.4, s));
   // The crop: a thin, soft sac; the gizzard: a firm, wider barrel right behind it.
-  r = smax(r, 1.4 * bump(s, ORGANS.crop[0] - 0.2, ORGANS.crop[1] + 1.15, 1.6));
+  r = smax(r, 1.4 * bump(s, ORGANS.crop[0] - 0.7, ORGANS.crop[1] + 1.15, 1.6), 0.35);
   // Its thick muscle shows as fine rings round it.
   const giz = bump(s, ORGANS.gizzard[0] - 0.1, ORGANS.gizzard[1] + 1.35, 2.6);
-  r = smax(r, 1.9 * giz * (1 + 0.018 * giz * Math.sin(s * 2 * Math.PI * 9)));
+  r = smax(r, 1.9 * giz * (1 + 0.015 * giz * Math.sin(s * 2 * Math.PI * 4)));
   if (s > ORGANS.intestineFrom - 0.3) {
     const f = s % 1;
     const sac = 0.86 + 0.14 * Math.sin(f * Math.PI);
@@ -89,7 +89,7 @@ const C = {
   crop: new THREE.Color('#ecd6c6'),
   gizzard: new THREE.Color('#c4a68e'),
   wall: new THREE.Color('#7d6a4a'),
-  chloragogen: new THREE.Color('#b8913f'),
+  chloragogen: new THREE.Color('#c99c48'),
   lining: new THREE.Color('#c9927a'),
   dark: new THREE.Color('#5a3a24'),
 };
@@ -102,11 +102,11 @@ function gutColor(x: number, th: number, out: THREE.Color): void {
   out.lerp(C.crop, smooth(14.7, 15.2, s));
   out.lerp(C.gizzard, smooth(16.85, 17.2, s));
   // The gizzard's tough wall: faint fibres running round it.
-  out.multiplyScalar(1 - 0.12 * bump(s, 16.9, 19.3) * (0.5 + 0.5 * Math.sin(s * 2 * Math.PI * 9)));
+  out.multiplyScalar(1 - 0.12 * bump(s, 16.9, 19.3) * (0.5 + 0.5 * Math.sin(s * 2 * Math.PI * 4)));
   out.lerp(C.wall, smooth(19.0, 19.6, s));
   // Chloragogen tissue: yellow-brown cells coating the intestine, fine and soft.
   const gran = fbm2(x * 7, th * 7, 3, 5, 0);
-  out.lerp(C.chloragogen, smooth(19.2, 21.5, s) * (0.4 + 0.35 * smooth(0.3, 0.7, gran)));
+  out.lerp(C.chloragogen, smooth(19.2, 20.5, s) * (0.5 + 0.2 * smooth(0.3, 0.7, gran)));
   // The septa pinch the intestine; the pinches sit a little darker.
   if (s > ORGANS.intestineFrom) out.multiplyScalar(0.85 + 0.15 * Math.sin((s % 1) * Math.PI));
 }

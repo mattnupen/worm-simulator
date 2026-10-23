@@ -68,6 +68,11 @@ export function buildRepro(): ReproParts {
       const x = segAt(n, 0.66);
       const g = gutPoint(x, side * 1.1, new THREE.Vector3(), 0.7 * big);
       vesicle(m, g, V(0.34 * segmentLength(n) * (0.8 + 0.3 * big), 1.0 * big, 0.82 * big), n * 7 + (side > 0 ? 1 : 2));
+      // Each sac buds off the sperm reservoir below it (in 10 or 11), by a short neck.
+      const rx = segAt(n <= 10 ? 10 : 11, 0.52);
+      const base = V(rx, floorY(rx) + 1.15, side * 0.75);
+      const mid = V((g.x + base.x) / 2, (g.y + base.y) / 2 - 0.1, side * (Math.abs(g.z) + 0.75) / 2 + side * 0.25);
+      sweep(m, [g.clone(), mid, base], (t) => 0.22 * big * (1 - 0.45 * t) + 0.08, IVORY, { radial: 10, per: 0.1 });
     });
     // Testes (small, near the front wall of 10 and 11, beside the nerve cord) and sperm funnels.
     for (let n = ORGANS.testes[0]; n <= ORGANS.testes[1]; n++) {

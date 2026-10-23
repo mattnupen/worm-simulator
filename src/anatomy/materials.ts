@@ -47,8 +47,8 @@ export function addScatter(m: THREE.MeshPhysicalMaterial, tint: string, rim: num
 export function createMaterials(): AnatomyMaterials {
   return {
     skin: addScatter(wet({
-      roughness: 0.62, clearcoat: 0.3, clearcoatRoughness: 0.38, sheen: 0.2, sheenRoughness: 0.5,
-      sheenColor: new THREE.Color('#c06060'), iridescence: 0.35, iridescenceIOR: 1.35,
+      roughness: 0.62, clearcoat: 0.3, clearcoatRoughness: 0.38, sheen: 0.12, sheenRoughness: 0.5,
+      sheenColor: new THREE.Color('#c06060'), iridescence: 0.2, iridescenceIOR: 1.35,
       iridescenceThicknessRange: [180, 420],
     }), '#ff5a3c', 0.9, 0.12),
     skinGhost: wet({
@@ -64,6 +64,6 @@ export function createMaterials(): AnatomyMaterials {
     nephridia: wet({ roughness: 0.4, clearcoat: 0.8 }),
     muscle: wet({ roughness: 0.55, clearcoat: 0.5, side: THREE.DoubleSide }),
     skinGame: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 }),
-    septa: wet({ roughness: 0.35, clearcoat: 0.7, transparent: true, opacity: 0.72, depthWrite: false, side: THREE.DoubleSide }),
+    septa: wet({ roughness: 0.35, clearcoat: 0.7, transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide }),
   };
 }

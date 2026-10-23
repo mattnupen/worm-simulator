@@ -39,7 +39,7 @@ export const VIEWS: readonly View[] = [
   { id: 'nerves', name: ANATOMY_UI.viewNerves, labels: ['brain', 'nerveCord', 'nerves'], pose: STRAIGHT, wall: 'cut', systems: ['skin', 'gut', 'nerves'], camera: INSIDE_CAM, target: INSIDE_TARGET },
   { id: 'repro', name: ANATOMY_UI.viewRepro, labels: ['seminalVesicles', 'receptacles', 'ovaries'], pose: STRAIGHT, wall: 'cut', systems: ['skin', 'gut', 'repro'], camera: [16, 14, 30], target: [17, -0.5, 0] },
   { id: 'muscles', name: ANATOMY_UI.viewMuscles, labels: ['skin', 'circular', 'longitudinal'], pose: STRAIGHT, wall: 'solid', systems: ['skin', 'muscles'], camera: [PEEL_X - 6, 16, 22], target: [PEEL_X, 0, 0] },
-  { id: 'nephridia', name: ANATOMY_UI.viewNephridia, labels: ['nephridia', 'septa', 'intestine'], pose: STRAIGHT, wall: 'cut', systems: ['skin', 'gut', 'nephridia'], camera: INSIDE_CAM, target: INSIDE_TARGET },
+  { id: 'nephridia', name: ANATOMY_UI.viewNephridia, labels: ['nephridia', 'septa'], pose: STRAIGHT, wall: 'cut', systems: ['skin', 'muscles', 'nephridia'], camera: INSIDE_CAM, target: INSIDE_TARGET },
   { id: 'ghost', name: ANATOMY_UI.viewGhost, labels: ['pharynx', 'gizzard', 'hearts', 'nerveCord'], pose: STRAIGHT, wall: 'ghost', systems: ['skin', 'gut', 'blood', 'nerves', 'repro'], camera: [30, 30, 70], target: [30, 0, 0] },
 ];
 
