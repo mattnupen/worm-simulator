@@ -215,7 +215,7 @@ test('a new device: the lesson comes first, plays through by keyboard, and then 
   // straight into play.
   await expect(page.getByRole('region', { name: 'Opening' })).toBeVisible();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('region', { name: 'Crawling' })).toBeVisible();
+  await expect(page.locator('#app[data-ui="crawl"]')).toBeVisible();
   await expect(page.locator('.cue[data-cue]')).toHaveCount(0);
   await page.reload();
   // Finished: Crawl is first again, and the lesson stays on Start to replay.
@@ -296,7 +296,10 @@ test('Play counts real crawling toward its 5 minutes, and keeps it when paused',
   await expect(page.getByText('0 of 5 minutes played')).toBeVisible();
   await button(page, 'Crawl').click();
   await page.waitForTimeout(7000);
-  await page.keyboard.press('Escape');
+  // Pause from the game menu (Esc no longer pauses: Matt, 2026-10-23).
+  await page.getByRole('button', { name: 'Open the menu' }).click();
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Paused' })).toBeVisible();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.quests') ?? 'null'));
   // Game time, not wall time: a slow software renderer runs fewer steps than 7 s of play.
   expect(saved.rounds['4'].playSeconds).toBeGreaterThanOrEqual(2);

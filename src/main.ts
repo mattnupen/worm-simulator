@@ -24,8 +24,8 @@ import { FPS_CAP, SpeedTestRunner } from './perf/speedTestRunner';
 import { formatContextLostResults, formatNoWebGLResults } from './perf/speedTest';
 import { basicDeviceInfo, deviceInfo } from './perf/device';
 import { createShell } from './ui/shell';
-import { showCrawl, showLost, showPause, showStart, showVote } from './ui/menus';
-import { showSettings } from './ui/settingsMenu';
+import { releaseFocus, showCrawl, showLost, showPause, showStart, showVote } from './ui/menus';
+import { createGameMenu } from './ui/gameMenu';
 import { setSoundEnabled } from './ui/lessonSound';
 import { applyTextSize } from './ui/textSize';
 import { createActionPrompt } from './ui/actionPrompt';
@@ -129,6 +129,41 @@ function start(renderer: THREE.WebGLRenderer): void {
     learned: !lesson || lessonDone(store, lesson.id),
     playSeconds: progress.playSeconds,
     voted: progress.voted,
+  });
+  /**
+   * The game menu (src/ui/gameMenu.ts; Matt, 2026-10-23): the tab at the top left, on Start and in
+   * play. It holds the mission, the rounds and the opening's replay, Settings, About and Pause.
+   * Its actions run only once the game has loaded (the tab is there from the first card).
+   */
+  const menu = createGameMenu(app, {
+    mission: () => playQuestion,
+    quests: () => lesson ? { quests: quests(questProgress()), playMinutes: playMinutes(questProgress()) } : undefined,
+    settings: () => ({ graphics: graphics.choice, sound, textSize }),
+    onGraphics: (c) => {
+      graphics.choose(c);
+      applyActive();
+    },
+    onSound: (on) => {
+      sound = updateSettings(store, { sound: on }).sound;
+      setSoundEnabled(sound);
+    },
+    onTextSize: (size) => {
+      textSize = updateSettings(store, { textSize: size }).textSize;
+      applyTextSize(textSize);
+    },
+    // A replay, once seen (so it never opens play before the round's Learn is done); on the
+    // preview link (?opening=1), always.
+    opening: () => (state.screen === 'start' || state.screen === 'crawl' || state.screen === 'pause')
+      && (params.opening === true || openingSeen(store, VERSION.number))
+      ? () => { menu.close(); dispatch({ type: 'opening' }); }
+      : undefined,
+    toStart: () => state.screen === 'crawl' || state.screen === 'pause'
+      ? () => { menu.close(); dispatch({ type: 'toStart' }); }
+      : undefined,
+    pause: () => state.screen === 'pause' ? 'resume' : state.screen === 'crawl' && !runner.running ? 'pause' : null,
+    onPause: () => dispatch({ type: 'pause' }),
+    onResume: () => dispatch({ type: 'resume' }),
+    release: () => releaseFocus(shell),
   });
   /** Set once the eating film is built (below); the first card goes up before that. */
   let lessonFilm: LessonFilm | undefined;
@@ -341,8 +376,6 @@ function start(renderer: THREE.WebGLRenderer): void {
     // otherwise its uncapped frame rate and quality tier would stay on, and its result would
     // later land on another screen. The running card offers no such button today.
     if (runner.running && next.screen !== 'speedTest') stopTest();
-    // Back from Graphics: focus returns to the button that opened it.
-    const back = e.type === 'back' && state.screen === 'graphics';
     // Leaving the lesson by any way (Esc included): its cue and any reading aloud stop.
     if (state.screen === 'lesson') {
       lessonFilm?.stop();
@@ -353,10 +386,13 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (state.screen === 'crawl' && progress.playSeconds !== playSaved) saveProgress();
     if (next.screen === 'opening' && state.screen !== 'opening') beginOpening();
     if (next.screen === 'nest' && state.screen !== 'nest') beginNest();
+    // The game menu stays open across Pause and Resume, and folds away on any other change.
+    const playing = (sc: ScreenState['screen']): boolean => sc === 'crawl' || sc === 'pause';
+    if (!playing(state.screen) || !playing(next.screen)) menu.close();
     state = next;
     // A slow streak from before (or a menu over the scene) must not count against Auto.
     graphics.interruptAuto(performance.now());
-    draw(back);
+    draw();
   }
 
   /**
@@ -500,19 +536,22 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (state.screen === 'nest') afterNest();
   }
 
-  function draw(fromGraphics = false): void {
+  /** Draws the screen's card, then the game menu's parts that follow it (the Pause icon, an open page). */
+  function draw(): void {
+    drawCard();
+    menu.refresh();
+  }
+
+  function drawCard(): void {
     switch (state.screen) {
       case 'start':
         return showStart(shell, {
           onCrawl: crawlOrOpening,
-          onSettings: () => dispatch({ type: 'graphics' }),
-          // A replay, once seen (so it never opens play before the round's Learn is done); on the
-          // preview link (?opening=1), always, leading Start.
-          onOpening: params.opening === true || openingSeen(store, VERSION.number) ? () => dispatch({ type: 'opening' }) : undefined,
-          openingPreview: params.opening === true,
+          // The preview link (?opening=1): "Watch the opening" leads Start.
+          onOpeningPreview: params.opening === true ? () => dispatch({ type: 'opening' }) : undefined,
           // ?nest=1: watch the nest scene now, from where the worm is.
           onNest: params.nest ? () => playNestScene(crawl.motion.head.x, crawl.motion.head.z, crawl.motion.heading) : undefined,
-        }, fromGraphics, lesson ? {
+        }, lesson ? {
           lessonTitle: lesson.title,
           quests: quests(questProgress()),
           playMinutes: playMinutes(questProgress()),
@@ -544,32 +583,9 @@ function start(renderer: THREE.WebGLRenderer): void {
         return;
       case 'crawl':
         shownCard = cardNow();
-        return shownCard === 0 ? showCrawl(shell, playQuestion) : showUnderground(shell, shownCard === 1);
+        return shownCard === 0 ? showCrawl(shell) : showUnderground(shell, shownCard === 1);
       case 'pause':
-        return showPause(shell, {
-          onResume: () => dispatch({ type: 'resume' }),
-          onSettings: () => dispatch({ type: 'graphics' }),
-          onStart: () => dispatch({ type: 'toStart' }),
-          // The preview link: watch it again from Pause (Matt's review).
-          onOpening: params.opening === true ? () => dispatch({ type: 'opening' }) : undefined,
-        }, fromGraphics);
-      case 'graphics':
-        // The Settings screen (the 'graphics' screen state, kept from when it held Graphics only).
-        return showSettings(shell, { graphics: graphics.choice, sound, textSize }, {
-          onGraphics: (c) => {
-            graphics.choose(c);
-            applyActive();
-          },
-          onSound: (on) => {
-            sound = updateSettings(store, { sound: on }).sound;
-            setSoundEnabled(sound);
-          },
-          onTextSize: (size) => {
-            textSize = updateSettings(store, { textSize: size }).textSize;
-            applyTextSize(textSize);
-          },
-          onBack: () => dispatch({ type: 'back' }),
-        });
+        return showPause(shell, () => dispatch({ type: 'resume' }));
       case 'speedTest':
         return showTestIntro(shell, () => runner.start(), () => dispatch({ type: 'toStart' }));
       case 'results':
@@ -618,9 +634,9 @@ function start(renderer: THREE.WebGLRenderer): void {
     return mergeCommandsInto(keysToCommandsInto(keyboard.down, keyCmds), touchCmds, heldCmds);
   }
 
-  /** Paused (or the Graphics menu over a pause): the simulation stops, the last frame stays. */
+  /** Paused: the simulation stops, the last frame stays. */
   function frozen(): boolean {
-    return lost || state.screen === 'pause' || (state.screen === 'graphics' && state.graphicsFrom === 'pause');
+    return lost || state.screen === 'pause';
   }
 
   function update(dt: number): void {
@@ -798,16 +814,16 @@ function start(renderer: THREE.WebGLRenderer): void {
     }
   });
 
-  // Esc or P pauses and resumes; Esc also leaves the Graphics screen, the lesson and Vote.
+  // Esc folds the game menu (its open page, then its icons) and leaves the lesson and Vote. Esc and
+  // P no longer pause (Matt, 2026-10-23): Pause is in the game menu.
   window.addEventListener('keydown', (e) => {
     if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
     // An open panel (the lesson's photo or "Tell me more") takes Esc for itself.
     if (document.querySelector('dialog[open]')) return;
-    const pauseKey = e.code === 'Escape' || e.code === 'KeyP';
-    if (state.screen === 'crawl' && pauseKey) dispatch({ type: 'pause' });
-    else if (state.screen === 'pause' && pauseKey) dispatch({ type: 'resume' });
-    else if (state.screen === 'graphics' && e.code === 'Escape') dispatch({ type: 'back' });
-    else if ((state.screen === 'lesson' || state.screen === 'vote') && e.code === 'Escape') dispatch({ type: 'toStart' });
+    if (e.code === 'Escape' && menu.escape()) {
+      // Playing: the keys go back to the worm once the menu has folded away.
+      if (state.screen === 'crawl' && !menu.el.querySelector('#menu-icons:not([hidden])')) releaseFocus(shell);
+    } else if ((state.screen === 'lesson' || state.screen === 'vote') && e.code === 'Escape') dispatch({ type: 'toStart' });
     // The opening: Esc or Enter skips the scene, straight into play.
     else if (state.screen === 'opening' && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter')) endOpeningScene();
     // The nest scene: Esc or Enter skips to its fact card; there, Esc goes on (Enter presses its button).

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROUNDS, VERSION, VERSION_LABEL, VERSION_TITLE } from '../../src/version';
+import { VERSION_LABEL, VERSION_TITLE } from '../../src/version';
 
 const PAGE = pathToFileURL(path.resolve('dist/index.html')).href;
 
@@ -40,27 +40,6 @@ test('the Start screen shows "Version N · Name" under the title, at least 18 px
   const L2 = luminance('rgb(239, 223, 189)');
   expect((Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05)).toBeGreaterThanOrEqual(4.5);
   await expect(page.getByRole('button', { name: 'Crawl', exact: true })).toBeFocused();
-});
-
-test('Versions lists every round, links the older ones to /vN/, and closes with Esc', async ({ page }) => {
-  await page.goto(PAGE);
-  const versions = page.getByRole('button', { name: 'Versions', exact: true });
-  await versions.click();
-  const dialog = page.getByRole('dialog', { name: 'Versions' });
-  await expect(dialog).toBeVisible();
-  for (const r of ROUNDS) {
-    const title = `Round ${r.number}: ${r.name}`;
-    if (r.number === VERSION.number) {
-      await expect(dialog.getByText(title)).toBeVisible();
-      await expect(dialog.getByRole('link', { name: title })).toHaveCount(0);
-    } else {
-      await expect(dialog.getByRole('link', { name: title })).toHaveAttribute('href', `/v${r.number}/`);
-    }
-    await expect(dialog.getByText(r.about)).toBeVisible();
-  }
-  await page.keyboard.press('Escape');
-  await expect(dialog).toHaveCount(0);
-  await expect(versions).toBeFocused();
 });
 
 test('the built page carries the version meta tag', async ({ page }) => {

@@ -27,18 +27,21 @@ canvas { display: block; }
 .panel p, .panel h1, .panel ul { margin: 0; }
 
 /* Title-card screens sit bottom-left, clear of the worm. */
-.panel[data-state="start"], .panel[data-state="speedTest"], .panel[data-state="pause"],
-.panel[data-state="graphics"], .panel[data-state="lost"] {
+.panel[data-state="start"], .panel[data-state="speedTest"], .panel[data-state="lost"] {
   left: var(--edge); bottom: var(--edge-y); width: min(32rem, calc(100vw - 32px));
   max-height: calc(100dvh - var(--edge-y) - 16px);
 }
-.panel[data-state="graphics"] { width: min(37rem, calc(100vw - 32px)); }
 /* Small top-left cards while the scene is the point. */
-.panel[data-state="running"],
-.panel[data-state="crawl"] { left: var(--edge); top: 16px; width: min(24rem, calc(100vw - 32px)); padding: 14px 20px 16px; }
-/* The crawl card is one mission line; folded, it is just its flag button. */
-.panel[data-state="crawl"] { width: auto; max-width: min(30rem, calc(100vw - 32px)); padding: 8px 18px 8px 8px; }
-.panel[data-state="crawl"][data-folded="yes"] { padding: 6px; border-radius: 999px; }
+.panel[data-state="running"] { left: var(--edge); top: 16px; width: min(24rem, calc(100vw - 32px)); padding: 14px 20px 16px; }
+/* Crawling (the underground hint card) sits right of the game menu's tab (gameMenu.css), which
+   holds the top-left corner. The Paused chip sits top centre, clear of the menu's open card. */
+.panel[data-state="crawl"] { left: 72px; top: 16px; width: auto; max-width: min(30rem, calc(100vw - 88px)); padding: 8px 18px; }
+.panel[data-state="pause"] {
+  left: 50%; top: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px;
+  padding: 6px 6px 6px 18px; border-radius: var(--radius-pill);
+}
+.paused-label { font-weight: 700; }
+.panel[data-state="pause"] .btn { width: auto; min-height: 48px; padding: 6px 18px; font-size: 1.125rem; }
 .panel[data-state="results"] {
   left: var(--edge); bottom: var(--edge-y); width: min(41rem, calc(100vw - 32px));
   /* Top stays below the fps tag, which it would otherwise cover on narrow screens. */
@@ -75,22 +78,6 @@ canvas { display: block; }
   background: var(--leaf); border-radius: 0 100% 0 100%; transform: rotate(-10deg);
 }
 .menu { display: grid; gap: 12px; margin-top: 22px; }
-/* "Versions" (menus.ts): a link-styled button, bottom right, body-size text in the soft ink (>= 7:1). */
-.version { margin-top: 6px !important; text-align: right; }
-.versions-link {
-  font: inherit; font-size: 1.125rem; font-weight: 500; color: var(--ink); background: none; border: 0;
-  padding: 6px 8px; min-height: 48px; cursor: pointer; text-decoration: underline; text-underline-offset: 4px;
-}
-.versions-link:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
-/* The Versions list (versionsDialog.ts), in the lesson's panel style (lesson.css .lesson-dialog). */
-.versions-dialog { width: min(37rem, calc(100vw - 24px)); }
-.versions-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.version-row { padding: 12px 16px; border: 1px solid var(--line); border-radius: var(--radius-row); background: var(--row); }
-.version-name { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin: 0; font-size: 1.3125rem; font-weight: 700; }
-a.version-name { color: var(--link); text-decoration: underline; text-underline-offset: 3px; }
-a.version-name:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
-.version-here { font-size: 1.0625rem; font-weight: 500; color: var(--ink-soft); }
-.version-about { margin: 4px 0 0 !important; font-size: 1.1875rem; }
 
 /* ---------- Buttons: flat pills. Primary is the one main action; secondary is a quiet tint. ---------- */
 .btn {
@@ -128,12 +115,8 @@ a.version-name:focus-visible { outline: 4px solid var(--focus); outline-offset: 
 .choice-name { font-size: 1.3125rem; font-weight: 700; }
 .choice-desc { font-size: 1.125rem; color: var(--ink-soft); }
 .choices .lead { margin-bottom: 4px !important; }
-/* Settings: a heading per group; Sound's and Text size's choices side by side. */
+/* Settings (the game menu's page): a heading per group. */
 .settings-legend { font-size: 1.3125rem; font-weight: 700; padding: 0; margin: 14px 0 8px !important; }
-.choices-row { grid-template-columns: 1fr 1fr; }
-.choices-row legend { grid-column: 1 / -1; }
-.choices-row.choices-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.panel[data-state="graphics"] .screen-title { margin-bottom: 6px; }
 .choices + .choices { margin-top: 10px; }
 
 /* ---------- Running: quest-tracker card, top-left so the worm stays clear ---------- */
@@ -182,14 +165,6 @@ a.version-name:focus-visible { outline: 4px solid var(--focus); outline-offset: 
 .hint { display: flex; align-items: center; gap: 12px; font-size: 1.125rem; font-weight: 500; }
 .hint-icon { flex: none; width: 26px; height: 26px; color: var(--accent); }
 .hint-icon svg { width: 100%; height: 100%; }
-/* The round's mission while crawling (menus.ts showCrawl): the flag folds and opens the card. */
-.mission-line-crawl { gap: 8px; }
-.mission-toggle {
-  flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
-  border: 0; border-radius: 50%; background: transparent; cursor: pointer; color: inherit;
-}
-.mission-toggle:hover { background: var(--line); }
-.mission-toggle:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 /* ---------- Small screens ---------- */
 @media (max-height: 640px) {
@@ -206,9 +181,9 @@ a.version-name:focus-visible { outline: 4px solid var(--focus); outline-offset: 
 }
 @media (max-width: 560px) {
   .panel[data-state] { left: 16px; right: 16px; width: auto; }
-  /* The crawl card hugs its line rather than spanning the screen. */
-  .panel[data-state="crawl"] { right: auto; max-width: calc(100vw - 32px); top: 12px; }
-  .choices-row.choices-3 { grid-template-columns: 1fr; }
+  /* The crawl card hugs its line, right of the menu tab; the Paused chip stays top centre. */
+  .panel[data-state="crawl"] { left: 72px; right: auto; max-width: calc(100vw - 88px); top: 16px; }
+  .panel[data-state="pause"] { left: 50%; right: auto; width: auto; top: auto; bottom: 24px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
