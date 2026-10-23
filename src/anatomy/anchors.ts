@@ -47,7 +47,7 @@ export const ANCHORS: Record<AnatomyPartId, Anchor> = {
   nerveCord: inn(() => nerveCord(segMid(23), V(0, 0, 0))),
   nerves: inn(() => insideWall(segAt(29, 0.5), -Math.PI * 0.72, 0.25, V(0, 0, 0))),
   seminalVesicles: inn(() => gutPoint(segAt(12, 0.66), -1.1, V(0, 0, 0), 0.8)),
-  receptacles: inn(() => insideWall(segAt(9, 0.5), -(Math.PI - 1.15), 0.42, V(0, 0, 0))),
+  receptacles: inn(() => insideWall(segAt(10, 0.5), -(Math.PI - 1.15), 0.42, V(0, 0, 0))),
   ovaries: inn(() => { const x = segAt(13, 0.28); return V(x, floorY(x) + 0.42, -0.55); }),
   nephridia: inn(() => insideWall(segStart(26) + 0.5 * segmentLength(26), -(Math.PI - 1.3), 0.25, V(0, 0, 0))),
 };

@@ -93,7 +93,7 @@ const C = {
   crop: new THREE.Color('#dcb9a6'),
   gizzard: new THREE.Color('#b8957c'),
   wall: new THREE.Color('#7d6a4a'),
-  chloragogen: new THREE.Color('#c99c48'),
+  chloragogen: new THREE.Color('#a08446'),
   lining: new THREE.Color('#c9927a'),
   dark: new THREE.Color('#5a3a24'),
 };
