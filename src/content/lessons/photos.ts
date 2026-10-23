@@ -11,6 +11,9 @@ import basswood from './photos/basswood.jpg';
 import sugarMaple from './photos/sugar-maple.jpg';
 import redOak from './photos/red-oak.jpg';
 import whitePine from './photos/white-pine.jpg';
+import duff from './photos/duff.jpg';
+import balsamFir from './photos/balsam-fir.jpg';
+import trillium from './photos/trillium.jpg';
 
 /**
  * Each lesson photo as the image the page shows. The build inlines them (vite-plugin-singlefile),
@@ -21,4 +24,5 @@ import whitePine from './photos/white-pine.jpg';
 export const PHOTO_URLS: Readonly<Record<PhotoFile, string>> = {
   robin, woodcock, mole, shrew, 'garter-snake': garterSnake, toad, salamander,
   nightcrawler, basswood, 'sugar-maple': sugarMaple, 'red-oak': redOak, 'white-pine': whitePine,
+  duff, 'balsam-fir': balsamFir, trillium,
 };

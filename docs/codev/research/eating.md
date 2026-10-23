@@ -132,3 +132,35 @@ play them): Matt watches each before V4 ships.
 Backups: "The One Show: George McGavin, Earthworms and Fallen Leaves"
 (https://www.youtube.com/watch?v=EODCIY-3E0M, a BBC clip re-uploaded by another channel, so it may
 vanish); "How Do Worms Eat Without Teeth?" (https://www.youtube.com/watch?v=cjmoBkHvFUE).
+
+## Added after Matt tried the lesson (2026-10-23)
+
+| Fact | Source | Supporting quote |
+|---|---|---|
+| Fir trees are conifers too; worms find conifer needles hard to eat. | Great Lakes Worm Watch, *Trees* | conifer litter is "quite unpalatable to earthworms" |
+| Nightcrawlers would rather not eat living, healthy plants; they like dead leaves that have started to rot. | Purdue Extension, *Do Earthworms Eat Corn Leaves?* | "living, healthy plant tissues are not preferred ... than the partially decomposed leaf litter and crop residues they prefer" |
+| Some worms live in rotting logs and eat the soft bits that have started to rot. | Earthworm Society of Britain, *What do earthworms eat?* | "Epigeic earthworms live in leaf litter and rotting logs and feed on organic matter that is partially decayed." |
+| Over half a million earthworms can live in one hectare of soil; together they can eat 9 tonnes of leaves, stems and dead roots a year. | NatureWatch Canada, *Worm facts* | "Over half a million earthworms can live in just one hectare of soil"; "Together, they can eat nine tonnes of leaves, stems and dead roots a year" |
+| Many insects and other small animals live in the duff; when it is gone there can be far fewer of them. | Great Lakes Worm Watch, *Macroinvertebrate Animals* | "the diversity and abundance of macroinvertebrate populations can decline dramatically" |
+| Ovenbirds nest on the forest floor; fewer nests succeeded where it got thinner. | Great Lakes Worm Watch, *Vertebrate Animals* | "ovenbird nesting success declined in relation to declining forest floor thickness" |
+| Voles hide and find food in the leaf layer, so they may lose out too. | Great Lakes Worm Watch, *Vertebrate Animals* | "small mammals like voles rely on the forest floor for protection and food" |
+
+No source gives how many leaves one nightcrawler eats in a year, so the lesson uses the
+per-hectare figure (1 hectare is about one and a half soccer fields: plain arithmetic, 10,000 m²
+against a 105 × 68 m pitch).
+
+Mushrooms: fungi, yes (Earthworm Society of Britain: worms "may be preferential fungivores").
+Rotting wood: only some worms (epigeic) live in rotting logs and eat the partly rotted matter.
+
+New photos (CC BY 4.0, iNaturalist, via GBIF):
+
+| Shows | File | Page | Credit |
+|---|---|---|---|
+| Trillium in a thick leaf layer (duff) | `duff.jpg` | https://www.inaturalist.org/observations/363065476 | Charlie Pavlisich |
+| Balsam fir branches | `balsam-fir.jpg` | https://www.inaturalist.org/observations/334862922 | Nick Kleinschmidt |
+| Large-flowered trillium | `trillium.jpg` | https://www.inaturalist.org/observations/362625861 | Rose Zappa |
+
+Videos now shown on the step itself (Matt: good videos always show): "Worms pull leafs underground
+to eat them." (Get Wild) on Food up top, and "Michigan Isn't Supposed to Have Earthworms" (Alexis
+Dahl, https://www.youtube.com/watch?v=cYR9fEU6zPg) on The forest changed, replacing the Worm Watch
+clip Matt found had no useful information. Matt watches the new one before release.

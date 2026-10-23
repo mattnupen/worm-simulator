@@ -32,7 +32,8 @@ export function closeFilm(root: HTMLElement): void {
 /**
  * The `body` step as a film: the 3D scene fills the screen and the card sits at the bottom as a
  * caption bar. The caption is the beat's fact (each part's name in bold, and big over the scene);
- * a timeline (Play/Pause and a slider); "Read the whole trip" has every caption as a list, to read at any pace. Once
+ * a timeline (Play/Pause and a slider) to pause, go back or skip ahead (Matt removed the
+ * "Read the whole trip" list, 2026-10-23). Once
  * it has played to the end, `onDone` (Next wakes up). Without a film (no WebGL path, tests of the
  * card alone) it is just the list.
  */
@@ -40,20 +41,18 @@ export function filmBody(
   root: HTMLElement, step: Extract<LessonStep, { kind: 'body' }>, film: LessonFilm | undefined, onDone: () => void,
 ): HTMLElement[] {
   const intro = el('p', step.intro, 'lead lesson-question');
-  const trip = el('details', '', 'film-trip');
-  const list = el('ol', '', 'body-stops');
-  const item = (name: string | null, l: Line): HTMLLIElement => {
-    const li = el('li', '', 'body-stop');
-    if (name) li.append(el('p', name, 'meet-name'));
-    li.append(el('p', shown(l), 'lesson-line'));
-    return li;
-  };
-  list.append(item(null, step.outside), ...step.stops.map((s) => item(s.name, s.fact)), item(null, step.midden));
-  trip.append(el('summary', 'Read the whole trip'), list);
   if (!film) {
-    trip.open = true;
+    // No film (no WebGL path, tests of the card alone): its captions as a list.
+    const list = el('ol', '', 'body-stops');
+    const item = (name: string | null, l: Line): HTMLLIElement => {
+      const li = el('li', '', 'body-stop');
+      if (name) li.append(el('p', name, 'meet-name'));
+      li.append(el('p', shown(l), 'lesson-line'));
+      return li;
+    };
+    list.append(item(null, step.outside), ...step.stops.map((s) => item(s.name, s.fact)), item(null, step.midden));
     onDone();
-    return [intro, trip];
+    return [intro, list];
   }
 
   closeFilm(root);
@@ -114,7 +113,7 @@ export function filmBody(
   const timeline = el('div', '', 'film-timeline');
   timeline.append(toggle.el, slider);
   const controls = el('div', '', 'film-controls');
-  controls.append(timeline, trip);
+  controls.append(timeline);
 
   let beat: Beat | null = null;
   let dark = -1;
@@ -130,6 +129,7 @@ export function filmBody(
         name.textContent = stop?.name ?? '';
         name.hidden = !stop;
         fact.textContent = l ? shown(l) : '';
+        if (l?.kind === 'fact') fact.dataset.source = l.source;
         label.textContent = stop?.name ?? '';
         label.hidden = !stop;
       }
