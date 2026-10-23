@@ -32,13 +32,13 @@ export interface StartRound {
 }
 
 const QUEST_NAMES: Record<QuestId, string> = { learn: 'Learn', play: 'Play', vote: 'Vote' };
-const BEFORE: Record<QuestId, string> = { learn: '', play: 'Learn', vote: 'Play' };
 
 /**
  * Start: the parchment title card over the live forest. With a round, its three quests come first,
  * each a numbered row with its state in words and an icon (never colour alone): done (a tick, and
- * it can be done again), next (the main button, which gets focus) or locked (a lock and a disabled
- * button: "Finish Learn first"). Without a round, Crawl leads as before. Settings, the rounds and
+ * it can be done again), open (the first open one is the main button and gets focus) or locked (a
+ * lock and a disabled button: "Locked: finish Learn and Play first"). Learn and Play are both open
+ * from the start (Matt, 2026-10-23). Without a round, Crawl leads as before. Settings, the rounds and
  * the opening's replay live in the game menu (gameMenu.ts; Matt, 2026-10-23). The speed test has
  * no button (Matt, 2026-10-12): it opens with ?speedtest=1.
  */
@@ -61,12 +61,14 @@ export function showStart(shell: Shell, a: StartActions, round?: StartRound): vo
   list.setAttribute('aria-label', "This round's quests");
   let focus: Button | null = null;
   let crawl: Button | null = null;
+  // The first open quest leads (Learn, until it's done); Play is open from the start too.
+  const lead = round.quests.find((q) => q.state === 'next');
   round.quests.forEach((q, i) => {
     const label = q.id === 'learn' ? `Learn: ${round.lessonTitle}` : q.id === 'play' ? 'Crawl' : 'Vote';
     const act = q.id === 'learn' ? round.onLesson : q.id === 'play' ? a.onCrawl : round.onVote;
-    const b = button(label, q.id === 'learn' ? 'eye' : q.id === 'play' ? 'play' : 'form', q.state === 'next' ? 'primary' : 'secondary', act);
+    const b = button(label, q.id === 'learn' ? 'eye' : q.id === 'play' ? 'play' : 'form', q === lead ? 'primary' : 'secondary', act);
     if (q.state === 'locked') b.el.disabled = true;
-    if (q.state === 'next') focus = b;
+    if (q === lead) focus = b;
     if (q.id === 'play') crawl = b;
     const li = el('li', '', `quest quest-${q.state}`);
     li.dataset.quest = q.id;
@@ -87,7 +89,7 @@ export function showStart(shell: Shell, a: StartActions, round?: StartRound): vo
 }
 
 function status(q: Quest, minutes: number): string {
-  if (q.state === 'locked') return `Locked: finish ${BEFORE[q.id]} first`;
+  if (q.state === 'locked') return `Locked: finish ${(q.waitsOn ?? []).map((id) => QUEST_NAMES[id]).join(' and ')} first`;
   if (q.id === 'learn') return q.state === 'done' ? 'Done. You can look again.' : 'Start here';
   if (q.id === 'play') {
     return q.state === 'done' ? 'Done. Keep playing any time.' : `${minutes} of ${PLAY_GOAL_SECONDS / 60} minutes played`;

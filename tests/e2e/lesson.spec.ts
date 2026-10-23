@@ -255,15 +255,23 @@ test('Back returns to the last step with its answer kept; Esc and Back to start 
   expect(errors).toEqual([]);
 });
 
-test('the quests open in order: Learn, then Play, then Vote; "I voted" finishes the round', async ({ page }) => {
+test('Learn and Play are both open, Vote waits on both; "I voted" finishes the round', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto(PAGE);
-  // A new device: only Learn is open. Play (Crawl) and Vote are locked, and say why.
+  // A new device: Learn leads, but Crawl is open too, so a student can just start playing (Matt,
+  // 2026-10-23). Vote is locked, and says why.
   await expect(button(page, LEARN)).toBeFocused();
-  await expect(button(page, 'Crawl')).toBeDisabled();
+  await expect(button(page, 'Crawl')).toBeEnabled();
+  await expect(button(page, 'Vote')).toBeDisabled();
+  await expect(page.getByText('Locked: finish Learn and Play first')).toBeVisible();
+
+  // 5 minutes played but no lesson yet: Vote still waits on Learn.
+  await page.evaluate(() => {
+    localStorage.setItem('wormsim.quests', JSON.stringify({ version: 1, rounds: { 4: { playSeconds: 300, voted: false } } }));
+  });
+  await page.reload();
   await expect(button(page, 'Vote')).toBeDisabled();
   await expect(page.getByText('Locked: finish Learn first')).toBeVisible();
-  await expect(page.getByText('Locked: finish Play first')).toBeVisible();
 
   // Learn done, 5 minutes played: Vote is next.
   await page.evaluate(() => {

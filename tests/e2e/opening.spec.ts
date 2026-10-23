@@ -101,7 +101,7 @@ test('?opening=0 goes straight to play', async ({ page }) => {
 });
 
 test('the preview link (?opening=1) leads Start with the opening, and the menu offers it again in play', async ({ browser }) => {
-  // A brand-new device: Learn is not done, so Crawl is locked, but the preview still opens it.
+  // A brand-new device, with Learn not done: the preview still leads with the opening.
   const page = await browser.newPage();
   const errors = watchErrors(page);
   await page.goto(PAGE + '?opening=1');
