@@ -19,7 +19,7 @@ function watchErrors(page: Page): string[] {
 }
 
 const scene = (page: Page) => page.getByRole('region', { name: shown(TEXT.nestLabel) });
-const crawling = (page: Page) => page.getByRole('region', { name: 'Crawling' });
+const crawling = (page: Page) => page.locator('#app[data-ui="crawl"]');
 /** The only words the scene ever shows while it plays: its sound captions. */
 const CAPTIONS = new Set(['', shown(TEXT.nestWings), shown(TEXT.nestCheep)]);
 
@@ -35,12 +35,13 @@ async function mash(page: Page, tap = false): Promise<string> {
       const note = document.querySelector<HTMLElement>('.hunt-note');
       return {
         label: panel?.getAttribute('aria-label') ?? '',
+        crawl: document.getElementById('app')?.dataset.ui === 'crawl',
         words: panel?.innerText.trim() ?? '',
         buttons: panel?.querySelectorAll('button').length ?? 0,
         note: note && !note.hidden ? note.textContent ?? '' : '',
       };
     });
-    if (now.label === 'Crawling') return now.note;
+    if (now.crawl) return now.note;
     if (now.label === shown(TEXT.nestLabel)) {
       expect(now.buttons).toBe(0);
       expect(CAPTIONS.has(now.words), `the scene shows "${now.words}"`).toBe(true);

@@ -35,7 +35,7 @@ function watchErrors(page: Page): string[] {
 async function crawl(page: Page, q = ''): Promise<void> {
   await page.goto(PAGE + '?opening=0&hunt=0&preset=low&debug=1' + q);
   await page.getByRole('button', { name: 'Crawl', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Crawling' })).toBeVisible();
+  await expect(page.locator('#app[data-ui="crawl"]')).toBeVisible();
 }
 
 /** Holds `key` until `until(worm)` holds (polled), then lets go. */
