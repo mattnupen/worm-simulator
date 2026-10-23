@@ -24,6 +24,7 @@ interface Measured {
   sides: number;
   headingOut: number;
   outs: number;
+  goings: number;
   /** Backing up along the trail, how many times it backed to the trail's start, and went on from there. */
   backing: number;
   backs: number;
@@ -81,10 +82,11 @@ describe('no per-step garbage, as built (bytes the heap grows per step)', () => 
     expect(m.backing).toBeLessThan(64);
     // Backing across the body, checking for room to turn each step (V4 hot fix: burrowBack.ts
     // roomToTurn), and heading out to a place to come up (burrowOut.ts).
-    if (process.env.BODY_REPORT) process.stderr.write(`\nside backing ${m.sideBacking} (${m.sides}), heading out ${m.headingOut} (${m.outs})`);
+    if (process.env.BODY_REPORT) process.stderr.write(`\nside backing ${m.sideBacking} (${m.sides}), heading out ${m.headingOut} (${m.outs} places, ${m.goings} steps going)`);
     expect(m.sides).toBeGreaterThan(1);
     expect(m.sideBacking).toBeLessThan(64);
-    expect(m.outs).toBeGreaterThan(0);
+    expect(m.outs).toBeGreaterThan(1);
+    expect(m.goings).toBeGreaterThan(20000);
     expect(m.headingOut).toBeLessThan(64);
     // The dig spot the prompt asks for every few steps on the surface (48 measured; it was 6.7 KB).
     expect(m.canDigAt).toBeLessThan(96);

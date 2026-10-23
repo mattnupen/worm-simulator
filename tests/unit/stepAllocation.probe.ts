@@ -2,7 +2,7 @@ import { BurrowGame } from '../../src/underground/burrowGame';
 import { canDigAt } from '../../src/underground/digSpot';
 import { Mounds } from '../../src/underground/mounds';
 import { setWormRise, wormSurface } from '../../src/worm/surfaceHeight';
-import { placeBurrower, stepBurrowing, type Pointing } from '../../src/underground/burrowMotion';
+import { stepBurrowing, type Pointing } from '../../src/underground/burrowMotion';
 import { createHeadOut, outStep, startOut } from '../../src/underground/burrowOut';
 import { Crawl } from '../../src/game/crawl';
 import type { Vec2, Vec3 } from '../../src/core/vec';
@@ -122,22 +122,41 @@ const sideBacking = bytesPerCall(() => {
 });
 
 // Heading out (burrowOut.ts: the worm crawls to a place where it can come up, pointed by it), from
-// where the dig left it, put back there each time it gets to such a place.
+// where the dig left it to the nearest such place, then on to another (8 u along), and back, and so
+// on: only steps are measured (finding a place runs once per press, placing the worm once per visit).
 const out = game();
 out.enterNow();
 for (let i = 0; i < 1500; i++) out.step(DT, STILL, false, true);
 const ow = out.worm;
-const keptOut = { u: Float64Array.from(ow.u), v: Float64Array.from(ow.v), dir: ow.dir };
 const headState = createHeadOut();
+startOut(headState, ow, out.slab!, out.emerge, false);
+const places = [ow.outTo, ow.outTo > 0 ? ow.outTo - 6 : ow.outTo + 6];
+// Only those two places allow coming up (so the worm is ready only at them).
+const em = out.emerge;
+for (let j = 0; j < em.count; j++) {
+  const u = (em.first + j) * 0.05;
+  if (Math.abs(u - places[0]) > 0.3 && Math.abs(u - places[1]) > 0.3) em.sides[j] = 0;
+  else em.sides[j] = 3;
+}
 let outs = 0;
+let goings = 0;
+const awayWay: Pointing = { du: 0.5, dv: 0.5 };
 const headingOut = bytesPerCall(() => {
-  if (ow.outTo !== ow.outTo) {
-    outs++;
-    placeBurrower(ow, keptOut.u, keptOut.v, keptOut.dir, ow.wave);
-    startOut(headState, ow, out.slab!, out.emerge, false);
+  if (outStep(headState, ow, out.slab!, out.emerge, STILL_WAY, headState.way, DT) === 'going') {
+    goings++;
+    stepBurrowing(ow, out.slab!, out.grid, out.solids, headState.way, DT);
+    return;
   }
-  if (outStep(headState, ow, out.slab!, out.emerge, STILL_WAY, headState.way, DT) !== 'going') ow.outTo = NaN;
-  else stepBurrowing(ow, out.slab!, out.grid, out.solids, headState.way, DT);
+  // There (ready to come up): on toward the other place, by hand until it is no longer ready.
+  if (ow.outTo !== places[(outs + 1) % 2]) {
+    outs++;
+    ow.outTo = places[outs % 2];
+    headState.t = headState.since = headState.tries = 0;
+    headState.best = Infinity;
+  }
+  awayWay.du = ow.outTo > ow.u[0] ? 1 : -1;
+  awayWay.dv = -0.3;
+  stepBurrowing(ow, out.slab!, out.grid, out.solids, awayWay, DT);
 });
 
 // canDigAt over bodies as the crawl leaves them, turning as it goes.
@@ -237,6 +256,6 @@ const alone = new Crawl();
 const crawl = bytesPerCall(() => alone.step(DT, TURNING), 1);
 
 console.log(JSON.stringify({
-  underground, backing, backs, cuts, sideBacking, sides, headingOut, outs, canDigAt: dig, surface, marks, marked, crawl,
+  underground, backing, backs, cuts, sideBacking, sides, headingOut, outs, goings, canDigAt: dig, surface, marks, marked, crawl,
   modes: [under.mode.mode, top.mode.mode], digs, offered,
 }));
