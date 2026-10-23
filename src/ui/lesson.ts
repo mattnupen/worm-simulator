@@ -224,10 +224,10 @@ function interactive(step: LessonStep): boolean {
   return step.kind === 'guess' || step.kind === 'predict' || step.kind === 'sense' || step.kind === 'meet' || step.kind === 'body';
 }
 
-/** Beside a grayed-out Next: what to do first, in words. */
+/** Beside a grayed-out Next: what to do first, in words. None on the film (Matt, 2026-10-23). */
 function waitHint(step: LessonStep): string {
   if (step.kind === 'meet') return `Tap Find out on all ${step.cards.length} to go on.`;
-  if (step.kind === 'body') return 'Watch it to the end to go on.';
+  if (step.kind === 'body') return '';
   return 'Pick an answer to go on.';
 }
 
