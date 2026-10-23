@@ -705,6 +705,8 @@ function start(renderer: THREE.WebGLRenderer): void {
       game.step(dt, cmds.move, cmds.action, runner.running && params.dig);
       // A mound an opening was just made on stops lifting the worm before its next step.
       mounds?.sync(game.openings, game.mode);
+      // ?probe=1 (tests only): where the worm is underground.
+      if (params.probe) app.dataset.worm = `${game.worm.u[0].toFixed(3)} ${game.worm.v[0].toFixed(3)} ${game.worm.backing ? 1 : 0} ${game.heading ? 1 : 0}`;
     }
     hunt?.step(dt, playing, cmds.action, touchScreen);
     if (!frozen()) {

@@ -1,13 +1,17 @@
 import { advanceWave } from '../worm/wormShape';
 import { wormBody } from '../worm/bodyLength';
-import { boundaryOf, bound, B_F, B_TOP, type Slab } from './slab';
+import { boundaryOf, bound, B_TOP, type Slab } from './slab';
+import { markTop } from './burrowTop';
 import type { SoilGrid } from './soilGrid';
 import { ahead, soilAhead } from './soilFeel';
 import { castTail, digTunnel, CAST_EVERY, CAST_WINDOW, TUNNEL_R } from './burrowTrail';
 import type { Burrower } from './burrower';
 import type { Solids } from './solids';
 import { TOP_KEEP } from './solidShapes';
-import { keepOut, BACK_ANGLE, BACK_KEEP, BACK_SPEED, STUCK_REACH, STUCK_S, STUCK_SHARE, STUCK_TRIED } from './burrowBack';
+import {
+  decideBacking, keepOut, roomToTurn, spendBacking, stickNow, BACK_SPEED, BACK_STRAIGHT, BOTTOM_KEEP, END_KEEP, STICK_DEAD as DEAD,
+  STUCK_REACH, STUCK_SHARE,
+} from './burrowBack';
 import { backAlong } from './bodyTrail';
 import { hypot2 } from '../core/vec';
 
@@ -38,23 +42,16 @@ export const TURN_FLOOR = 0.8;
  * out; held there, it backed up in fits and starts).
  */
 const FREE_S = 0.3;
-/** A spent backing re-arms when the stick turns this far (radians) from where it was, or is let go. */
-const SPENT_TURN = 0.5;
 /** The head never comes nearer than this to the litter's top (solidShapes.ts). */
 export { TOP_KEEP };
-/** The head is "near the top" (Action = Come up) within this of the F top... */
-export const NEAR_TOP_IN = 0.2;
-/** ...and stops being near it below this (hysteresis: the prompt does not flicker at the line). */
-export const NEAR_TOP_OUT = 0.35;
+/** Where the head is against the top: at it (Action = Come up), and near it (the climb out starts there): burrowTop.ts. */
+export { NEAR_TOP_IN, NEAR_TOP_OUT } from './burrowTop';
 /**
  * The head eases to a stop within this of the slab's ends, its bottom and the line TOP_KEEP under
  * the leaves' top: only its motion toward that limit slows (smoothly, from nothing at the band's
  * edge), so it still slides along it. A one-frame stop there read as a glass wall.
  */
 const WALL_BAND = 0.35;
-/** The head's limits: this far inside the playable slab's ends, and above the slab's bottom. */
-const END_KEEP = 0.2;
-const BOTTOM_KEEP = 0.3;
 /** Head within this of its neck's way: farther, it turned back into its own neck. */
 const MAX_NECK_BEND = 0.6;
 /**
@@ -78,8 +75,6 @@ const EAT_WAVES = 1.9;
  * unit moved are the worm's length's (wormBody.wavesPerUnit: more for a shorter worm, bodyLength.ts).
  */
 export const BREATH_HZ = 0.22;
-/** Stick input below this is no input. */
-const DEAD = 0.15;
 /** Rates (1/s) of the two smoothing stages from the soil's speed to the worm's (two stages: no kink). */
 const WANT_RATE = 12;
 const SPEED_RATE = 8;
@@ -136,24 +131,17 @@ export function stepBurrowing(b: Burrower, s: Slab, g: SoilGrid, o: Solids, p: P
   way.du = du;
   way.dv = dv;
   way.mag = mag;
-  // Pointing back against the body while stuck: back up (and on while it points back).
-  // (Back is measured from the neck: the head itself never turns more than MAX_NECK_BEND off it.)
-  const stick = Math.atan2(dv, du);
-  const back = mag > DEAD && Math.abs(wrap(stick - Math.atan2(b.v[0] - b.v[1], b.u[0] - b.u[1]))) > (b.backing ? BACK_KEEP : BACK_ANGLE);
+  // Pointing behind or across the body while stuck: back up (burrowBack.ts decideBacking).
+  // (Off the neck's way: the head itself never turns more than MAX_NECK_BEND off it.)
+  stickNow.way = Math.atan2(dv, du);
+  stickNow.mag = mag;
+  stickNow.off = Math.abs(wrap(stickNow.way - Math.atan2(b.v[0] - b.v[1], b.u[0] - b.u[1])));
   const was = b.backing;
-  // Once backing has ended it does not start again until the stick is let go or turned SPENT_TURN
-  // (the neck's way swings as the body goes round its tunnel's bends: held still, the stick came to
-  // point back, and not, by turns, and the worm backed up in fits and starts).
-  if (b.backSpent && (mag <= DEAD || Math.abs(wrap(stick - b.spentWay)) > SPENT_TURN)) b.backSpent = false;
-  b.backing = back && !b.backSpent && (b.backing || (b.stuck >= STUCK_S && b.tried >= STUCK_TRIED));
-  if (was && !b.backing && !b.backSpent) {
-    b.backSpent = true;
-    b.spentWay = stick;
-  }
+  decideBacking(b);
   // Each way starts from rest (the head never flips from one way to the other at speed).
   if (b.backing !== was) b.want = b.speed = 0;
   if (b.backing) {
-    backStep(b, s, dt);
+    backStep(b, s, o, dt);
     return;
   }
   steer(b, g, dt);
@@ -167,7 +155,7 @@ export function stepBurrowing(b: Burrower, s: Slab, g: SoilGrid, o: Solids, p: P
  * rounded round a stone it may graze the stone's margin by up to about 0.017 u (measured
  * 2026-10-08; the tests allow 0.025), as the body does.
  */
-function backStep(b: Burrower, s: Slab, dt: number): void {
+function backStep(b: Burrower, s: Slab, o: Solids, dt: number): void {
   const n = b.u.length;
   const mag = way.mag;
   b.want += (BACK_SPEED * mag - b.want) * (1 - Math.exp(-WANT_RATE * dt));
@@ -180,17 +168,17 @@ function backStep(b: Burrower, s: Slab, dt: number): void {
   // The head keeps its facing, within its bend off the neck as the body moves under it.
   holdBend(b);
   // The tail at the trail's start (its tunnel's end): stop backing, and stay stopped while the stick
-  // still points back (pointing back again tries again, once stuck).
+  // still points back (pointing back again tries again, once stuck). Pointing across the body, it
+  // stops as soon as the head has room to turn that way.
   if (b.speed > 0.5 * BACK_SPEED * mag && moved < STUCK_SHARE * b.speed * dt) {
-    b.backing = false;
-    b.backSpent = true;
-    b.spentWay = Math.atan2(way.dv, way.du);
+    spendBacking(b, false);
+    b.want = b.speed = 0;
+  } else if (stickNow.off < BACK_STRAIGHT && roomToTurn(b, s, o)) {
+    spendBacking(b, true);
     b.want = b.speed = 0;
   }
   advanceWave(b.wave, moved, dt, 0.3, wormBody.wavesPerUnit, BREATH_HZ);
-  pt.u = b.u[0];
-  boundaryOf(s, B_F, pt);
-  b.nearTop = b.v[0] >= bound.v - (b.nearTop ? NEAR_TOP_OUT : NEAR_TOP_IN);
+  markTop(b, s);
 }
 
 /** Turns the head toward the way pointed, and eases the speed toward what the soil ahead allows. */
@@ -260,7 +248,5 @@ function digOn(b: Burrower, s: Slab, g: SoilGrid, dt: number): void {
   } else if (b.castLeft > 0) castTail(b, g, true);
   const full = Math.max(0.3, way.target);
   advanceWave(b.wave, moved * (1 + (EAT_WAVES - 1) * b.eat), dt, full, wormBody.wavesPerUnit, BREATH_HZ);
-  pt.u = b.u[0];
-  boundaryOf(s, B_F, pt);
-  b.nearTop = b.v[0] >= bound.v - (b.nearTop ? NEAR_TOP_OUT : NEAR_TOP_IN);
+  markTop(b, s);
 }

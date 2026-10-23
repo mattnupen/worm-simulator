@@ -75,6 +75,11 @@ export const TEXT = {
     verified: true,
   },
   burrowChoice: { kind: 'gameChoice', text: 'In the game you can dig any way you like.' },
+  /** V4 hot fix (burrowOut.ts): at the top, Action always comes up, heading out first where it must. */
+  comeUpChoice: {
+    kind: 'gameChoice',
+    text: 'In the game a worm comes up only where its whole body can lie out on open ground, so beside a rock, log or tree it first crawls under the leaves to an open spot.',
+  },
   // The opening scene (src/opening/script.ts; Matt's storyboard, 2026-10-16).
   openingBus: { kind: 'ui', text: '[A school bus pulls up]' },
   openingDoor: { kind: 'ui', text: '[Brakes hiss. The door opens]' },
