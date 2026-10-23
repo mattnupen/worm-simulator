@@ -49,10 +49,11 @@ Step 0 build side by side rather than absolute fps.
 ## Non-negotiables (students can't vote these away)
 
 - **Science honesty.** Every student-facing fact, in the game or on slides, has a source. In-game
-  text lives in `src/content/` with a source ID, and the build fails without one. Game
-  exaggerations are labelled "Game choice". A student idea that isn't true of real worms can
-  only ship as a labelled game choice, or become a "myth or fact?" teaching moment on the next
-  slides.
+  text lives in `src/content/` with a source ID, and the build fails without one. Anything the
+  game does that real worms don't is a game choice: it is recorded (a `gameChoice` line in
+  `src/content/`, and the version doc), but **never labelled "Game choice" on screen** (Matt,
+  2026-10-23), and nothing on screen may state it as a fact. A student idea that isn't true of
+  real worms can only ship as a recorded game choice, or become a "myth or fact?" teaching moment.
 - **Framing.** The forest is never "destroyed" or "dying". It *changed*: some species win and
   some lose.
 - **Accessibility.** This covers parent spec section 7. Meaning is never carried by colour
@@ -135,7 +136,7 @@ After the form closes, it also holds the results and the decisions.
 
 **Game design thinking (Matt, 2026-10-21):** every round's lesson ends with a short "Think like a
 game designer" step, and the form's design section asks the round's "door questions" about one
-concrete feature, with a "why" for each decision (real worm, or a labelled game choice?) and what
+concrete feature, with a "why" for each decision (real worm, or a game choice?) and what
 motivates players. See `docs/codev/game-design-thinking.md`.
 
 **Learning happens in the game (Matt, 2026-10-11).** Each round opens with an interactive

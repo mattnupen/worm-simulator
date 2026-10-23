@@ -66,14 +66,16 @@ Pick one concrete thing from the round's topic (for V4, eating). Ask:
 | **Who or what else is involved?** | Robins hunt where the food is. Other worms eat the same leaves. |
 | **What size, where, when?** | Real size? Only at night, only when damp? |
 | **What can go wrong?** (The tester's question.) | Getting stuck on a leaf, eating while a robin attacks. |
-| **Real, or a game choice? Why?** | Real worms have no energy bar. If we add one, it is a labelled game choice, and we say why. |
+| **Real, or a game choice? Why?** | Real worms have no energy bar. If we add one, it is a game choice, and we say why. |
 
 ## 4. The "why" test for every decision
 
 For each answer, ask *why*, then check it against the goals:
 
 - **More real, or less real? Why?** Real is the default here (science honesty). Less real is fine
-  when it serves a goal (fair, clear, fun, accessible), and it is then labelled "Game choice".
+  when it serves a goal (fair, clear, fun, accessible). Record it as a game choice with its
+  reason. Whether to label it on screen is the project's call (Worm Simulator never does, Matt
+  2026-10-23); either way, the game never states it as a fact.
 - **Who does it help?** Which players, which motivation?
 - **How will we know it worked?** What should students notice or do differently? (P5's "testable
   bet".)

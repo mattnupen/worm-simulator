@@ -52,7 +52,7 @@ chemistry, economics, at any grade level.
 
 ## Ground rules
 
-- **Science honesty.** Every fact in the game has a source. Exaggerations are labelled "Game choice".
+- **Science honesty.** Every fact in the game has a source. Exaggerations are recorded as game choices, never stated as facts.
 - **Student privacy.** The game has no accounts, tracking or data collection. No student
   names or identifying data appear in this repo.
 - **Accessibility and performance.** The game runs at 30 fps on low-end school Chromebooks and

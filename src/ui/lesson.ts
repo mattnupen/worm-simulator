@@ -3,7 +3,7 @@ import { el, button, menu, type Button } from './dom';
 import { icon } from './icons';
 import type { Shell } from './shell';
 import { SOURCES, type SourceId } from '../content/sources';
-import { GAME_CHOICE_PREFIX, shown, type Line } from '../content/text';
+import { shown, type Line } from '../content/text';
 import type { BodyStop, Cue, Lesson, LessonStep, More, Photo, Video } from '../content/lessons/lesson';
 import { PHOTO_URLS } from '../content/lessons/photos';
 import { youTubeId } from '../content/lessons/lesson';
@@ -481,13 +481,12 @@ function body(step: Extract<LessonStep, { kind: 'body' }>, c: BodyCtx): HTMLElem
 }
 
 /**
- * One line as the player sees it; a game choice is labelled. A fact carries its source id, and the
+ * One line as the player sees it (never labelled "Game choice"). A fact carries its source id, and the
  * Sources list (sourcesDialog) names every source shown on the page, so the card stays clean.
  */
 function line(l: Line, className = ''): HTMLElement {
   const p = el('p', '', `lesson-line ${className}`.trim());
-  if (l.kind === 'gameChoice') p.append(el('strong', GAME_CHOICE_PREFIX.trimEnd()), ' ', l.text);
-  else p.textContent = shown(l);
+  p.textContent = shown(l);
   readable(p);
   if (l.kind === 'fact') p.dataset.source = l.source;
   return p;

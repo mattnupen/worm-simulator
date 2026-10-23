@@ -15,8 +15,8 @@ the live page before class. **Used** marks the facts the lesson shows.
   moves through the body, and how much of the leaf layer they can eat. An energy meter in the game
   would be a **Game choice**.
 - **Worms don't eat living roots or green plants.** They eat dead and decaying matter, plus the
-  fungi and bacteria on it. A student design where the worm eats living plants must be labelled a
-  game choice.
+  fungi and bacteria on it. A student design where the worm eats living plants would be a game
+  choice (recorded, never stated as a fact in the game).
 - **The body diagram is a drawing.** It is drawn in code, simplified and not to scale (the real
   crop and gizzard sit around segments 15 to 19 in many earthworms). It is captioned as a drawing.
 
@@ -55,7 +55,7 @@ the live page before class. **Used** marks the facts the lesson shows.
 Facts already in the repo and reused: robins hunt by staring with head tipped (Cornell, All About
 Birds), and robins depend on earthworms (MN Breeding Bird Atlas). See `predators.md`.
 
-## Could not source well (leave out, or label "Game choice")
+## Could not source well (leave out, or keep as a game choice)
 - How much a worm eats a day ("its own weight a day" is common online, with no study behind it here).
 - How a worm turns food into energy, or how long it can go without food.
 - Microbes "softening" leaves before nightcrawlers eat them (widely said; not found on a checked page).

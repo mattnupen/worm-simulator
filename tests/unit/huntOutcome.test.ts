@@ -40,11 +40,10 @@ describe('what happens when the grip mini-game ends (V4 spec 3)', () => {
     expect(nextLength(0.8000001)).toBe(0.6);
   });
 
-  it('the notes carry their lines, the fact with its source and the game choices labelled', () => {
+  it('the notes carry their lines, the fact with its source, and no "Game choice" label', () => {
     expect(HUNT_NOTES.broke).toContain(TEXT.huntBroke.text);
     expect(HUNT_NOTES.broke).toContain('Earthworm Society of Britain');
-    expect(HUNT_NOTES.tooShort).toContain('Game choice: ');
-    expect(HUNT_NOTES.grip).toContain('Game choice: ');
+    for (const note of Object.values(HUNT_NOTES)) expect(note).not.toMatch(/game choice|energy bar|new life/i);
     expect(HUNT_NOTES.grip).toContain('Journey North');
   });
 });

@@ -13,7 +13,7 @@ eating shown "zoomed in for detail". It replaces the flat diagram (`src/ui/lesso
 | Inside view | **Cut in half**, like a real dissection |
 | The leaf | **Pulled into the burrow**, after a double check (below) |
 | Detail | **Eating zoomed in for detail** |
-| Labels | **No "Game choice" label in the game** (see "Open question") |
+| Labels | **No "Game choice" label anywhere in the game** (2026-10-23) |
 
 ## Where nightcrawlers really eat (the double check)
 
@@ -85,9 +85,7 @@ carry over; NatureSpot is added as a new source.
 - **P8:** this is the lesson for V4, not V4's headline build; it reaches students only when V4 ships.
 - **P14:** nothing is saved or sent.
 
-## Open question
+## Labels
 
-"Never label things as 'Game choice' in the game" (Matt, 2026-10-22) changes a CLAUDE.md
-non-negotiable ("Game exaggerations are labelled 'Game choice'"), and the game already shows the label
-in places (`GAME_CHOICE_PREFIX`, `src/content/text.ts`). This scene doesn't need the label either
-way. Matt to decide whether the rule changes for the whole game.
+No "Game choice" labels anywhere in the game (Matt, 2026-10-23, the whole game): the scene's
+simplifications above are recorded here and in the research doc, never shown on screen.

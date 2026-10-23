@@ -70,10 +70,10 @@ test('a robin grabs the worm; tapping Space while it pulls, resting while it reg
   }
   await expect(page.locator('.hunt-energy')).toBeHidden({ timeout: 30_000 });
   await expect(page.locator('.hunt-note')).toHaveText('You got away!');
-  // Back in its new burrow, underground; then the grip's fact with its source, and the energy bar labelled.
+  // Back in its new burrow, underground; then the grip's fact with its source (no Game choice label).
   await expect(page.locator('#app')).toHaveAttribute('data-place', 'underground');
   await expect(page.locator('.hunt-note')).toContainText('setae', { timeout: 30_000 });
-  await expect(page.locator('.hunt-note')).toContainText('Game choice: Real worms don\'t have an energy bar.');
+  await expect(page.locator('.hunt-note')).not.toContainText('Game choice');
 });
 
 /** After the robin wins: its nest (skipped) or the note about how it ended, matching `note`. */

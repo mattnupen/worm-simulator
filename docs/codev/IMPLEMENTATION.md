@@ -115,7 +115,7 @@ the way we designed it?" (Yes / Partly / No, and "What's different?") (P6). Ther
 or rating grids: no goal check and no fun rating (Matt, 2026-10-12).
 
 Constraints shown to students (P2): one new thing per design, it has to fit one week's build, and
-it has to be true of real worms or labelled as a game choice (`CLAUDE.md` non-negotiables).
+it has to be true of real worms or be a game choice that the game never states as fact (`CLAUDE.md` non-negotiables).
 
 ## 4. How a round runs
 
@@ -154,8 +154,8 @@ the game's intro, they design for it on the form, the design is built, and they 
   name.
 - **In the game:** a short credit such as "Designed by Period 3" next to a student-designed
   feature. Student drawings can be used in the build when they have no names or faces and Matt
-  approves them. In-game text still goes through `src/content/` with its source or "Game choice"
-  label.
+  approves them. In-game text still goes through `src/content/` with its source, or as a
+  recorded game choice (never labelled on screen, Matt 2026-10-23).
 
 ## 7. Equity (P10)
 

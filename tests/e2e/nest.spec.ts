@@ -33,7 +33,7 @@ test('?nest=1: "Watch the nest scene" leads Start; Esc skips to the fact card, a
   await page.keyboard.press('Escape');
   const fact = page.locator(`[data-source="${TEXT.nestFact.source}"]`, { hasText: TEXT.nestFact.text });
   await expect(fact).toBeVisible();
-  await expect(page.getByText(shown(TEXT.nestSeason))).toBeVisible();
+  await expect(page.getByText(shown(TEXT.nestSeason))).toHaveCount(0);
   await expect(page.getByRole('link', { name: /Cornell Lab/ })).toHaveAttribute('target', '_blank');
   const go = button(page, shown(TEXT.nestContinue));
   await expect(go).toBeFocused();
