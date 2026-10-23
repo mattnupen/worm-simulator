@@ -10,6 +10,7 @@ import { buildNephridia } from './nephridia';
 import { buildMuscles } from './muscles';
 import { buildSection } from './section';
 import { PoseMap, STRAIGHT, applyPose, type Pose } from './pose';
+import { HIGHLIGHT, addHighlight, setHighlight } from './highlight';
 
 /** The body systems a learner can show or hide (each one is its own group of draws). */
 export const SYSTEMS = ['skin', 'muscles', 'gut', 'blood', 'nerves', 'repro', 'nephridia'] as const;
@@ -50,7 +51,11 @@ export class AnatomyWorm {
   readonly materials: AnatomyMaterials;
   private readonly entries: Entry[] = [];
   private readonly on = new Map<SystemId, boolean>();
+  private readonly fades = new Map<SystemId, number>();
+  /** A see-through twin of each material, built at load, for fading a system. */
+  private readonly twins = new Map<THREE.Material, THREE.Material>();
   private mode: WallMode = 'solid';
+  private lit: SystemId | null = null;
 
   constructor(readonly detail: Detail = 'full') {
     this.materials = createMaterials();
@@ -119,13 +124,29 @@ export class AnatomyWorm {
       this.add('nephridia', 'near', neph.near, mat.nephridia);
       this.add('nephridia', 'rest', neph.rest, mat.nephridia);
     }
-    for (const s of SYSTEMS) this.on.set(s, true);
+    for (const s of SYSTEMS) {
+      this.on.set(s, true);
+      this.fades.set(s, 1);
+    }
     this.group.name = 'anatomyWorm';
     this.refresh();
   }
 
   private add(system: SystemId, part: Part, m: Mesher, material: THREE.Material, patch = false, fine = false): void {
     if (m.vertexCount === 0) return;
+    if (this.detail === 'full' && !material.userData.hlOn) {
+      addHighlight(material);
+      if (material === this.materials.skin) addHighlight(this.materials.skinGhost);
+    }
+    if (this.detail === 'full' && !this.twins.has(material)) {
+      const twin = material.clone();
+      twin.onBeforeCompile = material.onBeforeCompile;
+      twin.customProgramCacheKey = material.customProgramCacheKey;
+      twin.userData = material.userData;
+      twin.transparent = true;
+      twin.depthWrite = false;
+      this.twins.set(material, twin);
+    }
     const mesh = new THREE.Mesh(m.build(), material);
     mesh.name = `${system}:${part}`;
     if (material.transparent) mesh.renderOrder = 2;
@@ -135,6 +156,51 @@ export class AnatomyWorm {
 
   setSystem(system: SystemId, on: boolean): void {
     this.on.set(system, on);
+    if (on && (this.fades.get(system) ?? 1) <= 0) this.fades.set(system, 1);
+    this.refresh();
+  }
+
+  /** How solid a system is drawn: 1 solid, 0 hidden, in between see-through (a slider). */
+  setFade(system: SystemId, f: number): void {
+    const v = Math.min(1, Math.max(0, f));
+    this.fades.set(system, v);
+    this.on.set(system, v > 0);
+    this.refresh();
+  }
+
+  fade(system: SystemId): number {
+    return this.isOn(system) ? (this.fades.get(system) ?? 1) : 0;
+  }
+
+  /** Lights up the part of `system` within `radius` mm of the line a to b (world), or nothing. */
+  highlight(system: SystemId | null, a?: THREE.Vector3, b?: THREE.Vector3, radius = 1): void {
+    this.lit = system;
+    if (a) HIGHLIGHT.hlA.value.copy(a);
+    if (b ?? a) HIGHLIGHT.hlB.value.copy((b ?? a)!);
+    HIGHLIGHT.hlRadius.value = radius;
+    this.refresh();
+  }
+
+  /** The system a drawn mesh belongs to (for tapping a part). */
+  systemOf(mesh: THREE.Object3D): SystemId | null {
+    return this.entries.find((e) => e.mesh === mesh)?.system ?? null;
+  }
+
+  /** Compiles every material and its see-through twin now, so a slider never stalls. */
+  precompile(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera): void {
+    const saved = this.entries.map((e) => [e.mesh.material, e.mesh.visible] as const);
+    for (const pass of [0, 1]) {
+      for (const e of this.entries) {
+        const base = e.mesh.material as THREE.Material;
+        e.mesh.material = pass ? (this.twins.get(base) ?? base) : base;
+        e.mesh.visible = true;
+      }
+      renderer.compile(scene, camera);
+    }
+    this.entries.forEach((e, i) => {
+      e.mesh.material = saved[i][0];
+      e.mesh.visible = saved[i][1];
+    });
     this.refresh();
   }
 
@@ -182,15 +248,22 @@ export class AnatomyWorm {
       if (e.patch) v &&= !this.isOn('muscles') || ghost;
       if (e.fine) v &&= !ghost;
       e.mesh.visible = v;
-      if (e.system === 'skin' && e.part !== 'cut' && this.detail === 'full') {
-        if (e.mesh.userData.setae || e.mesh.material === this.materials.setae) {
-          e.mesh.userData.setae = true;
-          e.mesh.visible = v && !ghost;
-        } else {
-          e.mesh.material = ghost ? this.materials.skinGhost : this.materials.skin;
-          e.mesh.renderOrder = ghost ? 3 : 0;
-        }
+      if (this.detail !== 'full') continue;
+      const base = (e.mesh.userData.base ??= e.mesh.material) as THREE.Material;
+      let mat = base;
+      if (e.system === 'skin' && e.part !== 'cut') {
+        if (base === this.materials.setae) e.mesh.visible = v && !ghost;
+        else if (ghost) mat = this.materials.skinGhost;
       }
+      const f = this.fades.get(e.system) ?? 1;
+      if (f < 1 && mat !== this.materials.skinGhost) {
+        const twin = this.twins.get(base)!;
+        twin.opacity = (base.transparent ? base.opacity : 1) * f;
+        mat = twin;
+      }
+      e.mesh.material = mat;
+      e.mesh.renderOrder = mat === this.materials.skinGhost ? 3 : mat.transparent ? 2 : 0;
+      setHighlight(mat, this.lit === e.system);
     }
   }
 }

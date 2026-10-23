@@ -22,9 +22,42 @@
   color: var(--ink); cursor: pointer;
 }
 .anatomy-btn:hover { background: var(--tint-strong); }
-.anatomy-btn:focus-visible, .anatomy-label:focus-visible, .anatomy-card a:focus-visible {
+.anatomy-btn:focus-visible, .anatomy-label:focus-visible, .anatomy-card a:focus-visible,
+.anatomy-tab:focus-visible, .anatomy-panel input:focus-visible, .anatomy-tree summary:focus-visible {
   outline: 4px solid var(--focus); outline-offset: 2px;
 }
+/* Tabs: the open one is marked by a thick underline and bold text, not colour alone. */
+.anatomy-tabs { display: flex; gap: 4px; margin: 12px 0 4px; border-bottom: 1px solid var(--line); }
+.anatomy-tab {
+  flex: 1; font: inherit; font-size: 18px; min-height: 48px; background: none; border: 0;
+  border-bottom: 4px solid transparent; color: var(--ink-soft); cursor: pointer;
+}
+.anatomy-tab[aria-selected='true'] { color: var(--ink); font-weight: 700; border-bottom-color: var(--accent); }
+.anatomy-page { padding-top: 6px; }
+.anatomy-page[hidden], .anatomy-panel [hidden] { display: none; }
+
+/* Layers: a switch and a how-solid slider for each body system. */
+.anatomy-slider { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 12px; }
+.anatomy-slider-name { font-weight: 700; color: var(--ink-soft); font-size: 18px; }
+.anatomy-layer { display: grid; grid-template-columns: minmax(0, 1fr) 96px 48px; align-items: center; gap: 8px; margin: 6px 0; }
+.anatomy-layer .anatomy-btn { text-align: left; }
+.anatomy-slider-value { font-size: 18px; text-align: right; color: var(--ink-soft); }
+.anatomy-panel input[type='range'] { width: 100%; min-height: 48px; accent-color: var(--accent); cursor: pointer; }
+.anatomy-reset { margin-top: 8px; width: 100%; }
+
+/* Parts: a search box over the list of every part, grouped by system. */
+.anatomy-find { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.anatomy-find input {
+  font: inherit; font-size: 18px; min-height: 48px; padding: 6px 12px;
+  border-radius: var(--radius-row); border: 1px solid var(--line-strong); background: var(--card-solid); color: var(--ink);
+}
+.anatomy-tree summary { font-weight: 700; min-height: 48px; display: flex; align-items: center; cursor: pointer; }
+.anatomy-tree .anatomy-row { margin: 0 0 8px 12px; }
+.anatomy-card-acts { margin-top: 4px; }
+
+/* The selected part's label: a thick edge and a dot ring, as well as the yellow glow. */
+.anatomy-label[aria-current='true'] { border: 3px solid var(--ink); }
+
 /* On/off: a tick and a strong edge, not colour alone. */
 .anatomy-toggle[aria-pressed='true'] { background: var(--row-picked); border: 2px solid var(--line-strong); }
 .anatomy-toggle[aria-pressed='true']::before { content: '✓ '; font-weight: 700; }

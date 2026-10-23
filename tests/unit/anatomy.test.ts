@@ -7,6 +7,9 @@ import { ANCHORS } from '../../src/anatomy/anchors';
 import { AnatomyWorm, SYSTEMS } from '../../src/anatomy/model';
 import { VIEWS } from '../../src/anatomy/views';
 import { ANATOMY_PARTS } from '../../src/content/anatomy';
+import { pickPart } from '../../src/anatomy/picking';
+import { gutPoint } from '../../src/anatomy/gut';
+import { segMid } from '../../src/anatomy/layout';
 
 const sample = (x: number) => sampleBody(x, { s: 0, w: 0, h: 0, yc: 0 });
 
@@ -88,5 +91,26 @@ describe('the anatomy model', () => {
     const after = new Set<THREE.BufferGeometry>();
     worm.group.traverse((o) => { if ((o as THREE.Mesh).isMesh) after.add((o as THREE.Mesh).geometry); });
     expect(after).toEqual(geometries);
+  });
+
+  it('fades a system with see-through twins built at load, and hides it at zero', () => {
+    const worm = new AnatomyWorm('full');
+    const meshes = worm.group.children.filter((m) => m.name.startsWith('gut:')) as THREE.Mesh[];
+    const solid = meshes.map((m) => m.material);
+    worm.setFade('gut', 0.4);
+    for (const m of meshes) expect((m.material as THREE.Material).transparent, m.name).toBe(true);
+    expect(meshes.every((m, i) => m.material !== solid[i])).toBe(true);
+    worm.setFade('gut', 0);
+    expect(worm.isOn('gut')).toBe(false);
+    worm.setFade('gut', 1);
+    expect(meshes.map((m) => m.material)).toEqual(solid);
+  });
+
+  it('names the part under a tap', () => {
+    const worm = new AnatomyWorm('full');
+    const at = (x: number) => worm.poseMap.point(gutPoint(x, Math.PI / 2, new THREE.Vector3()), new THREE.Vector3());
+    expect(pickPart('gut', at(segMid(17)), worm.poseMap)).toBe('gizzard');
+    expect(pickPart('gut', at(segMid(15)), worm.poseMap)).toBe('crop');
+    expect(pickPart('gut', at(segMid(60)), worm.poseMap)).toBe('intestine');
   });
 });

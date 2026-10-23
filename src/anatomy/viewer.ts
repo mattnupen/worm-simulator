@@ -9,6 +9,7 @@ import './anatomy.css';
 import { AnatomyWorm } from './model';
 import { LabelLayer } from './labels';
 import { buildPanel } from './panel';
+import { Selection } from './select';
 import { viewById, type View } from './views';
 
 /**
@@ -61,17 +62,22 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
 
   // Labels and buttons (`&ui=0` hides both, for clean pictures).
   const ui = params.get('ui') !== '0';
-  const labels = new LabelLayer(worm, camera);
+  let selection: Selection | null = null;
+  const labels = new LabelLayer(worm, camera, (id) => selection?.select(id));
   if (ui) root.appendChild(labels.root);
   let dirty = true;
   const redraw = () => { dirty = true; };
+  selection = new Selection(worm, labels, camera, controls);
+  let current: View = viewById(params.get('view'));
 
   const show = (view: View): void => {
     labels.set(view.labels);
     worm.pose(view.pose);
     worm.setWall(view.wall);
+    current = view;
+    selection?.clear();
     for (const s of ['skin', 'muscles', 'gut', 'blood', 'nerves', 'repro', 'nephridia'] as const) {
-      worm.setSystem(s, view.systems.includes(s));
+      worm.setFade(s, view.systems.includes(s) ? 1 : 0);
     }
     camera.position.set(...view.camera);
     controls.target.set(...view.target);
@@ -94,8 +100,25 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     shadow.scale.set(size.x * 1.15 + 8, size.z * 1.6 + 10, 1);
     controls.update();
   };
-  show(viewById(params.get('view')));
-  const panel = ui ? root.appendChild(buildPanel(worm, show, redraw, labels)) : null;
+  show(current);
+  const built = ui ? buildPanel(worm, {
+    pick: show,
+    select: (id) => selection.select(id, undefined, true),
+    reset: () => {
+      for (const s of ['skin', 'muscles', 'gut', 'blood', 'nerves', 'repro', 'nephridia'] as const) worm.setFade(s, current.systems.includes(s) ? 1 : 0);
+    },
+    changed: redraw,
+    labels,
+  }) : null;
+  const panel = built ? root.appendChild(built.el) : null;
+  selection.changed = () => { built?.sync(); redraw(); };
+  // A tap (not a drag) on the worm selects the part under the finger.
+  let down: { x: number; y: number } | null = null;
+  renderer.domElement.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
+  renderer.domElement.addEventListener('pointerup', (e) => {
+    if (ui && down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6) selection.tap(e.clientX, e.clientY, renderer.domElement);
+    down = null;
+  });
   // On a wide screen the buttons sit on the left: centre the worm in the space beside them.
   const panelSide = (): number => (panel && window.innerWidth > 700 ? panel.getBoundingClientRect().right : 0);
   const frame = (): void => {
@@ -132,7 +155,11 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
   controls.addEventListener('change', () => { dirty = true; });
   window.addEventListener('resize', () => { dirty = true; });
   let frames = 0;
+  let last = performance.now();
   renderer.setAnimationLoop(() => {
+    const now = performance.now();
+    if (selection.tick(Math.min(0.1, (now - last) / 1000))) dirty = true;
+    last = now;
     controls.update();
     if (!dirty) return;
     dirty = false;
@@ -140,6 +167,8 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     else renderer.render(scene, camera);
     if (ui) labels.update(window.innerWidth, window.innerHeight, panelSide());
     if (++frames === 1) {
+      // Every see-through and glowing variant compiles now, so sliders never stall later.
+      if (worm.detail === 'full') worm.precompile(renderer, scene, camera);
       document.body.dataset.anatomyReady = '1';
       (window as unknown as { anatomyStats: unknown }).anatomyStats = worm.stats();
     }

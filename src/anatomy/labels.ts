@@ -7,9 +7,12 @@ import type { AnatomyWorm } from './model';
 
 /**
  * Atlas-style labels: a name on a card, a thin leader line and a dot on the part. Tapping a label
- * opens a card with its one sourced fact and a link to the source (new tab). Labels are real
- * buttons, so they work with a keyboard and a screen reader as well as a mouse or a finger.
+ * selects the part (`onPick`); the selected part's card holds its one sourced fact, a link to the
+ * source (new tab) and actions. Labels are real buttons, so they work with a keyboard and a screen
+ * reader as well as a mouse or a finger.
  */
+export interface CardAction { text: string; run: () => void }
+
 export class LabelLayer {
   readonly root = document.createElement('div');
   private readonly svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -18,8 +21,12 @@ export class LabelLayer {
   private shown: readonly AnatomyPartId[] = [];
   private readonly p = new THREE.Vector3();
   enabled = true;
+  /** The selected part: its label always shows (while its system does) and is marked. */
+  selected: AnatomyPartId | null = null;
+  /** Where the selected part's leader points, if not its usual place (a tapped point). */
+  selectedAt: THREE.Vector3 | null = null;
 
-  constructor(private readonly worm: AnatomyWorm, private readonly camera: THREE.Camera) {
+  constructor(private readonly worm: AnatomyWorm, private readonly camera: THREE.Camera, private readonly onPick: (id: AnatomyPartId) => void) {
     this.root.className = 'anatomy-labels';
     this.svg.setAttribute('aria-hidden', 'true');
     this.root.appendChild(this.svg);
@@ -32,7 +39,7 @@ export class LabelLayer {
       button.querySelector('.anatomy-label-name')!.textContent = shown(part.name);
       const sci = button.querySelector('.anatomy-label-sci');
       if (sci) sci.textContent = part.science;
-      button.addEventListener('click', () => this.open(id));
+      button.addEventListener('click', () => this.onPick(id));
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       dot.setAttribute('r', '4');
@@ -50,7 +57,6 @@ export class LabelLayer {
   /** The parts this view labels; only those whose system is showing are drawn. */
   set(ids: readonly AnatomyPartId[]): void {
     this.shown = ids;
-    this.card.hidden = true;
   }
 
   /** Re-places every label for the current camera (call after each frame that moved). */
@@ -59,10 +65,14 @@ export class LabelLayer {
     const visible: { id: AnatomyPartId; x: number; y: number }[] = [];
     for (const [id, it] of this.items) {
       const part = ANATOMY_PARTS[id];
-      let on = this.enabled && this.shown.includes(id) && this.worm.isOn(part.system);
-      if (on && ANCHORS[id].inside && this.worm.wall === 'solid' && part.system !== 'muscles') on = false;
+      const sel = this.selected === id;
+      it.button.setAttribute('aria-current', String(sel));
+      let on = ((this.enabled && this.shown.includes(id)) || sel) && this.worm.isOn(part.system);
+      if (on && !sel && ANCHORS[id].inside && this.worm.wall === 'solid' && part.system !== 'muscles') on = false;
       if (on) {
-        this.worm.poseMap.point(it.base, this.p).project(this.camera);
+        if (sel && this.selectedAt) this.p.copy(this.selectedAt);
+        else this.worm.poseMap.point(it.base, this.p);
+        this.p.project(this.camera);
         on = this.p.z < 1 && Math.abs(this.p.x) < 0.97 && Math.abs(this.p.y) < 0.95 && (this.p.x + 1) * 0.5 * width > left + 40;
       }
       it.button.hidden = !on;
@@ -98,10 +108,15 @@ export class LabelLayer {
     });
   }
 
-  private open(id: AnatomyPartId): void {
+  close(): void {
+    this.card.hidden = true;
+  }
+
+  /** Opens the part's card, with buttons for `actions` (hide, fade, only this). */
+  open(id: AnatomyPartId, actions: readonly CardAction[], onClose: () => void): void {
     const part = ANATOMY_PARTS[id];
     const src = SOURCES[part.fact.source];
-    this.card.innerHTML = '<h2></h2><p class="anatomy-card-sci"></p><p class="anatomy-card-fact"></p><p class="anatomy-card-src"><span></span> <a target="_blank" rel="noopener noreferrer"></a></p><button type="button" class="anatomy-btn"></button>';
+    this.card.innerHTML = '<h2></h2><p class="anatomy-card-sci"></p><p class="anatomy-card-fact"></p><p class="anatomy-card-src"><span></span> <a target="_blank" rel="noopener noreferrer"></a></p><div class="anatomy-row anatomy-card-acts"></div>';
     this.card.querySelector('h2')!.textContent = shown(part.name);
     this.card.querySelector('.anatomy-card-sci')!.textContent = part.science;
     this.card.querySelector('.anatomy-card-fact')!.textContent = shown(part.fact);
@@ -109,13 +124,25 @@ export class LabelLayer {
     const a = this.card.querySelector('a')!;
     a.href = src.url;
     a.textContent = sourceName(part.fact.source);
-    const close = this.card.querySelector('button')!;
+    const row = this.card.querySelector('.anatomy-card-acts')!;
+    for (const a of actions) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'anatomy-btn';
+      b.textContent = a.text;
+      b.addEventListener('click', a.run);
+      row.appendChild(b);
+    }
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'anatomy-btn';
     close.textContent = shown(ANATOMY_UI.close);
     close.addEventListener('click', () => {
       this.card.hidden = true;
+      onClose();
       this.items.get(id)?.button.focus();
     });
+    row.appendChild(close);
     this.card.hidden = false;
-    close.focus();
   }
 }

@@ -56,8 +56,9 @@ export function furrow(x: number): number {
 
 /** 1 over the back and sides of the clitellum's segments, fading out low on the sides. */
 export function saddle(s: number, th: number): number {
-  const along = smooth(CLITELLUM[0] - 1.0, CLITELLUM[0] + 0.9, s) * smooth(CLITELLUM[1] + 1.9, CLITELLUM[1] + 0.3, s);
-  return along * smooth(-0.45, -0.02, Math.cos(th));
+  const along = smooth(CLITELLUM[0] - 0.45, CLITELLUM[0] + 0.35, s) * smooth(CLITELLUM[1] + 1.4, CLITELLUM[1] + 0.6, s);
+  // Down to just above the belly setae: it reaches round the sides but leaves the belly bare.
+  return along * smooth(-0.62, -0.25, Math.cos(th));
 }
 
 const angleDist = (a: number, b: number): number => {
@@ -115,13 +116,13 @@ export function bodyPoint(x: number, th: number, depth: number, out: THREE.Vecto
   let k = 1 - depth;
   const g = furrow(x);
   const sad = saddle(b.s, th);
-  k -= g * (0.024 - 0.01 * sad) * sharp;
+  k -= g * (0.024 - 0.017 * sad) * sharp;
   if (b.s >= 2 && b.s <= SEGMENTS) {
     const f = b.s % 1;
     k += 0.004 * Math.sin(f * Math.PI) * sharp;
   }
   // The clitellum is a saddle: swollen over the back and sides, not under the belly.
-  k += 0.19 * sad * Math.max(0, 1 - depth * 3);
+  k += 0.27 * sad * Math.max(0, 1 - depth * 3);
   if (depth === 0) {
     k += swellings(b.s, th);
     if (x < segStart(2)) {
@@ -169,7 +170,7 @@ const C = {
   dorsalBack: new THREE.Color('#6e3a40'),
   tip: new THREE.Color('#c48a78'),
   tail: new THREE.Color('#d9a690'),
-  clitellum: new THREE.Color('#9c6656'),
+  clitellum: new THREE.Color('#b9725a'),
   gland: new THREE.Color('#e7c0a6'),
   dark: new THREE.Color('#3a1418'),
   vessel: new THREE.Color('#6a1422'),
@@ -186,7 +187,7 @@ export function skinColor(x: number, th: number, out: THREE.Color): THREE.Color 
   out.copy(C.belly).lerp(work, back * (0.96 - 0.3 * fade));
   // The clitellum: a saddle over the back and sides, not under the belly.
   const clit = saddle(s, th);
-  out.lerp(C.clitellum, clit * 0.6);
+  out.lerp(C.clitellum, clit * 0.88);
   // Its glandular surface: a fine, even grain.
   out.multiplyScalar(1 + clit * (fbm2(x * 16, th * 30, 2, 23, 0) - 0.5) * 0.18);
   // Furrows show paler, with fewer pigment cells; the dorsal vessel shows through the back.
