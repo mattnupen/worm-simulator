@@ -7,7 +7,7 @@ import { advanceWave, type WaveState } from '../worm/wormShape';
 import { WORM_HALF_WIDTH, type WormPose } from '../worm/wormMesh';
 import { FULL_SPACING, WORM_SEGMENTS, wormBody } from '../worm/bodyLength';
 import { EasedGap } from '../worm/easedGap';
-import { bellyHeight, crawlSurface, type WormSurface } from '../worm/surfaceHeight';
+import { bellyHeight, crawlSurface, wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import { floorHeight } from '../surface/litterDepth';
 import { createDisturbance, recentre, stampBody, decay, clearDisturbance, type DisturbanceMap } from '../surface/disturbance';
 import {
@@ -76,6 +76,7 @@ export class Crawl {
   /** PUSHER_STRIDE floats per pusher ([x, z, radius, strength, top, under, belly, fall]), for the hero leaves. */
   readonly pushers = this.push.out;
   private readonly surf: WormSurface = { y: 0 };
+  private readonly floorSurf: WormSurface = { y: 0 };
   private readonly prevBody: Vec3[] = blank(WORM_SEGMENTS);
   private readonly prevCam: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly prevHead: Vec3 = { x: 0, y: 0, z: 0 };
@@ -198,6 +199,11 @@ export class Crawl {
   /** Belly height at (x, z): on the floor under the litter, or up on a rock or the log (crawlMove.ts calls it). */
   restAt(x: number, z: number): number {
     return this.rest(x, z);
+  }
+
+  /** Whether (x, z) is up on a rock or the log (crawlMove.ts calls it). */
+  onProp(x: number, z: number): boolean {
+    return crawlSurface(x, z, this.surf).y > wormSurface(x, z, this.floorSurf).y;
   }
 
   /** Belly height at (x, z): on the floor under the litter, or up on a rock or the log. */

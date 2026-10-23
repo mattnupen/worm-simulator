@@ -149,7 +149,9 @@ describe('the floor under the buried worm covers everything the hole shows (V2 s
     let sharp = 0;
     let rays = 0;
     let missed = 0;
-    for (let s = 0; s < 2400; s++) {
+    // 3000 steps, not 2400 (V4 hot fix): the worm now crawls up over rocks and the log, out of the
+    // litter, so the same course spends less time buried; the longer drive keeps the sample as big.
+    for (let s = 0; s < 3000; s++) {
       if (s % 300 === 0) {
         tx = (rng() * 2 - 1) * H;
         tz = (rng() * 2 - 1) * H;

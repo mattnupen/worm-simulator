@@ -11,14 +11,20 @@ import { pushOut, slideMove } from '../surface/obstacles';
  * Allocates nothing.
  */
 
-/** What gives the surface height (the belly's) at (x, z): the crawl. */
-export interface RestAt { restAt(x: number, z: number): number }
+/** What gives the surface height (the belly's) at (x, z), and whether that is up on a rock or the log: the crawl. */
+export interface RestAt {
+  restAt(x: number, z: number): number;
+  onProp(x: number, z: number): boolean;
+}
+
+/** keepPace halves its search this many times (the move to within 1/1000 of it). */
+const PACE_HALVINGS = 10;
 
 /** Backing up goes at this share of the crawl's speed (as stepWorm backs up). */
 export const BACK_SHARE = 0.5;
 
 /**
- * Keeps the pace up and down a slope: the ground move from `from` (resting at from.y) to `to` is
+ * Keeps the pace up and down a rock or the log: the ground move from `from` (resting at from.y) to `to` is
  * shortened so that, with the rise or fall it makes, it is no longer than it was flat. So the worm
  * crawls up a rock or the log's flank at its own pace instead of shooting up it.
  */
@@ -26,11 +32,22 @@ export function keepPace(from: Vec3, to: Vec3, rest: RestAt): void {
   const dx = to.x - from.x;
   const dz = to.z - from.z;
   const run = hypot2(dx, dz);
-  if (!(run > 1e-9)) return;
+  // Only on a prop: the floor's own gentle slopes keep the crawl's plain pace (and the speed test's path).
+  if (!(run > 1e-9) || (!rest.onProp(from.x, from.z) && !rest.onProp(to.x, to.z))) return;
   const rise = rest.restAt(to.x, to.z) - from.y;
-  const k = run / Math.sqrt(run * run + rise * rise);
-  to.x = from.x + dx * k;
-  to.z = from.z + dz * k;
+  if (rise * rise < 1e-12) return;
+  // The share of the move whose 3D length is the flat one: found by halving, since a steep wall at
+  // a prop's foot can change the rise sharply within one step.
+  let lo = 0;
+  let hi = 1;
+  for (let k = 0; k < PACE_HALVINGS; k++) {
+    const m = (lo + hi) / 2;
+    const r = rest.restAt(from.x + dx * m, from.z + dz * m) - from.y;
+    if ((run * m) * (run * m) + r * r <= run * run) lo = m;
+    else hi = m;
+  }
+  to.x = from.x + dx * lo;
+  to.z = from.z + dz * lo;
 }
 
 /**

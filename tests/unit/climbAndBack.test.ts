@@ -8,6 +8,8 @@ import { PLAY_HALF } from '../../src/surface/terrain';
 import { LOCOMOTION } from '../../src/game/drive';
 import { createBody } from '../../src/worm/body';
 import { DT, driveTo } from './cameraPress';
+import * as THREE from 'three';
+import type { WormPose } from '../../src/worm/wormMesh';
 
 /**
  * V4 hot fix (Matt): "allow worm to crawl over rocks and logs" and "going backwards doesn't always
@@ -99,27 +101,45 @@ describe('crawling over rocks and the log (V4 hot fix)', () => {
     for (const k of rocks()) {
       const c = new Crawl();
       let top = -Infinity;
+      let nearest = Infinity;
       driveTo(c, k.x, k.z, 1500, (cc) => {
         const h = cc.motion.head;
         top = Math.max(top, h.y - floorHeight(h.x, h.z));
+        nearest = Math.min(nearest, Math.hypot(h.x - k.x, h.z - k.z));
       });
-      expect(Math.hypot(c.motion.head.x - k.x, c.motion.head.z - k.z)).toBeLessThan(0.5);
+      // Right over its middle (before, it stopped at its edge, a footprint away).
+      expect(nearest).toBeLessThan(0.3);
       expect(top).toBeGreaterThan(k.size * 0.3);
     }
   }, 60_000);
 
-  it('the camera follows up onto the log and never sinks into it or the rocks', () => {
-    const c = at(0, 9, 0);
-    let lastY = c.cam.pos.y;
-    let jump = 0;
-    for (let s = 0; s < 60 * 9; s++) {
-      c.step(DT, { x: s > 300 ? 0.6 : 0, y: 1 });
-      const p = c.cam.pos;
-      expect(p.y).toBeGreaterThan(climbAt(p.x, p.z) + 0.4);
-      jump = Math.max(jump, Math.abs(p.y - lastY));
-      lastY = p.y;
+  it('the camera follows up onto the log and over rocks, never sinking into them, jumping or spinning', () => {
+    const camera = new THREE.PerspectiveCamera(60, 1366 / 768, 0.2, 120);
+    const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
+    const q = new THREE.Quaternion();
+    // Up the log, turning along its top and down; then over the big rock.
+    for (const [x, z, h, target] of [[0, 9, 0, null], [-3, -4, Math.PI, rocks()[0]]] as const) {
+      const c = at(x, z, h);
+      let last = { ...c.cam.pos };
+      let jump = 0;
+      let turn = 0;
+      c.interpolate(1, 0, pose, camera);
+      q.copy(camera.quaternion);
+      const watch = (cc: Crawl) => {
+        const p = cc.cam.pos;
+        expect(p.y).toBeGreaterThan(climbAt(p.x, p.z) + 0.4);
+        jump = Math.max(jump, Math.hypot(p.x - last.x, p.y - last.y, p.z - last.z));
+        last = { ...p };
+        cc.interpolate(1, 0, pose, camera);
+        turn = Math.max(turn, camera.quaternion.angleTo(q));
+        q.copy(camera.quaternion);
+      };
+      if (target) driveTo(c, target.x, target.z, 900, watch);
+      else for (let s = 0; s < 60 * 9; s++) { c.step(DT, { x: s > 300 ? 0.6 : 0, y: 1 }); watch(c); }
+      // As past a trunk (solidProps.test.ts): at most about 10 m/s while it eases off the log.
+      expect(jump).toBeLessThan(0.18);
+      expect(turn).toBeLessThan(0.07);
     }
-    expect(jump).toBeLessThan(0.08);
   });
 });
 
@@ -134,7 +154,7 @@ describe('backing up and getting unstuck (V4 hot fix)', () => {
     const t0 = bent[WORM_SEGMENTS - 1];
     expect(Math.hypot(t.x - t0.x, t.z - t0.z)).toBeGreaterThan(0.7);
     const h0 = bent[0];
-    const h = c.motion.head;
+    const h = { ...c.motion.head };
     expect(Math.hypot(h.x - h0.x, h.z - h0.z)).toBeGreaterThan(0.5);
     // Heading points along the neck.
     expect(Math.abs(Math.atan2(c.body[0].x - c.body[1].x, c.body[0].z - c.body[1].z) - c.motion.heading)).toBeLessThan(1e-6);

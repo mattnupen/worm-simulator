@@ -174,14 +174,16 @@ export class CameraClearance {
    * log taller than it) it has come within CAM_HARD_MARGIN of, so it slides along the prop's edge.
    * Its line to the follow point may briefly cross a prop's edge while the reach eases in; it is never
    * moved along that line, which jumped (and shook, step to step) when the line's first blocked
-   * point jumped. Then it is kept CAM_GROUND_MARGIN above the litter, the rocks and the log.
+   * point jumped. Then it is kept CAM_GROUND_MARGIN above the litter (and off the tops of the rocks and the log).
    */
   keepOut(pos: Vec3): void {
     pushOutTall(pos, CAM_HARD_MARGIN);
-    // Never nearer the litter, or a rock or the log (ground the worm climbs), than
-    // CAM_GROUND_MARGIN, easing onto that floor over its last GROUND_EASE (a smooth curve, so its
-    // rise and fall never turn sharply).
-    const u = pos.y - Math.max(litterTopHeight(pos.x, pos.z), climbAt(pos.x, pos.z)) - CAM_GROUND_MARGIN;
+    // Never nearer the litter than CAM_GROUND_MARGIN, easing onto that floor over its last
+    // GROUND_EASE (a smooth curve, so its rise and fall never turn sharply). Over a rock or the log
+    // (the worm climbs them; pushOutTall keeps the camera off their flanks) never nearer their top
+    // than CAM_HARD_MARGIN, a backstop.
+    const ground = Math.max(litterTopHeight(pos.x, pos.z) + CAM_GROUND_MARGIN, climbAt(pos.x, pos.z) + CAM_HARD_MARGIN);
+    const u = pos.y - ground;
     if (u < GROUND_EASE) pos.y += (u < -GROUND_EASE ? 0 : ((u + GROUND_EASE) * (u + GROUND_EASE)) / (4 * GROUND_EASE)) - u;
   }
 }

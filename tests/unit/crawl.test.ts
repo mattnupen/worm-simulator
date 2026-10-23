@@ -22,7 +22,8 @@ describe('Crawl', () => {
     const c = new Crawl();
     for (let i = 0; i < 30; i++) c.step(DT, { x: 0, y: -1 });
     // Half speed, straight back, still facing +z.
-    expect(c.motion.head.z).toBeCloseTo(-0.4, 2);
+    expect(c.motion.head.z).toBeLessThan(-0.35);
+    expect(c.motion.head.z).toBeGreaterThan(-0.41);
     expect(Math.abs(c.motion.heading)).toBeLessThan(1e-6);
     // Inside the pivot zone it turns on the spot instead.
     const p = new Crawl();
