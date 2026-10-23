@@ -3,6 +3,7 @@ import { ANATOMY_PARTS, ANATOMY_UI, type AnatomyPartId } from '../content/anatom
 import { SOURCES, sourceName } from '../content/sources';
 import { shown } from '../content/text';
 import { ANCHORS } from './anchors';
+import { anatomyIcon, type AnatomyIcon } from './icons';
 import type { AnatomyWorm } from './model';
 
 /**
@@ -11,7 +12,8 @@ import type { AnatomyWorm } from './model';
  * source (new tab) and actions. Labels are real buttons, so they work with a keyboard and a screen
  * reader as well as a mouse or a finger.
  */
-export interface CardAction { text: string; run: () => void }
+/** A card button: a short word and an icon on screen, the full action for screen readers. */
+export interface CardAction { text: string; label: string; icon: AnatomyIcon; run: () => void }
 
 export class LabelLayer {
   readonly root = document.createElement('div');
@@ -113,7 +115,7 @@ export class LabelLayer {
   }
 
   /** Opens the part's card, with buttons for `actions` (hide, fade, only this). */
-  open(id: AnatomyPartId, actions: readonly CardAction[], onClose: () => void): void {
+  open(id: AnatomyPartId, actions: readonly CardAction[], onClose: () => void, system?: { icon: AnatomyIcon; name: string }): void {
     const part = ANATOMY_PARTS[id];
     const src = SOURCES[part.fact.source];
     this.card.innerHTML = '<h2></h2><p class="anatomy-card-sci"></p><p class="anatomy-card-fact"></p><p class="anatomy-card-src"><span></span> <a target="_blank" rel="noopener noreferrer"></a></p><div class="anatomy-row anatomy-card-acts"></div>';
@@ -125,24 +127,33 @@ export class LabelLayer {
     a.href = src.url;
     a.textContent = sourceName(part.fact.source);
     const row = this.card.querySelector('.anatomy-card-acts')!;
+    if (system) {
+      // Which body system the buttons act on, as a small tag.
+      const tag = document.createElement('span');
+      tag.className = 'anatomy-card-system';
+      tag.append(anatomyIcon(system.icon), system.name);
+      row.before(tag);
+    }
     for (const a of actions) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'anatomy-btn';
-      b.textContent = a.text;
+      b.setAttribute('aria-label', a.label);
+      b.append(anatomyIcon(a.icon), a.text);
       b.addEventListener('click', a.run);
       row.appendChild(b);
     }
     const close = document.createElement('button');
     close.type = 'button';
-    close.className = 'anatomy-btn';
-    close.textContent = shown(ANATOMY_UI.close);
+    close.className = 'anatomy-card-close';
+    close.setAttribute('aria-label', shown(ANATOMY_UI.close));
+    close.append(anatomyIcon('close'));
     close.addEventListener('click', () => {
       this.card.hidden = true;
       onClose();
       this.items.get(id)?.button.focus();
     });
-    row.appendChild(close);
+    this.card.prepend(close);
     this.card.hidden = false;
   }
 }

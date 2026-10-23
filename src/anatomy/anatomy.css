@@ -14,12 +14,11 @@
 .anatomy-panel h1 { font-family: var(--font-display); font-size: 1.35rem; margin: 0; color: var(--accent); }
 .anatomy-group h2 { font-size: 18px; margin: 12px 0 6px; color: var(--ink-soft); font-weight: 700; }
 .anatomy-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.anatomy-hint { font-size: 18px; color: var(--ink-soft); margin: 12px 0 0; line-height: 1.35; }
 
 .anatomy-btn {
   font: inherit; font-size: 18px; min-height: 48px; min-width: 48px; padding: 8px 14px;
   border-radius: var(--radius-pill); border: 1px solid var(--line); background: var(--tint);
-  color: var(--ink); cursor: pointer;
+  color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
 }
 .anatomy-btn:hover { background: var(--tint-strong); }
 .anatomy-btn:focus-visible, .anatomy-label:focus-visible, .anatomy-card a:focus-visible,
@@ -29,7 +28,8 @@
 /* Tabs: the open one is marked by a thick underline and bold text, not colour alone. */
 .anatomy-tabs { display: flex; gap: 4px; margin: 12px 0 4px; border-bottom: 1px solid var(--line); }
 .anatomy-tab {
-  flex: 1; font: inherit; font-size: 18px; min-height: 48px; background: none; border: 0;
+  flex: 1; font: inherit; font-size: 18px; min-height: 56px; background: none; border: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   border-bottom: 4px solid transparent; color: var(--ink-soft); cursor: pointer;
 }
 .anatomy-tab[aria-selected='true'] { color: var(--ink); font-weight: 700; border-bottom-color: var(--accent); }
@@ -38,10 +38,15 @@
 
 /* Layers: a switch and a how-solid slider for each body system. */
 .anatomy-slider { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 12px; }
-.anatomy-slider-name { font-weight: 700; color: var(--ink-soft); font-size: 18px; }
-.anatomy-layer { display: grid; grid-template-columns: minmax(0, 1fr) 96px 48px; align-items: center; gap: 8px; margin: 6px 0; }
-.anatomy-layer .anatomy-btn { text-align: left; }
-.anatomy-slider-value { font-size: 18px; text-align: right; color: var(--ink-soft); }
+.anatomy-slider-name { font-weight: 700; color: var(--ink-soft); font-size: 18px; display: flex; align-items: center; gap: 8px; }
+.anatomy-layer { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 10px; margin: 2px 0; }
+.anatomy-layer-name {
+  font: inherit; font-size: 18px; min-height: 48px; display: flex; align-items: center; gap: 8px;
+  background: none; border: 0; padding: 0 6px; border-radius: var(--radius-row); color: var(--ink); cursor: pointer; text-align: left;
+}
+.anatomy-layer-name:hover { background: var(--tint); }
+.anatomy-layer-name[aria-pressed='false'] { color: var(--ink-soft); text-decoration: line-through; }
+.anatomy-layer-name::before { content: none !important; }
 .anatomy-panel input[type='range'] { width: 100%; min-height: 48px; accent-color: var(--accent); cursor: pointer; }
 .anatomy-reset { margin-top: 8px; width: 100%; }
 
@@ -58,13 +63,38 @@
 /* The selected part's label: a thick edge and a dot ring, as well as the yellow glow. */
 .anatomy-label[aria-current='true'] { border: 3px solid var(--ink); }
 
+/* Icons sit beside (or above) their word and take the text colour. */
+.anatomy-icon { display: inline-flex; width: 24px; height: 24px; flex: none; }
+.anatomy-icon svg { width: 100%; height: 100%; }
+.anatomy-tile-small { min-height: 64px; }
+.anatomy-tree summary { gap: 8px; }
+.anatomy-tile.anatomy-toggle[aria-pressed='true'] { background: var(--row-picked); border: 3px solid var(--line-strong); font-weight: 700; }
+.anatomy-card h2 { padding-right: 48px; }
+.anatomy-card-close {
+  position: absolute; top: 8px; right: 8px; width: 48px; height: 48px; display: flex; align-items: center;
+  justify-content: center; border: 0; border-radius: var(--radius-pill); background: none; color: var(--ink); cursor: pointer;
+}
+.anatomy-card-close:hover { background: var(--tint); }
+.anatomy-card-close:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; }
+.anatomy-card-system { display: inline-flex; align-items: center; gap: 8px; }
+.anatomy-btn[hidden] { display: none; }
+.anatomy-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.anatomy-tile {
+  font: inherit; font-size: 18px; min-height: 72px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 4px; border-radius: var(--radius-row); border: 1px solid var(--line);
+  background: var(--tint); color: var(--ink); cursor: pointer;
+}
+.anatomy-tile .anatomy-icon { width: 30px; height: 30px; }
+.anatomy-tile:hover { background: var(--tint-strong); }
+.anatomy-tile:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; }
+.anatomy-card-system { font-weight: 700; color: var(--ink-soft); margin: 0 0 6px; }
+
 /* On/off: a tick and a strong edge, not colour alone. */
 .anatomy-toggle[aria-pressed='true'] { background: var(--row-picked); border: 2px solid var(--line-strong); }
-.anatomy-toggle[aria-pressed='true']::before { content: '✓ '; font-weight: 700; }
-.anatomy-toggle[aria-pressed='false']::before { content: '○ '; color: var(--ink-soft); }
+.anatomy-btn.anatomy-toggle[aria-pressed='true']::after { content: '✓'; font-weight: 700; }
 
 .anatomy-labels { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
-.anatomy-labels svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.anatomy-labels > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .anatomy-labels line { stroke: var(--ink); stroke-width: 1.5; opacity: 0.75; }
 .anatomy-labels circle { fill: #fff; stroke: var(--ink); stroke-width: 2; }
 .anatomy-label {

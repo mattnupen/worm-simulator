@@ -31,7 +31,7 @@ test('the anatomy viewer opens, labels its parts, and opens a sourced fact card'
   await page.locator('.anatomy-panel').getByRole('button', { name: shown(ANATOMY_PARTS.crop.name), exact: true }).click();
   await expect(card).toContainText(shown(ANATOMY_PARTS.crop.fact));
 
-  // A how-solid slider fades a system; the card's Hide hides it, and Show everything brings it back.
+  // A how-solid slider fades a system; the card's Hide hides it, and Reset brings it back.
   await page.getByRole('tab', { name: shown(ANATOMY_UI.tabLayers) }).click();
   const skin = page.getByLabel(`${shown(ANATOMY_UI.sysSkin)}, ${shown(ANATOMY_UI.howSolid)}`);
   await skin.fill('40');

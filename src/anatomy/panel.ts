@@ -2,6 +2,7 @@ import { ANATOMY_PARTS, ANATOMY_UI, type AnatomyPartId } from '../content/anatom
 import { shown, type Line } from '../content/text';
 import { SYSTEMS, type AnatomyWorm, type SystemId, type WallMode } from './model';
 import { VIEWS, type View } from './views';
+import { anatomyIcon, type AnatomyIcon } from './icons';
 
 export const SYSTEM_NAMES: Record<SystemId, Line> = {
   skin: ANATOMY_UI.sysSkin,
@@ -11,6 +12,14 @@ export const SYSTEM_NAMES: Record<SystemId, Line> = {
   nerves: ANATOMY_UI.sysNerves,
   repro: ANATOMY_UI.sysRepro,
   nephridia: ANATOMY_UI.sysNephridia,
+};
+export const SYSTEM_ICONS: Record<SystemId, AnatomyIcon> = {
+  skin: 'worm', muscles: 'muscles', gut: 'gut', blood: 'blood', nerves: 'nerves', repro: 'repro', nephridia: 'nephridia',
+};
+/** The views in the menu, each with its icon (the see-through view is the Body wall's job here). */
+const VIEW_ICONS: Record<string, AnatomyIcon> = {
+  outside: 'worm', head: 'head', saddle: 'saddle', tail: 'tail', belly: 'belly', inside: 'inside',
+  gut: 'gut', blood: 'blood', nerves: 'nerves', repro: 'repro', muscles: 'muscles', nephridia: 'nephridia',
 };
 const WALLS: readonly WallMode[] = ['solid', 'cut', 'ghost'];
 /** The peel slider takes these off in turn, outside in. */
@@ -25,10 +34,11 @@ export interface PanelHooks {
 }
 
 /**
- * The viewer's side panel, laid out like a medical atlas in three tabs: Views (preset views, the
- * body wall, labels), Layers (a peel-away slider, then a switch and a how-solid slider for each
- * body system) and Parts (a search box over every part, grouped by system). Real buttons, sliders
- * and a search field: on/off is a tick or a circle, never colour alone. `sync` refreshes every
+ * The viewer's side panel, laid out like a medical atlas in three tabs: Views (picture tiles for
+ * the preset views, the body wall, labels), Layers (a peel-away slider, then one slider per body
+ * system; tapping its name switches it on or off) and Parts (a search box over every part).
+ * Every button has an icon and a word. Real buttons, sliders and a search field: on/off is a
+ * tick or a circle, never colour alone. `sync` refreshes every
  * control after a change made elsewhere (a card's Hide, a view).
  */
 export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElement; sync: () => void } {
@@ -37,7 +47,7 @@ export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElem
   panel.setAttribute('aria-label', shown(ANATOMY_UI.title));
   const head = el('div', 'anatomy-panel-head');
   const title = el('h1', '', shown(ANATOMY_UI.title));
-  const fold = button(shown(ANATOMY_UI.hidePanel), 'anatomy-btn anatomy-fold');
+  const fold = button(shown(ANATOMY_UI.hidePanel), 'anatomy-btn anatomy-fold', 'fold');
   head.append(title, fold);
   const body = el('div', 'anatomy-panel-body');
   panel.append(head, body);
@@ -45,7 +55,8 @@ export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElem
   fold.addEventListener('click', () => {
     const open = body.hidden;
     body.hidden = !open;
-    fold.textContent = shown(open ? ANATOMY_UI.hidePanel : ANATOMY_UI.showPanel);
+    fold.lastChild!.textContent = shown(open ? ANATOMY_UI.hidePanel : ANATOMY_UI.showPanel);
+    fold.classList.toggle('anatomy-fold-closed', !open);
     fold.setAttribute('aria-expanded', String(open));
   });
 
@@ -60,8 +71,9 @@ export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElem
     tabButtons[k].setAttribute('aria-selected', String(k === i));
     tabButtons[k].tabIndex = k === i ? 0 : -1;
   });
-  for (const [i, line] of [ANATOMY_UI.tabViews, ANATOMY_UI.tabLayers, ANATOMY_UI.tabParts].entries()) {
-    const t = button(shown(line), 'anatomy-tab');
+  const TABS = [[ANATOMY_UI.tabViews, 'views'], [ANATOMY_UI.tabLayers, 'layers'], [ANATOMY_UI.tabParts, 'parts']] as const;
+  for (const [i, [line, ic]] of TABS.entries()) {
+    const t = button(shown(line), 'anatomy-tab', ic);
     t.setAttribute('role', 'tab');
     t.id = `anatomy-tab-${i}`;
     t.addEventListener('click', () => show(i));
@@ -82,17 +94,13 @@ export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElem
   }
 
   const toggles: { b: HTMLButtonElement; on: () => boolean }[] = [];
-  const sliders: { r: HTMLInputElement; out: HTMLElement; s: SystemId }[] = [];
+  const sliders: { r: HTMLInputElement; s: SystemId }[] = [];
   let peelLayers: SystemId[] = [];
   const peel = document.createElement('input');
-  const reset = button(shown(ANATOMY_UI.reset), 'anatomy-btn anatomy-reset');
+  const reset = button(shown(ANATOMY_UI.reset), 'anatomy-btn anatomy-reset', 'reset');
   const sync = () => {
     for (const t of toggles) t.b.setAttribute('aria-pressed', String(t.on()));
-    for (const { r, out, s } of sliders) {
-      const v = Math.round(worm.fade(s) * 100);
-      r.value = String(v);
-      out.textContent = `${v}%`;
-    }
+    for (const { r, s } of sliders) r.value = String(Math.round(worm.fade(s) * 100));
     // The peel slider starts from what is showing now.
     peelLayers = PEEL.filter((s) => worm.isOn(s));
     peel.value = '0';
@@ -103,26 +111,32 @@ export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElem
 
   // Views tab.
   const views = group(pages[0], '');
+  views.classList.add('anatomy-tiles');
   for (const v of VIEWS) {
-    const b = button(shown(v.name), 'anatomy-btn');
+    const ic = VIEW_ICONS[v.id];
+    if (!ic) continue;
+    const b = button(shown(v.name), 'anatomy-tile', ic);
     b.addEventListener('click', () => { hooks.pick(v); sync(); });
     views.appendChild(b);
   }
   const wall = group(pages[0], shown(ANATOMY_UI.wall));
+  wall.classList.add('anatomy-tiles');
   for (const w of WALLS) {
-    const b = button(shown(ANATOMY_UI[w]), 'anatomy-btn anatomy-toggle');
+    const b = button(shown(ANATOMY_UI[w]), 'anatomy-tile anatomy-tile-small anatomy-toggle', w);
     b.addEventListener('click', () => { worm.setWall(w); sync(); });
     toggles.push({ b, on: () => worm.wall === w });
     wall.appendChild(b);
   }
-  const lab = button(shown(ANATOMY_UI.labels), 'anatomy-btn anatomy-toggle');
+  const lab = button(shown(ANATOMY_UI.labels), 'anatomy-btn anatomy-toggle', 'labels');
   lab.addEventListener('click', () => { hooks.labels.enabled = !hooks.labels.enabled; sync(); });
   toggles.push({ b: lab, on: () => hooks.labels.enabled });
   group(pages[0], '').appendChild(lab);
 
   // Layers tab: one slider peels skin, then muscles, then the food tube away.
   const peelRow = el('label', 'anatomy-slider anatomy-peel');
-  peelRow.append(el('span', 'anatomy-slider-name', shown(ANATOMY_UI.peel)), peel);
+  const peelName = el('span', 'anatomy-slider-name');
+  peelName.append(anatomyIcon('peel'), shown(ANATOMY_UI.peel));
+  peelRow.append(peelName, peel);
   peel.type = 'range';
   peel.min = '0';
   peel.step = '5';
@@ -138,7 +152,7 @@ export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElem
   pages[1].appendChild(peelRow);
   for (const s of SYSTEMS) {
     const row = el('div', 'anatomy-layer');
-    const b = button(shown(SYSTEM_NAMES[s]), 'anatomy-btn anatomy-toggle');
+    const b = button(shown(SYSTEM_NAMES[s]), 'anatomy-layer-name anatomy-toggle', SYSTEM_ICONS[s]);
     b.addEventListener('click', () => { worm.setSystem(s, !worm.isOn(s)); sync(); });
     toggles.push({ b, on: () => worm.isOn(s) });
     const r = document.createElement('input');
@@ -147,10 +161,9 @@ export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElem
     r.max = '100';
     r.step = '5';
     r.setAttribute('aria-label', `${shown(SYSTEM_NAMES[s])}, ${shown(ANATOMY_UI.howSolid)}`);
-    const out = el('output', 'anatomy-slider-value');
     r.addEventListener('input', () => { worm.setFade(s, Number(r.value) / 100); sync(); });
-    sliders.push({ r, out, s });
-    row.append(b, r, out);
+    sliders.push({ r, s });
+    row.append(b, r);
     pages[1].appendChild(row);
   }
   reset.addEventListener('click', () => { hooks.reset(); sync(); });
@@ -160,14 +173,18 @@ export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElem
   const find = el('label', 'anatomy-find');
   const q = document.createElement('input');
   q.type = 'search';
-  find.append(el('span', 'anatomy-slider-name', shown(ANATOMY_UI.find)), q);
+  const findName = el('span', 'anatomy-slider-name');
+  findName.append(anatomyIcon('parts'), shown(ANATOMY_UI.find));
+  find.append(findName, q);
   pages[2].appendChild(find);
   const items: { b: HTMLButtonElement; text: string; box: HTMLDetailsElement }[] = [];
   for (const s of SYSTEMS) {
     const box = document.createElement('details');
     box.className = 'anatomy-tree';
     box.open = true;
-    box.appendChild(el('summary', '', shown(SYSTEM_NAMES[s])));
+    const sum = el('summary');
+    sum.append(anatomyIcon(SYSTEM_ICONS[s]), shown(SYSTEM_NAMES[s]));
+    box.appendChild(sum);
     const list = el('div', 'anatomy-row');
     box.appendChild(list);
     for (const [id, p] of Object.entries(ANATOMY_PARTS) as [AnatomyPartId, (typeof ANATOMY_PARTS)[AnatomyPartId]][]) {
@@ -185,23 +202,24 @@ export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElem
     for (const box of new Set(items.map((i) => i.box))) box.hidden = items.every((i) => i.box !== box || i.b.hidden);
   });
 
-  const hint = el('p', 'anatomy-hint', shown(ANATOMY_UI.hint));
-  body.appendChild(hint);
   show(0);
   for (const t of toggles) t.b.setAttribute('aria-pressed', String(t.on()));
   return { el: panel, sync };
 }
 
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] {
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
   if (text !== undefined) e.textContent = text;
   return e;
 }
 
-function button(text: string, cls: string): HTMLButtonElement {
-  const b = el('button', cls, text);
+/** A button with an icon and its word (the word in its own span, so it can change). */
+function button(text: string, cls: string, ic?: AnatomyIcon): HTMLButtonElement {
+  const b = el('button', cls);
   b.type = 'button';
+  if (ic) b.appendChild(anatomyIcon(ic));
+  b.appendChild(el('span', 'anatomy-word', text));
   return b;
 }
 

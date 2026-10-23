@@ -3,9 +3,10 @@ import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js
 import { ANATOMY_PARTS, ANATOMY_UI, type AnatomyPartId } from '../content/anatomy';
 import { shown } from '../content/text';
 import { ANCHORS } from './anchors';
-import type { LabelLayer } from './labels';
+import type { CardAction, LabelLayer } from './labels';
 import { SYSTEMS, type AnatomyWorm } from './model';
-import { SYSTEM_NAMES } from './panel';
+import { SYSTEM_ICONS, SYSTEM_NAMES } from './panel';
+import type { AnatomyIcon } from './icons';
 import { glowFor, pickPart } from './picking';
 
 /**
@@ -46,13 +47,14 @@ export class Selection {
     this.worm.highlight(part.system, g.a, g.b, g.radius);
     this.labels.selected = id;
     this.labels.selectedAt = hit?.clone() ?? null;
-    const name = shown(SYSTEM_NAMES[part.system]).toLowerCase();
-    const act = (line: typeof ANATOMY_UI.actHide, run: () => void) => ({ text: `${shown(line)} ${name}`, run: () => { run(); this.changed(); } });
+    const name = shown(SYSTEM_NAMES[part.system]);
+    const act = (line: typeof ANATOMY_UI.actHide, icon: AnatomyIcon, run: () => void): CardAction =>
+      ({ text: shown(line), label: `${shown(line)} ${name.toLowerCase()}`, icon, run: () => { run(); this.changed(); } });
     this.labels.open(id, [
-      act(ANATOMY_UI.actHide, () => { this.worm.setFade(part.system, 0); this.clear(); }),
-      act(ANATOMY_UI.actFade, () => this.worm.setFade(part.system, 0.3)),
-      act(ANATOMY_UI.actOnly, () => { for (const s of SYSTEMS) if (s !== part.system && s !== 'skin') this.worm.setFade(s, 0); this.worm.setFade('skin', Math.min(this.worm.fade('skin'), 0.25)); }),
-    ], () => this.clear());
+      act(ANATOMY_UI.actHide, 'hide', () => { this.worm.setFade(part.system, 0); this.clear(); }),
+      act(ANATOMY_UI.actFade, 'fade', () => this.worm.setFade(part.system, 0.3)),
+      act(ANATOMY_UI.actOnly, 'only', () => { for (const s of SYSTEMS) if (s !== part.system && s !== 'skin') this.worm.setFade(s, 0); this.worm.setFade('skin', Math.min(this.worm.fade('skin'), 0.25)); }),
+    ], () => this.clear(), { icon: SYSTEM_ICONS[part.system], name });
     if (flyTo) this.flyTo(id);
     this.changed();
   }
