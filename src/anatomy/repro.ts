@@ -72,7 +72,7 @@ export function buildRepro(): ReproParts {
       const rx = segAt(n <= 10 ? 10 : 11, 0.52);
       const base = V(rx, floorY(rx) + 1.15, side * 0.75);
       const mid = V((g.x + base.x) / 2, (g.y + base.y) / 2 - 0.1, side * (Math.abs(g.z) + 0.75) / 2 + side * 0.25);
-      sweep(m, [g.clone(), mid, base], (t) => 0.22 * big * (1 - 0.45 * t) + 0.08, IVORY, { radial: 10, per: 0.1 });
+      sweep(m, [g.clone(), mid, base], (t) => 0.14 * big * (1 - 0.45 * t) + 0.06, IVORY, { radial: 10, per: 0.1 });
     });
     // Testes (small, near the front wall of 10 and 11, beside the nerve cord) and sperm funnels.
     for (let n = ORGANS.testes[0]; n <= ORGANS.testes[1]; n++) {

@@ -14,8 +14,8 @@ import { blob, sweep } from './sweep';
 
 const TUBE = new THREE.Color('#efe2cf');
 const BLOODY = new THREE.Color('#c97f72');
-const paint = (u: number, v: number, _p: THREE.Vector3, o: THREE.Color) =>
-  o.copy(TUBE).lerp(BLOODY, 0.35 * (0.5 + 0.5 * Math.sin(u * 40 + v * 6)));
+const paint = (u: number, _v: number, _p: THREE.Vector3, o: THREE.Color) =>
+  o.copy(TUBE).lerp(BLOODY, 0.25 * (0.5 + 0.5 * Math.sin(u * 12)));
 
 export function buildNephridia(): { far: Mesher; near: Mesher; rest: Mesher } {
   const out = { far: new Mesher(), near: new Mesher(), rest: new Mesher() };
@@ -25,28 +25,26 @@ export function buildNephridia(): { far: Mesher; near: Mesher; rest: Mesher } {
     for (const side of [1, -1]) {
       const m = bucket(x0, side, out);
       // The funnel sits on the septum in front, low beside the nerve cord.
-      const funnel = insideWall(x0 - 0.06, side * (Math.PI - 0.45), 0.3, new THREE.Vector3());
+      const funnel = insideWall(x0 - 0.06, side * (Math.PI - 0.42), 0.3, new THREE.Vector3());
       blob(m, funnel, new THREE.Vector3(0.07, 0.13, 0.11), paint, { amp: 0.2, freq: 5, seed: n, rows: 8, cols: 10 });
       const pts: THREE.Vector3[] = [funnel.clone()];
-      const N = 56;
-      for (let i = 1; i <= N; i++) {
+      // Through the septum, then three neat loops lying against the side wall, low down: the same
+      // shape in every segment, mirrored left and right.
+      pts.push(insideWall(x0 + 0.12 * len, side * (Math.PI - 0.55), 0.24, new THREE.Vector3()));
+      const N = 54;
+      for (let i = 0; i <= N; i++) {
         const t = i / N;
-        // A long loop up the side wall and back down (the two strands side by side), folded into
-        // hairpins along the segment.
-        const climb = Math.sin(t * Math.PI);
-        const back = Math.tanh((t - 0.5) * 10);
-        // Low on the side, beside the nerve cord and under the gut; no two segments coil alike.
-        const th = Math.PI - (0.5 + (0.75 + 0.12 * Math.sin(n * 1.7)) * climb);
-        const wob = 0.3 + 0.08 * Math.sin(n * 2.3);
-        const x = x0 + len * (0.5 + wob * Math.sin(t * Math.PI * (6 + (n % 3)) + n) + 0.08 * Math.sin(t * Math.PI * 17 + n * 0.7) + 0.07 * back);
-        const mm = 0.12 + 0.1 * (0.5 + 0.5 * Math.cos(t * Math.PI * 14)) + 0.07 * (back + 1);
-        pts.push(insideWall(x, side * th, mm, new THREE.Vector3()));
+        const phi = t * 3 * 2 * Math.PI;
+        const x = x0 + len * (0.25 + 0.4 * t + 0.12 * Math.sin(phi));
+        const th = Math.PI - (0.85 + 0.2 * Math.cos(phi));
+        pts.push(insideWall(x, side * th, 0.2 + 0.05 * Math.cos(phi), new THREE.Vector3()));
       }
-      // The bladder, then the duct out to the pore.
-      const bl = insideWall(x0 + 0.35 * len, side * (Math.PI - 0.62), 0.14, new THREE.Vector3());
-      blob(m, bl, new THREE.Vector3(0.12, 0.1, 0.1), paint, { rows: 8, cols: 10 });
+      // The bladder, then the duct out to the pore low on the side.
+      const bl = insideWall(x0 + 0.8 * len, side * (Math.PI - 0.62), 0.16, new THREE.Vector3());
+      blob(m, bl, new THREE.Vector3(0.13, 0.1, 0.1), paint, { rows: 8, cols: 10 });
       pts.push(bl);
-      sweep(m, pts, (t) => 0.06 + 0.025 * Math.sin(t * Math.PI), paint, { radial: 7, per: 0.06 });
+      pts.push(insideWall(x0 + 0.88 * len, side * (Math.PI - 0.6), -0.02, new THREE.Vector3()));
+      sweep(m, pts, () => 0.065, paint, { radial: 7, per: 0.05 });
     }
   }
   return out;

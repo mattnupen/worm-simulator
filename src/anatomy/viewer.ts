@@ -33,7 +33,7 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
   const scene = new THREE.Scene();
   scene.background = studioBackdrop();
   const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.16).texture;
   scene.environmentIntensity = 0.55;
   const key = new THREE.DirectionalLight(0xfff4ea, 2.1);
   key.position.set(-30, 60, 50);

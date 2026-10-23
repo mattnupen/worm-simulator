@@ -64,7 +64,7 @@ export function gutCentreY(x: number, b: BodySample): number {
 function calciferous(s: number, th: number): number {
   const side = Math.exp(-(((Math.abs(Math.sin(th)) - 1) / 0.45) ** 2));
   const lobe = (c: number, k: number) => k * Math.exp(-(((s - c) / 0.3) ** 2));
-  return 1 + side * (lobe(10.55, 0.45) + lobe(11.5, 0.85) + lobe(12.5, 0.85));
+  return 1 + side * (lobe(10.55, 0.3) + lobe(11.75, 0.85) + lobe(12.6, 0.85));
 }
 
 /** A point on the gut's surface at x, angle th (0 dorsal), pushed out by `lift`. */
@@ -101,6 +101,8 @@ const C = {
 function gutColor(x: number, th: number, out: THREE.Color): void {
   const s = segmentAt(Math.max(0, x));
   out.copy(C.pharynx);
+  // The pharynx's thick muscle: faint fibres running round and along it.
+  out.multiplyScalar(1 - 0.07 * smooth(6.2, 5.4, s) * (0.5 + 0.5 * Math.sin(th * 26 + Math.sin(x * 6))));
   out.lerp(C.esophagus, smooth(5.4, 6.6, s));
   out.lerp(C.gland, Math.min(1, (calciferous(s, th) - 1) * 1.8));
   out.lerp(C.crop, smooth(14.7, 15.2, s));
@@ -113,6 +115,8 @@ function gutColor(x: number, th: number, out: THREE.Color): void {
   out.lerp(C.chloragogen, smooth(19.4, 20.2, s) * (0.6 + 0.2 * smooth(0.3, 0.7, gran)));
   // The septa pinch the intestine; the pinches sit a little darker.
   if (s > ORGANS.intestineFrom) out.multiplyScalar(0.85 + 0.15 * Math.sin((s % 1) * Math.PI));
+  // Baked occlusion: the underside, facing the floor of the body, sits in shade.
+  out.multiplyScalar(0.84 + 0.16 * (0.5 + 0.5 * Math.cos(th)));
 }
 
 const rowsOf = (x0: number, x1: number, step: number): number[] => {

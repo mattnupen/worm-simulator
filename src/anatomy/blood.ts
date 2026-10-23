@@ -125,7 +125,7 @@ export function buildBlood(): BloodParts {
       const pts: THREE.Vector3[] = [dorsalVessel(x, new THREE.Vector3())];
       for (let i = 1; i <= 14; i++) {
         const th = 0.12 + (i / 14) * (Math.PI - 0.32);
-        pts.push(bodyPoint(x - 0.04 * Math.sin(i), side * th, T + 0.035, new THREE.Vector3()));
+        pts.push(bodyPoint(x - 0.1 * Math.sin(i * 0.55 + n) - 0.04 * Math.sin(i * 1.7), side * th, T + 0.035, new THREE.Vector3()));
       }
       pts.push(subneural(x, new THREE.Vector3()).add(new THREE.Vector3(0, 0, side * 0.05)));
       sweep(bucket(x, side, walls), pts, () => 0.045, red, { radial: 5, per: 0.2 });

@@ -148,7 +148,7 @@ export function buildSetae(): { far: Mesher; near: Mesher; rest: Mesher; patch: 
         // Outward normal, roughly: from the centre line through the skin.
         const outward = new THREE.Vector3(0, b.y - a.y, b.z - a.z).normalize();
         // Only the hooked tip shows: about a tenth of a segment long.
-        const len = 0.15;
+        const len = 0.1;
         const pts = [
           a.clone(),
           b.clone().addScaledVector(outward, len * 0.45).add(new THREE.Vector3(0.015, 0, 0)),

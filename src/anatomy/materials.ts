@@ -83,14 +83,14 @@ export function createMaterials(): AnatomyMaterials {
     }),
     wall: wet({ roughness: 0.55, clearcoat: 0.5, side: THREE.FrontSide }),
     setae: wet({ roughness: 0.3, clearcoat: 0.8 }),
-    gut: addScatter(wet({ roughness: 0.55, clearcoat: 0.5, clearcoatRoughness: 0.2 }), '#ff8a60', 0.5, 0.08),
+    gut: addScatter(wet({ roughness: 0.58, clearcoat: 0.3, clearcoatRoughness: 0.42 }), '#ff8a60', 0.5, 0.08),
     blood: addScatter(wet({ roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 }), '#ff3030', 0.6, 0.05),
     nerve: wet({ roughness: 0.42, clearcoat: 0.7 }),
     repro: addScatter(wet({ roughness: 0.5, clearcoat: 0.55, sheen: 0.4, sheenColor: new THREE.Color('#fff4e0') }), '#ffd0a0', 0.5, 0.08),
-    reproSac: wet({ roughness: 0.5, clearcoat: 0.4 }),
+    reproSac: wet({ roughness: 0.55, clearcoat: 0.35, sheen: 0.6, sheenColor: new THREE.Color('#fff8f0'), transparent: true, opacity: 0.82 }),
     nephridia: wet({ roughness: 0.4, clearcoat: 0.8 }),
     muscle: wet({ roughness: 0.55, clearcoat: 0.5, side: THREE.DoubleSide }),
     skinGame: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 }),
-    septa: wet({ roughness: 0.35, clearcoat: 0.7, transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide }),
+    septa: wet({ roughness: 0.35, clearcoat: 0.7, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }),
   };
 }
