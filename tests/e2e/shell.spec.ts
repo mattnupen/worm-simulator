@@ -230,9 +230,11 @@ test('the scene is frozen while paused and moves while crawling', async ({ page 
 
   await pauseGame(page);
   await page.waitForTimeout(500);
-  const still1 = await canvas.screenshot();
+  // The Paused chip over the canvas rises in with a CSS animation, which the slow software
+  // renderer can still be drawing; finish it so only the 3D scene is compared.
+  const still1 = await canvas.screenshot({ animations: 'disabled' });
   await page.waitForTimeout(1000);
-  const still2 = await canvas.screenshot();
+  const still2 = await canvas.screenshot({ animations: 'disabled' });
   expect(still1.equals(still2)).toBe(true);
 });
 
