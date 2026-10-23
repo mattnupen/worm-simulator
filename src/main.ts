@@ -51,6 +51,7 @@ import { HuntGame } from './predators/huntGame';
 import { HUNT_NOTES } from './predators/huntNotes';
 import { NestScene } from './predators/nestScene';
 import { EatingFilm } from './eatingFilm/film';
+import { FILM_END } from './eatingFilm/script';
 import type { FilmView, LessonFilm } from './ui/lessonFilm';
 import { NEST_TIMES, nestCaptionAt } from './predators/nestScript';
 import { playNestSound } from './predators/nestSound';
@@ -215,6 +216,11 @@ function start(renderer: THREE.WebGLRenderer): void {
     setPaused: (p) => {
       film.paused = p;
     },
+    seek: (t) => {
+      film.seek(t);
+      dirty = true;
+    },
+    length: FILM_END,
     stop: () => {
       filmView = null;
       if (!film.shown) return;
@@ -659,7 +665,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (film?.shown) {
       // The eating film, instead of the forest: its own scene and camera, centred above the card.
       film.pose(alpha, camera, window.innerWidth, window.innerHeight, filmView?.inset ?? 0);
-      filmView?.set(film.beat, film.dark, film.done);
+      filmView?.set(film.beat, film.dark, film.done, film.t);
       renderer.render(film.scene, camera);
       shell.setFps(meter.fps, CHOICE_LABELS[spec.id], undefined);
       return;

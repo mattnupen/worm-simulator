@@ -44,7 +44,7 @@ test('every release copied into the site runs offline with zero network requests
   await context.setOffline(true);
   // From V3, Crawl unlocks after the round's lesson (the quest list): play as a student who has
   // done it. Older versions ignore this key.
-  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
+  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators', 'eating'] })));
   for (const v of versions) {
     const outside: string[] = [];
     const errors: string[] = [];

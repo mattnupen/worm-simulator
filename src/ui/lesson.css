@@ -275,7 +275,33 @@
 .film-caption { grid-row: 3; grid-column: 1 / -1; margin-top: 4px; min-height: 3.6em; padding: 8px 12px; border: 2px solid var(--line-strong); border-radius: var(--radius-row); background: var(--row); }
 .film-caption .meet-name { margin: 0 !important; }
 .film-caption .lesson-line { margin: 2px 0 0 !important; }
-.film-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; }
+.film-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 8px; }
+.film-timeline { flex: 1 1 100%; display: flex; align-items: center; gap: 12px; }
+/* Play/Pause/Replay: a round icon button (its word is for screen readers). */
+.film-toggle.btn { flex: none; width: 48px; min-width: 48px; height: 48px; min-height: 48px; padding: 0; border-radius: 50%; justify-content: center; }
+.film-toggle .btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.film-toggle .btn-icon { margin: 0; }
+/* The slider: a thin track, filled up to the thumb (--p, set by lessonFilm.ts), 48px tall to grab. */
+.film-slider {
+  --p: 0%;
+  flex: 1; min-width: 0; height: 48px; margin: 0; background: transparent; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+}
+.film-slider::-webkit-slider-runnable-track {
+  height: 8px; border-radius: var(--radius-pill);
+  background: linear-gradient(to right, var(--accent) var(--p), var(--tint-strong) var(--p));
+}
+.film-slider::-moz-range-track { height: 8px; border-radius: var(--radius-pill); background: var(--tint-strong); }
+.film-slider::-moz-range-progress { height: 8px; border-radius: var(--radius-pill); background: var(--accent); }
+.film-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 24px; height: 24px; margin-top: -8px; border-radius: 50%;
+  background: var(--card-solid); border: 3px solid var(--accent); box-shadow: var(--shadow-float);
+}
+.film-slider::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--card-solid); border: 3px solid var(--accent); box-shadow: var(--shadow-float);
+}
+.film-slider:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
 .film-trip[open] { flex-basis: 100%; }
 .film-trip summary { display: inline-flex; align-items: center; min-height: 48px; padding: 0 4px; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .film-trip summary:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; border-radius: 6px; }

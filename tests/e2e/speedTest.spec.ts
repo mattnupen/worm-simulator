@@ -11,7 +11,7 @@ const PAGE = pathToFileURL(path.resolve('dist/index.html')).href + '?quick=1';
 // on a new device, is tests/e2e/lesson.spec.ts.
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] }));
+    localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators', 'eating'] }));
     localStorage.setItem('wormsim.openings', JSON.stringify({ version: 1, seen: Array.from({ length: 30 }, (_, i) => i + 1) }));
   });
 });

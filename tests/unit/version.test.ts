@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { VERSION, VERSION_LABEL, VERSION_META } from '../../src/version';
 
 describe('version', () => {
-  it('is V3 · Predators', () => {
-    expect(VERSION).toEqual({ number: 3, name: 'Predators' });
-    expect(VERSION_LABEL).toBe('V3 · Predators');
+  it('is V4 · Eating', () => {
+    expect(VERSION).toEqual({ number: 4, name: 'Eating' });
+    expect(VERSION_LABEL).toBe('V4 · Eating');
   });
 
   it('has a whole number from 1 and a short name of at most 4 words (docs/codev/README.md)', () => {
@@ -20,6 +20,6 @@ describe('version', () => {
   });
 
   it('stamps the build with a meta tag the release script reads', () => {
-    expect(VERSION_META).toBe('<meta name="wormsim-version" content="V3 · Predators">');
+    expect(VERSION_META).toBe('<meta name="wormsim-version" content="V4 · Eating">');
   });
 });

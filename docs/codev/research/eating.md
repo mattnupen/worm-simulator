@@ -118,6 +118,17 @@ the usual textbook layout (not sourced to a segment number), and the dots that r
 intestine to the blood vessel stand for food being taken in.
 
 ## Videos
-None in the lesson yet: every video must be watched before it ships. Candidates for Matt to watch:
-- "The One Show: George McGavin, Earthworms and Fallen Leaves" (https://www.youtube.com/watch?v=EODCIY-3E0M)
-- "How Do Worms Eat Without Teeth?" (https://www.youtube.com/watch?v=cjmoBkHvFUE)
+One "Tell me more" video per panel (Matt, 2026-10-23: "add YouTube videos like you did before"),
+played through youtube-nocookie.com. Picked by title, channel and description (the cloud can't
+play them): Matt watches each before V4 ships.
+
+| Panel | Video | Channel | Why |
+|---|---|---|---|
+| Leaf piles called middens (Food up top) | [Worms pull leafs underground to eat them.](https://www.youtube.com/watch?v=00GpoMJWt1s) (0:57, a Short) | Get Wild | Leaves dragged into burrows, stems sticking up: a midden. |
+| More of your body (Follow the leaf) | [Earthworm digestive system](https://www.youtube.com/watch?v=K8rAvIf5GZQ) | MooMooMath and Science | The gut from mouth to back end, as in the film. |
+| Not just leaves (Picky eaters) | [Worms! - time lapse footage of Rothamsted wormery](https://www.youtube.com/watch?v=oYSrOSKDSH8) | AHDB Cereals & Oilseeds | Worms tunnelling and eating through soil, sped up. |
+| Worms and the soil (The forest changed) | [Great Lakes Worm Watch: Invasive Earthworms](https://www.youtube.com/watch?v=BpMvZCeep54) (1:10) | UMN Natural Resources Research Institute | How people spread worms (bait), and "contain your crawlers". |
+
+Backups: "The One Show: George McGavin, Earthworms and Fallen Leaves"
+(https://www.youtube.com/watch?v=EODCIY-3E0M, a BBC clip re-uploaded by another channel, so it may
+vanish); "How Do Worms Eat Without Teeth?" (https://www.youtube.com/watch?v=cjmoBkHvFUE).

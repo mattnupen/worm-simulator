@@ -4,7 +4,7 @@
  * the built page as VERSION_META, which `npm run release` checks before it freezes a snapshot.
  * Bump both for the next version's first commit.
  */
-export const VERSION = { number: 3, name: 'Predators' } as const;
+export const VERSION = { number: 4, name: 'Eating' } as const;
 
 /**
  * This round's Google Form (Matt, 2026-10-13): the Vote quest links to it, in a new tab. Set it
@@ -31,4 +31,5 @@ export const ROUNDS: readonly { number: number; name: string; about: string }[] 
   { number: 1, name: 'True Size', about: 'See the forest at its real size next to your 15 cm worm.' },
   { number: 2, name: 'Underground', about: 'Dig down through the soil layers and make your own tunnels.' },
   { number: 3, name: 'Predators', about: 'Learn which animals hunt worms, then design a predator for the game.' },
+  { number: 4, name: 'Eating', about: 'Follow a leaf through a worm\'s body, and dig away from a hungry robin.' },
 ];

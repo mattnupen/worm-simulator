@@ -35,6 +35,9 @@ const ICONS = {
   /** Two bars: Pause. */
   pause: `<svg ${SVG} viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16" rx="1.5"/>
     <rect x="14" y="4" width="5" height="16" rx="1.5"/></svg>`,
+  /** A circling arrow: play again from the start. */
+  replay: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
+      stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4 3.5v4h4"/></svg>`,
   /** Three sliders: Graphics. */
   sliders: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
       stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2.4" fill="currentColor"/>

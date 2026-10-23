@@ -21,7 +21,7 @@ const crawling = (page: Page) => page.getByRole('region', { name: 'Crawling' });
 
 // A student who has finished this version's lesson but not yet seen its opening.
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators'] })));
+  await page.addInitScript(() => localStorage.setItem('wormsim.lessons', JSON.stringify({ version: 1, done: ['predators', 'eating'] })));
 });
 
 test('the first Crawl plays the opening with captions; Esc skips straight to play, and it plays once', async ({ page, context }) => {

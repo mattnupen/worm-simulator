@@ -16,6 +16,11 @@ How to write an entry (for Matt and Claude):
 ## Coming next
 
 ### New
+- The Start screen says **Version 4 · Eating** under the title.
+- **Learn: How do worms eat?** Find out what worms eat and how. In a 3D movie, a nightcrawler
+  pulls a leaf into its burrow at night. Then the worm is cut open so you can follow the leaf
+  through its body: the mouth, the gizzard that grinds it with sand, and out the back as castings.
+  Drag the timeline to go back or skip ahead.
 - **A lighter look.** Menus, buttons and lessons are lighter and simpler, so you see more of the
   forest. The text is a little bigger too.
 - **Text size.** In Settings, pick Normal, Big or Bigger to make all the words in the menus and

@@ -59,5 +59,7 @@ describe('the eating film preview', () => {
   it('reads ?eatingAt=31 (the film jumps there and holds); none otherwise', () => {
     expect(parseParams('?lesson=eating&eatingAt=31').eatingAt).toBe(31);
     expect(parseParams('?lesson=eating').eatingAt).toBeNull();
+    // A lesson id opens it straight away too, even when it is this build's lesson.
+    expect(parseParams('?lesson=eating').lesson).toBe(true);
   });
 });
