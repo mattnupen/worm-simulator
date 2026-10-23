@@ -135,6 +135,8 @@ export const TEXT = {
   menuResume: { kind: 'ui', text: 'Resume' },
   menuToStart: { kind: 'ui', text: 'Back to start' },
   roundsOpening: { kind: 'ui', text: 'Watch the opening again' },
+  // The virtual worm: the 3D anatomy model (src/anatomy/), opened in a new tab.
+  virtualWorm: { kind: 'ui', text: 'Virtual worm' },
   roundsHere: { kind: 'ui', text: "You're playing this one" },
   roundsPlay: { kind: 'ui', text: 'Play' },
   roundsSoon: { kind: 'ui', text: 'Coming soon' },

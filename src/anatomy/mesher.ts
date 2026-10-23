@@ -7,6 +7,11 @@ import * as THREE from 'three';
  * so closed tubes have no seam and every part is smooth however it was bent.
  */
 export class Mesher {
+  /**
+   * Scales every surface's rows and columns while a model builds (1 = full detail): the lesson
+   * films use the same shapes at a lighter resolution.
+   */
+  static detail = 1;
   private pos: number[] = [];
   private nor: number[] = [];
   private col: number[] = [];
@@ -43,6 +48,11 @@ export class Mesher {
       pole?: THREE.Vector3;
     } = {},
   ): void {
+    const k = Mesher.detail;
+    if (k !== 1) {
+      if (rows > 2) rows = Math.max(2, Math.round(rows * k));
+      if (cols > 3) cols = Math.max(opts.wrapV ? 4 : 3, Math.round(cols * k));
+    }
     const base = this.vertexCount;
     const p = new THREE.Vector3();
     const a = new THREE.Vector3();

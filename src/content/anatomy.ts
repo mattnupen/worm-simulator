@@ -119,7 +119,8 @@ export type AnatomyPartId = keyof typeof ANATOMY_PARTS;
 
 /** The viewer's buttons and headings. */
 export const ANATOMY_UI = {
-  title: ui('Inside a nightcrawler'),
+  // The same name and icon as the game's link to it (src/ui/virtualWorm.ts).
+  title: ui('Virtual worm'),
   views: ui('Look at'),
   systems: ui('Show or hide'),
   wall: ui('Body wall'),

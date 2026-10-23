@@ -160,17 +160,47 @@ export function liningPoint(x: number, th: number, o: THREE.Vector3): void {
   o.addScaledVector(inward, r * (WALL + fold));
 }
 
+/** How far in the front gut's lining is (a fraction of its radius): thin, but thick in the gizzard. */
+function frontWall(s: number): number {
+  return 0.14 + 0.3 * bump(s, ORGANS.gizzard[0] - 0.1, ORGANS.gizzard[1] + 1.35, 2.6);
+}
+
+/** The front gut's inner lining, for when it is opened (animations that follow food through it). */
+function frontLiningPoint(x: number, th: number, o: THREE.Vector3): void {
+  gutPoint(x, th, o);
+  gutPoint(x, th, inward, -1).sub(o);
+  const r = gutRadius(segmentAt(Math.max(0, x)), sampleBody(Math.max(0.05, x), bs).w);
+  o.addScaledVector(inward, Math.min(r * frontWall(segmentAt(Math.max(0, x))), 0.5));
+}
+
+function frontLiningColor(x: number, th: number, o: THREE.Color): void {
+  gutColor(x, th, o);
+  const s = segmentAt(Math.max(0, x));
+  // Wet and darker inside; the gizzard's grinding lining darkest.
+  o.lerp(C.lining, 0.5).lerp(C.dark, 0.15 + 0.35 * bump(s, ORGANS.gizzard[0], ORGANS.gizzard[1] + 1.2, 2.6));
+}
+
 /**
- * The gut: `all` is the whole tube outside the opened stretch; `far`/`near` the two halves of the
- * opened intestine; `cut` its lining, typhlosole and cut edges (shown only while cut).
+ * The gut: `all` is the tube behind the cutaway; `frontFar`/`frontNear` the two halves of the
+ * tube in front of the opened stretch (whole together, or opened, `frontOpen` its lining and cut
+ * edges); `far`/`near` the two halves of the opened intestine; `cut` its lining, typhlosole and
+ * cut edges (shown only while cut).
  */
-export function buildGut(radial: number, stepFront: number, stepBack: number): { all: Mesher; far: Mesher; near: Mesher; cut: Mesher } {
-  const out = { all: new Mesher(), far: new Mesher(), near: new Mesher(), cut: new Mesher() };
+export function buildGut(radial: number, stepFront: number, stepBack: number): {
+  all: Mesher; far: Mesher; near: Mesher; cut: Mesher; frontFar: Mesher; frontNear: Mesher; frontOpen: Mesher;
+} {
+  const out = {
+    all: new Mesher(), far: new Mesher(), near: new Mesher(), cut: new Mesher(),
+    frontFar: new Mesher(), frontNear: new Mesher(), frontOpen: new Mesher(),
+  };
   const x0 = segStart(OPEN_FROM);
   const x1 = segStart(31);
   const end = LENGTH - 0.12;
   const at = (x: number, th: number, o: THREE.Vector3) => { gutPoint(x, th, o); };
-  tube(out.all, rowsOf(GUT_START, x0, stepFront), 0, 2 * Math.PI, radial, at, gutColor);
+  const front = rowsOf(GUT_START, x0, stepFront);
+  tube(out.frontFar, front, Math.PI, 2 * Math.PI, radial / 2, at, gutColor);
+  tube(out.frontNear, front, 0, Math.PI, radial / 2, at, gutColor);
+  tube(out.frontOpen, front, Math.PI, 2 * Math.PI, radial / 2, frontLiningPoint, frontLiningColor, true);
   tube(out.all, rowsOf(x1, end, stepBack), 0, 2 * Math.PI, radial, at, gutColor);
   const open = rowsOf(x0, x1, stepFront);
   tube(out.far, open, Math.PI, 2 * Math.PI, radial / 2, at, gutColor);
@@ -183,20 +213,24 @@ export function buildGut(radial: number, stepFront: number, stepBack: number): {
   };
   tube(out.cut, open, Math.PI, 2 * Math.PI, radial * 2, liningPoint, lining, true);
   // The cut edges of the wall, top and bottom, flat on the cut plane.
-  const edge = (th: number, flip: boolean) => {
-    const rows = open.length - 1;
+  const edge = (th: number, flip: boolean, xs = open, m = out.cut, inner = liningPoint) => {
+    const rows = xs.length - 1;
     const a = new THREE.Vector3();
-    out.cut.surface(rows, 6, (u, v, o) => {
+    m.surface(rows, 6, (u, v, o) => {
       const f = u * rows;
       const i = Math.min(rows - 1, Math.floor(f));
-      const x = open[i] + (open[i + 1] - open[i]) * (f - i);
+      const x = xs[i] + (xs[i + 1] - xs[i]) * (f - i);
       gutPoint(x, th, a);
-      liningPoint(x, th, o);
+      inner(x, th, o);
       o.lerp(a, 1 - v);
       o.z = 0;
     }, (_u, v, _p, o) => {
       // The cut face, banded like a slide: the yellow chloragogen coat, the muscular wall, then
       // (in the roof) the typhlosole's chloragogen-filled core, and the lining at its edge.
+      if (m !== out.cut) {
+        o.copy(v < 0.85 ? CUT_WALL : C.lining);
+        return;
+      }
       if (th !== 0) {
         o.copy(v < 0.3 ? C.chloragogen : v < 0.9 ? CUT_WALL : C.lining);
         return;
@@ -210,5 +244,7 @@ export function buildGut(radial: number, stepFront: number, stepBack: number): {
   };
   edge(0, false);
   edge(Math.PI, true);
+  edge(0, false, front, out.frontOpen, frontLiningPoint);
+  edge(Math.PI, true, front, out.frontOpen, frontLiningPoint);
   return out;
 }

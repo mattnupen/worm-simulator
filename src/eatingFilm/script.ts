@@ -1,16 +1,23 @@
 import type { BodyPart } from '../content/lessons/lesson';
+import type { AnatomyPartId } from '../content/anatomy';
 import type { Key } from '../opening/keys';
+import { ANCHORS } from '../anatomy/anchors';
+import { sampleBody } from '../anatomy/body';
+import { gutCentreY } from '../anatomy/gut';
+import { LENGTH, ORGANS, halfWidth, segStart } from '../anatomy/layout';
+import { CUT_END } from '../anatomy/skin';
 
 /**
  * The eating film's script (V4 lesson "Follow the leaf"; spec
- * docs/superpowers/specs/2026-10-22-v4-eating-3d-scene.md, Matt approved 2026-10-23). Pure data:
- * times in seconds from the start. Two places, shown one at a time:
+ * docs/superpowers/specs/2026-10-22-v4-eating-3d-scene.md, Matt approved 2026-10-23). Data, with
+ * the places inside taken from the anatomy model's layout; times in seconds from the start. Two
+ * places, shown one at a time:
  * - outside: a side cut through the soil at night. The burrow runs straight down at x = 0, the
  *   ground's top is y = 0, the cut face is z = 0 and the camera looks at it from +z. The worm is
  *   3.5 units long (as in the game).
- * - inside: one nightcrawler cut open lengthwise, mouth at x = 0 and tail toward +x, body radius 1
- *   (much bigger than life, so the parts can be seen). The near half is cut away, so the camera at
- *   +z looks into the far half.
+ * - inside: the anatomy model's nightcrawler cut open lengthwise, mouth at x = 0 and tail toward
+ *   +x, body radius about 1 (much bigger than life, so the parts can be seen). The near half is cut
+ *   away, so the camera at +z looks into the far half.
  */
 
 /** What the captions are about: the walk outside, each part of the body, then the midden. */
@@ -102,28 +109,32 @@ export const CASTS: readonly Key[] = [[INSIDE_TO + 1, CASTS_BEFORE], [INSIDE_TO 
 
 // ---------- Inside ----------
 
-/** One segment's length, and how many there are (a big nightcrawler has well over 100). */
-export const SEG = 0.32;
-export const SEGMENTS = 150;
+/**
+ * Inside is the project's anatomy model (src/anatomy/), so every change to it shows here too:
+ * its millimetres times MM are the film's units (the body's radius is about 1). Every place along
+ * the body below comes from the model's own layout.
+ */
+export const MM = 1 / halfWidth(20);
+const seg = (n: number): number => segStart(n) * MM;
 /** The tail end. */
-export const TAIL = SEG * SEGMENTS;
+export const TAIL = LENGTH * MM;
 
 /** Where each part sits along the body (x), front to back. */
 export const PARTS = {
-  pharynx: [0.3, 1.6],
-  esophagus: [1.6, 4.8],
-  crop: [4.8, 5.6],
-  gizzard: [5.7, 6.7],
-  intestine: [6.8, TAIL - 0.3],
-  /** The five pairs of hearts, around the esophagus. */
-  hearts: [2.1, 2.4, 2.7, 3.0, 3.3],
-  /** The clitellum, a band about a third of the way back (segments 31 to 38). */
-  clitellum: [SEG * 31, SEG * 38],
+  pharynx: [seg(ORGANS.pharynx[0]), seg(ORGANS.pharynx[1] + 1)],
+  esophagus: [seg(ORGANS.esophagus[0]), seg(ORGANS.esophagus[1] + 1)],
+  crop: [seg(ORGANS.crop[0]), seg(ORGANS.crop[1] + 1)],
+  gizzard: [seg(ORGANS.gizzard[0]), seg(ORGANS.gizzard[1] + 1)],
+  intestine: [seg(ORGANS.intestineFrom), TAIL - 0.3],
 } as const;
 
 /** The crop, middle of the gizzard. */
-export const CROP_X = 5.2;
-export const GIZZARD_X = 6.2;
+export const CROP_X = (PARTS.crop[0] + PARTS.crop[1]) / 2;
+export const GIZZARD_X = (PARTS.gizzard[0] + PARTS.gizzard[1]) / 2;
+/** Where the body is cut open to (the model's cutaway); behind it the wall is whole. */
+export const OPEN_TO = seg(CUT_END);
+/** The mouth's height: the front of the gut, under the prostomium. */
+export const MOUTH_Y = gutCentreY(0.1, sampleBody(0.1, { s: 0, w: 0, h: 0, yc: 0 })) * MM;
 
 /**
  * The leaf in front of the mouth: its edge, where the bite comes off (Matt, 2026-10-23: "how does
@@ -131,7 +142,7 @@ export const GIZZARD_X = 6.2;
  * (the leaf bends toward the mouth) and tears a bite off at TEAR_AT, leaving a notch.
  */
 export const NOTCH_X = -1.08;
-export const NOTCH_Y = 0.05;
+export const NOTCH_Y = MOUTH_Y + 0.05;
 export const BITE_R = 0.26;
 export const TEAR_AT = 18.9;
 /** How hard the pharynx pulls on the leaf (0 to 1): two tugs, then the bite tears off. */
@@ -140,22 +151,22 @@ export const TUG: readonly Key[] = [[17.4, 0], [17.8, 1], [18.1, 0.2], [18.6, 1]
 export const TUG_X = 0.12;
 
 /**
- * The bite once it is torn off: where it is along the body, `[t, x, y]`. The pharynx pulls it in,
+ * The bite once it is torn off: where it is along the body, `[t, x, y]`, y above the gut's middle. The pharynx pulls it in,
  * it slides down to the crop, waits, goes on into the gizzard (where it is ground up), and leaves
  * it as crumbs that travel down the intestine. By `casts` the crumbs ride along with the camera to
  * the tail (a time-lapse), turn into casts and are pushed out of the back end one by one.
  */
 export const FOOD: readonly Key[] = [
-  [INSIDE_FROM, NOTCH_X + TUG_X, NOTCH_Y],
-  [TEAR_AT, NOTCH_X + TUG_X, NOTCH_Y],
-  [20.3, 0.75, 0],
-  [22.2, 1.0, 0],
+  [INSIDE_FROM, NOTCH_X + TUG_X, 0.05],
+  [TEAR_AT, NOTCH_X + TUG_X, 0.05],
+  [20.3, PARTS.pharynx[0] + 0.3, 0],
+  [22.2, PARTS.pharynx[1] - 0.2, 0],
   [24.4, CROP_X, 0],
   [27, CROP_X, 0],
   [28, GIZZARD_X, 0],
   [34, GIZZARD_X, 0],
-  [35, 7.4, 0],
-  [41, 13, 0],
+  [35, PARTS.intestine[0] + 0.6, 0],
+  [41, OPEN_TO - 0.4, 0],
   [43.6, TAIL - 1.1, 0],
   [46.6, TAIL + 2.4, 0],
 ];
@@ -198,8 +209,8 @@ export const IN_CAMERA: readonly Key[] = [
   [27, CROP_X + 0.3, 3.0, 0.4],
   [28.4, GIZZARD_X, 2.3, 0.3],
   [34, GIZZARD_X, 2.3, 0.3],
-  [36, 8.4, 3.6, 0.5],
-  [41, 12.6, 3.6, 0.5],
+  [36, PARTS.intestine[0] + 1.6, 3.6, 0.5],
+  [41, OPEN_TO - 0.8, 3.6, 0.5],
   [43.6, TAIL - 1.2, 3.8, 0.5],
   [45, TAIL - 0.2, 3.6, 0.3],
   [INSIDE_TO, TAIL - 0.1, 3.6, 0.3],
@@ -217,18 +228,26 @@ export interface PartLabel {
   readonly y: number;
   readonly side: 1 | -1;
 }
+const at = (id: AnatomyPartId): [number, number] => {
+  const p = ANCHORS[id].at();
+  return [p.x * MM, p.y * MM];
+};
+const label = (name: string, id: AnatomyPartId, side: 1 | -1, part?: BodyPart): PartLabel => {
+  const [x, y] = at(id);
+  return { name, part, x, y, side };
+};
 export const LABELS: readonly PartLabel[] = [
-  { name: 'Mouth', part: 'mouth', x: -0.02, y: -0.12, side: -1 },
-  { name: 'Brain', x: 0.92, y: 0.66, side: 1 },
-  { name: 'Pharynx', part: 'pharynx', x: 1.25, y: -0.22, side: -1 },
-  { name: 'Hearts', x: 2.7, y: 0.6, side: 1 },
-  { name: 'Esophagus', x: 4.1, y: -0.1, side: -1 },
-  { name: 'Crop', part: 'crop', x: CROP_X, y: 0.3, side: 1 },
-  { name: 'Gizzard', part: 'gizzard', x: GIZZARD_X, y: -0.35, side: -1 },
-  { name: 'Intestine', part: 'intestine', x: 8.6, y: 0.32, side: 1 },
-  { name: 'Blood vessel', x: 10.6, y: 0.74, side: 1 },
-  { name: 'Nerve cord', x: 10.2, y: -0.84, side: -1 },
-  { name: 'Back end', part: 'casts', x: TAIL - 0.08, y: 0.2, side: 1 },
+  { name: 'Mouth', part: 'mouth', x: 0.02, y: MOUTH_Y, side: -1 },
+  label('Brain', 'brain', 1),
+  label('Pharynx', 'pharynx', -1, 'pharynx'),
+  label('Hearts', 'hearts', 1),
+  label('Esophagus', 'esophagus', -1),
+  label('Crop', 'crop', 1, 'crop'),
+  label('Gizzard', 'gizzard', -1, 'gizzard'),
+  label('Intestine', 'intestine', 1, 'intestine'),
+  label('Blood vessel', 'dorsalVessel', 1),
+  label('Nerve cord', 'nerveCord', -1),
+  { name: 'Back end', part: 'casts', x: TAIL - 0.08, y: 0, side: 1 },
 ];
 /** Where the labels sit, above or below the worm's middle line. */
 export const LABEL_Y = 1.22;

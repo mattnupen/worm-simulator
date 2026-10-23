@@ -106,6 +106,20 @@ describe('the anatomy model', () => {
     expect(meshes.map((m) => m.material)).toEqual(solid);
   });
 
+  it('builds a lighter lesson version of the same parts, and opens its gut while cut', () => {
+    const worm = new AnatomyWorm('lesson');
+    worm.setWall('cut');
+    const visible = (name: string) => worm.group.children.some((m) => m.visible && m.name === name);
+    expect(visible('gut:shut')).toBe(true);
+    expect(visible('gut:open')).toBe(false);
+    worm.openGut(true);
+    expect(visible('gut:shut')).toBe(false);
+    expect(visible('gut:open')).toBe(true);
+    worm.setWall('solid');
+    expect(visible('gut:shut')).toBe(true);
+    expect(worm.stats().vertices).toBeLessThan(300_000);
+  });
+
   it('names the part under a tap', () => {
     const worm = new AnatomyWorm('full');
     const at = (x: number) => worm.poseMap.point(gutPoint(x, Math.PI / 2, new THREE.Vector3()), new THREE.Vector3());

@@ -125,6 +125,11 @@ const ICONS = {
   info: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
       stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6"/>
     <circle cx="12" cy="7.4" r="1.4" fill="currentColor" stroke="none"/></svg>`,
+  /** The virtual worm (the 3D anatomy model): a worm in a cube, the usual sign for a 3D model. */
+  virtualWorm: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+      stroke-linejoin="round"><path d="M12 2.5l8.5 4.5v10L12 21.5 3.5 17V7z" stroke-width="1.9"/>
+    <path d="M3.5 7L12 11.5 20.5 7M12 11.5v10" stroke-width="1.2" opacity=".5"/>
+    <path d="M6.5 15.5c1.4-3.4 3.2-3.4 4.4-1.4s3 2 4.6-1.6" stroke-width="3"/></svg>`,
 } as const;
 
 export type IconName = keyof typeof ICONS;

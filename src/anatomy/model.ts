@@ -1,16 +1,10 @@
 import * as THREE from 'three';
 import { createMaterials, type AnatomyMaterials } from './materials';
-import type { Mesher } from './mesher';
-import { buildCutWall, buildSetae, buildSkin } from './skin';
-import { buildGut } from './gut';
-import { buildBlood } from './blood';
-import { buildNerves } from './nerves';
-import { buildRepro } from './repro';
-import { buildNephridia } from './nephridia';
-import { buildMuscles } from './muscles';
-import { buildSection } from './section';
+import { Mesher } from './mesher';
 import { PoseMap, STRAIGHT, applyPose, type Pose } from './pose';
 import { HIGHLIGHT, addHighlight, setHighlight } from './highlight';
+import { addMotion } from './motion';
+import { assemble } from './assemble';
 
 /** The body systems a learner can show or hide (each one is its own group of draws). */
 export const SYSTEMS = ['skin', 'muscles', 'gut', 'blood', 'nerves', 'repro', 'nephridia'] as const;
@@ -25,10 +19,12 @@ export type WallMode = 'solid' | 'cut' | 'ghost';
 /**
  * - `far`/`near`: the two halves of the cutaway region (near is hidden while cut);
  * - `rest`: behind the cutaway; `all`: everywhere, not split;
- * - `cut`: only while cut (the cut faces).
+ * - `cut`: only while cut (the cut faces);
+ * - `shut`: the near half of the front gut, hidden while cut with the gut open (`openGut`);
+ *   `open`: its lining, shown only then.
  * `patch` parts (the skin over the muscle peel) hide while the muscles show.
  */
-type Part = 'far' | 'near' | 'rest' | 'all' | 'cut';
+export type Part = 'far' | 'near' | 'rest' | 'all' | 'cut' | 'shut' | 'open';
 
 interface Entry {
   mesh: THREE.Mesh;
@@ -39,8 +35,13 @@ interface Entry {
   fine: boolean;
 }
 
-/** Level of detail: `full` for lessons and the viewer, `game` for the outside only, light. */
-export type Detail = 'full' | 'game';
+/**
+ * Level of detail: `full` for the viewer; `lesson` the same parts at a lighter resolution, for
+ * films and simulations on school computers; `game` the outside only, lightest.
+ */
+export type Detail = 'full' | 'lesson' | 'game';
+/** How finely `lesson` builds every surface, against `full`. */
+const LESSON_DETAIL = 0.42;
 
 /**
  * The nightcrawler anatomy model: every system built once, at load, as merged meshes, then
@@ -48,7 +49,7 @@ export type Detail = 'full' | 'game';
  */
 export class AnatomyWorm {
   readonly group = new THREE.Group();
-  readonly materials: AnatomyMaterials;
+  materials!: AnatomyMaterials;
   private readonly entries: Entry[] = [];
   private readonly on = new Map<SystemId, boolean>();
   private readonly fades = new Map<SystemId, number>();
@@ -56,74 +57,33 @@ export class AnatomyWorm {
   private readonly twins = new Map<THREE.Material, THREE.Material>();
   private mode: WallMode = 'solid';
   private lit: SystemId | null = null;
+  /** While cut, the front gut (pharynx to gizzard) is opened too, so food can be seen inside it. */
+  private gutOpen = false;
 
-  constructor(readonly detail: Detail = 'full') {
-    this.materials = createMaterials();
-    const mat = this.materials;
-    const full = detail === 'full';
-    const skin = buildSkin(full ? 112 : 24, (n) => (full ? (n < 60 ? 14 : 10) : 3));
-    if (!full) {
-      // The game's worm: the outside only, merged into one mesh and one plain material (one draw).
-      for (const part of [skin.near, skin.rest, skin.patch]) skin.far.append(part);
-      this.add('skin', 'all', skin.far, mat.skinGame);
-    } else {
-      this.add('skin', 'far', skin.far, mat.skin);
-      this.add('skin', 'near', skin.near, mat.skin);
-      this.add('skin', 'rest', skin.rest, mat.skin);
-      this.add('skin', 'rest', skin.patch, mat.skin, true);
-      const setae = buildSetae();
-      this.add('skin', 'far', setae.far, mat.setae);
-      this.add('skin', 'near', setae.near, mat.setae);
-      this.add('skin', 'rest', setae.rest, mat.setae);
-      this.add('skin', 'rest', setae.patch, mat.setae, true);
-      this.add('skin', 'cut', buildCutWall(skin.xs), mat.wall);
-      this.add('skin', 'cut', skin.caps, mat.wall);
-      const mu = buildMuscles();
-      this.add('muscles', 'far', mu.far, mat.muscle);
-      this.add('muscles', 'near', mu.near, mat.muscle);
-      this.add('muscles', 'rest', mu.rest, mat.muscle);
-      this.add('muscles', 'far', mu.septaFar, mat.septa);
-      this.add('muscles', 'near', mu.septaNear, mat.septa);
-      this.add('muscles', 'rest', mu.septaRest, mat.septa);
-      this.add('muscles', 'far', mu.strandsFar, mat.muscle);
-      this.add('muscles', 'near', mu.strandsNear, mat.muscle);
-      const sec = buildSection();
-      this.add('skin', 'cut', sec.cavity, mat.wall);
-      this.add('gut', 'cut', sec.gut, mat.gut);
-      this.add('blood', 'cut', sec.blood, mat.blood);
-      this.add('nerves', 'cut', sec.nerves, mat.nerve);
-      const gut = buildGut(48, 0.08, 0.3);
-      this.add('gut', 'all', gut.all, mat.gut);
-      this.add('gut', 'far', gut.far, mat.gut);
-      this.add('gut', 'near', gut.near, mat.gut);
-      this.add('gut', 'cut', gut.cut, mat.gut);
-      const blood = buildBlood();
-      this.add('blood', 'all', blood.inner, mat.blood);
-      this.add('blood', 'all', blood.fine, mat.blood, false, true);
-      this.add('blood', 'near', blood.fineNear, mat.blood, false, true);
-      // The hearts stay whole in the cutaway: only the body wall is cut.
-      this.add('blood', 'all', blood.heartsFar, mat.blood);
-      this.add('blood', 'all', blood.heartsNear, mat.blood);
-      this.add('blood', 'far', blood.far, mat.blood, false, true);
-      this.add('blood', 'near', blood.near, mat.blood, false, true);
-      this.add('blood', 'rest', blood.rest, mat.blood, false, true);
-      const nerves = buildNerves();
-      this.add('nerves', 'all', nerves.inner, mat.nerve);
-      this.add('nerves', 'far', nerves.far, mat.nerve, false, true);
-      this.add('nerves', 'near', nerves.near, mat.nerve, false, true);
-      this.add('nerves', 'rest', nerves.rest, mat.nerve, false, true);
-      const repro = buildRepro();
-      this.add('repro', 'all', repro.inner, mat.repro);
-      this.add('repro', 'far', repro.innerFar, mat.repro);
-      this.add('repro', 'near', repro.innerNear, mat.repro);
-      this.add('repro', 'all', repro.sacs, mat.reproSac);
-      this.add('repro', 'far', repro.far, mat.repro);
-      this.add('repro', 'near', repro.near, mat.repro);
-      const neph = buildNephridia();
-      this.add('nephridia', 'far', neph.far, mat.nephridia);
-      this.add('nephridia', 'near', neph.near, mat.nephridia);
-      this.add('nephridia', 'rest', neph.rest, mat.nephridia);
+  constructor(detail: Detail = 'full') {
+    this.detail = detail === 'game' ? 'game' : 'full';
+    Mesher.detail = detail === 'lesson' ? LESSON_DETAIL : 1;
+    try {
+      this.build(detail === 'lesson');
+    } finally {
+      Mesher.detail = 1;
     }
+  }
+
+  /** `full` for both the viewer and lessons (they differ only in resolution), or `game`. */
+  readonly detail: 'full' | 'game';
+
+  private build(light: boolean): void {
+    this.materials = createMaterials();
+    if (light) {
+      // The skin's rainbow sheen and velvet edge cost the most per pixel and hardly show at a
+      // lesson's distance; everything else looks the same.
+      this.materials.skin.iridescence = 0;
+      this.materials.skin.sheen = 0;
+    }
+    const mat = this.materials;
+    const full = this.detail === 'full';
+    assemble((...args) => this.add(...args), mat, full);
     for (const s of SYSTEMS) {
       this.on.set(s, true);
       this.fades.set(s, 1);
@@ -135,8 +95,12 @@ export class AnatomyWorm {
   private add(system: SystemId, part: Part, m: Mesher, material: THREE.Material, patch = false, fine = false): void {
     if (m.vertexCount === 0) return;
     if (this.detail === 'full' && !material.userData.hlOn) {
+      const mat = this.materials;
+      const moves = material === mat.gut ? 'gut' : [mat.skin, mat.wall, mat.setae].includes(material as THREE.MeshPhysicalMaterial) ? 'head' : null;
+      if (moves) addMotion(material, moves);
+      if (material === mat.skin) addMotion(mat.skinGhost, 'head');
       addHighlight(material);
-      if (material === this.materials.skin) addHighlight(this.materials.skinGhost);
+      if (material === mat.skin) addHighlight(mat.skinGhost);
     }
     if (this.detail === 'full' && !this.twins.has(material)) {
       const twin = material.clone();
@@ -217,6 +181,21 @@ export class AnatomyWorm {
     return this.mode;
   }
 
+  /** Soft reflections from `env` for a scene that has no environment of its own (films). */
+  useEnvironment(env: THREE.Texture, intensity: number): void {
+    for (const m of [...Object.values(this.materials), ...this.twins.values()]) {
+      const p = m as THREE.MeshStandardMaterial;
+      p.envMap = env;
+      p.envMapIntensity = intensity;
+    }
+  }
+
+  /** Opens the front gut while cut (see `gutOpen`). */
+  openGut(on: boolean): void {
+    this.gutOpen = on;
+    this.refresh();
+  }
+
   /** Bends every mesh along a pose (src/anatomy/pose.ts); the straight build is kept. */
   pose(p: Pose): void {
     this.poseMap = new PoseMap(p);
@@ -245,6 +224,8 @@ export class AnatomyWorm {
       let v = this.isOn(e.system);
       if (e.part === 'near') v &&= !cut;
       if (e.part === 'cut') v &&= cut;
+      if (e.part === 'shut') v &&= !(cut && this.gutOpen);
+      if (e.part === 'open') v &&= cut && this.gutOpen;
       if (e.patch) v &&= !this.isOn('muscles') || ghost;
       if (e.fine) v &&= !ghost;
       e.mesh.visible = v;

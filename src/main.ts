@@ -266,8 +266,22 @@ function start(renderer: THREE.WebGLRenderer): void {
    */
   const film = lesson?.steps.some((s) => s.kind === 'body') ? new EatingFilm() : null;
   let filmView: FilmView | null = null;
+  /**
+   * The worm inside the film (the anatomy model) takes a moment to build, so it is built only for
+   * a student who opens the lesson: in a quiet moment while its first pages show, or when the film
+   * first plays, whichever is first.
+   */
+  const buildFilmSoon = (): void => {
+    if (!film) return;
+    const idle = (window as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => void }).requestIdleCallback;
+    const later = () => film.build(renderer, camera);
+    if (idle) idle(later, { timeout: 4000 });
+    else setTimeout(later, 1500);
+  };
   lessonFilm = film ? {
+    prepare: buildFilmSoon,
     play: (view) => {
+      film.build(renderer, camera);
       film.start(reduceMotion.matches);
       if (params.eatingAt !== null) film.seek(params.eatingAt);
       filmView = view;
@@ -612,6 +626,7 @@ function start(renderer: THREE.WebGLRenderer): void {
         }, () => dispatch({ type: 'toStart' }));
       case 'lesson':
         if (!lesson) return;
+        lessonFilm?.prepare();
         return showLesson(shell, lesson, {
           onCrawl: crawlOrOpening,
           onStart: () => dispatch({ type: 'toStart' }),

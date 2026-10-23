@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { valueNoise2 } from '../core/noise';
-import type { Mesher } from './mesher';
+import { Mesher } from './mesher';
 
 type Paint = (u: number, v: number, p: THREE.Vector3, out: THREE.Color) => void;
 
@@ -13,6 +13,9 @@ export function sweep(
   m: Mesher, points: THREE.Vector3[], radius: (t: number) => number, paint: Paint,
   opts: { radial?: number; per?: number; caps?: boolean; closed?: boolean } = {},
 ): void {
+  // At a lighter level of detail the finest threads (capillaries, fine nerves, setae) are left
+  // out: too thin to see at a lesson's distance.
+  if (Mesher.detail < 1 && radius(0.5) < 0.06) return;
   const curve = new THREE.CatmullRomCurve3(points, !!opts.closed, 'centripetal');
   const len = curve.getLength();
   const per = opts.per ?? 0.12;

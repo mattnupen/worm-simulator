@@ -86,6 +86,10 @@ test('keyboard only: crawl, open the menu, pause, resume, reach Settings and bac
     await page.keyboard.press('Tab');
     await expect(button(page, name)).toBeFocused();
   }
+  // Last: the virtual worm (the 3D anatomy model), a link that opens in a new tab.
+  const worm = page.locator('.game-menu').getByRole('link', { name: 'Virtual worm' });
+  await expect(worm).toHaveAttribute('href', '?anatomy=1');
+  await expect(worm).toHaveAttribute('target', '_blank');
   await page.keyboard.press('Enter');
   await expect(paused(page)).toBeVisible();
   await expect(resume(page)).toBeFocused();

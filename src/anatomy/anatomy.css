@@ -123,3 +123,7 @@
   .anatomy-card { bottom: auto; top: var(--edge-y); }
 }
 .anatomy-label[hidden], .anatomy-card[hidden] { display: none; }
+
+/* The title, with the virtual worm's icon (the game's link to it shows the same one). */
+.anatomy-title { display: flex; align-items: center; gap: 8px; }
+.anatomy-title .anatomy-icon { width: 28px; height: 28px; }

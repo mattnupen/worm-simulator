@@ -3,6 +3,7 @@ import { shown, type Line } from '../content/text';
 import { SYSTEMS, type AnatomyWorm, type SystemId, type WallMode } from './model';
 import { VIEWS, type View } from './views';
 import { anatomyIcon, type AnatomyIcon } from './icons';
+import { icon } from '../ui/icons';
 
 export const SYSTEM_NAMES: Record<SystemId, Line> = {
   skin: ANATOMY_UI.sysSkin,
@@ -46,7 +47,8 @@ export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElem
   panel.className = 'anatomy-panel';
   panel.setAttribute('aria-label', shown(ANATOMY_UI.title));
   const head = el('div', 'anatomy-panel-head');
-  const title = el('h1', '', shown(ANATOMY_UI.title));
+  const title = el('h1', 'anatomy-title');
+  title.append(icon('virtualWorm', 'anatomy-icon'), shown(ANATOMY_UI.title));
   const fold = button(shown(ANATOMY_UI.hidePanel), 'anatomy-btn anatomy-fold', 'fold');
   head.append(title, fold);
   const body = el('div', 'anatomy-panel-body');

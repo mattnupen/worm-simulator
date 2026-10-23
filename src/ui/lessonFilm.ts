@@ -6,6 +6,8 @@ import { LABELS, type Beat } from '../eatingFilm/script';
 
 /** What main.ts gives the lesson to play the eating film (src/eatingFilm/) over the whole screen. */
 export interface LessonFilm {
+  /** Gets the film ready in a quiet moment (its worm takes a while to build), once the lesson opens. */
+  prepare(): void;
   /** Starts the film from the beginning (Replay too); `view` hears where it is each drawn frame. */
   play(view: FilmView): void;
   setPaused(paused: boolean): void;

@@ -1,5 +1,6 @@
 import './lesson.css';
 import { el, button, menu, type Button } from './dom';
+import { virtualWormLink } from './virtualWorm';
 import { icon } from './icons';
 import type { Shell } from './shell';
 import { SOURCES, type SourceId } from '../content/sources';
@@ -146,6 +147,8 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
       src.el.hidden = step.kind !== 'body' && !facts.length && !credits.length;
     };
     sourcesCheck = showSources;
+    // A worm film: the virtual worm (the same 3D model) to explore, in a new tab.
+    if (step.kind === 'body') tools.append(virtualWormLink('btn btn-secondary btn-small', 'gut'));
     const exit = button('Back to start', 'home', 'secondary', () => leave(a.onStart));
     exit.el.classList.add('btn-small');
     tools.append(exit.el);

@@ -52,6 +52,11 @@ export class EatingFilm {
     this.scene.add(this.hemi, this.sun, this.sun.target, this.outside.group, this.inside.group);
   }
 
+  /** Builds the worm inside (slow, once): see Inside.build. */
+  build(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void {
+    this.inside.build(renderer, this.scene, camera);
+  }
+
   get done(): boolean {
     return this.t >= FILM_END;
   }

@@ -1,6 +1,7 @@
 import './gameMenu.css';
 import { el } from './dom';
 import { icon, type IconName } from './icons';
+import { virtualWormIcon } from './virtualWorm';
 import { settingsFields, type SettingsActions, type SettingsNow } from './settingsMenu';
 import { TEXT, shown, type Line } from '../content/text';
 import { SOURCES } from '../content/sources';
@@ -87,7 +88,8 @@ export function createGameMenu(root: HTMLElement, a: MenuActions): GameMenu {
     else a.onPause();
     pointer(e);
   });
-  column.append(line, pause);
+  // Last, after Pause: the virtual worm (the 3D anatomy model), which opens in a new tab.
+  column.append(line, pause, virtualWormIcon('menu-icon'));
 
   const card = el('section', '', 'menu-card');
   card.id = 'menu-card';

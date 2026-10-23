@@ -1,5 +1,6 @@
 import './quests.css';
 import { el, button, cardHead, menu, type Button } from './dom';
+import { virtualWormLink } from './virtualWorm';
 import { icon } from './icons';
 import type { Shell } from './shell';
 import { FORM_URL, VERSION_TITLE } from '../version';
@@ -53,7 +54,7 @@ export function showStart(shell: Shell, a: StartActions, round?: StartRound): vo
   const preview = nest ?? watch;
   if (!round) {
     const crawl = button('Crawl', 'play', watch ? 'secondary' : 'primary', a.onCrawl);
-    shell.show('start', 'Start', [...head, menu(crawl)]);
+    shell.show('start', 'Start', [...head, menu(crawl), wormLink()]);
     (preview ?? crawl).el.focus();
     return;
   }
@@ -80,10 +81,17 @@ export function showStart(shell: Shell, a: StartActions, round?: StartRound): vo
     li.append(mark, words, b.el);
     list.append(li);
   });
-  shell.show('start', 'Start', [...head, list]);
+  shell.show('start', 'Start', [...head, list, wormLink()]);
   // Every quest done: Crawl leads (play on as long as you like).
   const first: Button | null = preview ?? focus ?? crawl;
   first?.el.focus();
+}
+
+/** The virtual worm (the 3D anatomy model), under the quests: it opens in a new tab. */
+function wormLink(): HTMLElement {
+  const m = el('div', '', 'menu');
+  m.append(virtualWormLink('btn btn-secondary'));
+  return m;
 }
 
 function status(q: Quest, minutes: number): string {
