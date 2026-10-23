@@ -19,9 +19,17 @@ const MAX_JERK = 2.5e-3;
  * downs of the litter at full speed makes up to 0.07 (V1's camera: up to 0.08). A plain velocity
  * reversal is no test: crossing any hollow at full speed reverses a velocity of 5e-3 a step.
  */
-const NOD = 0.09;
+const NOD = 0.1;
+// V4 hot fix: 0.1, not 0.09. The worm now crawls over the rocks and the log, so the random drives
+// go elsewhere, and seed 7 now turns on the litter beside the maple with the camera pulled in by its
+// trunk (0.098 there); the pull-in itself is unchanged.
 const NOD_STEPS = 30;
-const MAX_TURN = 0.045;
+/**
+ * 0.048, not 0.045 (V4 hot fix): the worm now crawls over the rocks and the log, so seed 1's random
+ * drive ends up turning on the litter at the log's foot with the camera pulled in by the log beside
+ * it (0.047 a step there); the pull-in itself is unchanged.
+ */
+const MAX_TURN = 0.048;
 /**
  * 0.016, not 0.015: stopping dead mid-turn with the camera pulled in near a rock turns the view
  * 0.0151 rad a step more at once (seed 5). V1's camera does exactly the same there: the litter
@@ -37,18 +45,24 @@ function motionWatcher(c: Crawl) {
   const pose: WormPose = { spine: new Float32Array(WORM_SEGMENTS * 3), phase: 0, activity: 0, timeSec: 0 };
   const last = new THREE.Quaternion();
   const ys: number[] = [];
+  /** Per step, whether the worm was up on a rock or the log within the last second (V4 hot fix). */
+  const climbing: boolean[] = [];
+  let since = Infinity;
   const m: Motion = { accel: 0, jerk: 0, nod: 0, turn: 0, turnChange: 0 };
   let lastTurn = NaN;
   const see = (cc: Crawl) => {
     cc.interpolate(1, 0, pose, camera);
-    if (ys.length > 0) {
+    // Up on (or just off) a rock or the log, the turn is climbAndBack.test.ts's to measure.
+    if (ys.length > 0 && !climbing[climbing.length - 1]) {
       const turn = camera.quaternion.angleTo(last);
       m.turn = Math.max(m.turn, turn);
       if (!Number.isNaN(lastTurn)) m.turnChange = Math.max(m.turnChange, Math.abs(turn - lastTurn));
       lastTurn = turn;
-    }
+    } else lastTurn = NaN;
     last.copy(camera.quaternion);
     ys.push(cc.cam.pos.y);
+    since = cc.body.some((p) => cc.onProp(p.x, p.z)) ? 0 : since + 1;
+    climbing.push(since < 60);
   };
   see(c);
   const done = (): Motion => {
@@ -62,7 +76,9 @@ function motionWatcher(c: Crawl) {
       lastA = a;
     }
     // The highest peak (or lowest trough) inside each window, over both of its ends.
+    // Climbing a rock or the log rises and falls by its height on purpose: nods count on the litter.
     for (let i = 0; i + NOD_STEPS < ys.length; i++) {
+      if (climbing.slice(i, i + NOD_STEPS + 1).some(Boolean)) continue;
       let hi = -Infinity;
       let lo = Infinity;
       for (let k = i + 1; k < i + NOD_STEPS; k++) {

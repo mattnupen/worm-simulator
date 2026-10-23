@@ -17,6 +17,13 @@ How to write an entry (for Matt and Claude):
 
 ## V4 · Eating (2026-10-23)
 
+### Fixed later the same day
+- **Come up any time you're at the top.** Press Space (or the button) near the top of the soil
+  and your worm always comes out.
+- **Back up.** Press S, the down arrow, or pull the joystick down and your worm crawls backward,
+  tail first. No more getting stuck against trees and rocks.
+- **Climb over rocks and logs.** Your worm crawls right up and over them. Trees are still too tall.
+
 ### New
 - The Start screen says **Version 4 · Eating** under the title.
 - **Learn: How do worms eat?** Find out what worms eat and how. In a 3D movie, a nightcrawler

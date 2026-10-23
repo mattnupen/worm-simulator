@@ -1,4 +1,5 @@
 import { floorHeight } from '../surface/litterDepth';
+import { climbAsk, climbHeight } from '../surface/climbSurface';
 
 export interface WormSurface {
   /** Height the worm rests on (m): the top of the F layer, under all the loose leaves. */
@@ -59,7 +60,8 @@ export function riseInto(r: WormRise, a: Float64Array, out: WormSurface): void {
  * The surface under the worm at (x, z) (V2 spec 8.2): the worm travels buried in the loose leaf
  * layer, its belly on the F layer's top (floorHeight), on every preset. The floor is the soil's
  * own smooth shape, so the worm never steps on the drawn grid's edges. Over a casting mound (V4)
- * its belly rides up onto the castings and down again (setWormRise). Writes into `out`, so the
+ * its belly rides up onto the castings and down again (setWormRise). The crawl adds the rocks and
+ * the log on top (crawlSurface); the cut underground keeps to this. Writes into `out`, so the
  * per-step calls allocate nothing.
  */
 export function wormSurface(x: number, z: number, out: WormSurface = { y: 0 }): WormSurface {
@@ -70,6 +72,19 @@ export function wormSurface(x: number, z: number, out: WormSurface = { y: 0 }): 
     riseInto(lifts, ask, out);
   }
   if (lift) out.y += lift(x, z);
+  return out;
+}
+
+/**
+ * The surface the crawl rests on (V4 hot fix): wormSurface, or the ride over a rock or the log
+ * (climbSurface.ts) where that is higher, so the worm crawls up and over them. Writes into `out`.
+ */
+export function crawlSurface(x: number, z: number, out: WormSurface): WormSurface {
+  wormSurface(x, z, out);
+  climbAsk[0] = x;
+  climbAsk[1] = z;
+  climbHeight();
+  if (climbAsk[2] > out.y) out.y = climbAsk[2];
   return out;
 }
 

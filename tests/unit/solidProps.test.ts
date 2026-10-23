@@ -3,68 +3,36 @@ import { Crawl, BODY_RADIUS } from '../../src/game/crawl';
 import { obstacleDepth, footprints, insideTall, sightReach, ROCK_FOOT } from '../../src/surface/obstacles';
 import { treeSites, trunkFootOf } from '../../src/surface/treeSites';
 import { rocks } from '../../src/surface/propPlacement';
-import { terrainHeight } from '../../src/surface/terrain';
 import { stepWorm, type WormMotion } from '../../src/worm/locomotion';
 import { AUTO_DRIVE_MOVE, LOCOMOTION } from '../../src/game/drive';
 import { CAM_OPTS } from '../../src/game/cameraClearance';
+import { climbAt, MAX_CLIMB } from '../../src/surface/climbSurface';
+import { floorHeight } from '../../src/surface/litterDepth';
 import { DT, driveTo, followY, pastTrunk } from './cameraPress';
 
 const hit = { nx: 0, nz: 0 };
 
-/** Fails if any body point lies inside a footprint grown by the body's radius. */
+/** Fails if any body point lies inside a trunk's footprint grown by the body's radius. */
 function outside(c: Crawl): void {
-  for (const p of c.body) expect(obstacleDepth(p.x, p.z, BODY_RADIUS, hit)).toBeLessThanOrEqual(1e-9);
+  for (const p of c.body) expect(obstacleDepth(p.x, p.z, BODY_RADIUS, hit, MAX_CLIMB)).toBeLessThanOrEqual(1e-9);
 }
 
-describe('trunks, rocks and the log are solid', () => {
+describe('trunks are solid; the rocks and the log are crawled over (V4 hot fix)', () => {
 
-  it('a worm driven at every one of them stops at its edge and never cuts through', () => {
+  it('a worm driven at every trunk stops at its edge and never cuts through; at a rock or the log it climbs on', () => {
     const { round, log } = footprints();
-    const targets = [];
-    for (let o = 0; o < round.length; o += 4) targets.push({ x: round[o], z: round[o + 1] });
-    targets.push({ x: log.x, z: log.z }, { x: log.x + log.dx * log.half * 0.6, z: log.z + log.dz * log.half * 0.6 });
-    for (const t of targets) {
+    for (let o = 0; o < round.length; o += 4) {
       const c = new Crawl();
-      driveTo(c, t.x, t.z, 900, outside);
-    }
-  }, 60_000);
-
-  it('slides along an edge instead of stopping dead', () => {
-    // Head for a point just past the log's far side, at a slant: the worm meets the log and slides
-    // along it, staying on its own side.
-    const { log } = footprints();
-    const c = new Crawl();
-    const tx = log.x - log.dz * (log.r + 3) + log.dx * 2;
-    const tz = log.z + log.dx * (log.r + 3) + log.dz * 2;
-    /** Where (x, z) lies along the log's axis, and across it (negative: the spawn's side). */
-    const along = (x: number, z: number) => (x - log.x) * log.dx + (z - log.z) * log.dz;
-    const across = (x: number, z: number) => -(x - log.x) * log.dz + (z - log.z) * log.dx;
-    let side = across(c.motion.head.x, c.motion.head.z);
-    expect(side).toBeLessThan(0);
-    let touching = 0;
-    let slid = 0;
-    let lastAlong = along(c.motion.head.x, c.motion.head.z);
-    driveTo(c, tx, tz, 1500, (cc) => {
-      const h = cc.motion.head;
-      const t = along(h.x, h.z);
-      // The head only gets to the log's far side around one of its ends, never across it.
-      const now = across(h.x, h.z);
-      if ((now < 0) !== (side < 0)) expect(Math.abs(t)).toBeGreaterThan(log.half);
-      side = now;
-      const tc = Math.max(-log.half, Math.min(log.half, t));
-      const gap = Math.hypot(h.x - (log.x + log.dx * tc), h.z - (log.z + log.dz * tc)) - log.r - BODY_RADIUS;
-      if (gap < 0.01) {
-        // Against the log: never in it, and still moving along it.
-        expect(obstacleDepth(h.x, h.z, BODY_RADIUS, hit)).toBeLessThanOrEqual(1e-9);
-        touching++;
-        slid += t - lastAlong;
+      if (round[o + 3] > MAX_CLIMB) driveTo(c, round[o], round[o + 1], 900, outside);
+      else {
+        driveTo(c, round[o], round[o + 1], 900);
+        const h = c.motion.head;
+        expect(h.y).toBeGreaterThan(floorHeight(h.x, h.z) + 0.3);
       }
-      lastAlong = t;
-    });
-    expect(touching).toBeGreaterThan(10);
-    // While against the log it still moves along it (it steers into it, so it slides slower than it crawls).
-    expect(slid / (touching * DT)).toBeGreaterThan(0.15 * LOCOMOTION.speed);
-  });
+    }
+    const c = new Crawl();
+    driveTo(c, log.x + log.dx * log.half * 0.6, log.z + log.dz * log.half * 0.6, 900, outside);
+  }, 60_000);
 
   it('the speed test\'s drive never touches one: the head follows the free path exactly', () => {
     const c = new Crawl();
@@ -95,9 +63,9 @@ describe('sightReach', () => {
     expect(hx - 4 * r - (t.x + foot)).toBeCloseTo(0.35, 2);
   });
 
-  it('passes over a rock lower than the line, not one taller', () => {
+  it('passes over a rock lower than the line, not one taller (its drawn top, the worm\'s ride over it)', () => {
     const k = rocks()[0];
-    const top = terrainHeight(k.x, k.z) + k.size * 0.6;
+    const top = climbAt(k.x, k.z);
     const foot = k.size * ROCK_FOOT;
     const hx = k.x + foot + 0.5;
     expect(sightReach(hx, top + 0.2, k.z, hx - 2 * foot - 1, top + 0.5, k.z, 0.35)).toBe(1);

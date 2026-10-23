@@ -4,10 +4,12 @@ import { createPressEdge } from '../input/actionEdge';
 /**
  * Surface or underground, and the moves between (V2 spec 4, 10): a small pure state machine.
  * One Action press does what fits (spec 11.8): on the surface where allowed it digs down;
- * underground near the top it comes up; deeper it switches the camera view.
+ * underground at the top it comes up (V4 hot fix: always, heading out first where it must); deeper
+ * it switches the camera view.
  *
  *   surface --Action, canDig--> diggingDown --(turn and sink; the camera swings at the end)--> underground
  *   underground --Action, nearTop--> comingUp --(rise, then camera)--> surface
+ *   underground --Action, atTop elsewhere: the worm heads out (burrowOut.ts), then comeUpNow--> comingUp
  *   underground --Action, deeper--> underground (view switched)
  *
  * The machine owns the press edge (createPressEdge): feed it the held Action level every step
@@ -15,8 +17,10 @@ import { createPressEdge } from '../input/actionEdge';
  * button through a move, a pause or a view switch never fires again; the level must go up and
  * down first. A press on a step that ends a move is dropped with the rest of the move's presses.
  * `canDig` must come from `canDigAt(x, z, heading, crawl.body)` (the heading is required there).
- * `nearTop` must be `burrower.nearTop && canEmergeAt(map, head u)` (emergeMap.ts): near the top
- * where the body could not lie out on the surface, Action stays the view switch. On `startDig`
+ * `nearTop` must be `burrower.nearTop && canEmergeAt(map, head u)` (emergeMap.ts): where the climb
+ * out can start at once. At the top elsewhere (burrowTop.ts `atTop`) the game does not step the
+ * machine on a press: the worm heads out first (burrowOut.ts) and `comeUpNow` starts the move once
+ * it gets there; deeper, Action is the view switch. On `startDig`
  * and on `startUp`, give the machine the path's length (`setMoveTime(path.seconds)`): a big turn
  * or a long way out takes longer, so no part of the worm outruns the speed caps (bodyPath.ts).
  * With reduced motion either move is a short dip through dark soil instead (FADE_S). Nothing here
@@ -115,6 +119,18 @@ export interface ModeMachine {
    * watched as it was, so a press held through the reset does not fire on the next step.
    */
   reset(): void;
+  /**
+   * Starts coming up with no press (the worm headed out to a place it can come up: burrowOut.ts),
+   * as a press there would. Only underground: true when it started (the step's event is 'startUp').
+   */
+  comeUpNow(reduced: boolean): boolean;
+}
+
+function startUp(s: ModeState, reduced: boolean): void {
+  s.mode = 'comingUp';
+  s.t = 0;
+  s.reduced = reduced;
+  s.moveS = UP_S;
 }
 
 export function createModeMachine(): ModeMachine {
@@ -136,6 +152,11 @@ export function createModeMachine(): ModeMachine {
       if (state.mode === 'comingUp') state.moveS = Math.max(UP_S, seconds);
       if (state.mode === 'diggingDown') state.moveS = Math.max(leastDown(state), seconds);
     },
+    comeUpNow(reduced: boolean): boolean {
+      if (state.mode !== 'underground') return false;
+      startUp(state, reduced);
+      return true;
+    },
     step(action, canDig, nearTop, reduced, dt): ModeEvent {
       const pressed = edge.update(action);
       const s = state;
@@ -150,10 +171,7 @@ export function createModeMachine(): ModeMachine {
         case 'underground':
           if (!pressed) return 'none';
           if (!nearTop) return 'switchView';
-          s.mode = 'comingUp';
-          s.t = 0;
-          s.reduced = reduced;
-          s.moveS = UP_S;
+          startUp(s, reduced);
           return 'startUp';
         case 'diggingDown':
         case 'comingUp': {

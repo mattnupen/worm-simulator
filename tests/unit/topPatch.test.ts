@@ -111,7 +111,9 @@ describe('the top of the litter over the worm: the terrain and its patch (V2 spe
     let missed = 0;
     let frames = 0;
     let most = 0;
-    for (let s = 0; s < 2400; s++) {
+    // 3000 steps, not 2400 (V4 hot fix): the worm now crawls up over rocks and the log, out of the
+    // litter, so the same course spends less time buried; the longer drive keeps the sample as big.
+    for (let s = 0; s < 3000; s++) {
       if (s % 300 === 0) {
         tx = (rng() * 2 - 1) * H;
         tz = (rng() * 2 - 1) * H;

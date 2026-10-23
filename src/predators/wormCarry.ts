@@ -23,6 +23,9 @@ const DRAG = 0.985;
 const SUB = 1 / 120;
 /** How hard it squirms (cm/s per point away from the bill). */
 const WRIGGLE = 1.6;
+/** Wiggling free (nestWiggle.ts): a press's flick (cm/s per cm from the bill) and the thrash's squirm. */
+const FLICK = 9;
+const THRASH = 14;
 
 // The player's worm's colours (wormMaterial.ts): mauve-brown, redder at the front, a pale saddle.
 const FRONT = lin(0x8e3f50);
@@ -40,6 +43,10 @@ export class WormCarry {
   readonly count: number;
   /** Drawn: false collapses its vertices (before the catch, and once it is fed). */
   shown = false;
+  /** How hard it thrashes now (0..1, set by the scene from nestWiggle.ts): a fast, big squirm. */
+  thrash = 0;
+  /** Let go of (it wiggled free, `drop`): no longer held, it falls, and slides little once down. */
+  free = false;
   /** The ground's height (nest frame) under a nest-frame point: the rope lies on it, never under it. */
   floor: (x: number, z: number) => number = () => -1e9;
   private readonly p = new Float32Array(WORM_POINTS * 3);
@@ -82,7 +89,38 @@ export class WormCarry {
     }
     this.q.set(this.p);
     this.age = 0;
+    this.thrash = 0;
+    this.free = false;
     this.ground();
+  }
+
+  /**
+   * Let go: it falls from where it is. It wriggles out of the bill rather than being thrown, so it
+   * keeps little of the robin's speed across the ground and comes down close to where it slipped.
+   */
+  drop(): void {
+    this.free = true;
+    for (let i = 0; i < this.p.length; i += 3) {
+      this.q[i] = this.p[i] - (this.p[i] - this.q[i]) * 0.2;
+      this.q[i + 2] = this.p[i + 2] - (this.p[i + 2] - this.q[i + 2]) * 0.2;
+    }
+  }
+
+  /**
+   * A press's flick (nestWiggle.ts): both ends whip one way (`side`, 1 or -1) and up, the farther
+   * from the bill the more, `strength` 0..1 (smaller with reduced motion).
+   */
+  flick(side: number, strength: number): void {
+    const v = FLICK * strength * SUB;
+    for (let k = 0; k < WORM_POINTS; k++) {
+      const d = Math.abs(k - HOLD) * SEG * v;
+      const i = k * 3;
+      // The two ends go opposite ways, as a body bends.
+      const s = k < HOLD ? side : -side;
+      this.q[i] -= s * d;
+      this.q[i + 1] -= d * 0.5;
+      this.q[i + 2] -= s * d * 0.4;
+    }
   }
 
   /** Moves on `dt` seconds with the bill now at `a`, `b`, `c` (as in hang). */
@@ -101,7 +139,10 @@ export class WormCarry {
         const x = p[i], y = p[i + 1], z = p[i + 2];
         // A slow wriggle along it, the ends most: a caught worm squirms.
         const k = i / 3;
-        const wr = WRIGGLE * h * Math.abs(k - HOLD) * Math.sin(this.age * 5 - k * 0.9);
+        // (Let go, only a little of it: in the air a squirm would push it sideways.)
+        const wr = this.free
+          ? h * Math.abs(k - HOLD) * WRIGGLE * 0.3 * Math.sin(this.age * 5 - k * 0.9)
+          : h * Math.abs(k - HOLD) * (WRIGGLE * Math.sin(this.age * 5 - k * 0.9) + THRASH * this.thrash * Math.sin(this.age * 17 - k * 1.3));
         p[i] += (x - q[i]) * DRAG + wr;
         p[i + 1] += (y - q[i + 1]) * DRAG - g;
         p[i + 2] += (z - q[i + 2]) * DRAG + wr * 0.6;
@@ -113,7 +154,8 @@ export class WormCarry {
         for (let i = 0; i < WORM_POINTS - 1; i++) this.link(i, i + 1, SEG, 0.5);
         // A little stiffness: a worm bends, but not like a string.
         // (Not across the bill: the ends hang straight down from its edges.)
-        for (let i = 0; i < WORM_POINTS - 2; i++) if (i + 2 < HOLD - 1 || i > HOLD + 1) this.link(i, i + 2, SEG * 1.85, 0.06);
+        // Let go, it is one body again, held a little straighter (no kinks where the bill was).
+        for (let i = 0; i < WORM_POINTS - 2; i++) if (this.free || i + 2 < HOLD - 1 || i > HOLD + 1) this.link(i, i + 2, SEG * 1.85, this.free ? 0.2 : 0.06);
       }
       this.holdPins(k);
       this.ground();
@@ -183,6 +225,7 @@ export class WormCarry {
 
   /** The held points, `k` (0..1) of the way from where the bill was to where it is. */
   private holdPins(k: number): void {
+    if (this.free) return;
     for (let j = 0; j < 3; j++) {
       const i = (HOLD - 1 + j) * 3;
       for (let d = 0; d < 3; d++) {
@@ -213,6 +256,11 @@ export class WormCarry {
       if (p[i + 1] < top) {
         p[i + 1] = top;
         this.q[i + 1] = top;
+        // Dropped on the litter it stops soon: no sliding off across the floor.
+        if (this.free) {
+          this.q[i] = p[i] - (p[i] - this.q[i]) * 0.6;
+          this.q[i + 2] = p[i + 2] - (p[i + 2] - this.q[i + 2]) * 0.6;
+        }
       }
     }
   }

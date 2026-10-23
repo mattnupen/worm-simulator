@@ -17,6 +17,9 @@ import { loadSettings, updateSettings, SETTINGS_KEY, type KeyValueStore } from '
 import { project } from './cutWorld';
 import { DT, N, STILL, UP, RIGHT, makeGame, press, run, until, digDown, steerToTop, shown, gap } from './burrowPlay';
 
+/** Crawling forward, turning right. */
+const TURN = { x: 1, y: 1 };
+
 describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
   it('crawls on the surface and offers Dig down where allowed', () => {
     const { crawl, game } = makeGame();
@@ -161,7 +164,9 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     expect(game.mode.mode).toBe('surface');
     expect(game.visits).toBe(1);
     // Pressed while paused (hold) and held on resuming: not a press. Let go and press: it digs.
-    for (let k = 0; k < 600 && game.prompt !== 'digDown'; k++) game.step(DT, k < 300 ? STILL : UP, false);
+    // (Turning back first: straight on, it crawls up onto a rock, where it may not dig, and on to
+    // the maple's foot: V4 hot fix.)
+    for (let k = 0; k < 900 && game.prompt !== 'digDown'; k++) game.step(DT, k < 300 ? STILL : k < 420 ? TURN : UP, false);
     expect(game.prompt).toBe('digDown');
     game.hold(true);
     game.step(DT, STILL, true);
@@ -171,27 +176,25 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     expect(game.mode.mode).toBe('diggingDown');
   });
 
-  it('Come up is offered only where the whole body can lie out (canEmergeAt); elsewhere Action switches the view', () => {
+  it('at the top Action always comes up: at once where the body can lie out, else after heading out (V4 hot fix)', () => {
     const { game } = makeGame();
     run(game, 0.5, UP);
     digDown(game);
     steerToTop(game);
     expect(canEmergeAt(game.emerge, game.worm.u[0])).toBe(true);
-    // The same spot with no way out (as beside a trunk): near the top, but Action is the view switch.
+    // The same spot with no way out anywhere (as beside a trunk, at a slab's end): still Come up,
+    // never the view switch. With nowhere better, the worm comes up where it is.
     const sides = game.emerge.sides.slice();
     game.emerge.sides.fill(0);
     game.step(DT, STILL, false);
     expect(game.worm.nearTop).toBe(true);
     expect(game.nearTop).toBe(false);
-    expect(game.prompt).toBe('viewClose');
-    press(game);
-    expect(game.mode.mode).toBe('underground');
-    expect(game.view).toBe('close');
-    game.emerge.sides.set(sides);
-    game.step(DT, STILL, false);
     expect(game.prompt).toBe('comeUp');
     press(game);
-    expect(game.mode.mode).toBe('comingUp');
+    expect(game.view).toBe('wide');
+    until(game, 'comingUp', 4);
+    until(game, 'surface');
+    game.emerge.sides.set(sides);
   });
 
   it('the view setting is stored only when the player switches it', () => {
@@ -260,8 +263,8 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     expect(game.openings.count).toBe(MAX_OPENINGS);
     expect(game.openings.version).toBe(MAX_OPENINGS + 3);
     // Crawl on until Dig down shows (where it comes up depends on how its body lay below; after 3 s,
-    // turning, round whatever is in the way).
-    for (let k = 0; k < 100 && game.prompt !== 'digDown'; k++) run(game, 0.1, { x: k > 30 ? 0.5 : 0, y: 1 });
+    // turning a little, then on: it crawls over a rock in the way, where it may not dig, V4 hot fix).
+    for (let k = 0; k < 100 && game.prompt !== 'digDown'; k++) run(game, 0.1, { x: k > 30 && k < 40 ? 1 : 0, y: 1 });
     digDown(game);
     game.reset();
     expect(game.mode.mode).toBe('surface');

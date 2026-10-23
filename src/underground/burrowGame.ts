@@ -17,6 +17,7 @@ import { DigAsk } from './digAsk';
 import { frameHunt } from './huntFrame';
 import { startDig, startUp, stepMove, type MoveState } from './burrowMoves';
 import { setBodyLength, wormBody, WORM_SEGMENTS } from '../worm/bodyLength';
+import { createHeadOut, headOut } from './burrowOut';
 
 /** What the game asks of the page. */
 export interface BurrowHost {
@@ -91,8 +92,13 @@ export class BurrowGame implements MoveState {
   prompt: ActionKind | null = null;
   /** Width / height of the screen (set on resize): the cut camera frames for it. */
   aspect = 16 / 9;
-  /** Near the top where the whole body can lie out on the surface: Action comes up. */
+  /**
+   * Near the top where the whole body can lie out on the surface: Action comes up at once. (At the
+   * top elsewhere, `worm.atTop`, Action heads out first: burrowOut.ts.)
+   */
   nearTop = false;
+  /** Heading out: how it is going (burrowOut.ts; the worm's `outTo` says whether it is). */
+  private readonly out = createHeadOut();
   /** The dig-down's work left (burrowMoves.ts buildStage), one part a step; 0 when none. */
   stage = 0;
   /**
@@ -124,6 +130,12 @@ export class BurrowGame implements MoveState {
     return this.visits === 1 && this.firstVisitT < HINT_S && this.mode.mode === 'underground';
   }
 
+  /** The worm is heading out to a place where it can come up (burrowOut.ts). */
+  get heading(): boolean {
+    const t = this.worm.outTo;
+    return t === t && this.mode.mode === 'underground';
+  }
+
   /** Nothing underground can show yet: digging down, the camera still behind the worm (stage work then). */
   get slabHidden(): boolean {
     return this.mode.mode === 'diggingDown' && cameraProgress(this.mode) === 0;
@@ -148,13 +160,14 @@ export class BurrowGame implements MoveState {
     else {
       if (m.mode === 'underground') {
         if (this.visits === 1) this.firstVisitT += dt;
-        this.stepUnder(dt, move, action, reduced, auto);
+        this.stepUnder(dt, move, action, fresh, reduced, auto);
       } else stepMove(this, dt, action, reduced);
       // Back up (the move just ended): the crawl takes over, and the dig spot is asked afresh.
       if ((m.mode as Mode) === 'surface') this.dig.ask(this, true);
       else this.frameCut(dt);
     }
-    this.prompt = this.approach.burrow >= 0 ? null : promptKind(m, this.dig.canDig, this.nearTop, this.view);
+    // At the top the prompt is Come up (heading out first where it must); none while heading out.
+    this.prompt = this.approach.burrow >= 0 || this.heading ? null : promptKind(m, this.dig.canDig, this.worm.atTop, this.view);
   }
 
   /**
@@ -195,16 +208,7 @@ export class BurrowGame implements MoveState {
     this.dig.ask(this, false);
   }
 
-  private stepUnder(dt: number, move: Vec2, action: boolean, reduced: boolean, auto: boolean): void {
-    const ev = this.machine.step(action, false, this.nearTop, reduced, dt);
-    if (ev === 'startUp') {
-      startUp(this);
-      return;
-    }
-    if (ev === 'switchView') {
-      this.view = this.view === 'wide' ? 'close' : 'wide';
-      this.host.saveView(this.view);
-    }
+  private stepUnder(dt: number, move: Vec2, action: boolean, fresh: boolean, reduced: boolean, auto: boolean): void {
     const way = this.way;
     way.du = move.x * this.rightSign;
     way.dv = move.y;
@@ -213,8 +217,22 @@ export class BurrowGame implements MoveState {
       way.du = Math.cos(0.37 * this.autoT + 0.5);
       way.dv = Math.sin(0.61 * this.autoT) - 0.15;
     }
+    // At the top Action always comes up, heading out first where it must (burrowOut.ts).
+    const point = headOut(this, this.out, action, fresh, reduced, way, dt);
+    if (this.out.cameUp) return;
+    if (!this.out.handled) {
+      const ev = this.machine.step(action, false, this.nearTop, reduced, dt);
+      if (ev === 'startUp') {
+        startUp(this);
+        return;
+      }
+      if (ev === 'switchView') {
+        this.view = this.view === 'wide' ? 'close' : 'wide';
+        this.host.saveView(this.view);
+      }
+    }
     const w = this.worm;
-    stepBurrowing(w, this.slab!, this.grid, this.solids, way, dt);
+    stepBurrowing(w, this.slab!, this.grid, this.solids, point, dt);
     this.prevW.set(this.offW);
     this.nearTop = w.nearTop && canEmergeAt(this.emerge, w.u[0]);
   }

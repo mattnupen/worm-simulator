@@ -72,6 +72,11 @@ export const TEXT = {
     verified: true,
   },
   burrowChoice: { kind: 'gameChoice', text: 'In the game you can dig any way you like.' },
+  /** V4 hot fix (burrowOut.ts): at the top, Action always comes up, heading out first where it must. */
+  comeUpChoice: {
+    kind: 'gameChoice',
+    text: 'In the game a worm comes up only where its whole body can lie out on open ground, so beside a rock, log or tree it first crawls under the leaves to an open spot.',
+  },
   // The opening scene (src/opening/script.ts; Matt's storyboard, 2026-10-16).
   openingBus: { kind: 'ui', text: '[A school bus pulls up]' },
   openingDoor: { kind: 'ui', text: '[Brakes hiss. The door opens]' },
@@ -113,6 +118,10 @@ export const TEXT = {
   },
   // Minnesota Breeding Bird Atlas: robins breed in "the summer's breeding season". The game is in fall.
   nestSeason: { kind: 'gameChoice', text: 'real robins raise their babies in spring and summer, not in fall.' },
+  // Wiggling free on the way to the nest (V4 hot fix; src/predators/nestWiggle.ts). Nothing on
+  // screen tells the player they can; this line only shows after they do.
+  nestWiggledFree: { kind: 'ui', text: 'You wiggled free!' },
+  nestWiggleChoice: { kind: 'gameChoice', text: 'A worm a bird is carrying rarely gets away like this. The chance to wiggle free is just for the game.' },
   nestSource: { kind: 'ui', text: 'Source:' },
   nestContinue: { kind: 'ui', text: 'Keep going' },
   // The game menu (src/ui/gameMenu.ts; Matt, 2026-10-23): one tab, an icon column, a small card.

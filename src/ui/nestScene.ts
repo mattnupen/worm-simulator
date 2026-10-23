@@ -16,8 +16,9 @@ export interface NestOverlay {
  * (white on see-through black bars), the fade to dark, and at the end one fact card. No Skip button
  * (like the opening): Esc, Enter (main.ts) or a tap anywhere skips to the card, and its button
  * goes on. The panel is the shell's aria-live region, so captions and the card are read out.
+ * `onTap`: a tap the scene uses itself (true: the carried worm wiggles, nestWiggle.ts), else it skips.
  */
-export function showNestScene(shell: Shell, onSkip: () => void, onContinue: () => void): NestOverlay {
+export function showNestScene(shell: Shell, onSkip: () => void, onContinue: () => void, onTap: () => boolean = () => false): NestOverlay {
   const caption = el('p', '', 'opening-caption nest-caption');
   const words = el('span', '', 'opening-words');
   words.dataset.sound = '';
@@ -31,7 +32,7 @@ export function showNestScene(shell: Shell, onSkip: () => void, onContinue: () =
   const tap = (e: PointerEvent): void => {
     if (!e.isPrimary) return;
     e.preventDefault();
-    onSkip();
+    if (!onTap()) onSkip();
   };
   panel.addEventListener('pointerdown', tap);
   let lastCaption: TextKey | null | undefined;
