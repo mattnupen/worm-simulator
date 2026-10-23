@@ -16,6 +16,9 @@
   4. Backing up works: on the surface S, the down arrow or the joystick pulled down crawls tail
      first (before, it did nothing), and underground a stuck worm backs up when you point away
      from its head.
+  The same re-cut also carries the game menu (PR #53, Matt chose to include it): a top-left tab
+  with Mission, Rounds, Settings, About and Pause replaces the Settings screen, the Versions
+  pop-up and the Pause card.
   Students who opened V4 before the fix played without these.
 
 ## Game choices (recorded, never labelled on screen)
