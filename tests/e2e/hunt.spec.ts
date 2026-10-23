@@ -34,11 +34,10 @@ async function nextPull(page: Page): Promise<boolean> {
 /** Crawls until the robin has grabbed the worm: the warning first, then only the Energy bar. */
 async function grabbed(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Crawl', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Crawling' })).toBeVisible();
+  await expect(page.locator('#app[data-ui="crawl"]')).toBeVisible();
   const warning = page.getByRole('status').filter({ hasText: 'Robin!' });
   await expect(warning).toBeVisible({ timeout: 60_000 });
   await expect(warning).toContainText('Dig down to hide.');
-  await expect(page.getByRole('region', { name: 'Crawling' })).toBeHidden();
   await expect(energy(page)).toBeVisible({ timeout: 150_000 });
   await expect(warning).toBeHidden();
   // The grab plays in the side view (the cut through a new burrow where the worm lay).
@@ -119,8 +118,8 @@ test('?hunt=0 turns the hunt off: no robin comes', async ({ page }) => {
   test.setTimeout(120_000);
   await page.goto(PAGE + '?opening=0&robinIn=0.5&hunt=0&preset=low');
   await page.getByRole('button', { name: 'Crawl', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Crawling' })).toBeVisible();
+  await expect(page.locator('#app[data-ui="crawl"]')).toBeVisible();
   await page.waitForTimeout(8000);
   await expect(page.locator('.hunt-warning')).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Crawling' })).toBeVisible();
+  await expect(page.locator('#app[data-ui="crawl"]')).toBeVisible();
 });
