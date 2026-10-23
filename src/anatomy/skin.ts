@@ -156,7 +156,7 @@ export function buildSetae(): { far: Mesher; near: Mesher; rest: Mesher; patch: 
           b.clone().addScaledVector(outward, len).add(new THREE.Vector3(0.1, 0, 0)),
         ];
         const target = x < cutX() ? (Math.sin(th) > 0 ? out.near : out.far) : inPeel('skin', seg + 0.5, th) ? out.patch : out.rest;
-        sweep(target, pts, (t) => 0.042 * (1 - 0.75 * t), paint, { radial: 6, per: 0.05 });
+        sweep(target, pts, (t) => 0.055 * (1 - 0.75 * t), paint, { radial: 6, per: 0.05 });
       }
     }
   }

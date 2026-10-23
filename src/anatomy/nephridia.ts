@@ -37,7 +37,8 @@ export function buildNephridia(): { far: Mesher; near: Mesher; rest: Mesher } {
         const back = Math.tanh((t - 0.5) * 10);
         // Low on the side, beside the nerve cord and under the gut; no two segments coil alike.
         const th = Math.PI - (0.5 + (0.75 + 0.12 * Math.sin(n * 1.7)) * climb);
-        const x = x0 + len * (0.5 + 0.3 * Math.sin(t * Math.PI * (6 + (n % 3)) + n) + 0.07 * back);
+        const wob = 0.3 + 0.08 * Math.sin(n * 2.3);
+        const x = x0 + len * (0.5 + wob * Math.sin(t * Math.PI * (6 + (n % 3)) + n) + 0.08 * Math.sin(t * Math.PI * 17 + n * 0.7) + 0.07 * back);
         const mm = 0.12 + 0.1 * (0.5 + 0.5 * Math.cos(t * Math.PI * 14)) + 0.07 * (back + 1);
         pts.push(insideWall(x, side * th, mm, new THREE.Vector3()));
       }

@@ -135,9 +135,12 @@ function tube(m: Mesher, xs: number[], th0: number, th1: number, cols: number, a
     { wrapV: th1 - th0 > 6.28, flip });
 }
 
+const CUT_WALL = new THREE.Color('#d39a86');
+const TYPHLO_CORE = new THREE.Color('#d9b26a');
+
 /** Wall thickness of the opened intestine, and the typhlosole's depth (fractions of its radius). */
 const WALL = 0.1;
-const TYPHLO = 0.5;
+const TYPHLO = 0.58;
 const inward = new THREE.Vector3();
 
 /** The intestine's inner lining, with the typhlosole folding down from the roof. */
@@ -168,7 +171,9 @@ export function buildGut(radial: number, stepFront: number, stepBack: number): {
   tube(out.near, open, 0, Math.PI, radial / 2, at, gutColor);
   const lining = (x: number, th: number, o: THREE.Color) => {
     const a = Math.abs(Math.atan2(Math.sin(th), Math.cos(th)));
-    o.copy(C.lining).lerp(C.dark, 0.5 * Math.exp(-((a / 0.22) ** 2))).multiplyScalar(0.9 + 0.1 * Math.sin(th * 30 + x * 3));
+    // The fold's sides sit in shadow, so it reads as a ridge hanging into the gut.
+    const side = Math.exp(-(((a - 0.3) / 0.09) ** 2));
+    o.copy(C.lining).lerp(C.dark, 0.35 * Math.exp(-((a / 0.22) ** 2))).multiplyScalar((0.9 + 0.1 * Math.sin(th * 30 + x * 3)) * (1 - 0.35 * side));
   };
   tube(out.cut, open, Math.PI, 2 * Math.PI, radial * 2, liningPoint, lining, true);
   // The cut edges of the wall, top and bottom, flat on the cut plane.
@@ -183,7 +188,19 @@ export function buildGut(radial: number, stepFront: number, stepBack: number): {
       liningPoint(x, th, o);
       o.lerp(a, 1 - v);
       o.z = 0;
-    }, (_u, v, _p, o) => o.copy(C.chloragogen).lerp(C.lining, smooth(0.15, 0.5, v)).multiplyScalar(0.92 + 0.08 * v), { flip });
+    }, (_u, v, _p, o) => {
+      // The cut face, banded like a slide: the yellow chloragogen coat, the muscular wall, then
+      // (in the roof) the typhlosole's chloragogen-filled core, and the lining at its edge.
+      if (th !== 0) {
+        o.copy(v < 0.3 ? C.chloragogen : v < 0.9 ? CUT_WALL : C.lining);
+        return;
+      }
+      const wall = 0.17;
+      if (v < 0.05) o.copy(C.chloragogen);
+      else if (v < wall) o.copy(CUT_WALL);
+      else if (v < 0.93) o.copy(TYPHLO_CORE).multiplyScalar(0.92 + 0.08 * Math.sin(v * 40));
+      else o.copy(C.lining).multiplyScalar(0.85);
+    }, { flip });
   };
   edge(0, false);
   edge(Math.PI, true);

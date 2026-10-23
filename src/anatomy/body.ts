@@ -169,7 +169,7 @@ const C = {
   dorsalBack: new THREE.Color('#6e3a40'),
   tip: new THREE.Color('#c48a78'),
   tail: new THREE.Color('#d9a690'),
-  clitellum: new THREE.Color('#a8725e'),
+  clitellum: new THREE.Color('#9c6656'),
   gland: new THREE.Color('#e7c0a6'),
   dark: new THREE.Color('#3a1418'),
   vessel: new THREE.Color('#6a1422'),

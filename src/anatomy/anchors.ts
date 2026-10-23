@@ -31,7 +31,7 @@ export const ANCHORS: Record<AnatomyPartId, Anchor> = {
   // On a septum, between the gut and the far wall.
   septa: inn(() => {
     const x = segStart(8) + 0.02;
-    return gutPoint(x, -SIDE + 0.5, V(0, 0, 0)).lerp(insideWall(x, -SIDE + 0.5, 0, V(0, 0, 0)), 0.55);
+    return gutPoint(x, -SIDE + 0.35, V(0, 0, 0)).lerp(insideWall(x, -SIDE + 0.35, 0, V(0, 0, 0)), 0.8);
   }),
   pharynx: inn(() => gutPoint(segMid(4), SIDE, V(0, 0, 0))),
   esophagus: inn(() => gutPoint(segMid(7), SIDE, V(0, 0, 0))),
