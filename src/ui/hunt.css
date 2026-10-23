@@ -1,7 +1,7 @@
-/* ---------- The robin hunt (V4; src/ui/huntHud.ts, huntRing.ts) ---------- */
+/* ---------- The robin hunt (V4; src/ui/huntHud.ts, huntEnergy.ts) ---------- */
 /* Crawl only. Words and icons carry the meaning (never colour alone); nothing flashes or pulses. */
 :not([data-ui="crawl"]) > .hunt-warning,
-:not([data-ui="crawl"]) > .hunt-grip,
+:not([data-ui="crawl"]) > .hunt-energy,
 :not([data-ui="crawl"]) > .hunt-note { display: none; }
 
 .hunt-warning {
@@ -18,48 +18,38 @@
 .hunt-warning-word { font: 800 28px/1.1 var(--font-display); }
 .hunt-warning-do { font: 600 20px/1.3 var(--font-body); }
 
-.hunt-grip {
-  /* The right side, level with the ground line: the hunt view frames the robin and worm left of centre. */
-  position: fixed; z-index: 1; right: 16px; top: 50%; transform: translateY(-50%);
-  width: min(300px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 16px;
+.hunt-energy {
+  /* Low and centred, under the action (the hunt view frames the robin and the worm above it). */
+  position: fixed; z-index: 1; left: 50%; bottom: 24px; transform: translateX(-50%);
+  /* Clear of the joystick (left) and the Tap button (right) on a short, wide screen. */
+  width: min(360px, max(240px, calc(100vw - 400px))); padding: 10px 14px; border-radius: 16px;
   color: var(--ink); background: var(--parchment-hi); border: 3px solid var(--bark-dark);
   box-shadow: 0 4px 10px rgba(30, 14, 2, 0.35);
-  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+  display: grid; grid-template-columns: auto auto 1fr; align-items: center; column-gap: 8px;
 }
-.hunt-grip[hidden] { display: none; }
-.hunt-grip-title { margin: 0; font: 800 22px/1.2 var(--font-display); }
-.hunt-say { margin: 0; font: 700 18px/1.3 var(--font-body); }
-
-/* The timing ring: a dot, a dashed circle where the ring meets it, and the ring shrinking onto it. */
-.hunt-ring { position: relative; width: 200px; height: 200px; }
-.hunt-ring svg { width: 100%; height: 100%; display: block; }
-.hunt-ring-dot { fill: var(--bark-dark); }
-.hunt-ring-guide { fill: none; stroke: var(--bark-dark); stroke-width: 3; stroke-dasharray: 7 6; }
-.hunt-ring-shrink { fill: none; stroke: var(--bark-dark); stroke-width: 9; }
-/* On time: the dashed circle turns solid and thick (a shape change), and "Tap!" shows under the dot. */
-.hunt-ring.is-now .hunt-ring-guide { stroke-width: 7; stroke-dasharray: none; }
-.hunt-ring-now { position: absolute; left: 0; right: 0; bottom: 6px; font: 800 26px/1 var(--font-display); }
-.hunt-ring-now[hidden] { display: none; }
-
-/* After each beat: an icon and a word ("Good!" with a check, "Missed" with a cross, and why). */
-.hunt-call {
-  margin: 0; min-height: 34px; display: inline-flex; align-items: center; gap: 8px;
-  font: 700 18px/1.2 var(--font-body);
+.hunt-energy[hidden] { display: none; }
+.hunt-energy-icon { width: 28px; height: 28px; color: var(--bark-dark); }
+.hunt-energy-icon svg { width: 100%; height: 100%; display: block; }
+.hunt-energy-word { font: 800 20px/1 var(--font-display); }
+/* The bar: its length is the energy; a dashed line marks the low point. */
+.hunt-energy-bar {
+  position: relative; height: 22px; border-radius: 11px; overflow: hidden;
+  border: 3px solid var(--bark-dark); background: var(--parchment);
 }
-.hunt-call[hidden] { display: inline-flex; visibility: hidden; }
-.hunt-call-icon { width: 30px; height: 30px; color: var(--bark-dark); }
-.hunt-call-icon[hidden] { display: none; }
-.hunt-call-icon svg { width: 100%; height: 100%; }
-.hunt-call-word { font: 800 24px/1.1 var(--font-display); }
-
-/* The pips: 5 rounded ones for good taps, 3 diamonds for misses; filled when earned. */
-.hunt-pips { display: grid; grid-template-columns: auto auto; align-items: center; gap: 6px 10px; }
-.hunt-pip-label { font: 700 18px/1.2 var(--font-body); text-align: right; }
-.hunt-pip-row { display: inline-flex; gap: 6px; }
-.hunt-pip { display: inline-block; border: 3px solid var(--bark-dark); background: transparent; }
-.hunt-pip-good { width: 14px; height: 24px; border-radius: 8px; }
-.hunt-pip-miss { width: 16px; height: 16px; margin: 0 3px; transform: rotate(45deg); }
-.hunt-pip.is-on { background: var(--bark-dark); }
+.hunt-energy-fill {
+  position: absolute; inset: 0; transform-origin: left center; background: var(--bark-dark);
+  transition: transform 0.1s linear;
+}
+.hunt-energy-mark {
+  /* Dashes of dark and light, so it shows over the fill and over the empty bar alike. */
+  position: absolute; top: 0; bottom: 0; width: 4px; margin-left: -2px;
+  background: repeating-linear-gradient(180deg, var(--parchment-hi) 0 4px, var(--bark-dark) 4px 8px);
+}
+/* Low: the fill turns striped (a pattern, not a colour change). */
+.hunt-energy.is-low .hunt-energy-fill {
+  background: repeating-linear-gradient(-45deg, var(--bark-dark) 0 5px, var(--parchment) 5px 9px);
+}
+@media (prefers-reduced-motion: reduce) { .hunt-energy-fill { transition: none; } }
 
 .hunt-note {
   position: fixed; z-index: 1; top: 16px; left: 50%; transform: translateX(-50%); margin: 0;
@@ -71,22 +61,14 @@
 
 /* While the hunt's HUD shows, the crawl card (controls and mission) steps aside for it. */
 #app:has(> .hunt-warning:not([hidden])) > .panel[data-state="crawl"],
-#app:has(> .hunt-grip:not([hidden])) > .panel[data-state="crawl"],
+#app:has(> .hunt-energy:not([hidden])) > .panel[data-state="crawl"],
 #app:has(> .hunt-note:not([hidden])) > .panel[data-state="crawl"] { visibility: hidden; }
+/* While the robin holds the worm, the layer names step aside too: just the robin, the worm and the bar. */
+#app:has(> .hunt-energy:not([hidden])) .cut-labels { visibility: hidden; }
 
-/* Small screens: the panel sits at the top under Pause, the note above the joystick and the button. */
+/* Small screens: the bar sits low, above the joystick and the Tap button; the note there too. */
 @media (max-width: 560px) {
-  /* Low and compact (the ring beside its words), above the controls: the robin stands in the top of the view. */
-  .hunt-grip {
-    top: auto; bottom: 176px; right: 12px; left: 12px; transform: none; width: auto; padding: 8px 10px;
-    display: grid; grid-template-columns: 112px 1fr; column-gap: 10px; row-gap: 2px; align-items: center;
-  }
-  .hunt-grip > * { grid-column: 2; }
-  .hunt-grip-title { font-size: 19px; }
-  .hunt-ring { grid-column: 1; grid-row: 1 / span 4; width: 112px; height: 112px; }
-  .hunt-ring-now { font-size: 20px; bottom: 0; }
+  .hunt-energy { bottom: 176px; width: min(300px, calc(100vw - 24px)); padding: 8px 12px; }
   .hunt-note { top: auto; bottom: 176px; left: 12px; right: 12px; transform: none; width: auto; max-width: none; }
-  /* No room for both on a phone: the grip panel (what to do now) wins over the first grab's note. */
-  #app:has(> .hunt-grip:not([hidden])) > .hunt-note { display: none; }
   .hunt-warning { top: 80px; right: 12px; }
 }

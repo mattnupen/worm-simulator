@@ -140,34 +140,46 @@ export function showVote(shell: Shell, onVoted: () => void, onStart: () => void)
   form.focus();
 }
 
-/** A touch screen with no hover (the Action prompt's own test, hud.css): the touch controls line. */
-const TOUCH = '(hover: none) and (pointer: coarse)';
+/** The crawl card's mission is folded away (kept for the visit, so it stays as the player left it). */
+let missionFolded = false;
 
 /**
- * The crawl card on the surface (Matt, 2026-10-12): the short controls line (the touch line on a
- * touch screen), then `mission`, the round's lesson mission, when there is one, with a flag.
- * Focus rests on it so Space and arrows press no button.
+ * The crawl card on the surface: just the round's mission in one line with a flag (Matt,
+ * 2026-10-22: no controls line, so a phone shows the forest). The flag button folds the card down
+ * to the flag alone and opens it again. Focus goes back to the card after a tap, so Space and the
+ * arrows keep moving the worm instead of pressing the button. No mission: no card.
  */
 export function showCrawl(shell: Shell, mission?: Line): void {
-  const touch = typeof matchMedia === 'function' && matchMedia(TOUCH).matches;
-  const hint = el('p', '', 'hint');
-  hint.append(
-    icon('drive', 'hint-icon'),
-    el('span', shown(touch ? TEXT.crawlHintTouch : TEXT.crawlHint)),
-  );
-  const lines = [hint];
-  if (mission) {
-    const q = el('p', '', 'hint hint-think');
-    // "Mission:" in bold, so it stands apart from the question.
-    const text = shown(mission);
-    const words = el('span');
-    const label = /^Mission:/.exec(text)?.[0];
-    if (label) words.append(el('strong', label), text.slice(label.length));
-    else words.textContent = text;
-    q.append(icon('flag', 'hint-icon'), words);
-    lines.push(q);
+  if (!mission) {
+    shell.show('crawl', 'Crawling', []);
+    shell.panel.hidden = true;
+    shell.panel.focus({ preventScroll: true });
+    return;
   }
-  shell.show('crawl', 'Crawling', lines);
+  const text = shown(mission);
+  const words = el('span', '', 'mission-words');
+  // "Mission:" in bold, so it stands apart from the question.
+  const label = /^Mission:/.exec(text)?.[0];
+  if (label) words.append(el('strong', label), text.slice(label.length));
+  else words.textContent = text;
+  const toggle = el('button', '', 'mission-toggle');
+  toggle.type = 'button';
+  toggle.append(icon('flag', 'hint-icon'));
+  const line = el('p', '', 'hint mission-line-crawl');
+  line.append(toggle, words);
+  const fold = (folded: boolean): void => {
+    missionFolded = folded;
+    shell.panel.dataset.folded = folded ? 'yes' : 'no';
+    words.hidden = folded;
+    toggle.setAttribute('aria-expanded', String(!folded));
+    toggle.setAttribute('aria-label', shown(folded ? TEXT.missionShow : TEXT.missionHide));
+  };
+  toggle.addEventListener('click', () => {
+    fold(!missionFolded);
+    shell.panel.focus({ preventScroll: true });
+  });
+  shell.show('crawl', 'Crawling', [line]);
+  fold(missionFolded);
   shell.panel.focus({ preventScroll: true });
 }
 

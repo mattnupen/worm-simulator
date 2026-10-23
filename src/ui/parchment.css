@@ -36,8 +36,9 @@ canvas { display: block; }
 /* Small top-left cards while the scene is the point. */
 .panel[data-state="running"],
 .panel[data-state="crawl"] { left: var(--edge); top: 16px; width: min(24rem, calc(100vw - 32px)); padding: 14px 20px 16px; }
-/* Clear of the Pause button with a 12px gap. */
-.panel[data-state="crawl"] { width: min(26rem, calc(100vw - var(--edge) - 165px)); }
+/* The crawl card is one mission line; folded, it is just its flag button. */
+.panel[data-state="crawl"] { width: auto; max-width: min(30rem, calc(100vw - 32px)); padding: 8px 18px 8px 8px; }
+.panel[data-state="crawl"][data-folded="yes"] { padding: 6px; border-radius: 999px; }
 .panel[data-state="results"] {
   left: var(--edge); bottom: var(--edge-y); width: min(41rem, calc(100vw - 32px));
   /* Top stays below the fps tag, which it would otherwise cover on narrow screens. */
@@ -181,8 +182,14 @@ a.version-name:focus-visible { outline: 4px solid var(--focus); outline-offset: 
 .hint { display: flex; align-items: center; gap: 12px; font-size: 1.125rem; font-weight: 500; }
 .hint-icon { flex: none; width: 26px; height: 26px; color: var(--accent); }
 .hint-icon svg { width: 100%; height: 100%; }
-/* The round's mission while crawling (menus.ts showCrawl), under the controls, past a thin line. */
-.panel .hint-think { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); align-items: flex-start; }
+/* The round's mission while crawling (menus.ts showCrawl): the flag folds and opens the card. */
+.mission-line-crawl { gap: 8px; }
+.mission-toggle {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; cursor: pointer; color: inherit;
+}
+.mission-toggle:hover { background: var(--line); }
+.mission-toggle:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 /* ---------- Small screens ---------- */
 @media (max-height: 640px) {
@@ -199,9 +206,8 @@ a.version-name:focus-visible { outline: 4px solid var(--focus); outline-offset: 
 }
 @media (max-width: 560px) {
   .panel[data-state] { left: 16px; right: 16px; width: auto; }
-  /* Under the Pause button (12px from the top, 52px tall), not beside it: beside it the card is too
-     narrow for its words. */
-  .panel[data-state="crawl"] { top: 76px; }
+  /* The crawl card hugs its line rather than spanning the screen. */
+  .panel[data-state="crawl"] { right: auto; max-width: calc(100vw - 32px); top: 12px; }
   .choices-row.choices-3 { grid-template-columns: 1fr; }
 }
 

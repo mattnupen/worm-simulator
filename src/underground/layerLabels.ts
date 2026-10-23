@@ -26,7 +26,7 @@ export interface LayerLabels {
 }
 
 /** The controls the names keep clear of (hud.css), read from the page. */
-const CONTROLS = ['.joystick', '.action-prompt', '.pause-btn'] as const;
+const CONTROLS = ['.joystick', '.action-prompt'] as const;
 /** The controls are read again this often (frames): the Action prompt's word changes its width. */
 const RECHECK = 60;
 /** The list's name for screen readers (TEXT.layerListLabel, once content/text.ts has it). */

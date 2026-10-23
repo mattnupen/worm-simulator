@@ -98,8 +98,8 @@ describe('robin hunt pose', async () => {
         grab.start();
       }
       // No taps: the robin wins.
-      grab.step(DT, false, s.phase === 'grab');
-      if (s.phase === 'grab' && grab.rhythm.result !== 'none') endGrab(s, 'broke');
+      grab.step(DT, false, s.phase === 'grab', half);
+      if (s.phase === 'grab' && grab.grip.result !== 'none') endGrab(s, 'broke');
       stepHunt(s, DT, worm(), half);
       huntPose(s, grab.look, () => 0, r.pose);
       r.update();
@@ -110,7 +110,7 @@ describe('robin hunt pose', async () => {
       for (let i = 1; i < pos.length; i += 3) if (pos[i] !== 0 || pos[i - 1] !== 0) minY = Math.min(minY, pos[i]);
       expect(minY, `ground at ${t} (${s.phase})`).toBeGreaterThan(-0.6 * UNITS_PER_CM);
     }
-    expect(grab.rhythm.result).toBe('pulledOut');
+    expect(grab.grip.result).toBe('pulledOut');
   });
 
   it('in the grab, the bill rises as the robin pulls the worm out and dips as the worm pulls back in', () => {

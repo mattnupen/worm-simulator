@@ -371,6 +371,7 @@ export const PREDATORS: Lesson = {
       kind: 'mission',
       title: 'Your mission',
       notice: { kind: 'ui', text: 'Mission: Think about which predators are hunting in this forest, and how your worm senses them and escapes being eaten.' },
+      short: { kind: 'ui', text: 'Mission: Escape the predators!' },
       reminder: { kind: 'ui', text: 'After you play, your last quest is to vote in the Google Form.' },
     },
   ],

@@ -53,7 +53,9 @@ import { NestScene } from './predators/nestScene';
 import { NEST_TIMES, nestCaptionAt } from './predators/nestScript';
 import { playNestSound } from './predators/nestSound';
 import { showNestScene, type NestOverlay } from './ui/nestScene';
-import { createDigMarkView } from './underground/digMarkMesh';
+import { createMoundView } from './underground/moundMesh';
+import { Mounds } from './underground/mounds';
+import { setWormRise } from './worm/surfaceHeight';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
@@ -66,9 +68,8 @@ const MAX_FPS = FPS_CAP;
 
 const params = parseParams(location.search);
 const app = document.getElementById('app')!;
-let onPauseButton = (): void => {};
 // The card exists before any 3D setup, so a computer without WebGL 2 still gets a report.
-const shell = createShell(app, params.fps, () => onPauseButton());
+const shell = createShell(app, params.fps);
 
 let renderer: THREE.WebGLRenderer | null = null;
 try {
@@ -130,8 +131,9 @@ function start(renderer: THREE.WebGLRenderer): void {
   const camera = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
   /** The follow camera as play would draw it: the opening eases into it at its end. */
   const gameCam = new THREE.PerspectiveCamera(60, 1, 0.2, 120);
-  /** The round's question to think about while crawling: the lesson's own "notice" line. */
-  const playQuestion = lesson?.steps.find((s): s is Extract<typeof s, { kind: 'mission' }> => s.kind === 'mission')?.notice;
+  /** The round's mission while crawling: the lesson's one-line version, else its full "notice" line. */
+  const missionStep = lesson?.steps.find((s): s is Extract<typeof s, { kind: 'mission' }> => s.kind === 'mission');
+  const playQuestion = missionStep?.short ?? missionStep?.notice;
   const crawl = new Crawl();
   const world = buildWorld(crawl);
   const keyboard = new KeyboardInput();
@@ -141,9 +143,13 @@ function start(renderer: THREE.WebGLRenderer): void {
   const actionPrompt = createActionPrompt(app);
   // Surface or underground (V2): the game steps the crawl on the surface and digs below it.
   const { game, cut } = createBurrowing(crawl, world, app, shell.panel, store);
-  // Where the worm can dig, marked on the ground near it (V4 spec 4.2); ?digMarks=0 turns them off.
-  const digMarks = params.digMarks ? createDigMarkView() : null;
-  if (digMarks) world.scene.add(digMarks.mesh);
+  // Casting mounds where the worm can dig, fixed over the forest floor; the worm crawls over them
+  // (V4, Matt's review). ?digMarks=0 turns them off.
+  const mounds = params.digMarks ? createMoundView(new Mounds()) : null;
+  if (mounds) {
+    world.scene.add(mounds.mesh);
+    setWormRise(mounds.mounds);
+  }
   // ?wormLength=0.6: the worm starts that much shorter (V4's broken worm, for review).
   if (params.wormLength !== null) { game.setWormLength(params.wormLength); crawl.reset(); }
   // The opening scene (src/opening/): its props join the scene now, hidden, so warmShaders sees them.
@@ -582,7 +588,8 @@ function start(renderer: THREE.WebGLRenderer): void {
       game.hold(cmds.action);
     } else {
       game.step(dt, cmds.move, cmds.action, runner.running && params.dig);
-      if (digMarks && state.screen === 'crawl' && !runner.running && game.mode.mode === 'surface') digMarks.step(crawl.motion, game);
+      // A mound an opening was just made on stops lifting the worm before its next step.
+      mounds?.sync(game.openings, game.mode);
     }
     hunt?.step(dt, playing, cmds.action, touchScreen);
     if (!frozen()) {
@@ -594,7 +601,8 @@ function start(renderer: THREE.WebGLRenderer): void {
       // ?prompt= shows one kind over the game's own and counts the presses (tests, screenshots).
       if (params.prompt && pressEdge.update(cmds.action)) app.dataset.actionPresses = String(++presses);
       const on = state.screen === 'crawl' && !runner.running && app.dataset.promptOff === undefined;
-      actionPrompt.set(on ? params.prompt ?? hunt?.prompt ?? game.prompt : null);
+      const held = hunt?.prompt;
+      actionPrompt.set(on ? params.prompt ?? (held !== undefined ? held : game.prompt) : null);
       // Gone down, come up, or the first visit's hint has had its time: the crawl card changes.
       if (state.screen === 'crawl' && shownCard !== cardNow()) draw();
     }
@@ -630,9 +638,8 @@ function start(renderer: THREE.WebGLRenderer): void {
       cut.sync(alpha, clock / 1000, camera, window.innerWidth, window.innerHeight);
       opening.keepLeaf(crawl.motion.head.x, crawl.motion.head.z, game.mode.mode === 'surface');
     }
-    // Dig markers: on the surface in play only (never the opening, the speed test or below).
-    digMarks?.frame(!runner.running && game.mode.mode === 'surface' && (state.screen === 'crawl' || still),
-      still ? 0 : elapsed / 1000);
+    // Casting mounds: part of the forest floor, shown as the middens are (never below).
+    mounds?.sync(game.openings, game.mode);
     // The nest scene poses the robin itself (the hunt's robin) while it plays.
     if (!nestScene.playing) hunt?.frame();
     robinPreview?.frame(clock / 1000, state.screen === 'crawl', crawl.motion.head, crawl.motion.heading);
@@ -720,5 +727,4 @@ function start(renderer: THREE.WebGLRenderer): void {
     else return;
     e.preventDefault();
   });
-  onPauseButton = () => dispatch({ type: 'pause' });
 }

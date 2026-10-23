@@ -1,4 +1,4 @@
-import type { RhythmResult } from './rhythm';
+import type { GripResult } from './grip';
 
 /**
  * What happens when the grip mini-game ends (V4 spec 3). Pure: the game rolls the dice and acts.
@@ -6,7 +6,7 @@ import type { RhythmResult } from './rhythm';
  * | The mini-game          | Roll                     | Outcome                                     |
  * |------------------------|--------------------------|---------------------------------------------|
  * | escaped                | -                        | escaped: back underground, same length      |
- * | pulledOut              | under WHOLE_WORM_CHANCE  | taken: the robin gets the whole worm        |
+ * | pulledOut (or tired)   | under WHOLE_WORM_CHANCE  | taken: the robin gets the whole worm        |
  * | pulledOut              | otherwise, length > last | broke: shorter (1 → 0.8 → 0.6), underground |
  * | pulledOut              | otherwise, at the last   | tooShort: start again, full length          |
  */
@@ -26,7 +26,7 @@ export type HuntOutcome = 'escaped' | 'broke' | 'tooShort' | 'taken';
  * The outcome of a finished mini-game `result` ('none' while it runs), for a worm `length` long
  * (a share of full length) and a dice `roll` in [0, 1).
  */
-export function huntOutcome(result: RhythmResult, roll: number, length: number): HuntOutcome | null {
+export function huntOutcome(result: GripResult, roll: number, length: number): HuntOutcome | null {
   if (result === 'none') return null;
   if (result === 'escaped') return 'escaped';
   if (roll < WHOLE_WORM_CHANCE) return 'taken';

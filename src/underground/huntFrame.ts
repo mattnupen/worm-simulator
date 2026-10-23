@@ -7,21 +7,21 @@ import type { MoveState } from './burrowMoves';
  * The side view while a robin hunts a worm underground or holds it (V4 spec revision 1): the cut
  * framed higher than the player's own view, so the ground line sits low in the middle, the robin
  * stands whole above it, and the worm shows below. The frame takes in the robin (at `ru` along the
- * cut) and the head (hu, hv), a little toward the side away from the robin's side (the grip's
- * ring sits on the screen's right: hunt.css). Pure; allocates nothing.
+ * cut, its tail on the far side from the worm) and the head (hu, hv), centred (the grab's only HUD,
+ * the Energy bar, sits low: hunt.css). Close in (Matt, 2026-10-22: "zoom in a little more"): about
+ * 30% closer than V4's first grab. Pure; allocates nothing.
  */
 
 /** Room above the ground for the robin standing (about 14 cm tall, 19 cm leaning back: 4.5 u). */
-const ROBIN_ROOM = 5.2;
+const ROBIN_ROOM = 4.6;
 /** The frame is at least this tall, and never taller than this. */
-const LEAST_H = 9;
-const MOST_H = 14;
+const LEAST_H = 6.6;
+const MOST_H = 11;
 /** Room below the head. */
-const BELOW_HEAD = 1.4;
-/** Room either side of the robin and the head (along the cut). */
-const SIDE_ROOM = 1.6;
-/** On a wide screen the action sits this share of the frame's width left of centre (the ring is right). */
-const LEFT_SHIFT = 0.14;
+const BELOW_HEAD = 1;
+/** Room along the cut past the head (the worm's side: its hole leans away), and past the robin's feet on its tail's side. */
+const HEAD_ROOM = 1.5;
+const TAIL_ROOM = 1.8;
 /** Looking almost straight at the cut (a little down). */
 const PITCH = 0.06;
 /** Neither view shows more along the cut than on a 16:9 screen (cutFrame.ts WIDEST). */
@@ -43,17 +43,16 @@ export function huntFrame(s: Slab, q: Readonly<HuntAsk>, out: CutFrame): CutFram
   pt.u = ru;
   boundaryOf(s, B_TOP, pt);
   const top = bound.v + ROBIN_ROOM;
-  const lo = Math.min(hu, ru) - SIDE_ROOM;
-  const hi = Math.max(hu, ru) + SIDE_ROOM;
+  const right = ru >= hu;
+  const lo = Math.min(hu, ru) - (right ? HEAD_ROOM : TAIL_ROOM);
+  const hi = Math.max(hu, ru) + (right ? TAIL_ROOM : HEAD_ROOM);
   // Tall enough for the robin and the head, and wide enough for both side by side.
-  let h = Math.max(LEAST_H, top - (hv - BELOW_HEAD), (hi - lo) / (a * (1 - 2 * LEFT_SHIFT)));
+  let h = Math.max(LEAST_H, top - (hv - BELOW_HEAD), (hi - lo) / a);
   h = Math.min(MOST_H, h);
   const w = h * a;
   // The robin's head on screen first; a head deeper than the tallest frame reaches drops off the bottom.
   out.cv = top - h / 2;
-  // The pair a little left of centre on a landscape screen; centred on a portrait one.
-  const shift = a > 1 ? LEFT_SHIFT * w : 0;
-  let cu = (lo + hi) / 2 + shift;
+  let cu = (lo + hi) / 2;
   const half = w / 2;
   cu = s.faceHi - s.faceLo >= w ? Math.min(s.faceHi - half, Math.max(s.faceLo + half, cu)) : (s.faceLo + s.faceHi) / 2;
   out.cu = cu;

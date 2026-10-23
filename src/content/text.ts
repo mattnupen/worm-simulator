@@ -19,31 +19,23 @@ export const GAME_CHOICE_PREFIX = 'Game choice: ';
 
 export const TEXT = {
   /** The crawl card's controls line (Matt, 2026-10-12: short). Arrow keys and Esc still work too. */
-  crawlHint: { kind: 'ui', text: 'Move with the W A S D keys. P to pause.' },
-  crawlHintTouch: { kind: 'ui', text: 'Move with the joystick. Tap Pause to stop.' },
+  missionShow: { kind: 'ui', text: 'Show the mission' },
+  missionHide: { kind: 'ui', text: 'Hide the mission' },
   digDown: { kind: 'ui', text: 'Dig down' },
   comeUp: { kind: 'ui', text: 'Come up' },
   viewWide: { kind: 'ui', text: 'Wide view' },
   viewClose: { kind: 'ui', text: 'Close view' },
-  // The Action button while the robin holds the worm (the rhythm grip: each tap is one press).
+  // The Action button while the robin holds the worm (touch screens; each tap is one press).
   grip: { kind: 'ui', text: 'Tap!' },
-  // The robin hunt (V4 spec 1, revision 1; src/ui/huntHud.ts, huntRing.ts).
+  // The robin hunt (V4 spec 1, revision 1; src/ui/huntHud.ts).
   huntRobin: { kind: 'ui', text: 'Robin!' },
   huntHide: { kind: 'ui', text: 'Dig down to hide.' },
   huntHideDeeper: { kind: 'ui', text: 'Dig deeper to hide.' },
-  huntGrabbed: { kind: 'ui', text: 'The robin has you!' },
-  huntTapKeys: { kind: 'ui', text: 'Tap Space when the ring touches the dot.' },
-  huntTapTouch: { kind: 'ui', text: 'Tap when the ring touches the dot.' },
-  huntTapNow: { kind: 'ui', text: 'Tap!' },
-  huntGood: { kind: 'ui', text: 'Good!' },
-  huntMissed: { kind: 'ui', text: 'Missed' },
-  huntEarly: { kind: 'ui', text: 'Too early' },
-  huntLate: { kind: 'ui', text: 'Too late' },
-  huntRingLabel: { kind: 'ui', text: 'Timing ring' },
-  huntGoodsRow: { kind: 'ui', text: 'You pull' },
-  huntMissesRow: { kind: 'ui', text: 'Robin pulls' },
-  huntGoodsCount: { kind: 'ui', text: 'Good taps: {n} of {of}' },
-  huntMissesCount: { kind: 'ui', text: 'Misses: {n} of {of}' },
+  // The grab's energy bar, and what screen readers hear as each pull starts (src/ui/huntEnergy.ts).
+  huntEnergy: { kind: 'ui', text: 'Energy' },
+  huntEnergyLow: { kind: 'ui', text: 'low' },
+  huntPulls: { kind: 'ui', text: 'Robin pulls!' },
+  huntTired: { kind: 'ui', text: 'Out of energy!' },
   huntEscaped: { kind: 'ui', text: 'You got away!' },
   huntGripFact: {
     kind: 'fact',
@@ -51,7 +43,7 @@ export const TEXT = {
     source: 'journeynorth-robin-tug',
     verified: true,
   },
-  huntTimingChoice: { kind: 'gameChoice', text: 'Real worms don\'t time their pulls. The tapping is just for the game.' },
+  huntEnergyChoice: { kind: 'gameChoice', text: 'Real worms don\'t have an energy bar. It\'s just for the game.' },
   // What happens when the robin wins (V4 spec 3; src/predators/huntGame.ts).
   huntBroke: {
     kind: 'fact',

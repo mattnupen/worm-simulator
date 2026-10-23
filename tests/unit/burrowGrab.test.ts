@@ -115,10 +115,23 @@ describe('the hunt frame (V4 revision 1)', () => {
     expect(f.cv + f.h / 2).toBeGreaterThan(top + 4.5);
     expect(f.cv).toBeGreaterThan(top);
     expect(f.cv - f.h / 2).toBeLessThan(top - 1.5);
-    // Both in, left of centre (the ring panel is on the right).
+    // Both in: the head with room past it, the robin with room for its tail.
     const w = f.h * (16 / 9);
     expect(f.cu - w / 2).toBeLessThan(0 - 1);
-    expect(f.cu + w / 2).toBeGreaterThan(2.5 + 1);
-    expect(f.cu).toBeGreaterThan(1.25);
+    expect(f.cu + w / 2).toBeGreaterThan(2.5 + 1.5);
+    // Close in (Matt, 2026-10-22): about 30% closer than the first grab's 9 u tall frame.
+    expect(f.h).toBeLessThan(7);
+  });
+
+  it('on a phone held upright, still the robin and the head side by side, and closer than before', () => {
+    const s = createSlab(0, 0, 0, 1, 5);
+    const top = boundaryAt(s, B_TOP, 2);
+    const a = 390 / 844;
+    const f = huntFrame(s, { hu: 0, hv: top + 0.5, ru: 1.8, aspect: a }, { cu: 0, cv: 0, h: 0, pitch: 0 });
+    const w = f.h * a;
+    expect(f.cu - w / 2).toBeLessThan(0 - 1);
+    expect(f.cu + w / 2).toBeGreaterThan(1.8 + 1.5);
+    expect(f.cv + f.h / 2).toBeGreaterThan(top + 4.5);
+    expect(f.h).toBeLessThan(11.01);
   });
 });

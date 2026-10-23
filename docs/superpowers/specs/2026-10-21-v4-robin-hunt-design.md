@@ -18,6 +18,22 @@ rows of the V3 form export, as in that plan. **Builds on:** the robin model and 
 5. V4's lesson is **eating and getting energy** (worm anatomy, how and what worms eat), not
    natural dangers. It's researched in a separate thread. This spec covers only the game code.
 
+## Revision 2 (Matt, 2026-10-22, after playing revision 1 on his phone)
+
+Revision 2 wins over Revision 1 and the older sections where they differ.
+
+1. **Phone screen.** The Pause button is gone (Esc and P still pause), and so is the controls line
+   on the crawl card. The mission is one short line (a new optional `short` on the lesson's mission
+   step), and its flag button folds the card down to the flag alone.
+2. **Castings.** Fewer of them, spread across the whole play area, fixed at load and never
+   disappearing. The worm crawls over them.
+3. **The grip is an energy-bar tapping game** (replaces the ring rhythm game). The robin pulls,
+   then regrips, over and over. Tap during a pull to grip and pull back down. Every tap costs
+   energy, and energy refills slowly while you rest, so spamming runs you out and the robin wins.
+   No instructions on screen during the grab: only the Energy bar (and the Tap button on touch).
+   The camera is zoomed in more. The setae fact and the Game choice line move to the note after
+   the grab.
+
 ## Revision 1 (Matt, 2026-10-22, after playing the first build)
 
 Matt played the root build and changed four things. Where this revision and the sections below
