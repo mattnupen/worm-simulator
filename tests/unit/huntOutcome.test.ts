@@ -10,24 +10,21 @@ describe('what happens when the grip mini-game ends (V4 spec 3)', () => {
     expect(huntOutcome('escaped', 0.99, 0.6)).toBe('escaped');
   });
 
-  it('1 catch in 4 the robin gets the whole worm (a Game choice); otherwise the worm breaks', () => {
-    expect(WHOLE_WORM_CHANCE).toBe(0.25);
-    expect(huntOutcome('pulledOut', 0, 1)).toBe('taken');
-    expect(huntOutcome('pulledOut', 0.2499, 0.8)).toBe('taken');
-    expect(huntOutcome('pulledOut', 0.25, 1)).toBe('broke');
-    expect(huntOutcome('pulledOut', 0.9, 0.6)).toBe('tooShort');
+  it('every catch, the robin gets the whole worm (Matt, 2026-10-23), whatever the roll or length', () => {
+    expect(WHOLE_WORM_CHANCE).toBe(1);
+    for (const roll of [0, 0.25, 0.5, 0.9999]) {
+      for (const length of [1, 0.8, 0.6]) expect(huntOutcome('pulledOut', roll, length)).toBe('taken');
+    }
   });
 
   it('lengths go 1 → 0.8 → 0.6, and a break at 0.6 is too short (start again)', () => {
     expect(BREAK_LENGTHS).toEqual([1, 0.8, 0.6]);
-    let length = 1;
-    const seen: number[] = [length];
-    for (;;) {
-      const out = huntOutcome('pulledOut', 0.5, length);
-      if (out === 'tooShort') break;
-      expect(out).toBe('broke');
-      length = nextLength(length)!;
+    // Kept for tuning: with WHOLE_WORM_CHANCE at 1 no catch breaks the worm.
+    let length: number | null = 1;
+    const seen: number[] = [];
+    while (length !== null) {
       seen.push(length);
+      length = nextLength(length);
     }
     expect(seen).toEqual([1, 0.8, 0.6]);
     expect(nextLength(0.6)).toBeNull();

@@ -9,13 +9,15 @@ import type { GripResult } from './grip';
  * | pulledOut (or tired)   | under WHOLE_WORM_CHANCE  | taken: the robin gets the whole worm        |
  * | pulledOut              | otherwise, length > last | broke: shorter (1 → 0.8 → 0.6), underground |
  * | pulledOut              | otherwise, at the last   | tooShort: start again, full length          |
+ *
+ * With WHOLE_WORM_CHANCE at 1 (Matt, 2026-10-23) every catch is 'taken'; the break rows stay for tuning.
  */
 
 /**
- * Game choice: 1 catch in 4 the robin gets the whole worm (Matt, 2026-10-21). Real catches go
- * either way; the share is the game's.
+ * Game choice: every catch, the robin gets the whole worm and takes it to the nest (Matt,
+ * 2026-10-23; was 1 in 4 from 2026-10-21). Real catches go either way; the share is the game's.
  */
-export const WHOLE_WORM_CHANCE = 0.25;
+export const WHOLE_WORM_CHANCE = 1;
 
 /** The worm's lengths as robins break it: full, about 80%, about 60%. A break at the last is too short. */
 export const BREAK_LENGTHS: readonly number[] = [1, 0.8, 0.6];

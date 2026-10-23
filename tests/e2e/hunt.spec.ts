@@ -76,18 +76,13 @@ test('a robin grabs the worm; tapping Space while it pulls, resting while it reg
   await expect(page.locator('.hunt-note')).not.toContainText('Game choice');
 });
 
-/** After the robin wins: its nest (skipped) or the note about how it ended, matching `note`. */
+/** After the robin wins: every catch, it takes the whole worm to its nest (Matt, 2026-10-23). Skips the scene, then the note matches `note`. */
 async function robinWon(page: Page, note: RegExp): Promise<void> {
   await expect(page.locator('.hunt-energy')).toBeHidden({ timeout: 90_000 });
-  // 1 catch in 4 the robin takes the whole worm to its nest: skip the scene, then play goes on.
-  const nest = page.getByRole('region', { name: 'Nest scene' });
-  const said = page.locator('.hunt-note').filter({ hasText: note });
-  await expect(nest.or(said)).toBeVisible({ timeout: 30_000 });
-  if (await nest.isVisible()) {
-    await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'Keep going', exact: true }).click();
-    await expect(page.locator('.hunt-note')).toContainText('whole worm', { timeout: 30_000 });
-  }
+  await expect(page.getByRole('region', { name: 'Nest scene' })).toBeVisible({ timeout: 30_000 });
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Keep going', exact: true }).click();
+  await expect(page.locator('.hunt-note')).toContainText(note, { timeout: 30_000 });
 }
 
 test('no taps: the robin pulls the worm out, with the energy still full', async ({ page }) => {
@@ -95,7 +90,7 @@ test('no taps: the robin pulls the worm out, with the energy still full', async 
   await page.goto(PAGE + '?opening=0&robinIn=1&preset=low');
   await grabbed(page);
   await expect(page.locator('.hunt-energy')).toBeHidden({ timeout: 90_000 });
-  await robinWon(page, /broke|Too short/);
+  await robinWon(page, /whole worm/);
   await expect(page.locator('.hunt-note')).not.toContainText('Out of energy!');
 });
 
@@ -117,7 +112,7 @@ test('tapping as fast as you can runs the energy out, and the robin wins', async
     await page.waitForTimeout(40);
   }
   expect(sawLow).toBe(true);
-  await robinWon(page, /Out of energy!/);
+  await robinWon(page, /Out of energy! .*whole worm/);
 });
 
 test('?hunt=0 turns the hunt off: no robin comes', async ({ page }) => {

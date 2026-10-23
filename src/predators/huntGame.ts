@@ -49,6 +49,8 @@ export class HuntGame {
   readonly hunt: HuntState;
   readonly grab = new HuntGrab();
   readonly wobble = new Wobble();
+  /** The last whole-worm catch came from running out of energy (its note says so after the nest). */
+  takenTired = false;
   private readonly hud: HuntHud;
   private readonly shadow: HuntShadow;
   // Number fields start as fractions: a field that first held a whole number had V8 box every fraction written later.
@@ -256,6 +258,7 @@ export class HuntGame {
         break;
       case 'taken':
         endGrab(h, 'taken');
+        this.takenTired = tired;
         leaveBelow(g);
         this.host.onWholeWorm(action, h.x, h.z, h.yaw);
         break;
