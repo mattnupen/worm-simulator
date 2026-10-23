@@ -114,7 +114,9 @@ async function playThrough(page: Page, l: Lesson): Promise<void> {
       await expect(button(page, 'Play')).toBeVisible();
       await button(page, 'Play').click();
       await expect(card(page, l).getByText('Read the whole trip')).toHaveCount(0);
-      await expect(page.locator('.film-label')).toHaveText(step.stops[0].name, { timeout: 60_000 });
+      // Inside, each part in the shot is labelled; the one the caption is about stands out.
+      await expect(page.locator('.film-part.now')).toHaveText(step.stops[0].name, { timeout: 60_000 });
+      await expect(page.locator('.film-part:not([hidden])')).not.toHaveCount(0);
       await expect(caption).toContainText(shown(step.stops[0].fact));
       // The timeline: drag back to the start (the outside caption again), then near the end.
       const timeline = card(page, l).getByRole('slider', { name: 'Timeline' });

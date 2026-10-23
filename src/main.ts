@@ -31,7 +31,7 @@ import { applyTextSize } from './ui/textSize';
 import { createActionPrompt } from './ui/actionPrompt';
 import { showResult, showRunning, showTestIntro } from './ui/speedTestUi';
 import { showUnderground } from './ui/undergroundHint';
-import { closeLesson, showLesson } from './ui/lesson';
+import { closeLesson, showLesson, type LessonActions } from './ui/lesson';
 import { CURRENT_LESSON, lessonFor } from './content/lessons';
 import { lessonDone, markLessonDone } from './save/lessonStore';
 import { loadRound, saveRound } from './save/questStore';
@@ -47,6 +47,9 @@ import { stopCueSound } from './ui/lessonSound';
 import { markOpeningSeen, openingSeen } from './save/openingStore';
 import { sharedLighting } from './render/paintedMaterial';
 import { RobinPreview } from './predators/robinPreview';
+import { Robin } from './predators/robin';
+import { LESSON_ROBIN_STILL, lessonRobinPose, robinShot } from './predators/lessonRobin';
+import { litterTopHeight } from './surface/litterDepth';
 import { HuntGame } from './predators/huntGame';
 import { HUNT_NOTES } from './predators/huntNotes';
 import { NestScene } from './predators/nestScene';
@@ -129,6 +132,8 @@ function start(renderer: THREE.WebGLRenderer): void {
   });
   /** Set once the eating film is built (below); the first card goes up before that. */
   let lessonFilm: LessonFilm | undefined;
+  /** Set once the lesson's robin is built (below), like the film. */
+  let robinScene: LessonActions['robin'];
   draw();
   // Near plane 0.2 (not 0.1) doubles depth precision for the thin, layered leaf litter. The
   // camera stays >= 0.5 above the litter and 2.6 behind the worm, so nothing it normally looks
@@ -229,6 +234,28 @@ function start(renderer: THREE.WebGLRenderer): void {
       resize();
     },
   } : undefined;
+  /**
+   * The lesson's robin scene ("Food up top", src/predators/lessonRobin.ts): the game's robin flies
+   * in ahead of the worm, hops up and stares, behind the scene's captions. Built only for a lesson
+   * that has it; on the props' material, so nothing new compiles.
+   */
+  const lessonRobin = lesson?.steps.some((s) => s.kind === 'sense' && s.cue === 'robin') ? new Robin() : null;
+  if (lessonRobin) world.scene.add(lessonRobin.mesh);
+  let robinT = -1;
+  let robinAt = { x: 0, z: 0, heading: 0 };
+  robinScene = lessonRobin ? {
+    play: (fromStart: boolean) => {
+      robinT = fromStart && !reduceMotion.matches ? 0 : LESSON_ROBIN_STILL;
+      robinAt = { x: crawl.motion.head.x, z: crawl.motion.head.z, heading: crawl.motion.heading };
+      dirty = true;
+    },
+    stop: () => {
+      robinT = -1;
+      lessonRobin.pose.visible = false;
+      lessonRobin.update();
+      dirty = true;
+    },
+  } : undefined;
   /** The opening's captions while it plays. */
   let captions: OpeningCaptions | null = null;
   /** ?opening=1 plays it on the first Crawl even when seen (Matt's review); once. */
@@ -319,6 +346,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     // Leaving the lesson by any way (Esc included): its cue and any reading aloud stop.
     if (state.screen === 'lesson') {
       lessonFilm?.stop();
+      robinScene?.stop();
       closeLesson(shell.root);
     }
     // Leaving play (pause, a hidden tab, back to start): the Play quest's minutes are kept.
@@ -504,6 +532,7 @@ function start(renderer: THREE.WebGLRenderer): void {
           onStart: () => dispatch({ type: 'toStart' }),
           onFinish: () => markLessonDone(store, lesson.id),
           get film() { return lessonFilm; },
+          get robin() { return robinScene; },
         });
       case 'opening':
         captions = showOpening(shell);
@@ -595,6 +624,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   }
 
   function update(dt: number): void {
+    if (robinT >= 0 && robinT < LESSON_ROBIN_STILL + 60) robinT += dt;
     if (film?.shown) {
       if (params.eatingAt === null) film.step(dt);
       else film.step(0);
@@ -665,7 +695,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (film?.shown) {
       // The eating film, instead of the forest: its own scene and camera, centred above the card.
       film.pose(alpha, camera, window.innerWidth, window.innerHeight, filmView?.inset ?? 0);
-      filmView?.set(film.beat, film.dark, film.done, film.t);
+      filmView?.set(film.beat, film.dark, film.done, film.t, film.labels);
       renderer.render(film.scene, camera);
       shell.setFps(meter.fps, CHOICE_LABELS[spec.id], undefined);
       return;
@@ -693,6 +723,14 @@ function start(renderer: THREE.WebGLRenderer): void {
     // The nest scene poses the robin itself (the hunt's robin) while it plays.
     if (!nestScene.playing) hunt?.frame();
     robinPreview?.frame(clock / 1000, state.screen === 'crawl', crawl.motion.head, crawl.motion.heading);
+    if (lessonRobin && robinT >= 0) {
+      // ?robinAt= holds the scene at that second too (screenshots).
+      if (params.robinAt !== null) robinT = params.robinAt;
+      lessonRobinPose(robinT, robinAt.x, robinAt.z, robinAt.heading, litterTopHeight, lessonRobin.pose);
+      lessonRobin.update();
+      // A low shot from just behind the worm, so the whole bird shows as it lands and stares.
+      robinShot(camera, robinAt.x, robinAt.z, robinAt.heading, litterTopHeight);
+    }
     robinPreview?.aim(camera);
     renderer.render(world.scene, camera);
     shell.setFps(meter.fps, CHOICE_LABELS[spec.id], runner.running ? runner.quality.tier : undefined);

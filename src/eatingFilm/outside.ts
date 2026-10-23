@@ -2,13 +2,20 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../core/random';
 import { sample, sample1 } from '../opening/keys';
+import { detailShape } from '../surface/detailShape';
+import { LEAF_KINDS, type LeafKind } from '../surface/leafLitter';
+import { leafTint } from '../surface/leafPalette';
+import { HeroWorm, WAVES, WORM_RADIUS, type WormPose } from '../worm/wormMesh';
 import { CASTS, CASTS_AFTER, FEEL, GRAB_AT, LEAF_LENGTH, LEAF_TIP_X, LIP, REACH } from './script';
 
-/** The worm: as long and as wide as the game's (3.5 by 0.23), in this many beads. */
-const BEADS = 48;
+/**
+ * The worm: the game's own (HeroWorm, Matt 2026-10-23: "use the same worm model"), as long as
+ * the game's (3.5), on a spine of this many points. Its head tip reaches HEAD_EXT past the first.
+ */
+const SPINE = 16;
 const WORM_LENGTH = 3.5;
-const BEAD_GAP = WORM_LENGTH / BEADS;
-const WORM_R = 0.115;
+const HEAD_EXT = 0.1;
+const SPACING = (WORM_LENGTH - HEAD_EXT - 0.06) / (SPINE - 1);
 /** The burrow's half width on the cut face, and how deep the cut shows it. */
 const BURROW_R = 0.16;
 const BURROW_DEEP = 5.6;
@@ -42,22 +49,32 @@ function grid(x0: number, x1: number, y0: number, y1: number, step: number, colo
   return g;
 }
 
-/** A leaf outline from its tip (0, 0) along +x to its stem end at `length`, `width` across. */
-export function leafShape(length: number, width: number): THREE.Shape {
-  const s = new THREE.Shape();
-  const w = width / 2;
-  s.moveTo(0, 0);
-  s.bezierCurveTo(length * 0.25, w * 0.9, length * 0.7, w * 1.15, length * 0.95, w * 0.35);
-  s.lineTo(length, 0);
-  s.lineTo(length * 0.95, -w * 0.35);
-  s.bezierCurveTo(length * 0.7, -w * 1.15, length * 0.25, -w * 0.9, 0, 0);
-  return s;
-}
-
-/** A leaf lying flat (in xz, facing up), tip at the origin. */
-function flatLeaf(length: number, width: number): THREE.BufferGeometry {
-  const g = new THREE.ShapeGeometry(leafShape(length, width), 6);
-  g.rotateX(-Math.PI / 2);
+/**
+ * One of the game's leaves (its species outline, detailShape.ts; Matt 2026-10-23: "use the same
+ * leaf models from the game"), lying flat in xz and facing up, its tip at the origin and its stem
+ * end `length` along +x, cupped a little. Its veins and edge are a shade darker (vertex colours,
+ * times the leaf's own colour).
+ */
+export function gameLeaf(kind: LeafKind, length: number): THREE.BufferGeometry {
+  const sh = detailShape(kind);
+  const tipY = sh.points[sh.tip * 2 + 1];
+  const k = length / (tipY - sh.points[sh.base * 2 + 1]);
+  const n = sh.points.length / 2;
+  const pos = new Float32Array(n * 3);
+  const col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const lx = sh.points[i * 2] * k;
+    pos[i * 3] = (tipY - sh.points[i * 2 + 1]) * k;
+    pos[i * 3 + 1] = 0.12 * lx * lx / length;
+    pos[i * 3 + 2] = lx;
+    const shade = (1 - 0.22 * sh.vein[i]) * (i < sh.outline ? 0.88 : 1);
+    col.fill(shade, i * 3, i * 3 + 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setIndex(new THREE.BufferAttribute(sh.indices, 1));
+  g.computeVertexNormals();
   return g;
 }
 
@@ -71,8 +88,11 @@ const lambert = (color: number, vertexColors = false): THREE.MeshLambertMaterial
  */
 export class Outside {
   readonly group = new THREE.Group();
-  private readonly worm: THREE.InstancedMesh;
+  private readonly worm = new HeroWorm(SPINE);
+  private readonly wormPose: WormPose = { spine: new Float32Array(SPINE * 3), phase: 0, activity: 0, timeSec: 0 };
   private readonly leaf: THREE.Mesh;
+  /** Half the pulled leaf's width. */
+  private readonly leafHalf: number;
   private readonly casts: THREE.InstancedMesh;
   private readonly m = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
@@ -107,23 +127,28 @@ export class Outside {
     [[-5, -11], [3.5, -14], [8, -9], [-9, -16], [12, -18]].forEach(([x, z], i) => trunks.setMatrixAt(i, this.m.makeTranslation(x, 12, z)));
     this.group.add(trunks);
 
-    // Fallen leaves on top: maple, basswood, oak and birch colours, away from the burrow's mouth.
-    const leafColours = [0x8a5a2b, 0xa8742e, 0x6e4a26, 0xb38a3a, 0x7d3a20, 0x9a8236];
-    const litter = new THREE.InstancedMesh(flatLeaf(0.9, 0.55), lambert(0xffffff), 70);
-    for (let i = 0; i < 70; i++) {
-      let x = 0;
-      let z = 0;
-      do {
-        x = (rand() * 2 - 1) * 6;
-        z = -0.25 - rand() * 7;
-      } while (Math.hypot(x - 0.2, z + 0.25) < 0.7 || (x > 0.5 && x < 2.3 && z > -1));
-      this.e.set(rand() * 0.2, rand() * Math.PI * 2, rand() * 0.2);
-      const k = 0.7 + rand() * 0.6;
-      this.m.compose(this.p.set(x, 0.01 + rand() * 0.05, z), this.q.setFromEuler(this.e), this.s.set(k, 1, k));
-      litter.setMatrixAt(i, this.m);
-      litter.setColorAt(i, c.setHex(leafColours[i % leafColours.length]).multiplyScalar(0.85 + rand() * 0.3));
+    // Fallen leaves on top, the game's five kinds in its fall colours, away from the burrow's mouth.
+    const edge = new THREE.Color();
+    const stem = new THREE.Color();
+    const PER_KIND = 14;
+    for (const kind of LEAF_KINDS) {
+      const litter = new THREE.InstancedMesh(gameLeaf(kind, 0.9), lambert(0xffffff, true), PER_KIND);
+      for (let i = 0; i < PER_KIND; i++) {
+        let x = 0;
+        let z = 0;
+        do {
+          x = (rand() * 2 - 1) * 6;
+          z = -0.25 - rand() * 7;
+        } while (Math.hypot(x - 0.2, z + 0.25) < 0.7 || (x > 0.5 && x < 2.3 && z > -1));
+        this.e.set(rand() * 0.2, rand() * Math.PI * 2, rand() * 0.2);
+        const k = 0.7 + rand() * 0.6;
+        this.m.compose(this.p.set(x, 0.01 + rand() * 0.05, z), this.q.setFromEuler(this.e), this.s.set(k, k, k));
+        litter.setMatrixAt(i, this.m);
+        leafTint(kind, 0.03, rand, c, edge, stem);
+        litter.setColorAt(i, c);
+      }
+      this.group.add(litter);
     }
-    this.group.add(litter);
 
     // The midden: leaf stems poking up out of the burrow's mouth, and casts in a pile round it.
     const stems = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.01, 0.016, 0.3, 5), lambert(0x6a4524), 7);
@@ -148,20 +173,17 @@ export class Outside {
     this.group.add(this.casts);
 
     // The leaf the worm pulls in (a basswood leaf), tip at its origin.
-    this.leaf = new THREE.Mesh(flatLeaf(LEAF_LENGTH, 0.8), lambert(0xa07a30));
+    const pulled = gameLeaf('basswood', LEAF_LENGTH);
+    pulled.computeBoundingBox();
+    this.leafHalf = Math.max(pulled.boundingBox!.max.z, -pulled.boundingBox!.min.z);
+    this.leaf = new THREE.Mesh(pulled, lambert(BASSWOOD, true));
     this.group.add(this.leaf);
 
-    // The worm: beads along its body, darker at the head, with its clitellum band.
-    this.worm = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 7), lambert(0xffffff), BEADS);
-    const headC = new THREE.Color(0x6e2e2a);
-    const bodyC = new THREE.Color(0xb8796a);
-    for (let i = 0; i < BEADS; i++) {
-      c.copy(headC).lerp(bodyC, Math.min(1, i / 10));
-      if (i >= 11 && i <= 14) c.setHex(0xc4664e);
-      this.worm.setColorAt(i, c);
-    }
-    this.worm.frustumCulled = false;
-    this.group.add(this.worm);
+    // The worm. In the cut its back faces the camera (the body runs up the burrow, so "up" can't
+    // be the sky), and its contact shadow is off.
+    this.worm.up.x = 0; this.worm.up.y = 0; this.worm.up.z = 1;
+    this.worm.showShadow(false);
+    this.group.add(this.worm.group);
   }
 
   /** The point and the way along the worm's path `u` past the burrow's mouth (negative: below). */
@@ -178,25 +200,29 @@ export class Outside {
     const reach = sample1(REACH, t);
     const feel = sample1(FEEL, t);
     const pt = this.pt;
-    for (let i = 0; i < BEADS; i++) {
-      const u = reach - i * BEAD_GAP;
+    const spine = this.wormPose.spine;
+    for (let i = 0; i < SPINE; i++) {
+      const u = reach - HEAD_EXT - i * SPACING;
       this.along(u, pt);
       // Out on the leaves it lies a little back from the cut, and its front sways as it feels.
       const out = Math.min(1, Math.max(0, u / 0.4));
-      const front = Math.max(0, 1 - i / 8);
-      const sway = feel * front * 0.16 * Math.sin(t * 2.3 - i * 0.5);
+      const front = Math.max(0, 1 - i / 3);
+      const sway = feel * front * 0.16 * Math.sin(t * 2.3 - i * 1.6);
       const lift = feel * front * 0.05 * (1 + Math.sin(t * 1.7));
-      const taper = i < 3 ? 0.72 + i * 0.09 : i > BEADS - 6 ? 0.6 + (BEADS - 1 - i) * 0.08 : 1;
-      this.p.set(pt[0], pt[1] + lift, -0.24 * out + sway);
-      this.q.setFromAxisAngle(Z, Math.atan2(pt[3], pt[2]));
-      this.m.compose(this.p, this.q, this.s.set(BEAD_GAP * 1.5, WORM_R * taper, WORM_R * taper));
-      this.worm.setMatrixAt(i, this.m);
-      if (i === 0) {
-        this.head.copy(this.p);
-        this.headDir.set(pt[2], pt[3], 0);
-      }
+      // The spine is the belly line: a body radius under the old centre line.
+      spine[i * 3] = pt[0];
+      spine[i * 3 + 1] = pt[1] + lift - WORM_RADIUS;
+      spine[i * 3 + 2] = -0.24 * out + sway;
     }
-    this.worm.instanceMatrix.needsUpdate = true;
+    // Its rings ripple along it as it moves, as in the game.
+    const speed = Math.abs(sample1(REACH, t + 0.05) - sample1(REACH, t - 0.05)) / 0.1;
+    this.wormPose.phase = (reach * WAVES) / WORM_LENGTH;
+    this.wormPose.activity = Math.min(1, speed * 1.5);
+    this.wormPose.timeSec = t;
+    this.worm.update(this.wormPose);
+    this.along(reach, pt);
+    this.head.set(pt[0], pt[1], -0.24 * Math.min(1, Math.max(0, reach / 0.4)));
+    this.headDir.set(pt[2], pt[3], 0);
 
     // The leaf: at rest until the worm takes it by the tip; then the tip goes where the mouth goes
     // and the rest drags behind on the ground, rolling up as it is pulled into the burrow.
@@ -209,15 +235,20 @@ export class Outside {
       const drop = Math.min(LEAF_LENGTH, Math.max(0, 0.03 - tipY));
       this.leaf.position.set(this.head.x + this.headDir.x * 0.06, tipY, Math.max(this.head.z, 0.03 - 0.27 * Math.max(0, tipY / LIP)));
       // It rolls up on its long side as it is pulled, so from the cut its face shows.
+      // Going down, it rolls tight enough to fit the burrow; on top, it stands on its edge.
       const roll = (Math.PI / 2) * Math.min(1, (t - GRAB_AT) / 1.2);
+      const down = Math.min(1, drop / 0.25);
+      const across = 1 - 0.62 * down;
       this.leaf.rotation.set(roll, 0, Math.asin(drop / LEAF_LENGTH), 'ZYX');
-      this.leaf.scale.set(1, 1, 1 - 0.55 * Math.min(1, drop / 0.25));
+      this.leaf.scale.set(1, 1, across);
+      this.leaf.position.y += this.leafHalf * across * Math.sin(roll) * (1 - down);
     }
     this.casts.count = Math.round(sample(CASTS, t, this.pt)[0]);
   }
 }
 
-const Z = new THREE.Vector3(0, 0, 1);
+/** The game's basswood fall colour, a shade darker for the dusk. */
+const BASSWOOD = 0xc99a36;
 
 function set(out: number[], a: number, b: number, c: number, d: number): number[] {
   out[0] = a;

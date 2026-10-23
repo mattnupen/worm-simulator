@@ -26,6 +26,11 @@ export interface LessonActions {
   onFinish(): void;
   /** Plays the eating film for a `body` step (main.ts); without it the step is the film's words. */
   film?: LessonFilm;
+  /**
+   * The game's 3D robin for the `robin` cue (main.ts): it flies in, hops up and stares, over the
+   * live forest. `play(true)` from the start; `play(false)` already standing there.
+   */
+  robin?: { play(fromStart: boolean): void; stop(): void };
 }
 
 /**
@@ -85,6 +90,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
   function draw(): void {
     endScene();
     a.film?.stop();
+    a.robin?.stop();
     closeFilm(shell.root);
     reader.stop();
     const step = lesson.steps[at];
@@ -168,6 +174,9 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
     endScene();
     playCueSound(step.cue);
     const asScene = watch && !reducedMotion();
+    if (step.cue === 'robin') a.robin?.play(asScene);
+    // With the game's robin in the forest, the drawn one stays out (its shadow and thumps stay).
+    shell.root.querySelector<HTMLElement>(':scope > .cue')?.toggleAttribute('data-real-robin', !!a.robin);
     cue.play(step.cue, asScene ? captions(step) : null, () => endScene());
     if (!asScene) {
       watched.add(at);
@@ -207,6 +216,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
   const leave = (then: () => void): void => {
     clearTimeout(sceneTimer);
     a.film?.stop();
+    a.robin?.stop();
     reader.stop();
     then();
   };

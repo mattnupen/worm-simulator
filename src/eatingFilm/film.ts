@@ -2,12 +2,15 @@ import * as THREE from 'three';
 import { sample } from '../opening/keys';
 import { Inside } from './inside';
 import { Outside } from './outside';
-import { BEATS, FILM_END, INSIDE_FROM, IN_CAMERA, OUT_CAMERA, beatAt, dipAt, insideAt, type Beat } from './script';
+import {
+  BEATS, FILM_END, INSIDE_FROM, IN_CAMERA, LABELS, LABEL_Y, OUT_CAMERA, beatAt, dipAt, insideAt, type Beat,
+} from './script';
 
-/** The two places' light: a cool night outside, warm light inside the worm. */
+/** The two places' light: a cool dusk outside, warm light inside the worm. */
 const LIGHT = {
-  outside: { bg: 0x14203a, sky: 0xb4c2e4, ground: 0x3a2c20, hemi: 1.9, sun: 0xdde6ff, sunI: 1.8, sunDir: [-0.4, 1, 0.9] },
-  inside: { bg: 0x24170e, sky: 0xfff1e2, ground: 0x7a4a36, hemi: 1.3, sun: 0xfff2e0, sunI: 1.5, sunDir: [0.3, 0.8, 1] },
+  // Dusk, not dark night (Matt, 2026-10-23: "a little too dark overall").
+  outside: { bg: 0x4a5a7c, sky: 0xd4dcf2, ground: 0x6a5440, hemi: 2.7, sun: 0xffe6c8, sunI: 2.4, sunDir: [-0.4, 1, 0.9] },
+  inside: { bg: 0x3a2618, sky: 0xfff1e2, ground: 0x8a5a44, hemi: 1.7, sun: 0xfff2e0, sunI: 1.9, sunDir: [0.3, 0.8, 1] },
 } as const;
 
 /**
@@ -35,6 +38,13 @@ export class EatingFilm {
   private readonly cam = [0, 0, 0, 0, 0, 0];
   private readonly look = new THREE.Vector3();
   private place: 'outside' | 'inside' | null = null;
+  private readonly v = new THREE.Vector3();
+  /**
+   * Where each part's label (script.ts LABELS) is on screen in the drawn frame, 5 numbers each:
+   * the point it marks (x, y), the label's place (x, y), in CSS pixels, and 1 if it shows (inside,
+   * with its point on the shot), else 0. Written by `pose`.
+   */
+  readonly labels = new Float32Array(LABELS.length * 5);
 
   constructor() {
     this.scene.background = this.bg;
@@ -116,6 +126,25 @@ export class EatingFilm {
     else camera.clearViewOffset();
     camera.updateProjectionMatrix();
     camera.lookAt(this.look);
+    camera.updateMatrixWorld();
+
+    // The labels: the point each marks, and its place straight above or below the worm.
+    const out = this.labels;
+    LABELS.forEach((l, i) => {
+      const o = i * 5;
+      out[o + 4] = 0;
+      if (!inside) return;
+      this.v.set(l.x, l.y, 0).project(camera);
+      const ax = (this.v.x + 1) / 2 * w;
+      const ay = (1 - this.v.y) / 2 * h;
+      if (this.v.z > 1 || ax < 8 || ax > w - 8 || ay < 0 || ay > above) return;
+      this.v.set(l.x, l.side * LABEL_Y, 0).project(camera);
+      out[o] = ax;
+      out[o + 1] = ay;
+      out[o + 2] = (this.v.x + 1) / 2 * w;
+      out[o + 3] = (1 - this.v.y) / 2 * h;
+      out[o + 4] = 1;
+    });
   }
 
   /** The game's camera settings, put back after the film (main.ts sizes it again on resize). */
