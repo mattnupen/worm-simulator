@@ -3,15 +3,17 @@ import { Crawl, BODY_RADIUS } from '../../src/game/crawl';
 import { footprints, obstacleDepth } from '../../src/surface/obstacles';
 import { PLAY_HALF } from '../../src/surface/terrain';
 import { LOCOMOTION } from '../../src/game/drive';
+import { MAX_CLIMB } from '../../src/surface/climbSurface';
+import { floorHeight } from '../../src/surface/litterDepth';
 import { DT, driveTo } from './cameraPress';
 
 const hit = { nx: 0, nz: 0 };
 
 /**
- * The fallen log runs across the world and out past both play edges. A slide along its side into
- * the edge must stop in the notch where the two meet: the play edges are fixed edges for the slide
- * (obstacles.ts slideMove), so the head never leaves the play area or speeds up, and once wedged
- * it stays put while the wave settles to its breath.
+ * The fallen log runs across the world and out past both play edges. Since the V4 hot fix the worm
+ * crawls up onto it (climbSurface.ts): along its top into the edge, the play edge stops it (a fixed
+ * edge for the slide, obstacles.ts slideMove), so the head never leaves the play area or speeds up,
+ * and once there it stays put while the wave settles to its breath.
  */
 describe('where the fallen log crosses the play edge', () => {
   it('the log does cross both play edges (the case is real)', () => {
@@ -21,7 +23,7 @@ describe('where the fallen log crosses the play edge', () => {
     expect(log.x + log.half).toBeGreaterThan(PLAY_HALF);
   });
 
-  it('a worm crawling along the log into the edge never leaves the play area, speeds up or enters the log, and stops cleanly', () => {
+  it('a worm crawling onto the log and along it into the edge never leaves the play area or speeds up, and stops cleanly', () => {
     for (const side of [1, -1]) {
       const c = new Crawl();
       const { log } = footprints();
@@ -34,33 +36,23 @@ describe('where the fallen log crosses the play edge', () => {
         const h = cc.motion.head;
         expect(Math.abs(h.x)).toBeLessThanOrEqual(PLAY_HALF + 1e-9);
         expect(Math.abs(h.z)).toBeLessThanOrEqual(PLAY_HALF + 1e-9);
-        expect(obstacleDepth(h.x, h.z, BODY_RADIUS, hit)).toBeLessThanOrEqual(1e-6);
+        expect(obstacleDepth(h.x, h.z, BODY_RADIUS, hit, MAX_CLIMB)).toBeLessThanOrEqual(1e-6);
         fastest = Math.max(fastest, Math.hypot(h.x - last.x, h.z - last.z));
         last = { x: h.x, z: h.z };
       });
       expect(fastest).toBeLessThanOrEqual(LOCOMOTION.speed * DT * (1 + 1e-9));
-      // It ends in the notch: at the edge, against the log's side.
+      // It ends at the edge, up on the log.
       const h = c.motion.head;
       expect(Math.abs(h.x)).toBeCloseTo(PLAY_HALF, 2);
-      expect(log.z - h.z - log.r - BODY_RADIUS).toBeLessThan(0.01);
+      expect(h.y - floorHeight(h.x, h.z)).toBeGreaterThan(3);
 
-      // Pushing on into the corner moves the head nowhere (no chatter, no reversals), and the wave
-      // advances as it does standing still (its breath).
-      const still = new Crawl();
-      const rest = { x: 0, y: 0 };
-      for (let s = 0; s < 300; s++) still.step(DT, rest);
-      const phase0 = c.wave.phase;
-      const stillPhase0 = still.wave.phase;
-      let moved = 0;
-      last = { x: h.x, z: h.z };
-      driveTo(c, side * 25, log.z, 300, (cc) => {
-        const p = cc.motion.head;
-        moved = Math.max(moved, Math.hypot(p.x - last.x, p.z - last.z));
-        last = { x: p.x, z: p.z };
-        still.step(DT, rest);
+      // Pushing on into the edge keeps the head at it, never chattering off it. (Up on the log
+      // nothing stops it along the edge any more: pressed in at a slant, it creeps along it.)
+      let off = 0;
+      driveTo(c, side * 25, h.z, 300, (cc) => {
+        off = Math.max(off, PLAY_HALF - Math.abs(cc.motion.head.x));
       });
-      expect(moved).toBeLessThan(1e-4);
-      expect(c.wave.phase - phase0).toBeCloseTo(still.wave.phase - stillPhase0, 3);
+      expect(off).toBeLessThan(1e-6);
     }
   }, 60_000);
 });

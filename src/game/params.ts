@@ -74,6 +74,20 @@ export interface GameParams {
   eatingAt: number | null;
   /** `?digMarks=0`: no casting mounds on the ground, and none for the worm to crawl over (V4; on unless turned off). */
   digMarks: boolean;
+  /**
+   * `?at=x,z,deg`: the crawl starts there (world units), facing that way (0 faces +z), when play
+   * starts without the opening (tests and screenshots: the worm beside a rock or the log).
+   */
+  at: { x: number; z: number; heading: number } | null;
+  /** `?debug=1`: window.__wormDebug reads the worm's head and heading (e2e tests). */
+  debug: boolean;
+}
+
+/** `?at=x,z,deg` as a place and heading (radians), or null when missing or not three numbers. */
+function place(p: URLSearchParams): GameParams['at'] {
+  const v = (p.get('at') ?? '').split(',').map((t) => (t.trim() === '' ? NaN : Number(t)));
+  if (v.length !== 3 || !v.every(Number.isFinite)) return null;
+  return { x: v[0], z: v[1], heading: (v[2] * Math.PI) / 180 };
 }
 
 /** A number param, or null when it is missing or not a finite number. */
@@ -110,5 +124,7 @@ export function parseParams(search: string): GameParams {
     nestEscape: p.get('nestEscape') === '1',
     digMarks: p.get('digMarks') !== '0',
     eatingAt: num(p, 'eatingAt'),
+    at: place(p),
+    debug: p.get('debug') === '1',
   };
 }

@@ -18,6 +18,25 @@ export function rockLy(dy: number, size: number, lump: number): number {
   return Math.max(dy, -0.35) * size * lump * 0.62;
 }
 
+/**
+ * Where a drawn rock (at (x, z) on soil height g, `size`, `seed`) puts its unit icosphere vertex
+ * (dx, dy, dz): written into out[0..2] as x, y, z. writeRock draws it, and the worm's climb
+ * surface (climbSurface.ts) rides over it, so the two never disagree.
+ */
+export function rockPoint(
+  dx: number, dy: number, dz: number, x: number, z: number, g: number, size: number, seed: number, out: Float64Array,
+): void {
+  const lump = rockLump(dx, dy, dz, seed);
+  const yaw = seed * Math.PI * 2;
+  const c = Math.cos(yaw);
+  const s = Math.sin(yaw);
+  const lx = dx * size * lump * 1.15;
+  const lz = dz * size * lump * 0.9;
+  out[0] = x + lx * c - lz * s;
+  out[1] = g - size * 0.18 + rockLy(dy, size, lump);
+  out[2] = z + lx * s + lz * c;
+}
+
 let unit: Float32Array | null = null;
 
 /**

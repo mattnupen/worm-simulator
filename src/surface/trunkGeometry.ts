@@ -210,11 +210,14 @@ export function writeLog(
   });
 }
 
+/** The hero log's seed (its rings' radii; the worm's climb surface reads them too: climbSurface.ts). */
+export const LOG_SEED = 1.62;
+
 /**
  * The hero fallen birch log, written into the shared bark mesh (no extra draw). The one place its
  * seed and shape are chosen: the underground's log section (sections.ts) cuts this same mesh.
  */
 export function writeHeroLog(w: MeshWriter): void {
   const log = heroLog();
-  writeLog(w, log.x, log.z, log.yaw, log.length, log.radius, BARK.birch, 1.62, terrainHeight, REAL_SCALE.log);
+  writeLog(w, log.x, log.z, log.yaw, log.length, log.radius, BARK.birch, LOG_SEED, terrainHeight, REAL_SCALE.log);
 }

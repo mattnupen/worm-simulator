@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseParams } from '../../src/game/params';
 
-const NO_ROBIN = { robin: false, robinAt: null, robinTurn: 0, robinDist: 9, robinCam: null, wormLength: null, hunt: true, robinIn: null, nest: false, nestAt: null, nestEscape: false, digMarks: true, eatingAt: null };
+const NO_ROBIN = { robin: false, robinAt: null, robinTurn: 0, robinDist: 9, robinCam: null, wormLength: null, hunt: true, robinIn: null, nest: false, nestAt: null, nestEscape: false, digMarks: true, eatingAt: null, at: null, debug: false };
 
 describe('parseParams', () => {
   it('defaults: no forced preset, no fps tag, not quick, Start screen', () => {
@@ -22,6 +22,14 @@ describe('parseParams', () => {
     expect(parseParams('?prompt=digDown').prompt).toBe('digDown');
     expect(parseParams('?prompt=viewClose').prompt).toBe('viewClose');
     expect(parseParams('?prompt=fly').prompt).toBeNull();
+  });
+  it('reads ?at=x,z,deg (a start place for tests) and ?debug=1, ignoring anything else', () => {
+    expect(parseParams('?at=1.5,-7,90').at).toEqual({ x: 1.5, z: -7, heading: Math.PI / 2 });
+    expect(parseParams('?at=1,2').at).toBeNull();
+    expect(parseParams('?at=1,,3').at).toBeNull();
+    expect(parseParams('?at=a,b,c').at).toBeNull();
+    expect(parseParams('?debug=1').debug).toBe(true);
+    expect(parseParams('?debug=yes').debug).toBe(false);
   });
   it('reads ?dig=1: the speed test digs underground (V2 perf gates)', () => {
     expect(parseParams('?speedtest=1&dig=1').dig).toBe(true);

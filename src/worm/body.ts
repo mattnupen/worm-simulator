@@ -28,3 +28,26 @@ export function followHead(segments: Vec3[], head: Vec3, spacing: number): void 
     }
   }
 }
+
+/**
+ * followHead the other way round, for backing up tail first: the last segment goes to `tail` and
+ * each one ahead of it is pulled toward the one behind, never pushed. In place: allocates nothing.
+ */
+export function followTail(segments: Vec3[], tail: Vec3, spacing: number): void {
+  const n = segments.length;
+  copy3(segments[n - 1], tail);
+  for (let i = n - 2; i >= 0; i--) {
+    const next = segments[i + 1];
+    const cur = segments[i];
+    const dx = cur.x - next.x;
+    const dy = cur.y - next.y;
+    const dz = cur.z - next.z;
+    const d = hypot3(dx, dy, dz);
+    if (d > spacing) {
+      const k = spacing / d;
+      cur.x = next.x + dx * k;
+      cur.y = next.y + dy * k;
+      cur.z = next.z + dz * k;
+    }
+  }
+}

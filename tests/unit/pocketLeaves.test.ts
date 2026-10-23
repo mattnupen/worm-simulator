@@ -100,7 +100,9 @@ describe('the pocket\'s leaves: only those the hole over the worm may show are d
     const fail = (kind: string, leaf: number, step: number) => {
       if (failures[kind]++ === 0) firstFailure.push(`${kind}: leaf ${leaf} at step ${step}`);
     };
-    for (let s = 0; s < 2400; s++) {
+    // 3000 steps, not 2400 (V4 hot fix): the worm now crawls up over rocks and the log, out of the
+    // litter, so the same course spends less time buried; the longer drive keeps the sample as big.
+    for (let s = 0; s < 3000; s++) {
       if (s % 300 === 0) {
         tx = (rng() * 2 - 1) * H;
         tz = (rng() * 2 - 1) * H;
