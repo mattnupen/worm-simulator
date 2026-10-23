@@ -2,6 +2,7 @@ import type { BurrowGame } from '../underground/burrowGame';
 import { headCatchable, ROBIN_BEHIND, type Hold } from '../underground/burrowGrab';
 import { slabU, slabX, slabZ } from '../underground/slab';
 import { litterTopHeight } from '../surface/litterDepth';
+import { crawlSurface, wormSurface, type WormSurface } from '../worm/surfaceHeight';
 import type { HuntInput, HuntState } from './hunt';
 import { huntPose, type GripLook } from './huntPose';
 import type { Robin } from './robin';
@@ -23,7 +24,9 @@ export function readWorm(g: BurrowGame, h: HuntState, w: HuntInput): void {
   if (m === 'surface') {
     const c = g.crawl.motion;
     w.under = false;
-    w.catchable = g.approach.burrow < 0;
+    // Not while up on a rock or the log (V4 hot fix, 2026-10-23): the grab's side view cuts the
+    // ground under the worm, so a raised worm would hang over it. The robin waits for it to come down.
+    w.catchable = g.approach.burrow < 0 && !onProp(c.head.x, c.head.z);
     w.hx = c.head.x;
     w.hz = c.head.z;
     w.heading = c.heading;
@@ -38,6 +41,13 @@ export function readWorm(g: BurrowGame, h: HuntState, w: HuntInput): void {
     w.heading = Math.atan2(side * s.tx, side * s.tz);
   } else w.catchable = false;
   if (h.phase !== 'away' && h.under !== w.under) w.catchable = false;
+}
+
+const floor: WormSurface = { y: 0 };
+const ride: WormSurface = { y: 0 };
+/** The worm's head is up on a rock or the log: the crawl's surface is above the plain floor (and mounds). */
+function onProp(x: number, z: number): boolean {
+  return crawlSurface(x, z, ride).y - wormSurface(x, z, floor).y > 0.2;
 }
 
 const bent: GripLook = { level: 0, loosen: 0, tug: 0 };
