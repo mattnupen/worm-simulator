@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Mesher } from './mesher';
-import { bodyPoint, ringXs, skinColor } from './body';
+import { TUBE_FRONT, bodyPoint, ringXs, skinColor } from './body';
 import { sweep } from './sweep';
 import { LENGTH, SEGMENTS, PEEL, SETAE, WALL, inPeel, segMid, segStart, segmentAt, segmentLength, wallThickness } from './layout';
 
@@ -38,7 +38,9 @@ export function wallSheet(
   const keep = opts.keep
     ? (u0: number, v0: number, u1: number, v1: number) => opts.keep!(xAt(u0), thAt(v0), xAt(u1), thAt(v1))
     : undefined;
-  m.surface(rows, cols, at, color, { wrapV, flip: opts.flip, keep });
+  // The prostomium's tip, where every angle meets: its normal points straight forward.
+  const pole = xs[i0] <= TUBE_FRONT + 1e-6 ? new THREE.Vector3(-1, 0, 0) : undefined;
+  m.surface(rows, cols, at, color, { wrapV, flip: opts.flip, keep, pole });
 }
 
 /** Index of the first ring at or behind x. */

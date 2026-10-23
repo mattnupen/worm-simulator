@@ -150,6 +150,7 @@ export const ANATOMY_UI = {
   viewMuscles: ui('Muscles'),
   viewNephridia: ui('Waste tubes'),
   viewGhost: ui('See-through'),
+  viewTail: ui('Tail'),
 } as const satisfies Record<string, Line>;
 
 /** Every line of the parts, keyed for lineProblems (tests/unit/content.test.ts). */

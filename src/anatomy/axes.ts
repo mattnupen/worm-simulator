@@ -29,8 +29,9 @@ export function floorY(x: number): number {
 export function dorsalVessel(x: number, out: THREE.Vector3): THREE.Vector3 {
   const r = R.dorsal * (0.75 + 0.25 * smooth(segStart(6), segStart(20), x));
   gutPoint(x, 0, out, r * 0.92);
-  // Over the intestine it runs straight along the tops of the bulges, not down into each pinch.
-  const k = smooth(segStart(ORGANS.intestineFrom), segStart(ORGANS.intestineFrom + 1), x);
+  // Behind the esophagus it runs smoothly over the crop, gizzard and the intestine's bulges, not
+  // down into each pinch.
+  const k = smooth(segStart(ORGANS.crop[0] - 2), segStart(ORGANS.crop[0]), x);
   if (k > 0) {
     let top = out.y;
     for (const d of [-0.7, -0.35, 0.35, 0.7]) top = Math.max(top, gutPoint(x + d, 0, a, r * 0.92).y);

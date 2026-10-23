@@ -113,15 +113,15 @@ export function bodyPoint(x: number, th: number, depth: number, out: THREE.Vecto
   const b = sampleBody(x, tmp);
   const sharp = Math.max(0, 1 - depth * 6);
   let k = 1 - depth;
-  const inClitellum = b.s > CLITELLUM[0] && b.s < CLITELLUM[1] + 1;
   const g = furrow(x);
-  k -= g * (inClitellum ? 0.007 : 0.024) * sharp;
+  const sad = saddle(b.s, th);
+  k -= g * (0.024 - 0.017 * sad) * sharp;
   if (b.s >= 2 && b.s <= SEGMENTS) {
     const f = b.s % 1;
     k += 0.004 * Math.sin(f * Math.PI) * sharp;
   }
   // The clitellum is a saddle: swollen over the back and sides, not under the belly.
-  if (inClitellum || (b.s > CLITELLUM[0] - 0.5 && b.s < CLITELLUM[1] + 1.5)) k += 0.13 * saddle(b.s, th) * Math.max(0, 1 - depth * 3);
+  k += 0.19 * sad * Math.max(0, 1 - depth * 3);
   if (depth === 0) {
     k += swellings(b.s, th);
     if (x < segStart(2)) {
@@ -129,7 +129,7 @@ export function bodyPoint(x: number, th: number, depth: number, out: THREE.Vecto
       // the outline turns round the front.
       const slope = (prostomiumEdge(x + 0.01) - prostomiumEdge(x - 0.01)) / 0.02;
       const d = (Math.abs(angleDist(th, 0) - prostomiumEdge(x)) * b.w) / Math.sqrt(1 + slope * slope * b.w * b.w);
-      k -= 0.028 * Math.exp(-(d / 0.11) * (d / 0.11)) * smooth(TUBE_FRONT + 0.15, TUBE_FRONT + 0.5, x) * smooth(segStart(2), segStart(2) - 0.15, x);
+      k -= 0.028 * Math.exp(-(d / 0.11) * (d / 0.11)) * smooth(TUBE_FRONT + 0.35, TUBE_FRONT + 0.8, x) * smooth(segStart(2), segStart(2) - 0.15, x);
       k -= 0.16 * mouthMask(x, th);
     }
     if (x > LENGTH - 0.6) k -= 0.25 * anusMask(x, th);
@@ -186,7 +186,7 @@ export function skinColor(x: number, th: number, out: THREE.Color): THREE.Color 
   const clit = saddle(s, th);
   out.lerp(C.clitellum, clit * 0.8);
   // Its glandular surface: a fine, even grain.
-  out.multiplyScalar(1 + clit * (fbm2(x * 7, th * 16, 2, 23, 0) - 0.5) * 0.3);
+  out.multiplyScalar(1 + clit * (fbm2(x * 7, th * 16, 2, 23, 0) - 0.5) * 0.45);
   // Furrows show paler, with fewer pigment cells; the dorsal vessel shows through the back.
   out.lerp(C.belly, furrow(x) * 0.35 * (1 - clit));
   const mid = Math.exp(-(th / 0.07) * (th / 0.07)) + Math.exp(-(((2 * Math.PI - th) / 0.07) ** 2));

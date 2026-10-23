@@ -37,7 +37,11 @@ export class Mesher {
     rows: number, cols: number,
     at: (u: number, v: number, out: THREE.Vector3) => void,
     color: (u: number, v: number, p: THREE.Vector3, out: THREE.Color) => void,
-    opts: { wrapV?: boolean; flip?: boolean; keep?: (u0: number, v0: number, u1: number, v1: number) => boolean } = {},
+    opts: {
+      wrapV?: boolean; flip?: boolean; keep?: (u0: number, v0: number, u1: number, v1: number) => boolean;
+      /** The outward normal at a tip where a whole row meets in one point (open sheets only). */
+      pole?: THREE.Vector3;
+    } = {},
   ): void {
     const base = this.vertexCount;
     const p = new THREE.Vector3();
@@ -73,7 +77,20 @@ export class Mesher {
           dv.subVectors(a, b);
           n.crossVectors(dv, du);
           if (n.lengthSq() > 1e-14 * du.lengthSq()) break;
-          n.copy(du).multiplyScalar(uu < 0.5 ? -1 : 1);
+          if (opts.pole) {
+            n.copy(opts.pole);
+          } else if (opts.wrapV) {
+            // A closed tube's tip: the normal points from the next ring's centre out through the tip.
+            const ur = uu < 0.5 ? Math.min(1, uu + eu) : Math.max(0, uu - eu);
+            a.set(0, 0, 0);
+            for (let k = 0; k < 8; k++) {
+              at(ur, k / 8, b);
+              a.add(b);
+            }
+            n.copy(p).addScaledVector(a, -1 / 8);
+          } else {
+            n.copy(du).multiplyScalar(uu < 0.5 ? -1 : 1);
+          }
         }
         n.normalize();
         if (opts.flip) n.negate();

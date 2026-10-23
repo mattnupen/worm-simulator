@@ -67,7 +67,7 @@ export function buildRepro(): ReproParts {
       const big = [0.55, 0.85, 1.12][i];
       const x = segAt(n, 0.66);
       const g = gutPoint(x, side * 1.1, new THREE.Vector3(), 0.7 * big);
-      vesicle(m, g, V(0.5 * segmentLength(n) * (0.8 + 0.3 * big), 1.0 * big, 0.82 * big), n * 7 + (side > 0 ? 1 : 2));
+      vesicle(m, g, V(0.34 * segmentLength(n) * (0.8 + 0.3 * big), 1.0 * big, 0.82 * big), n * 7 + (side > 0 ? 1 : 2));
     });
     // Testes (small, near the front wall of 10 and 11, beside the nerve cord) and sperm funnels.
     for (let n = ORGANS.testes[0]; n <= ORGANS.testes[1]; n++) {
@@ -91,7 +91,8 @@ export function buildRepro(): ReproParts {
   // Sperm reservoirs: one median sac in each of 10 and 11, round the testes and funnels.
   for (let n = ORGANS.testes[0]; n <= ORGANS.testes[1]; n++) {
     const x = segAt(n, 0.52);
-    blob(out.sacs, V(x, floorY(x) + 0.55, 0), V(0.44 * segmentLength(n), 0.48, 1.0), PEARL, { rows: 20, cols: 28 });
+    // Above the nerve cord, never through it.
+    blob(out.sacs, V(x, floorY(x) + 0.95, 0), V(0.42 * segmentLength(n), 0.4, 0.95), PEARL, { rows: 20, cols: 28 });
   }
   for (const side of [1, -1]) {
     const w = side > 0 ? out.near : out.far;

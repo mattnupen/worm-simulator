@@ -102,8 +102,11 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const side = panel && w > 700 && !panel.querySelector<HTMLElement>('.anatomy-panel-body')?.hidden ? panel.offsetWidth + 24 : 0;
+    // Shift the picture right and shrink it to fit the space beside the buttons.
+    camera.zoom = side ? (w - side) / w : 1;
     if (side) camera.setViewOffset(w, h, -side / 2, 0, w, h);
     else camera.clearViewOffset();
+    camera.updateProjectionMatrix();
     redraw();
   };
   frame();

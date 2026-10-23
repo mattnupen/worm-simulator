@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { AnatomyPartId } from '../content/anatomy';
 import { bodyPoint, insideWall } from './body';
 import { dorsalVessel, floorY, nerveCord, ventralVessel } from './axes';
-import { gutPoint, liningPoint } from './gut';
+import { gutPoint } from './gut';
 import { WALL, segAt, segMid, segStart, segmentLength } from './layout';
 
 /**
@@ -28,13 +28,17 @@ export const ANCHORS: Record<AnatomyPartId, Anchor> = {
   skin: out(() => bodyPoint(segMid(70), 1.0, 0, V(0, 0, 0))),
   circular: out(() => insideWall(segMid(46), 0.8, WALL.epidermis, V(0, 0, 0))),
   longitudinal: out(() => insideWall(segMid(54), 0.8, WALL.epidermis + WALL.circular, V(0, 0, 0))),
-  septa: inn(() => bodyPoint(segStart(27), -SIDE - 0.6, 0.35, V(0, 0, 0))),
+  // On a septum, between the gut and the far wall.
+  septa: inn(() => {
+    const x = segStart(26) + 0.02;
+    return gutPoint(x, -SIDE, V(0, 0, 0)).lerp(insideWall(x, -SIDE, 0, V(0, 0, 0)), 0.5);
+  }),
   pharynx: inn(() => gutPoint(segMid(3), SIDE, V(0, 0, 0))),
   esophagus: inn(() => gutPoint(segMid(7), SIDE, V(0, 0, 0))),
   calciferous: inn(() => gutPoint(segAt(11, 0.5), SIDE, V(0, 0, 0))),
   crop: inn(() => gutPoint(segStart(16), SIDE, V(0, 0, 0))),
   gizzard: inn(() => gutPoint(segStart(18), SIDE, V(0, 0, 0))),
-  intestine: inn(() => { const p = V(0, 0, 0); liningPoint(segMid(27), 1.65 * Math.PI, p); return p; }),
+  intestine: inn(() => gutPoint(segMid(20), SIDE, V(0, 0, 0))),
   hearts: inn(() => gutPoint(segAt(9, 0.3), -0.6, V(0, 0, 0), 0.4)),
   dorsalVessel: inn(() => dorsalVessel(segMid(28), V(0, 0, 0))),
   ventralVessel: inn(() => ventralVessel(segMid(25), V(0, 0, 0))),

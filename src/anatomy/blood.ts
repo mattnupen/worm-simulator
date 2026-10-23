@@ -42,8 +42,12 @@ function gutNetwork(m: Mesher, x: number, side: number, len: number, rnd: () => 
     const steps = 6 - depth;
     for (let i = 0; i <= steps; i++) {
       pts.push(gutPoint(xx, side * th, new THREE.Vector3(), r0 * 0.9));
-      th += (0.32 - depth * 0.05) * (0.8 + 0.4 * rnd());
-      xx += dir * len * (0.05 + 0.08 * rnd()) + (rnd() - 0.5) * len * 0.06;
+      const dth = (0.32 - depth * 0.05) * (0.8 + 0.4 * rnd());
+      const dx = dir * len * (0.05 + 0.08 * rnd()) + (rnd() - 0.5) * len * 0.06;
+      // Two points in between, so the vessel follows the gut's curves instead of cutting across.
+      if (i < steps) for (const f of [1 / 3, 2 / 3]) pts.push(gutPoint(xx + dx * f, side * (th + dth * f), new THREE.Vector3(), r0 * 0.9));
+      th += dth;
+      xx += dx;
       if (depth < 2 && i > 0 && i < steps && rnd() < 0.55) grow(xx, th, rnd() < 0.5 ? -1 : 1, depth + 1, r0 * 0.62);
     }
     sweep(m, pts, (t) => r0 * (1 - 0.8 * t), red, { radial: 5, per: 0.14 });
