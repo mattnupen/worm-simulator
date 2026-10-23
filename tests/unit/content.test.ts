@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { SOURCES } from '../../src/content/sources';
 import { TEXT, lineProblems, shown, type Line } from '../../src/content/text';
+import { anatomyLines } from '../../src/content/anatomy';
 
 describe('content: science honesty', () => {
   it('every shown line is labelled, and every fact is sourced and verified', () => {
     expect(lineProblems(TEXT)).toEqual([]);
+    expect(lineProblems(anatomyLines())).toEqual([]);
   });
 
   it('catches an unsourced or unverified fact, an empty line and a "Game choice" label', () => {

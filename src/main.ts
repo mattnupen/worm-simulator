@@ -62,6 +62,7 @@ import { showNestScene, type NestOverlay } from './ui/nestScene';
 import { createMoundView } from './underground/moundMesh';
 import { Mounds } from './underground/mounds';
 import { setWormRise } from './worm/surfaceHeight';
+import { startAnatomyViewer } from './anatomy/viewer';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
@@ -78,7 +79,12 @@ const app = document.getElementById('app')!;
 const shell = createShell(app, params.fps);
 
 let renderer: THREE.WebGLRenderer | null = null;
-try {
+// ?anatomy=1: the nightcrawler anatomy viewer (src/anatomy/) instead of the game.
+const anatomy = new URLSearchParams(location.search).has('anatomy');
+if (anatomy) {
+  app.replaceChildren();
+  startAnatomyViewer(app, location.search);
+} else try {
   renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 } catch (e) {
   // Three r186 needs WebGL 2 and throws without it. That is a FAIL worth reporting, not a blank page.

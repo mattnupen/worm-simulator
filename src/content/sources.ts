@@ -55,7 +55,11 @@ export type SourceId =
   | 'carolina-dissection'
   | 'hst-dissection'
   | 'purdue-corn-leaves'
-  | 'naturewatch-wormfacts';
+  | 'naturewatch-wormfacts'
+  | 'sciencelearn-outside'
+  | 'lander-lumbricus'
+  | 'naturespot-terrestris'
+  | 'smith-1917';
 
 export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'mndnr-humus': {
@@ -321,6 +325,34 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     publisher: 'WormWatch, NatureWatch Canada',
     short: 'NatureWatch',
     url: 'https://www.naturewatch.ca/wormwatch/how-to-guide/worm-facts/',
+    checked: '2026-10-23',
+  },
+  'sciencelearn-outside': {
+    title: 'Outside of an earthworm',
+    publisher: 'Science Learning Hub, University of Waikato',
+    short: 'Science Learning Hub',
+    url: 'https://www.sciencelearn.org.nz/image_maps/27-outside-of-an-earthworm',
+    checked: '2026-10-23',
+  },
+  'lander-lumbricus': {
+    title: 'Lumbricus terrestris (Invertebrate Anatomy OnLine)',
+    publisher: 'Richard Fox, Lander University',
+    short: 'Lander University',
+    url: 'https://lanwebs.lander.edu/faculty/rsfox/invertebrates/lumbricus.html',
+    checked: '2026-10-23',
+  },
+  'naturespot-terrestris': {
+    title: 'Lumbricus terrestris (Common Earthworm)',
+    publisher: 'NatureSpot',
+    short: 'NatureSpot',
+    url: 'https://www.naturespot.org/node/2100',
+    checked: '2026-10-23',
+  },
+  'smith-1917': {
+    title: 'North American Earthworms of the Family Lumbricidae in the Collections of the United States National Museum',
+    publisher: 'Frank Smith, Proceedings of the U.S. National Museum (Smithsonian)',
+    short: 'Smithsonian',
+    url: 'https://repository.si.edu/server/api/core/bitstreams/cf771886-b7c0-4fde-9b42-d442bc41c98e/content',
     checked: '2026-10-23',
   },
 };

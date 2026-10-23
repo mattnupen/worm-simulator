@@ -1,0 +1,62 @@
+/* The anatomy viewer (?anatomy=1). Colours, type and shapes come from src/ui/theme.css. */
+@import '../ui/theme.css';
+
+.anatomy { font-family: var(--font-body); color: var(--ink); font-size: 1.125rem; }
+
+.anatomy-panel {
+  position: absolute; top: var(--edge-y); left: var(--edge); z-index: 3;
+  width: min(330px, calc(100vw - 2 * var(--edge)));
+  max-height: calc(100vh - 2 * var(--edge-y)); overflow: auto;
+  background: var(--card); border-radius: var(--radius-card); box-shadow: var(--shadow-card);
+  padding: 14px 16px;
+}
+.anatomy-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.anatomy-panel h1 { font-family: var(--font-display); font-size: 1.35rem; margin: 0; color: var(--accent); }
+.anatomy-group h2 { font-size: 1rem; margin: 12px 0 6px; color: var(--ink-soft); font-weight: 700; }
+.anatomy-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.anatomy-hint { font-size: 1rem; color: var(--ink-soft); margin: 12px 0 0; line-height: 1.35; }
+
+.anatomy-btn {
+  font: inherit; font-size: 1.05rem; min-height: 48px; min-width: 48px; padding: 8px 14px;
+  border-radius: var(--radius-pill); border: 1px solid var(--line); background: var(--tint);
+  color: var(--ink); cursor: pointer;
+}
+.anatomy-btn:hover { background: var(--tint-strong); }
+.anatomy-btn:focus-visible, .anatomy-label:focus-visible, .anatomy-card a:focus-visible {
+  outline: 4px solid var(--focus); outline-offset: 2px;
+}
+/* On/off: a tick and a strong edge, not colour alone. */
+.anatomy-toggle[aria-pressed='true'] { background: var(--row-picked); border: 2px solid var(--line-strong); }
+.anatomy-toggle[aria-pressed='true']::before { content: '✓ '; font-weight: 700; }
+.anatomy-toggle[aria-pressed='false']::before { content: '○ '; color: var(--ink-soft); }
+
+.anatomy-labels { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.anatomy-labels svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.anatomy-labels line { stroke: var(--ink); stroke-width: 1.5; opacity: 0.75; }
+.anatomy-labels circle { fill: #fff; stroke: var(--ink); stroke-width: 2; }
+.anatomy-label {
+  position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer;
+  font: inherit; font-size: 1.125rem; line-height: 1.15; text-align: left;
+  min-height: 48px; padding: 6px 12px; border-radius: var(--radius-row);
+  border: 1px solid var(--line); background: var(--card-solid); color: var(--ink);
+  box-shadow: var(--shadow-float); display: flex; flex-direction: column; justify-content: center;
+}
+.anatomy-label-name { font-weight: 700; }
+.anatomy-label-sci { font-size: 0.95rem; font-style: italic; color: var(--ink-soft); }
+
+.anatomy-card {
+  position: absolute; right: var(--edge); bottom: var(--edge-y); z-index: 4; pointer-events: auto;
+  width: min(380px, calc(100vw - 2 * var(--edge))); padding: 16px 20px;
+  background: var(--card-solid); border-radius: var(--radius-card); box-shadow: var(--shadow-card);
+}
+.anatomy-card h2 { font-family: var(--font-display); margin: 0; font-size: 1.4rem; color: var(--accent); }
+.anatomy-card-sci { margin: 2px 0 8px; font-style: italic; color: var(--ink-soft); }
+.anatomy-card-fact { margin: 0 0 10px; line-height: 1.4; }
+.anatomy-card-src { margin: 0 0 12px; font-size: 1rem; color: var(--ink-soft); }
+.anatomy-card a { color: var(--link); }
+
+@media (max-width: 700px) {
+  .anatomy-panel { top: auto; bottom: 0; left: 0; width: 100vw; max-height: 45vh; border-radius: var(--radius-card) var(--radius-card) 0 0; }
+  .anatomy-card { bottom: auto; top: var(--edge-y); }
+}
+.anatomy-label[hidden], .anatomy-card[hidden] { display: none; }
