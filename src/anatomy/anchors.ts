@@ -25,7 +25,7 @@ export const ANCHORS: Record<AnatomyPartId, Anchor> = {
   segments: out(() => bodyPoint(segMid(62), 0.7, 0, V(0, 0, 0))),
   setae: out(() => bodyPoint(segMid(24), Math.PI - 1.2, 0, V(0, 0, 0))),
   clitellum: out(() => bodyPoint(segMid(34), 0.6, 0, V(0, 0, 0))),
-  skin: out(() => bodyPoint(segMid(70), 1.0, 0, V(0, 0, 0))),
+  skin: out(() => bodyPoint(segMid(100), 1.0, 0, V(0, 0, 0))),
   circular: out(() => insideWall(segMid(46), 0.8, WALL.epidermis, V(0, 0, 0))),
   longitudinal: out(() => insideWall(segMid(54), 0.8, WALL.epidermis + WALL.circular, V(0, 0, 0))),
   // On a septum, between the gut and the far wall.

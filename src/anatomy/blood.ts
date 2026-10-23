@@ -131,7 +131,10 @@ export function buildBlood(): BloodParts {
       sweep(bucket(x, side, walls), pts, () => 0.045, red, { radial: 5, per: 0.2 });
       // A short vessel from the ventral vessel to the gut.
       const v = ventralVessel(segMid(n), new THREE.Vector3());
-      sweep(fine, [v, gutPoint(segMid(n), side * 2.6, new THREE.Vector3(), 0.03), gutPoint(segMid(n) + 0.2, side * 2.0, new THREE.Vector3(), 0.03)], (t) => 0.05 * (1 - 0.4 * t), red, { radial: 5, per: 0.12 });
+      const gx = segMid(n);
+      sweep(fine, [v, gutPoint(gx, side * 2.8, new THREE.Vector3(), 0.08), gutPoint(gx + 0.07, side * 2.55, new THREE.Vector3(), 0.08),
+        gutPoint(gx + 0.14, side * 2.3, new THREE.Vector3(), 0.08), gutPoint(gx + 0.2, side * 2.05, new THREE.Vector3(), 0.08)],
+      (t) => 0.05 * (1 - 0.6 * t), red, { radial: 5, per: 0.08, caps: true });
     }
   }
   return { inner, fine, fineNear, heartsFar: hearts.far, heartsNear: hearts.near, ...walls };

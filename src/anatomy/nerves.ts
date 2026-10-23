@@ -83,7 +83,7 @@ export function buildNerves(): { inner: Mesher; far: Mesher; near: Mesher; rest:
           pts.push(bodyPoint(x + 0.03 * Math.sin(i * 1.3 + n), side * th, T + 0.02, new THREE.Vector3()));
         }
         const target = bucket(x, side, walls);
-        sweep(target, pts, (t) => 0.034 * (1 - 0.45 * t), paint, { radial: 5, per: 0.22 });
+        sweep(target, pts, (t) => 0.048 * (1 - 0.45 * t), paint, { radial: 5, per: 0.22 });
         // Fine twigs fanning out near the top, as in the dissection atlases.
         for (let k = 0; k < 2; k++) {
           const th0 = reach + 0.25 + k * 0.5;

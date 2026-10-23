@@ -32,7 +32,7 @@ export const VIEWS: readonly View[] = [
   { id: 'outside', name: ANATOMY_UI.viewOutside, labels: ['prostomium', 'clitellum', 'segments', 'skin'], pose: RESTING, wall: 'solid', systems: ['skin'], camera: [0, 70, 100], target: [0, 0, 0], fit: true },
   { id: 'head', name: ANATOMY_UI.viewHead, labels: ['prostomium', 'setae', 'segments'], pose: STRAIGHT, wall: 'solid', systems: ['skin'], camera: [-9, 5, 11], target: [3.5, 0, 0] },
   { id: 'tail', name: ANATOMY_UI.viewTail, labels: ['segments', 'setae'], pose: STRAIGHT, wall: 'solid', systems: ['skin'], camera: [LENGTH + 9, 7, 9], target: [LENGTH - 7, 0, 0] },
-  { id: 'belly', name: ANATOMY_UI.viewBelly, labels: ['setae', 'skin'], pose: STRAIGHT, wall: 'solid', systems: ['skin'], camera: [segMid(22), -30, 22], target: [segMid(24), 0, 0] },
+  { id: 'belly', name: ANATOMY_UI.viewBelly, labels: ['setae'], pose: STRAIGHT, wall: 'solid', systems: ['skin'], camera: [segMid(24), -38, 26], target: [segMid(26), 0, 0] },
   { id: 'inside', name: ANATOMY_UI.viewInside, labels: ['pharynx', 'brain', 'hearts', 'seminalVesicles', 'gizzard', 'intestine', 'nerveCord', 'septa'], pose: STRAIGHT, wall: 'cut', systems: ALL, camera: INSIDE_CAM, target: INSIDE_TARGET },
   { id: 'gut', name: ANATOMY_UI.viewGut, labels: ['pharynx', 'esophagus', 'calciferous', 'crop', 'gizzard', 'intestine'], pose: STRAIGHT, wall: 'cut', systems: ['skin', 'gut'], camera: INSIDE_CAM, target: INSIDE_TARGET },
   { id: 'blood', name: ANATOMY_UI.viewBlood, labels: ['hearts', 'dorsalVessel', 'ventralVessel'], pose: STRAIGHT, wall: 'cut', systems: ['skin', 'gut', 'blood'], camera: INSIDE_CAM, target: INSIDE_TARGET },

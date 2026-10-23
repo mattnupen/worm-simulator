@@ -27,7 +27,7 @@ const smax = (a: number, b: number, k = 0.18): number => {
 const bs: BodySample = { s: 0, w: 0, h: 0, yc: 0 };
 
 /** Where the gut starts: just inside the mouth, under the prostomium. */
-export const GUT_START = -0.1;
+export const GUT_START = 0.05;
 /** The intestine is shown opened from here back to the end of the cutaway. */
 export const OPEN_FROM = 20;
 
@@ -74,6 +74,10 @@ export function gutPoint(x: number, th: number, out: THREE.Vector3, lift = 0): T
   let r = gutRadius(s, b.w);
   // The intestine narrows into the anus over the last segments.
   r *= 0.35 + 0.65 * smooth(LENGTH - 0.1, LENGTH - 6, x);
+  // In the head the mouth cavity stays well inside the body (worms have no tongue).
+  if (x < 1.5) r = Math.min(r, 0.42 * b.h);
+  // The mouth cavity's front end is rounded off, just inside the mouth.
+  r *= Math.sqrt(smooth(GUT_START - 0.02, GUT_START + 0.35, x));
   const k = calciferous(s, th);
   const c = Math.cos(th);
   // The pharynx is thickest on top (its muscular dorsal mass); the intestine is flattened with the body.
@@ -86,8 +90,8 @@ const C = {
   pharynx: new THREE.Color('#c98577'),
   esophagus: new THREE.Color('#d0a08a'),
   gland: new THREE.Color('#efe3cc'),
-  crop: new THREE.Color('#ecd6c6'),
-  gizzard: new THREE.Color('#c4a68e'),
+  crop: new THREE.Color('#f0dccd'),
+  gizzard: new THREE.Color('#b8957c'),
   wall: new THREE.Color('#7d6a4a'),
   chloragogen: new THREE.Color('#c99c48'),
   lining: new THREE.Color('#c9927a'),

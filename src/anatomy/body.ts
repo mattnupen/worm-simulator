@@ -56,7 +56,7 @@ export function furrow(x: number): number {
 
 /** 1 over the back and sides of the clitellum's segments, fading out low on the sides. */
 export function saddle(s: number, th: number): number {
-  const along = smooth(CLITELLUM[0] - 0.35, CLITELLUM[0] + 0.5, s) * smooth(CLITELLUM[1] + 1.35, CLITELLUM[1] + 0.5, s);
+  const along = smooth(CLITELLUM[0] - 0.6, CLITELLUM[0] + 0.6, s) * smooth(CLITELLUM[1] + 1.6, CLITELLUM[1] + 0.4, s);
   return along * smooth(-0.45, -0.02, Math.cos(th));
 }
 
@@ -115,7 +115,7 @@ export function bodyPoint(x: number, th: number, depth: number, out: THREE.Vecto
   let k = 1 - depth;
   const g = furrow(x);
   const sad = saddle(b.s, th);
-  k -= g * (0.024 - 0.013 * sad) * sharp;
+  k -= g * (0.024 - 0.01 * sad) * sharp;
   if (b.s >= 2 && b.s <= SEGMENTS) {
     const f = b.s % 1;
     k += 0.004 * Math.sin(f * Math.PI) * sharp;
@@ -129,7 +129,7 @@ export function bodyPoint(x: number, th: number, depth: number, out: THREE.Vecto
       // the outline turns round the front.
       const slope = (prostomiumEdge(x + 0.01) - prostomiumEdge(x - 0.01)) / 0.02;
       const d = (Math.abs(angleDist(th, 0) - prostomiumEdge(x)) * b.w) / Math.sqrt(1 + slope * slope * b.w * b.w);
-      k -= 0.028 * Math.exp(-(d / 0.11) * (d / 0.11)) * smooth(TUBE_FRONT + 0.35, TUBE_FRONT + 0.8, x) * smooth(segStart(2), segStart(2) - 0.15, x);
+      k -= (0.028 + 0.02 * smooth(0.1, 0.5, x)) * Math.exp(-(d / 0.11) * (d / 0.11)) * smooth(TUBE_FRONT + 0.35, TUBE_FRONT + 0.8, x) * smooth(segStart(2), segStart(2) - 0.15, x);
       k -= 0.16 * mouthMask(x, th);
     }
     if (x > LENGTH - 0.6) k -= 0.05 * anusMask(x, th);
@@ -169,7 +169,7 @@ const C = {
   dorsalBack: new THREE.Color('#6e3a40'),
   tip: new THREE.Color('#c48a78'),
   tail: new THREE.Color('#d9a690'),
-  clitellum: new THREE.Color('#b0684e'),
+  clitellum: new THREE.Color('#a8725e'),
   gland: new THREE.Color('#e7c0a6'),
   dark: new THREE.Color('#3a1418'),
   vessel: new THREE.Color('#6a1422'),
@@ -196,8 +196,8 @@ export function skinColor(x: number, th: number, out: THREE.Color): THREE.Color 
   const sw = swellings(s, th);
   out.lerp(C.gland, Math.min(1, sw * 9));
   if (s >= ORGANS.firstDorsalPore && furrow(x) > 0.75 && Math.min(th, 2 * Math.PI - th) < 0.025) out.lerp(C.dark, 0.3);
-  const n = fbm2(x * 0.9, th * 6, 3, 11, 0) - 0.5;
-  out.multiplyScalar(1 + n * 0.12);
+  const n = fbm2(x * 2.4, th * 14, 3, 11, 0) - 0.5;
+  out.multiplyScalar(1 + n * 0.09);
   // The prostomium's tip is one even colour (back and belly tones meet there in a point otherwise).
   out.lerp(C.tip, smooth(-0.35, TUBE_FRONT + 0.25, x));
   // Same at the tail tip, round the anus.

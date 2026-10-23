@@ -12,12 +12,12 @@
 }
 .anatomy-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .anatomy-panel h1 { font-family: var(--font-display); font-size: 1.35rem; margin: 0; color: var(--accent); }
-.anatomy-group h2 { font-size: 1rem; margin: 12px 0 6px; color: var(--ink-soft); font-weight: 700; }
+.anatomy-group h2 { font-size: 1.0625rem; margin: 12px 0 6px; color: var(--ink-soft); font-weight: 700; }
 .anatomy-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.anatomy-hint { font-size: 1rem; color: var(--ink-soft); margin: 12px 0 0; line-height: 1.35; }
+.anatomy-hint { font-size: 1.0625rem; color: var(--ink-soft); margin: 12px 0 0; line-height: 1.35; }
 
 .anatomy-btn {
-  font: inherit; font-size: 1.05rem; min-height: 48px; min-width: 48px; padding: 8px 14px;
+  font: inherit; font-size: 1.0625rem; min-height: 48px; min-width: 48px; padding: 8px 14px;
   border-radius: var(--radius-pill); border: 1px solid var(--line); background: var(--tint);
   color: var(--ink); cursor: pointer;
 }
@@ -42,7 +42,7 @@
   box-shadow: var(--shadow-float); display: flex; flex-direction: column; justify-content: center;
 }
 .anatomy-label-name { font-weight: 700; }
-.anatomy-label-sci { font-size: 0.95rem; font-style: italic; color: var(--ink-soft); }
+.anatomy-label-sci { font-size: 1.0625rem; font-style: italic; color: var(--ink-soft); }
 
 .anatomy-card {
   position: absolute; right: var(--edge); bottom: var(--edge-y); z-index: 4; pointer-events: auto;
@@ -52,7 +52,7 @@
 .anatomy-card h2 { font-family: var(--font-display); margin: 0; font-size: 1.4rem; color: var(--accent); }
 .anatomy-card-sci { margin: 2px 0 8px; font-style: italic; color: var(--ink-soft); }
 .anatomy-card-fact { margin: 0 0 10px; line-height: 1.4; }
-.anatomy-card-src { margin: 0 0 12px; font-size: 1rem; color: var(--ink-soft); }
+.anatomy-card-src { margin: 0 0 12px; font-size: 1.0625rem; color: var(--ink-soft); }
 .anatomy-card a { color: var(--link); }
 
 @media (max-width: 700px) {
