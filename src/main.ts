@@ -50,6 +50,8 @@ import { RobinPreview } from './predators/robinPreview';
 import { HuntGame } from './predators/huntGame';
 import { HUNT_NOTES } from './predators/huntNotes';
 import { NestScene } from './predators/nestScene';
+import { EatingFilm } from './eatingFilm/film';
+import type { FilmView, LessonFilm } from './ui/lessonFilm';
 import { NEST_TIMES, nestCaptionAt } from './predators/nestScript';
 import { playNestSound } from './predators/nestSound';
 import { showNestScene, type NestOverlay } from './ui/nestScene';
@@ -124,6 +126,8 @@ function start(renderer: THREE.WebGLRenderer): void {
     playSeconds: progress.playSeconds,
     voted: progress.voted,
   });
+  /** Set once the eating film is built (below); the first card goes up before that. */
+  let lessonFilm: LessonFilm | undefined;
   draw();
   // Near plane 0.2 (not 0.1) doubles depth precision for the thin, layered leaf litter. The
   // camera stays >= 0.5 above the litter and 2.6 behind the worm, so nothing it normally looks
@@ -195,6 +199,30 @@ function start(renderer: THREE.WebGLRenderer): void {
     }
     dispatch({ type: 'nestDone' });
   };
+  /**
+   * The eating film (V4 lesson "Follow the leaf", src/eatingFilm/): built only when this lesson has
+   * it, drawn instead of the forest while its step shows. ?eatingAt= holds it at that second.
+   */
+  const film = lesson?.steps.some((s) => s.kind === 'body') ? new EatingFilm() : null;
+  let filmView: FilmView | null = null;
+  lessonFilm = film ? {
+    play: (view) => {
+      film.start(reduceMotion.matches);
+      if (params.eatingAt !== null) film.seek(params.eatingAt);
+      filmView = view;
+      dirty = true;
+    },
+    setPaused: (p) => {
+      film.paused = p;
+    },
+    stop: () => {
+      filmView = null;
+      if (!film.shown) return;
+      film.stop();
+      film.release(camera, 60, 0.2, 120);
+      resize();
+    },
+  } : undefined;
   /** The opening's captions while it plays. */
   let captions: OpeningCaptions | null = null;
   /** ?opening=1 plays it on the first Crawl even when seen (Matt's review); once. */
@@ -283,7 +311,10 @@ function start(renderer: THREE.WebGLRenderer): void {
     // Back from Graphics: focus returns to the button that opened it.
     const back = e.type === 'back' && state.screen === 'graphics';
     // Leaving the lesson by any way (Esc included): its cue and any reading aloud stop.
-    if (state.screen === 'lesson') closeLesson(shell.root);
+    if (state.screen === 'lesson') {
+      lessonFilm?.stop();
+      closeLesson(shell.root);
+    }
     // Leaving play (pause, a hidden tab, back to start): the Play quest's minutes are kept.
     if (state.screen === 'crawl' && progress.playSeconds !== playSaved) saveProgress();
     if (next.screen === 'opening' && state.screen !== 'opening') beginOpening();
@@ -466,6 +497,7 @@ function start(renderer: THREE.WebGLRenderer): void {
           onCrawl: crawlOrOpening,
           onStart: () => dispatch({ type: 'toStart' }),
           onFinish: () => markLessonDone(store, lesson.id),
+          get film() { return lessonFilm; },
         });
       case 'opening':
         captions = showOpening(shell);
@@ -557,6 +589,10 @@ function start(renderer: THREE.WebGLRenderer): void {
   }
 
   function update(dt: number): void {
+    if (film?.shown) {
+      if (params.eatingAt === null) film.step(dt);
+      else film.step(0);
+    }
     if (state.screen === 'opening' && opening.playing) {
       // The scene moves the worm itself (out of the tub and under the leaf): the real crawl, so
       // play starts where it ends. ?openingAt= holds it still at that second.
@@ -620,6 +656,14 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (still && !dirty) return;
     dirty = false;
     setTime(clock / 1000);
+    if (film?.shown) {
+      // The eating film, instead of the forest: its own scene and camera, centred above the card.
+      film.pose(alpha, camera, window.innerWidth, window.innerHeight, filmView?.inset ?? 0);
+      filmView?.set(film.beat, film.dark, film.done);
+      renderer.render(film.scene, camera);
+      shell.setFps(meter.fps, CHOICE_LABELS[spec.id], undefined);
+      return;
+    }
     if (state.screen === 'opening' && opening.playing) {
       // The world as play would pose it (the follow camera into gameCam), then the scene's own
       // camera, and the litter's fade redone for it so the worm shows from there.
@@ -654,6 +698,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   applyActive();
   resize();
   warmShaders(renderer, world, camera);
+  if (film) renderer.compile(film.scene, camera);
   cut.preload(renderer, camera);
   // ?speedtest=1 only (automated checks; students never load it): the underground's hollow tiles
   // and the last frame's draw calls, for tests/e2e/underground.spec.ts.

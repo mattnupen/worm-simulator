@@ -17,9 +17,9 @@ import { type Line } from '../text';
  *   words, so it never relies on sight or motion alone (accessibility).
  * - `meet`: a few animals (or things) as photo cards; tap "Find out" on each to read its fact. No
  *   sorting and no trick question (Matt, 2026-10-12: the sort felt like a quiz with an obvious answer).
- * - `body`: a tour inside the worm. A code-drawn diagram (labelled as a drawing, not a photo) with a
- *   bit of leaf that moves from part to part as the player taps "Follow the leaf"; each stop shows
- *   that part's name and its fact. Next waits until the leaf has visited every stop.
+ * - `body`: a 3D film of a worm eating (src/eatingFilm/): outside, it pulls a leaf into its burrow
+ *   (`outside`); inside, cut open, the food goes through each stop in turn, its name and fact as the
+ *   caption; then the midden (`midden`). Pause and Replay; Next waits until it has played once.
  * Any step but the mission can have `more`: a "Tell me more" panel with extra sourced facts for
  * students who want to read on. Nothing in it is needed for the round.
  * - `guess`: optional, and only as the first step. One question asked before anything is taught
@@ -93,8 +93,12 @@ export type LessonStep =
     readonly kind: 'body';
     readonly title: string;
     readonly intro: string;
+    /** The caption while the worm pulls its leaf in, outside. */
+    readonly outside: Line;
     /** In the order food passes through, from the mouth to the back end. */
     readonly stops: readonly BodyStop[];
+    /** The caption for the last shot: the pile round the burrow. */
+    readonly midden: Line;
     readonly more?: More;
   }
   | {
@@ -131,7 +135,7 @@ export interface Photo {
   readonly credit: string;
 }
 
-/** A part of the worm the `body` diagram can point to (src/ui/lessonBody.ts draws each one). */
+/** A part of the worm the `body` film stops at (src/eatingFilm/script.ts times each one). */
 export type BodyPart = 'mouth' | 'pharynx' | 'crop' | 'gizzard' | 'intestine' | 'casts';
 
 export interface BodyStop {
@@ -222,10 +226,12 @@ export function lessonLines(lesson: Lesson): Record<string, Line> {
         break;
       case 'body':
         at('intro', ui(s.intro));
+        at('outside', s.outside);
         s.stops.forEach((st, j) => {
           at(`stop.${j}`, ui(st.name));
           at(`stop.${j}.fact`, st.fact);
         });
+        at('midden', s.midden);
         break;
       case 'mission':
         at('notice', s.notice);

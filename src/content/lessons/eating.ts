@@ -118,7 +118,13 @@ export const EATING: Lesson = {
     {
       kind: 'body',
       title: 'Follow the leaf',
-      intro: 'Your worm just swallowed a bite of leaf. Tap "Follow the leaf" to see where it goes.',
+      intro: 'Watch a nightcrawler eat: first from outside, then from inside its body.',
+      outside: {
+        kind: 'fact',
+        text: 'On damp nights, a nightcrawler reaches out of its burrow and drags bits of dead leaves into it to eat.',
+        source: 'csu-nightcrawlers',
+        verified: true,
+      },
       stops: [
         {
           part: 'mouth',
@@ -181,6 +187,12 @@ export const EATING: Lesson = {
           },
         },
       ],
+      midden: {
+        kind: 'fact',
+        text: 'Leaf stems and casts pile up around the burrow. This pile is called a midden.',
+        source: 'wormwatch-ecogroups',
+        verified: true,
+      },
       more: {
         title: 'More of your body',
         lines: [

@@ -57,6 +57,11 @@ export interface GameParams {
    */
   nest: boolean;
   nestAt: number | null;
+  /**
+   * `?eatingAt=31`: the eating lesson's film (src/eatingFilm/) jumps to that second when it starts
+   * and holds there (screenshots; with `?lesson=eating`).
+   */
+  eatingAt: number | null;
   /** `?digMarks=0`: no casting mounds on the ground, and none for the worm to crawl over (V4; on unless turned off). */
   digMarks: boolean;
 }
@@ -92,5 +97,6 @@ export function parseParams(search: string): GameParams {
     nest: p.get('nest') === '1',
     nestAt: num(p, 'nestAt'),
     digMarks: p.get('digMarks') !== '0',
+    eatingAt: num(p, 'eatingAt'),
   };
 }

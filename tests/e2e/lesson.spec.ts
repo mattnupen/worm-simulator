@@ -101,17 +101,25 @@ async function playThrough(page: Page, l: Lesson): Promise<void> {
         await expect(card(page, l).getByText(step.photo.credit)).toHaveCount(0);
       }
     } else if (step.kind === 'body') {
-      // Follow the leaf: each tap shows the next part, in words and on the drawing; Next waits for the last.
+      // The eating film plays over the whole screen, its caption on the card: outside first, then
+      // each part as the food reaches it (its name big over the scene too), then the midden. Pause
+      // holds it; every caption can be read at any pace in "Read the whole trip"; Next waits for the end.
       await expect(next).toBeDisabled();
-      const follow = button(page, 'Follow the leaf');
-      for (const [j, s] of step.stops.entries()) {
-        await follow.click();
-        await expect(card(page, l).getByText(`Part ${j + 1} of ${step.stops.length}`)).toBeVisible();
-        await expect(card(page, l).locator(`.body-part.here[data-part="${s.part}"]`)).toHaveCount(1);
-        await expect(card(page, l).getByText(shown(s.fact))).toBeVisible();
-      }
-      await expect(follow).toBeHidden();
-      await expect(next).toBeEnabled();
+      await expect(card(page, l).getByText('Watch it to the end to go on.')).toBeVisible();
+      const caption = card(page, l).locator('.film-caption');
+      await expect(caption).toContainText(shown(step.outside));
+      await button(page, 'Pause').click();
+      await expect(button(page, 'Play')).toBeVisible();
+      await button(page, 'Play').click();
+      await card(page, l).getByText('Read the whole trip').click();
+      for (const s of step.stops) await expect(card(page, l).locator('.film-trip').getByText(shown(s.fact))).toBeVisible();
+      await expect(card(page, l).locator('.film-trip').getByText(shown(step.midden))).toBeVisible();
+      await expect(page.locator('.film-label')).toHaveText(step.stops[0].name, { timeout: 60_000 });
+      await expect(caption).toContainText(shown(step.stops[0].fact));
+      // Game time, not wall time: the software renderer can play it slower than 53 s.
+      await expect(next).toBeEnabled({ timeout: 180_000 });
+      await expect(caption).toContainText(shown(step.midden));
+      await expect(button(page, 'Replay')).toBeVisible();
     } else if (step.kind === 'meet') {
       await expect(next).toBeDisabled();
       await expect(card(page, l).getByText(`Found 0 of ${step.cards.length}`)).toBeVisible();
@@ -274,7 +282,7 @@ test('Play counts real crawling toward its 5 minutes, and keeps it when paused',
 
 for (const other of ALL_LESSONS.filter((l) => l !== CURRENT_LESSON)) {
   test(`the next round's lesson previews on its own link: ?lesson=${other.id}`, async ({ page }) => {
-    test.setTimeout(150_000);
+    test.setTimeout(330_000);
     const errors = watchErrors(page);
     await page.goto(`${PAGE}?lesson=${other.id}`);
     await expect(card(page, other)).toBeVisible();

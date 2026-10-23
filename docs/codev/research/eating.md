@@ -17,8 +17,9 @@ the live page before class. **Used** marks the facts the lesson shows.
 - **Worms don't eat living roots or green plants.** They eat dead and decaying matter, plus the
   fungi and bacteria on it. A student design where the worm eats living plants would be a game
   choice (recorded, never stated as a fact in the game).
-- **The body diagram is a drawing.** It is drawn in code, simplified and not to scale (the real
-  crop and gizzard sit around segments 15 to 19 in many earthworms). It is captioned as a drawing.
+- **The eating film simplifies.** Inside, the worm is drawn much bigger than life, and food goes
+  through in about 30 seconds (really it takes hours). No measured mouth size was found, so none is
+  stated. These are recorded here, not labelled in the game (Matt, 2026-10-23).
 
 ## Fact table
 
@@ -90,9 +91,14 @@ and identification.
 The robin photo is reused from the predators lesson. Files are in `src/content/lessons/photos/`,
 each under 90 KB, cropped to 640 × 480.
 
-## The body diagram (redrawn 2026-10-22, Matt: "more realistic and larger")
-The "Follow the leaf" drawing (`src/ui/lessonBody.ts`) follows two school dissection guides. It is
-still a drawing (Matt dropped the "not to scale" caption as noise, 2026-10-22).
+## The worm's insides (the 3D eating film, Matt 2026-10-23; first a drawing, 2026-10-22)
+The "Follow the leaf" film's cutaway worm (`src/eatingFilm/inside.ts`) follows two school
+dissection guides. Where nightcrawlers eat (Matt asked us to double-check, 2026-10-23): they come
+out on damp nights and pull fresh surface litter down into the top of the burrow; leaf stems,
+bits of leaf and casts pile up round the opening, the midden (Great Lakes Worm Watch, *Earthworm
+Ecological Groups*; Colorado State, *Nightcrawlers*). The tail stays in the burrow, gripping its
+sides (NatureSpot, *Common Earthworm*; shown, not stated). Worms that live and eat inside the leaf
+layer are a different group, the leaf-litter worms.
 
 | What the drawing shows | Source | Supporting quote |
 |---|---|---|
