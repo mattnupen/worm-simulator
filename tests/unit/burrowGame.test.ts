@@ -171,27 +171,25 @@ describe('the surface-and-underground game (V2 spec 4, 6, 7)', () => {
     expect(game.mode.mode).toBe('diggingDown');
   });
 
-  it('Come up is offered only where the whole body can lie out (canEmergeAt); elsewhere Action switches the view', () => {
+  it('at the top Action always comes up: at once where the body can lie out, else after heading out (V4 hot fix)', () => {
     const { game } = makeGame();
     run(game, 0.5, UP);
     digDown(game);
     steerToTop(game);
     expect(canEmergeAt(game.emerge, game.worm.u[0])).toBe(true);
-    // The same spot with no way out (as beside a trunk): near the top, but Action is the view switch.
+    // The same spot with no way out anywhere (as beside a trunk, at a slab's end): still Come up,
+    // never the view switch. With nowhere better, the worm comes up where it is.
     const sides = game.emerge.sides.slice();
     game.emerge.sides.fill(0);
     game.step(DT, STILL, false);
     expect(game.worm.nearTop).toBe(true);
     expect(game.nearTop).toBe(false);
-    expect(game.prompt).toBe('viewClose');
-    press(game);
-    expect(game.mode.mode).toBe('underground');
-    expect(game.view).toBe('close');
-    game.emerge.sides.set(sides);
-    game.step(DT, STILL, false);
     expect(game.prompt).toBe('comeUp');
     press(game);
-    expect(game.mode.mode).toBe('comingUp');
+    expect(game.view).toBe('wide');
+    until(game, 'comingUp', 4);
+    until(game, 'surface');
+    game.emerge.sides.set(sides);
   });
 
   it('the view setting is stored only when the player switches it', () => {
