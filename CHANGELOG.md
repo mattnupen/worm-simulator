@@ -15,6 +15,8 @@ How to write an entry (for Matt and Claude):
 
 ## Coming next
 
+## V4 · Eating (2026-10-23)
+
 ### New
 - The Start screen says **Version 4 · Eating** under the title.
 - **Learn: How do worms eat?** Find out what worms eat and how. In a 3D movie, a nightcrawler
@@ -37,8 +39,7 @@ How to write an entry (for Matt and Claude):
 - **Hold on!** If the robin grabs you, the view turns sideways and zooms in on the robin and
   your worm. When the robin pulls, tap Space (or the Tap button) to grip and pull back down.
   Every tap uses energy, so don't just mash: rest while the robin gets a new grip. Run out of
-  energy, or get pulled all the way out, and the robin wins. (Game choice: real worms don't have
-  an energy bar.)
+  energy, or get pulled all the way out, and the robin wins.
 - **If you lose,** the robin carries you off to its nest to feed its babies. Then you start
   again in the ground.
 
