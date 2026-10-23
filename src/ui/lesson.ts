@@ -4,11 +4,11 @@ import { icon } from './icons';
 import type { Shell } from './shell';
 import { SOURCES, type SourceId } from '../content/sources';
 import { shown, type Line } from '../content/text';
-import type { BodyStop, Cue, Lesson, LessonStep, More, Photo, Video } from '../content/lessons/lesson';
+import type { Cue, Lesson, LessonStep, More, Photo, Video } from '../content/lessons/lesson';
 import { PHOTO_URLS } from '../content/lessons/photos';
 import { youTubeId } from '../content/lessons/lesson';
 import { playCueSound, stopCueSound } from './lessonSound';
-import { bodyDiagram } from './lessonBody';
+import { closeFilm, filmBody, type LessonFilm } from './lessonFilm';
 
 /**
  * Whether lessons show sources as links (new tab) and play "Tell me more" videos in the panel
@@ -24,6 +24,8 @@ export interface LessonActions {
   onStart(): void;
   /** The player reached the last step: the lesson counts as finished. */
   onFinish(): void;
+  /** Plays the eating film for a `body` step (main.ts); without it the step is the film's words. */
+  film?: LessonFilm;
 }
 
 /**
@@ -80,6 +82,8 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
 
   function draw(): void {
     endScene();
+    a.film?.stop();
+    closeFilm(shell.root);
     reader.stop();
     const step = lesson.steps[at];
     const last = at === lesson.steps.length - 1;
@@ -102,7 +106,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
       if (moreBtn) moreBtn.hidden = false;
     };
     const ctx: BodyCtx = {
-      root: shell.root, at, onAnswer, replay: () => startScene(true),
+      root: shell.root, at, onAnswer, replay: () => startScene(true), film: a.film,
       picks, opened: opened.get(at) ?? new Set(), answered: answered.has(at), guess: guessed(),
     };
     opened.set(at, ctx.opened);
@@ -193,6 +197,7 @@ export function showLesson(shell: Shell, lesson: Lesson, a: LessonActions): void
   /** main.ts closes the lesson (closeLesson) on the screen change. */
   const leave = (then: () => void): void => {
     clearTimeout(sceneTimer);
+    a.film?.stop();
     reader.stop();
     then();
   };
@@ -205,6 +210,7 @@ export function closeLesson(root: HTMLElement): void {
   stopSpeaking();
   stopCueSound();
   root.querySelector<HTMLElement>('.panel[data-phase]')?.removeAttribute('data-phase');
+  closeFilm(root);
   for (const d of root.querySelectorAll<HTMLDialogElement>('dialog.lesson-dialog')) d.remove();
   const layer = root.querySelector<HTMLElement>(':scope > .cue');
   if (layer) {
@@ -221,8 +227,7 @@ function interactive(step: LessonStep): boolean {
 /** Beside a grayed-out Next: what to do first, in words. */
 function waitHint(step: LessonStep): string {
   if (step.kind === 'meet') return `Tap Find out on all ${step.cards.length} to go on.`;
-  // The body tour's own count ("Part 2 of 6") already says what is left.
-  if (step.kind === 'body') return '';
+  if (step.kind === 'body') return 'Watch it to the end to go on.';
   return 'Pick an answer to go on.';
 }
 
@@ -244,6 +249,7 @@ interface BodyCtx {
   readonly at: number;
   readonly onAnswer: () => void;
   readonly replay: () => void;
+  readonly film?: LessonFilm;
   readonly picks: Map<number, number>;
   readonly opened: Set<number>;
   readonly answered: boolean;
@@ -275,7 +281,7 @@ function stepBody(step: LessonStep, c: BodyCtx): HTMLElement[] {
     case 'meet':
       return meet(step, c);
     case 'body':
-      return body(step, c);
+      return filmBody(c.root, step, c.film, c.onAnswer);
     case 'mission': {
       const notice = el('p', '', 'mission-line');
       notice.append(icon('flag', 'mission-icon'), readable(el('span', shown(step.notice))));
@@ -418,66 +424,6 @@ function meet(step: Extract<LessonStep, { kind: 'meet' }>, c: BodyCtx): HTMLElem
     list.append(li);
   });
   return [intro, count, list];
-}
-
-/**
- * "Follow the leaf": the worm's insides as a drawing (lessonBody.ts). Each tap pans the big
- * close-up to the next part and shows what happens to the food there, labels it, and shows the
- * part's name and fact in a box under it. Once the leaf reaches the last part, the box becomes the
- * whole trip as a numbered list, Next wakes up, and "Watch the whole trip" plays it again from the
- * mouth. Back keeps the parts already seen.
- */
-function body(step: Extract<LessonStep, { kind: 'body' }>, c: BodyCtx): HTMLElement[] {
-  const intro = readable(el('p', step.intro, 'lead lesson-question'));
-  const diagram = bodyDiagram();
-  const count = el('p', '', 'meet-count');
-  count.setAttribute('aria-live', 'polite');
-  const now = el('div', '', 'body-now');
-  const follow = button('Follow the leaf', 'leaf', 'primary', () => {
-    c.opened.add(c.opened.size);
-    show();
-    if (c.opened.size === step.stops.length) c.onAnswer();
-  });
-  follow.el.classList.add('btn-small');
-  let replay = 0;
-  const again = button('Watch the whole trip', 'play', 'secondary', () => {
-    clearTimeout(replay);
-    const go = (i: number): void => {
-      if (!diagram.el.isConnected) return;
-      const s = step.stops[i];
-      diagram.show(s.part, s.name, new Set(step.stops.slice(0, i + 1).map((x) => x.part)));
-      if (i + 1 < step.stops.length) replay = window.setTimeout(() => go(i + 1), i + 1 === step.stops.length - 1 ? 3600 : 2400);
-    };
-    go(0);
-  });
-  again.el.classList.add('btn-small');
-  const stopWords = (s: BodyStop): HTMLElement[] => [readable(el('p', s.name, 'meet-name')), line(s.fact)];
-
-  const show = (): void => {
-    const seen = c.opened.size;
-    const stop = seen > 0 ? step.stops[seen - 1] : undefined;
-    count.textContent = `Part ${seen} of ${step.stops.length}`;
-    diagram.show(stop?.part ?? null, stop?.name ?? '', new Set(step.stops.slice(0, seen).map((s) => s.part)));
-    const finished = seen === step.stops.length;
-    if (finished) {
-      const trip = el('ol', '', 'body-stops');
-      trip.append(...step.stops.map((s) => {
-        const li = el('li', '', 'body-stop');
-        li.append(...stopWords(s));
-        return li;
-      }));
-      now.replaceChildren(readable(el('p', 'The leaf made it all the way through! Here is its whole trip:', 'body-done')), trip);
-    } else {
-      now.replaceChildren(...(stop ? stopWords(stop) : []));
-    }
-    now.classList.toggle('body-now-on', !!stop && !finished);
-    follow.el.hidden = finished;
-    again.el.hidden = !finished;
-  };
-  show();
-  const buttons = el('div', '', 'body-buttons');
-  buttons.append(count, follow.el, again.el);
-  return [intro, diagram.el, now, buttons];
 }
 
 /**

@@ -58,9 +58,9 @@ carry over; NatureSpot is added as a new source.
 ## Controls and access
 
 - Plays when the step opens. **Pause / Play** and **Replay** buttons; Next wakes up after it has
-  played through once (Claude's default, same as the diagram now).
-- Captions in the opening's subtitle style; each part's name also shows as a big label on screen.
-  After the first play, the card lists the whole trip as text (screen readers, re-reading).
+  played through once (Claude's default, same as the diagram).
+- The card becomes a caption bar at the bottom; each part's name also shows as a big label on
+  screen. "Read the whole trip" lists every caption as text at any time (screen readers, re-reading).
 - Space pauses, Enter or the buttons work, touch works. Nothing flashes; the gizzard squeeze is
   slower than 3 times a second. With reduced motion, the camera cuts instead of gliding.
 - Preview links: `?lesson=eating` (the lesson), `?eatingAt=31` freezes a frame (like
@@ -68,15 +68,20 @@ carry over; NatureSpot is added as a new source.
 
 ## How it is built
 
-- A small script-driven player like the opening (`src/opening/`): the script is plain data, eased
-  keyframes, meshes built when the lesson starts, so no shader compiles mid-scene.
-- Shot 1 and the last shot use the game's own side cut view and worm. The inside shots use one
-  separate, larger cutaway model (organs as simple shapes, about 10k triangles, the game's existing
-  material types), drawn by the same renderer while the card shows only captions and buttons.
-- Night: the scene dims the forest's lights (uniforms only), and puts them back after.
-- Budget: the opening's 40 draw calls; perf gates on every preset with the scene playing.
-- Removes `src/ui/lessonBody.ts`, its CSS, and the `body` step's diagram once the scene is in. The
-  lesson data's 6 stops stay, as the scene's captions.
+As built (2026-10-23), in `src/eatingFilm/`:
+- A small script-driven player like the opening's: `script.ts` is plain data (beats, eased
+  keyframes), `outside.ts` and `inside.ts` build the two places, `film.ts` runs the clock and the
+  camera. The lesson UI is `src/ui/lessonFilm.ts`.
+- Its own small scene, drawn by the game's renderer **instead of** the forest while the step shows
+  (one scene render per frame, as always). Built once at load, only when the lesson has a `body`
+  step, and compiled with the game's shaders, so nothing compiles mid-lesson. Plain lit materials
+  with its own two lights; switching places changes only light colours and visibility.
+- Outside: the soil cut through the burrow, leaves, the midden's stems and casts, and the worm as
+  beads (game size). Inside: one cutaway nightcrawler, 150 segments, much bigger than life.
+- Budget: about 22 draw calls at most (one place shows at a time), well under 40. It never draws
+  during play, so the perf gates (which measure play) are unchanged.
+- The flat diagram (`src/ui/lessonBody.ts`) and its CSS are gone; the lesson data's 6 stops are the
+  film's captions, plus a new `outside` and `midden` caption.
 
 ## Framework check
 
