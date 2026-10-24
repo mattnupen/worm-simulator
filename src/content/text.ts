@@ -41,6 +41,11 @@ export const TEXT = {
   },
   // Game choices: the record of what the game bends, never shown (Matt, 2026-10-23).
   huntEnergyChoice: { kind: 'gameChoice', text: 'Real worms don\'t have an energy bar. It\'s just for the game.' },
+  // V4 revision 4 (Matt, 2026-10-24): the robin digs for a worm in the top two layers (src/predators/huntPose.ts digPose).
+  huntDigChoice: {
+    kind: 'gameChoice',
+    text: 'Real robins mostly flick leaves aside with their bills and pull worms that are near the surface. The game\'s robin also scratches with its feet and digs down a little to reach a worm.',
+  },
   // What happens when the robin wins (V4 spec 3; src/predators/huntGame.ts).
   huntBroke: {
     kind: 'fact',

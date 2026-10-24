@@ -42,13 +42,19 @@ export interface RobinPose {
   flap: number;
   /** Which way the wings are beating, -1..1: positive on the upstroke (the hands fold back), negative on the downstroke. */
   stroke: number;
+  /**
+   * Bits of leaf flicked up as it digs (V4 revision 4): 0..1 through one flick (0 or 1: none),
+   * kicked back from its feet, or tossed aside from under its bill (`flickBill`).
+   */
+  flick: number;
+  flickBill: boolean;
   visible: boolean;
 }
 
 export function restPose(): RobinPose {
   return {
     x: 0, y: 0, z: 0, yaw: 0, lift: 0, stride: 0, crouch: 0, pitch: 0,
-    headYaw: 0, headPitch: 0, headRoll: 0, bill: 0, tail: 0, flying: false, flap: 0, stroke: 0, visible: false,
+    headYaw: 0, headPitch: 0, headRoll: 0, bill: 0, tail: 0, flying: false, flap: 0, stroke: 0, flick: 0, flickBill: false, visible: false,
   };
 }
 
@@ -81,6 +87,7 @@ export class Robin {
   private readonly up = new THREE.Vector3(...WING_UP);
   private readonly n = new THREE.Matrix3();
   private readonly v = new THREE.Vector3();
+  private readonly v2 = new THREE.Vector3();
   private readonly e = new THREE.Euler();
 
   constructor() {
@@ -174,6 +181,26 @@ export class Robin {
     P.wingR.matrix.copy(this.body);
     P.wingL.matrix.copy(this.body);
     if (p.flying) this.poseWings(p);
+    this.poseBits(p);
+  }
+
+  /**
+   * The leaf bits (robinBits.ts): a little spray that opens out, hops up and falls through one
+   * flick, from just behind its feet (thrown back) or from the ground under its bill (tossed aside).
+   */
+  private poseBits(p: RobinPose): void {
+    const bits = this.parts.bits;
+    const f = p.flick;
+    bits.visible = f > 0 && f < 1 && !p.flying;
+    if (!bits.visible) return;
+    const s = UNITS_PER_CM;
+    if (p.flickBill) {
+      this.v.set(BILL_TIP[0], BILL_TIP[1], BILL_TIP[2]).applyMatrix4(this.parts.head.matrix);
+      this.m2.makeRotationY(p.yaw + Math.PI / 2).scale(this.v2.set(s, s, s)).setPosition(this.v.x, p.y, this.v.z);
+    } else this.m2.multiplyMatrices(this.root, this.m.makeTranslation(0, 0, -1));
+    const spread = 0.2 + 0.8 * f;
+    this.m.makeRotationY(1.5 * f).scale(this.v2.set(spread, spread, spread)).setPosition(0, 16 * f * (1 - f), 0);
+    bits.matrix.multiplyMatrices(this.m2, this.m);
   }
 
   /**

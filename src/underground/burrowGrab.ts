@@ -3,11 +3,12 @@ import { WORM_SEGMENTS } from '../game/crawl';
 import { AXIS_UP } from './bodyPath';
 import { wormBody } from '../worm/bodyLength';
 import { advanceWave } from '../worm/wormShape';
-import { B_H, B_TOP, bound, boundaryOf, type Slab, type UV } from './slab';
+import { B_TOP, bound, boundaryOf, type Slab, type UV } from './slab';
 import { digDiscAt, type Eaten } from './soilGrid';
 import { BREATH_HZ, TUNNEL_R } from './burrowMotion';
 import { buildStage, type MoveState } from './burrowMoves';
 import { pressDig } from './burrowApproach';
+import { HUNT } from '../predators/huntTune';
 
 /**
  * The worm in the robin's bill, seen in the side view (V4 spec revision 1): its front end up to the
@@ -29,10 +30,13 @@ import { pressDig } from './burrowApproach';
 const N = WORM_SEGMENTS;
 /** The path's points at most: the bill, the hole, and the tunnel. */
 const PATH_MAX = 64;
-/** The surface grab's tunnel: this long, with a point every TUNNEL_STEP, leaning away from the robin. */
+/**
+ * The surface grab's tunnel: this long, a point every TUNNEL_STEP, all but upright (revision 4: so
+ * the body bends at the hole toward the bill, not one stiff rod through the ground).
+ */
 const TUNNEL_LEN = 7;
 const TUNNEL_STEP = 0.25;
-const TUNNEL_LEAN = 0.35;
+const TUNNEL_LEAN = 0.08;
 /** Past the tail of a worm grabbed underground the path goes on this far (it may be pulled deeper). */
 const PAST_TAIL = 3;
 /** Points stay this far below the litter's top (the path never comes out of the ground twice). */
@@ -60,12 +64,14 @@ export interface Hold {
   slide: number;
   /** The tunnel is dug this far along the path past the hole (a tail pushed past it digs on). */
   dug: number;
+  /** Pulled up so far (revision 4): 0 the head where the robin found it underground (point 2), 1 in the bill. */
+  pull: number;
 }
 
 export function createHold(): Hold {
   return {
     pu: new Float64Array(PATH_MAX), pv: new Float64Array(PATH_MAX), pw: new Float64Array(PATH_MAX),
-    cum: new Float64Array(PATH_MAX), n: 0, holeU: 0.5, slide: 0.5, dug: 0.5,
+    cum: new Float64Array(PATH_MAX), n: 0, holeU: 0.5, slide: 0.5, dug: 0.5, pull: 0.5,
   };
 }
 
@@ -79,10 +85,10 @@ function topAt(s: Slab, u: number): number {
   return bound.v;
 }
 
-/** The head is in reach of a robin: in the leaf litter or the old leaves, above the humus (revision 1). */
+/** The head is in reach of a robin: above HUNT.escapeLayer (the humus: in the leaf litter or the old leaves; revision 1). */
 export function headCatchable(s: Slab, u: number, v: number): boolean {
   pt.u = u;
-  boundaryOf(s, B_H, pt);
+  boundaryOf(s, HUNT.escapeLayer, pt);
   return v > bound.v;
 }
 
@@ -99,6 +105,7 @@ function begin(h: Hold, s: Slab, u: number): void {
   h.n = 0;
   h.holeU = u;
   h.slide = 0;
+  h.pull = 1;
   push(h, u, topAt(s, u) + 0.4);
   push(h, u, topAt(s, u));
 }
@@ -159,6 +166,8 @@ export function holdFromBelow(g: MoveState, h: Hold): void {
   measure(h);
   digAlong(g, h, 0.3, h.cum[2]);
   h.dug = h.cum[2 + N - 1] - h.cum[1];
+  // The robin pulls it up from there (HeldWorm), never a jump to the bill.
+  h.pull = 0;
 }
 
 /**
@@ -226,8 +235,10 @@ export function poseHeld(g: MoveState, h: Hold, dt: number): void {
   const gap = wormBody.spacing;
   const hu = w.u[0];
   const hv = w.v[0];
+  // Not yet pulled all the way up: the head further along, down its hole (as at the grab's start).
+  const from = h.slide + (1 - h.pull) * h.cum[2];
   for (let i = 0; i < N; i++) {
-    along.d = h.slide + i * gap;
+    along.d = from + i * gap;
     at(h);
     w.u[i] = pt.u;
     w.v[i] = pt.v;
@@ -237,7 +248,7 @@ export function poseHeld(g: MoveState, h: Hold, dt: number): void {
   // It squirms in the bill (a Game choice of how much), and the wave runs on with any slide.
   w.wave.activity += (0.7 - w.wave.activity) * Math.min(1, 3 * dt);
   advanceWave(w.wave, Math.abs(w.u[0] - hu) + Math.abs(w.v[0] - hv) + 0.4 * dt, dt, 1, wormBody.wavesPerUnit, BREATH_HZ);
-  const tail = h.slide + (N - 1) * gap - h.cum[1];
+  const tail = from + (N - 1) * gap - h.cum[1];
   if (tail > h.dug) {
     digAlong(g, h, h.cum[1] + h.dug, h.cum[1] + tail + 0.1);
     h.dug = tail + 0.1;
