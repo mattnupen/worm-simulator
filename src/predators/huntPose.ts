@@ -26,6 +26,11 @@ const ease = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * 
 /** 0 → 1 → 0 over [0, 1]. */
 const bump = (k: number): number => (k <= 0 || k >= 1 ? 0 : Math.sin(Math.PI * k));
 const RUN_STEPS = 4;
+/** Digging for a worm underground: kicks back with its feet this many times a second, then stabs with its bill this many times (both under 3 a second). */
+const SCRATCH_HZ = 2.5;
+const STABS = 2;
+/** The share of the probe spent stabbing; the rest bends right down to the hole (grabPose at level 0). */
+const STAB_SHARE = 0.7;
 
 /**
  * Poses the robin for hunt `h` (and the grip `look` while it grabs). `ground(x, z)` is the
@@ -37,6 +42,7 @@ export function huntPose(h: HuntState, look: GripLook, ground: (x: number, z: nu
   out.lift = 0; out.crouch = 0; out.pitch = 0; out.stride = 0;
   out.headYaw = 0; out.headPitch = 0; out.headRoll = 0;
   out.bill = 0; out.tail = 0; out.flying = false; out.flap = 0; out.stroke = 0;
+  out.flick = 0; out.flickBill = false;
   // How far off its spot it is (cm), toward `h.away`: flying in or off.
   let off = 0;
   const t = h.t;
@@ -72,9 +78,11 @@ export function huntPose(h: HuntState, look: GripLook, ground: (x: number, z: nu
     }
     case 'dash': {
       // Quick running steps: alternate legs, a small bob each step, body level and head low.
-      const k = Math.min(1, t / HUNT.dashTime);
-      out.stride = 0.5 * Math.sin(k * Math.PI * RUN_STEPS);
-      out.lift = 0.5 * Math.abs(Math.sin(k * Math.PI * RUN_STEPS));
+      // (A whole number of steps a run, about RUN_STEPS each half second: a longer run, more steps.)
+      const k = Math.min(1, t / h.run);
+      const steps = Math.max(2, 2 * Math.round(h.run * RUN_STEPS));
+      out.stride = 0.5 * Math.sin(k * Math.PI * steps);
+      out.lift = 0.5 * Math.abs(Math.sin(k * Math.PI * steps));
       out.pitch = 0.25;
       out.headPitch = -0.1;
       break;
@@ -88,6 +96,9 @@ export function huntPose(h: HuntState, look: GripLook, ground: (x: number, z: nu
       out.bill = bump(t / HUNT.strike);
       break;
     }
+    case 'dig':
+      digPose(t, out);
+      break;
     case 'grab':
       grabPose(look, out);
       break;
@@ -121,6 +132,49 @@ export function huntPose(h: HuntState, look: GripLook, ground: (x: number, z: nu
   out.x = h.x + Math.sin(h.away) * d;
   out.z = h.z + Math.cos(h.away) * d;
   out.y = ground(out.x, out.z);
+}
+
+/**
+ * Digging for a worm underground (revision 4), `t` seconds in: from the strike's lean it scratches
+ * the leaf litter, kicking back with one foot then the other and bobbing (looking down at the
+ * spot), then stabs down twice with its bill, leaf bits flying with each kick and stab (robinBits.ts),
+ * and bends right down to the hole, ending in
+ * grabPose's level 0, so the grab goes on from there without a jump.
+ */
+export function digPose(t: number, out: RobinPose): void {
+  if (t < HUNT.scratch) {
+    const k = ease(t / 0.15);
+    const kick = Math.sin(2 * Math.PI * SCRATCH_HZ * t);
+    out.pitch = 0.95 - 0.45 * k;
+    out.headPitch = 0.4 + 0.1 * k;
+    out.tail = -0.55 + 0.75 * k;
+    out.stride = 0.7 * kick * k;
+    out.lift = 0.8 * Math.abs(kick) * k;
+    out.crouch = 0.35 * (1 - Math.abs(kick)) * k;
+    // Each kick throws a little spray of leaf bits back.
+    out.flick = t < 0.1 ? 0 : (t * SCRATCH_HZ) % 1;
+    return;
+  }
+  const s = (t - HUNT.scratch) / HUNT.probe;
+  if (s < STAB_SHARE) {
+    const stab = bump(((s / STAB_SHARE) * STABS) % 1);
+    out.pitch = 0.5 + 0.45 * stab;
+    out.bill = 0.5 * stab;
+    out.headPitch = 0.5 - 0.15 * stab;
+    out.crouch = 0.35 * stab;
+    out.tail = 0.2 - 0.75 * stab;
+    // Each stab tosses bits aside from under its bill.
+    out.flick = ((s / STAB_SHARE) * STABS) % 1;
+    out.flickBill = true;
+    return;
+  }
+  // Down to the hole: grabPose at level 0 (pitch 0.92, crouch 0.35, head 0.35, bill 0.08).
+  const k = ease((s - STAB_SHARE) / (1 - STAB_SHARE));
+  out.pitch = 0.5 + 0.42 * k;
+  out.headPitch = 0.5 - 0.15 * k;
+  out.crouch = 0.35 * k;
+  out.tail = 0.2 - (0.2 + 0.3 + 0.7 * 0.32) * k;
+  out.bill = 0.08 * k;
 }
 
 /**

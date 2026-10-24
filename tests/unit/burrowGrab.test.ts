@@ -89,6 +89,20 @@ describe('the worm in the robin\'s bill, in the side view', () => {
     const s = game.slab!;
     const top = boundaryAt(s, B_TOP, head.u);
     setBill(hold, s, { x: slabX(s, head.u + 0.4), y: top + 0.8 - AXIS_UP, z: slabZ(s, head.u + 0.4) });
+    // Revision 4: at first the head is still where the robin found it, the body in its own tunnel...
+    expect(hold.pull).toBe(0);
+    const was = Array.from(w.v);
+    snapHeld(game, hold);
+    expect(w.u[0]).toBeCloseTo(head.u, 5);
+    expect(w.v[0]).toBeCloseTo(head.v, 5);
+    for (let i = 0; i < N; i++) expect(Math.abs(w.v[i] - was[i])).toBeLessThan(0.05);
+    // ...then pulled up its hole, never above the ground except between the hole and the bill...
+    hold.pull = 0.5;
+    poseHeld(game, hold, DT);
+    expect(w.v[0]).toBeGreaterThan(head.v + 0.1);
+    expect(w.u[0]).toBeCloseTo(head.u, 1);
+    // ...and at last in the bill.
+    hold.pull = 1;
     snapHeld(game, hold);
     expect(w.v[0]).toBeCloseTo(top + 0.8, 5);
     // The peck's hole from the litter's top down to where the head was is open.

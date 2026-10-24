@@ -13,7 +13,7 @@ import type { PresetId } from '../render/graphics';
  *   start --Vote--> vote --I voted/Back to start/Esc--> start
  *   start/lesson --Crawl (first time this version), Watch the opening--> opening --done/Skip--> crawl
  *   crawl/pause --the menu's Watch the opening again--> opening
- *   crawl --the robin gets the whole worm (V4)--> nest --its fact card's Keep going--> crawl
+ *   crawl --the robin gets the whole worm (V4)--> nest --its end card's Try Again--> crawl
  *   start --Watch the nest scene (?nest=1)--> nest
  */
 export type Screen = 'start' | 'crawl' | 'pause' | 'speedTest' | 'results' | 'lesson' | 'vote' | 'opening' | 'nest';

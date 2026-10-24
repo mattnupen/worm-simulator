@@ -18,7 +18,7 @@ const button = (page: Page, name: string) => page.getByRole('button', { name, ex
 const scene = (page: Page) => page.getByRole('region', { name: shown(TEXT.nestLabel) });
 const crawling = (page: Page) => page.locator('#app[data-ui="crawl"]');
 
-test('?nest=1: "Watch the nest scene" leads Start; Esc skips to the fact card, and Keep going goes to play', async ({ page, context }) => {
+test('?nest=1: "Watch the nest scene" leads Start; Esc skips to the end card (You have been eaten.), and Try Again goes to play', async ({ page, context }) => {
   const errors = watchErrors(page);
   const outside: string[] = [];
   page.on('request', (r) => { if (!/^(file|data|blob):/.test(r.url())) outside.push(r.url()); });
@@ -31,11 +31,12 @@ test('?nest=1: "Watch the nest scene" leads Start; Esc skips to the fact card, a
   // No Skip button, as in the opening.
   await expect(scene(page).getByRole('button')).toHaveCount(0);
   await page.keyboard.press('Escape');
-  const fact = page.locator(`[data-source="${TEXT.nestFact.source}"]`, { hasText: TEXT.nestFact.text });
+  await expect(page.getByRole('heading', { name: shown(TEXT.nestEatenTitle), exact: true })).toBeVisible();
+  const fact = page.locator(`[data-source="${TEXT.nestEatenLine.source}"]`, { hasText: TEXT.nestEatenLine.text });
   await expect(fact).toBeVisible();
   await expect(page.getByText(shown(TEXT.nestSeason))).toHaveCount(0);
   await expect(page.getByRole('link', { name: /Cornell Lab/ })).toHaveAttribute('target', '_blank');
-  const go = button(page, shown(TEXT.nestContinue));
+  const go = button(page, shown(TEXT.nestTryAgain));
   await expect(go).toBeFocused();
   await go.press('Enter');
   await expect(crawling(page)).toBeVisible();
@@ -50,14 +51,14 @@ test('a tap anywhere skips too (touch has no Esc), and the scene plays to its ca
   await button(page, shown(TEXT.nestWatch)).click();
   await expect(scene(page)).toBeVisible();
   await page.mouse.click(200, 300);
-  await expect(button(page, shown(TEXT.nestContinue))).toBeVisible();
+  await expect(button(page, shown(TEXT.nestTryAgain))).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(crawling(page)).toBeVisible();
   // Unskipped, it reaches the card on its own (a slow software renderer plays it slowly).
   await page.goto(PAGE + '?nest=1');
   await button(page, shown(TEXT.nestWatch)).click();
   await expect(page.getByText(shown(TEXT.nestCheep))).toBeVisible({ timeout: 60_000 });
-  await expect(button(page, shown(TEXT.nestContinue))).toBeVisible({ timeout: 60_000 });
+  await expect(button(page, shown(TEXT.nestTryAgain))).toBeVisible({ timeout: 60_000 });
   expect(errors).toEqual([]);
 });
 

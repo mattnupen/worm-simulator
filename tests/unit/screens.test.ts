@@ -134,7 +134,7 @@ describe('screens: the opening scene', () => {
 });
 
 describe('screens: the nest scene (V4)', () => {
-  it('crawl (the robin gets the whole worm) or Start (the preview) -> nest -> Keep going -> crawl', () => {
+  it('crawl (the robin gets the whole worm) or Start (the preview) -> nest -> Try Again -> crawl', () => {
     const crawling = run(start, { type: 'crawl' });
     expect(run(crawling, { type: 'nest' }).screen).toBe('nest');
     expect(run(crawling, { type: 'nest' }, { type: 'nestDone' }).screen).toBe('crawl');

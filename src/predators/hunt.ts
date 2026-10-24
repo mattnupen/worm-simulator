@@ -1,4 +1,8 @@
 import { UNITS_PER_CM } from '../surface/realScale';
+import { aimAt, distCm, face, offLineCm, slide } from './huntMove';
+import { HUNT } from './huntTune';
+
+export { HUNT };
 
 /**
  * The robin's hunt (V4 spec 1, revision 1): when it comes, how it closes in, and when it strikes.
@@ -7,9 +11,15 @@ import { UNITS_PER_CM } from '../surface/realScale';
  *
  *   away --(time catchable)--> arrive (warnings; flies in, lands about a metre off)
  *   arrive --> stare --(still too far)--> dash --> stare ... --(within reach)--> strike
- *   strike --(worm still catchable)--> grab --(the mini-game's end: endGrab)--> leave / miss / carry
+ *   strike --(on the surface)--> grab --(the mini-game's end: endGrab)--> leave / miss / carry
+ *   strike --(underground)--> dig (scratches the litter, probes with its bill) --> grab
  *   any time before the grab, the worm gets out of reach --> miss (pecks or looks round) --> leave
  *   leave --> away
+ *
+ * Revision 4 (Matt, 2026-10-24): a worm crawling away can't outrun it (a stare is cut short and it
+ * runs after the worm, further each run), and digging down doesn't lose it: while the worm digs
+ * down (or is up on a rock) it waits where it is, then walks over and can still get the worm in
+ * the top two layers. Only deeper than that (`escapeLayer`) is the worm away.
  *
  * Catchable (revision 1): on the surface, or underground with its head in the top two layers
  * (leaf litter and old leaves). Real: robins pull worms that are near the surface out of their
@@ -21,39 +31,8 @@ import { UNITS_PER_CM } from '../surface/realScale';
  * Each stare is the player's time to act. Positions are world units; nothing allocates.
  */
 
-/** Every number in one place (seconds and centimetres), so they can change after Matt plays it. */
-export const HUNT = {
-  /** Time on the surface before a robin comes: from `waitMin` to `waitMin + waitSpread` seconds. */
-  waitMin: 20,
-  waitSpread: 20,
-  /** It lands this far from the worm's head (on the surface)... */
-  landCm: 100,
-  /** ...or this far along the cut from the spot above the head (underground: on screen in the side view). */
-  landUnderCm: 32,
-  /** ...somewhere in front of the worm, within this angle either side, so the player sees it. */
-  landSpread: 0.8,
-  /** Flying in, then settling on its legs. */
-  flyIn: 1.2,
-  settle: 0.3,
-  /** Each stare: from `stareMin` to `stareMin + stareSpread` seconds. */
-  stareMin: 1.5,
-  stareSpread: 1.0,
-  /** Each run: up to `dashCm` closer, in `dashTime` seconds. */
-  dashCm: 32,
-  dashTime: 0.5,
-  /** Its bill reaches the worm's head from this far (between its feet and the head). */
-  reachCm: 12,
-  /** It strikes from up to this many reaches away, stepping in as it pecks (the worm may have moved). */
-  lunge: 1.6,
-  /** The strike: leaning in to peck. */
-  strike: 0.35,
-  /** After a miss: looks round, then goes. */
-  missLook: 1.4,
-  /** Flying off (and with the worm's tail end). */
-  flyOff: 1.4,
-} as const;
 
-export type HuntPhase = 'away' | 'arrive' | 'stare' | 'dash' | 'strike' | 'grab' | 'miss' | 'leave' | 'carry';
+export type HuntPhase = 'away' | 'arrive' | 'stare' | 'dash' | 'strike' | 'dig' | 'grab' | 'miss' | 'leave' | 'carry';
 
 /** What happened this step, for the game to act on. */
 export type HuntEvent = 'none' | 'warn' | 'grab' | 'miss' | 'gone';
@@ -77,8 +56,13 @@ export interface HuntState {
   /** ...to here. */
   toX: number;
   toZ: number;
-  /** How long this stare lasts. */
+  /** How long this stare lasts, and how far off the worm was as it began (cm). */
   stare: number;
+  seen: number;
+  /** How long this run lasts. */
+  run: number;
+  /** The worm crawled off during the last stare: the next run goes further. */
+  chase: boolean;
   /** The robin flies in from, and off toward, this direction (radians, like yaw). */
   away: number;
   /** The robin flies off with the worm's tail end (a break) rather than empty-billed. */
@@ -100,6 +84,11 @@ export interface HuntInput {
    * the top two layers (not mid-move: digging down or coming up).
    */
   catchable: boolean;
+  /**
+   * Out of reach for now, but not gone (revision 4): digging down or coming up, or up on a rock or
+   * the log. The robin keeps after it (it waits, and walks over) but can't strike.
+   */
+  wait: boolean;
   /** Underground: the robin hunts along the cut (hx, hz is then the spot on the ground above the head). */
   under: boolean;
   /** Where the robin's bill must reach (world units): the worm's head, or the ground above it. */
@@ -107,12 +96,15 @@ export interface HuntInput {
   hz: number;
   /** The worm's heading on the surface; underground, the way along the cut the robin lands. */
   heading: number;
+  /** Underground: the cut's way (a unit vector; 0, 0 on the surface). The robin ends its runs on this line through (hx, hz). */
+  ax: number;
+  az: number;
 }
 
 export function createHunt(rand: () => number): HuntState {
   return {
     phase: 'away', t: 0, wait: HUNT.waitMin + HUNT.waitSpread * rand(), x: 0, z: 0, yaw: 0,
-    fromX: 0, fromZ: 0, toX: 0, toZ: 0, stare: HUNT.stareMin, away: 0, withTail: false, count: 0, struck: false,
+    fromX: 0, fromZ: 0, toX: 0, toZ: 0, stare: HUNT.stareMin, seen: 0.5, run: HUNT.dashTime, chase: false, away: 0, withTail: false, count: 0, struck: false,
     under: false, land: HUNT.landCm,
   };
 }
@@ -135,6 +127,8 @@ function go(s: HuntState, phase: HuntPhase): void {
 }
 
 const CM = UNITS_PER_CM;
+/** Underground, the robin strikes only from this close to the cut's line (cm). */
+const LINE_CM = 3;
 
 /** One step of the hunt. Returns what happened, for the game to play. */
 export function stepHunt(s: HuntState, dt: number, w: HuntInput, rand: () => number): HuntEvent {
@@ -158,22 +152,45 @@ export function stepHunt(s: HuntState, dt: number, w: HuntInput, rand: () => num
       return 'warn';
     }
     case 'arrive':
-      if (s.t >= HUNT.flyIn + HUNT.settle) startStare(s, rand);
+      if (s.t >= HUNT.flyIn + HUNT.settle) startStare(s, rand, w);
       return 'none';
-    case 'stare':
+    case 'stare': {
       face(s, w);
-      if (!w.catchable) return missed(s, w);
-      if (s.t < s.stare) return 'none';
-      if (distCm(s, w) <= HUNT.reachCm * HUNT.lunge) startStrike(s, w);
-      else startDash(s, w);
+      if (hunting(s, w)) return missed(s, w);
+      const d = distCm(s, w);
+      // A worm crawling off doesn't get the whole stare: after a moment the robin goes after it.
+      const fled = d > s.seen + HUNT.creepCm && s.t >= HUNT.react;
+      if (s.t < s.stare && !fled) return 'none';
+      s.chase = fled;
+      // (Underground it walks onto the cut's line first.)
+      if (d > HUNT.reachCm * HUNT.lunge || offLineCm(s, w) > LINE_CM) startDash(s, w);
+      else if (w.catchable) startStrike(s, w);
+      // In reach but out of sight for now (mid-move, up on a rock): it keeps watching.
+      else s.seen = d;
       return 'none';
+    }
     case 'dash':
-      if (slide(s, HUNT.dashTime)) startStare(s, rand);
+      if (slide(s, s.run)) startStare(s, rand, w);
       return 'none';
     case 'strike':
       // A lunge: a step in as it leans, so its bill meets the head.
       if (!slide(s, HUNT.strike)) return 'none';
-      if (!w.catchable) return missed(s, w);
+      if (!w.catchable) return w.wait ? (startStare(s, rand, w), 'none') : missed(s, w);
+      if (!s.under) {
+        go(s, 'grab');
+        return 'grab';
+      }
+      go(s, 'dig');
+      return 'none';
+    case 'dig':
+      // Scratching and probing above the worm: it can still dig deeper and get away.
+      if (!w.catchable) return w.wait ? (startStare(s, rand, w), 'none') : missed(s, w);
+      // A worm moving along under it: it shuffles after it, no faster than it runs.
+      aimAt(s, w, HUNT.reachCm, HUNT.runSpeed * dt);
+      s.x = s.toX;
+      s.z = s.toZ;
+      face(s, w);
+      if (s.t < HUNT.scratch + HUNT.probe) return 'none';
       go(s, 'grab');
       return 'grab';
     case 'grab':
@@ -205,50 +222,36 @@ export function robinShown(s: HuntState): boolean {
   return s.phase !== 'away';
 }
 
-function startStare(s: HuntState, rand: () => number): void {
+/**
+ * A stare's checks: the robin hunts the worm where it is now (surface or underground: it keeps
+ * after a worm that digs down or comes up), and true when the worm is away for good (a miss).
+ */
+function hunting(s: HuntState, w: HuntInput): boolean {
+  s.under = w.under;
+  return !w.catchable && !w.wait;
+}
+
+function startStare(s: HuntState, rand: () => number, w: HuntInput): void {
   go(s, 'stare');
   s.stare = HUNT.stareMin + HUNT.stareSpread * rand();
+  s.seen = distCm(s, w);
 }
 
 function startDash(s: HuntState, w: HuntInput): void {
-  // Close in, stopping just within reach: a short run, never past the worm.
-  aimAt(s, w, Math.min(HUNT.dashCm, distCm(s, w) - HUNT.reachCm * 0.8));
+  // Close in, stopping just within reach: a short run (longer after a worm crawling off), never past the worm.
+  const len = aimAt(s, w, HUNT.reachCm * 0.8, s.chase ? HUNT.runCm : HUNT.dashCm);
+  s.run = Math.max(HUNT.dashTime, len / HUNT.runSpeed);
   go(s, 'dash');
 }
 
 function startStrike(s: HuntState, w: HuntInput): void {
-  aimAt(s, w, distCm(s, w) - HUNT.reachCm);
+  aimAt(s, w, HUNT.reachCm, Infinity);
   go(s, 'strike');
-}
-
-/** Sets a move `stepCm` toward the worm's head from where the robin is (negative backs off). */
-function aimAt(s: HuntState, w: HuntInput, stepCm: number): void {
-  const k = stepCm / Math.max(distCm(s, w), 1e-6);
-  s.fromX = s.x;
-  s.fromZ = s.z;
-  s.toX = s.x + (w.hx - s.x) * k;
-  s.toZ = s.z + (w.hz - s.z) * k;
-}
-
-/** Moves along the run or lunge over `time` seconds; true once it's there. */
-function slide(s: HuntState, time: number): boolean {
-  const k = Math.min(1, s.t / time);
-  s.x = s.fromX + (s.toX - s.fromX) * k;
-  s.z = s.fromZ + (s.toZ - s.fromZ) * k;
-  return k >= 1;
 }
 
 function missed(s: HuntState, w: HuntInput): HuntEvent {
   face(s, w);
-  s.struck = s.phase === 'strike';
+  s.struck = s.phase === 'strike' || s.phase === 'dig';
   go(s, 'miss');
   return 'miss';
-}
-
-function face(s: HuntState, w: HuntInput): void {
-  s.yaw = Math.atan2(w.hx - s.x, w.hz - s.z);
-}
-
-function distCm(s: HuntState, w: HuntInput): number {
-  return Math.hypot(w.hx - s.x, w.hz - s.z) / CM;
 }
