@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { fbm2 } from '../core/noise';
 import {
-  CLITELLUM, LENGTH, ORGANS, PROSTOMIUM, SEGMENTS, WALL, TUBERCULA, flatten, halfWidth, segStart, segmentAt,
+  CLITELLUM, CLITELLUM_COLOR, LENGTH, ORGANS, PROSTOMIUM, SEGMENTS, WALL, TUBERCULA, flatten, halfWidth, segStart, segmentAt,
   segmentLength, smooth,
 } from './layout';
 
@@ -170,7 +170,7 @@ const C = {
   dorsalBack: new THREE.Color('#6e3a40'),
   tip: new THREE.Color('#c48a78'),
   tail: new THREE.Color('#d9a690'),
-  clitellum: new THREE.Color('#b9725a'),
+  clitellum: new THREE.Color(CLITELLUM_COLOR),
   gland: new THREE.Color('#e7c0a6'),
   dark: new THREE.Color('#3a1418'),
   vessel: new THREE.Color('#6a1422'),

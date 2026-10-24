@@ -62,6 +62,8 @@ export const smooth = (a: number, b: number, v: number): number => {
 
 /** Segments of the clitellum and of the tubercula pubertatis ridges under it. */
 export const CLITELLUM: readonly [number, number] = [32, 37];
+/** The clitellum's orange-brown, shared by the model's skin (body.ts) and the game worm (src/worm). */
+export const CLITELLUM_COLOR = '#b9725a';
 export const TUBERCULA: readonly [number, number] = [33, 36];
 
 /**

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {
   sharedLighting, PAINTED_VERTEX_GLSL, PAINTED_LIGHT_GLSL, GRADE_GLSL,
 } from '../render/paintedMaterial';
+import { CLITELLUM, CLITELLUM_COLOR, LENGTH, segStart } from '../anatomy/layout';
 
 /**
  * Earthworm skin on the shared painted lighting: fine annuli (ring furrows), darker mauve back
@@ -11,7 +12,22 @@ import {
  *
  * Attributes: position, normal, aTangent (spine direction toward the tail), aBody (x = body
  * coordinate 0 head .. 1 tail, y = around 0..1 with 0 on the dorsal midline).
+ *
+ * The clitellum (saddle) sits where the anatomy model has it (src/anatomy/layout.ts, as a share
+ * of the body's length): swollen and orange-brown over the back and sides, not under the belly.
+ * Its raised edges are shading only (the normal tips at each end), so the tube and its 48 rings
+ * are unchanged.
  */
+/** The saddle's span along the body (0 head .. 1 tail), from the anatomy model. */
+const SADDLE = [segStart(CLITELLUM[0]) / LENGTH, segStart(CLITELLUM[1] + 1) / LENGTH] as const;
+const SADDLE_GLSL = /* glsl */ `
+  uniform vec2 uSaddle;
+  float saddleAt(vec2 body) {
+    float e = 0.006;
+    float along = smoothstep(uSaddle.x - e, uSaddle.x + e, body.x) * (1.0 - smoothstep(uSaddle.y - e, uSaddle.y + e, body.x));
+    return along * smoothstep(-0.62, -0.25, cos(6.2831853 * body.y));
+  }
+`;
 const vertexShader = /* glsl */ `
   uniform vec3 uLightDir;
   uniform vec3 uLightColor;
@@ -57,6 +73,7 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uVessel;
   uniform vec3 uSss;
   uniform float uAnnuli;
+  uniform vec3 uClitellum;
   varying vec3 vNormalW;
   varying vec3 vPosW;
   varying vec3 vTanW;
@@ -65,6 +82,7 @@ const fragmentShader = /* glsl */ `
   varying vec4 vFog;
   ${PAINTED_LIGHT_GLSL}
   ${GRADE_GLSL}
+  ${SADDLE_GLSL}
 
   const float TAU = 6.2831853;
 
@@ -74,6 +92,9 @@ const fragmentShader = /* glsl */ `
     vec3 v = normalize(cameraPosition - vPosW);
     float m = vBody.x;
     float around = vBody.y;
+    // The saddle's raised ends: the normal tips toward the head where it rises, the tail where it falls.
+    float clit = saddleAt(vBody);
+    n = normalize(n - tg * (saddleAt(vBody + vec2(0.004, 0.0)) - saddleAt(vBody - vec2(0.004, 0.0))) * 1.2);
 
     // Annuli: fine ring furrows. Faded out before they get small enough to alias.
     float a = m * uAnnuli;
@@ -99,7 +120,9 @@ const fragmentShader = /* glsl */ `
     float mid = min(around, 1.0 - around);
     float vessel = (1.0 - smoothstep(0.006, 0.02, mid)) * detail * smoothstep(0.05, 0.15, m);
     col = mix(col, uVessel, vessel * 0.45);
-    col *= (1.0 - furrow * 0.16) * mix(0.9, 1.1, sk.r) * (1.0 + b * 0.4);
+    // The saddle: orange-brown over the back and sides, its furrows fainter.
+    col = mix(col, uClitellum, clit * 0.88);
+    col *= (1.0 - furrow * 0.16 * (1.0 - 0.6 * clit)) * mix(0.9, 1.1, sk.r) * (1.0 + b * 0.4);
 
     vec3 lit = paintedLight(col, n, v, b, dapple);
 
@@ -144,6 +167,8 @@ export function createWormMaterial(): THREE.ShaderMaterial {
       uVessel: { value: new THREE.Color('#5a1a28') },
       uSss: { value: new THREE.Color('#ff6a4a') },
       uAnnuli: { value: 120 },
+      uClitellum: { value: new THREE.Color(CLITELLUM_COLOR) },
+      uSaddle: { value: new THREE.Vector2(SADDLE[0], SADDLE[1]) },
     },
     vertexShader,
     fragmentShader,
