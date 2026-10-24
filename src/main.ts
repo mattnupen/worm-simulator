@@ -251,7 +251,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   /** Where the worm landed after wiggling free, as play's body (head first). */
   const landBody = Array.from({ length: WORM_SEGMENTS }, () => ({ x: 0, y: 0, z: 0 }));
   /**
-   * After the nest scene's fact card, back to play. After a hunt that is a new life: full length,
+   * After the nest scene's end card, back to play. After a hunt that is a new life: full length,
    * underground in your burrow. The ?nest=1 preview from Start lost no life, so it plays on as is.
    */
   const afterNest = (): void => {
@@ -525,7 +525,7 @@ function start(renderer: THREE.WebGLRenderer): void {
   /**
    * The hunt's entry point (V4): the robin got the whole worm at (atX, atZ), facing `heading` (0 =
    * +z). From the crawl screen (or Start, the preview), plays the nest scene: the robin flies the
-   * worm up to its nest and feeds a nestling, then the fact card, whose "Keep going" calls
+   * worm up to its nest and feeds a nestling, then the end card, whose "Try Again" calls
    * afterNest. The hunt hides its robin first: the scene flies that same robin.
    */
   function playNestScene(atX: number, atZ: number, heading: number): void {
@@ -554,14 +554,14 @@ function start(renderer: THREE.WebGLRenderer): void {
     dirty = true;
   }
 
-  /** Esc, Enter or a tap: straight to the fact card. */
+  /** Esc, Enter or a tap: straight to the end card. */
   function skipNest(): void {
     if (!nestScene.playing || nestScene.done) return;
     nestScene.skip();
     stopCueSound();
   }
 
-  /** The fact card's "Keep going" (or Esc on it): the scene goes, play's view is back. */
+  /** The end card's "Try Again" (or Esc on it): the scene goes, play's view is back. */
   function endNestScene(): void {
     if (!nestScene.playing) return;
     closeNest();
@@ -898,7 +898,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     } else if ((state.screen === 'lesson' || state.screen === 'vote') && e.code === 'Escape') dispatch({ type: 'toStart' });
     // The opening: Esc or Enter skips the scene, straight into play.
     else if (state.screen === 'opening' && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter')) endOpeningScene();
-    // The nest scene: Esc or Enter skips to its fact card; there, Esc goes on (Enter presses its button).
+    // The nest scene: Esc or Enter skips to its end card; there, Esc goes on (Enter presses its button).
     else if (state.screen === 'nest' && !nestScene.done && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter')) skipNest();
     else if (state.screen === 'nest' && e.code === 'Escape') endNestScene();
     else return;

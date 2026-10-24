@@ -24,7 +24,7 @@
   animation: rise 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 .nest-card .screen-title { margin-bottom: 12px; }
-.nest-fact { font-size: 24px; font-weight: 700; }
+.nest-fact { font-size: 20px; font-weight: 400; }
 .nest-source { margin-top: 6px !important; font-size: 18px; color: var(--ink-soft); }
 .nest-source a { color: #1d4f8c; text-decoration: underline; text-underline-offset: 3px; }
 .nest-source a:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
