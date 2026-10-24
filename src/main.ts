@@ -65,6 +65,7 @@ import { createMoundView } from './underground/moundMesh';
 import { Mounds } from './underground/mounds';
 import { setWormRise } from './worm/surfaceHeight';
 import { startAnatomyViewer } from './anatomy/viewer';
+import { addPageMenu } from './anatomy/pageMenu';
 
 const RESET_AFTER_TEST_NOTE = 'The graphics reset after the test. These results are still valid.';
 const RESET_NOTE = 'The graphics reset during the test. Reload the page and try again.';
@@ -86,6 +87,7 @@ const anatomy = new URLSearchParams(location.search).has('anatomy');
 if (anatomy) {
   app.replaceChildren();
   startAnatomyViewer(app, location.search);
+  addPageMenu(app);
 } else try {
   renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 } catch (e) {

@@ -5,8 +5,9 @@
 
 .anatomy-panel, .anatomy-card { box-sizing: border-box; }
 .anatomy-panel {
-  position: absolute; top: var(--edge-y); left: var(--edge); z-index: 3;
-  width: min(330px, calc(100vw - 2 * var(--edge)));
+  /* Right of the game menu's tab (gameMenu.ts), which sits at the top left on this page too. */
+  position: absolute; top: var(--edge-y); left: max(var(--edge), 68px); z-index: 3;
+  width: min(330px, calc(100vw - var(--edge) - 68px));
   max-height: calc(100vh - 2 * var(--edge-y)); overflow: auto;
   background: var(--card); border-radius: var(--radius-card); box-shadow: var(--shadow-card);
   padding: 14px 16px;

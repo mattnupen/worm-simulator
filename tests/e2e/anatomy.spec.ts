@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ANATOMY_PARTS, ANATOMY_UI } from '../../src/content/anatomy';
-import { shown } from '../../src/content/text';
+import { TEXT, shown } from '../../src/content/text';
 
 const PAGE = pathToFileURL(path.resolve('dist/index.html')).href;
 
@@ -63,7 +63,7 @@ test('on a phone: the menu is a folded sheet, a card fits the screen, and Home g
   // The menu starts folded, so the worm shows; Menu opens it.
   const tabs = page.getByRole('tab', { name: shown(ANATOMY_UI.tabParts) });
   await expect(tabs).toBeHidden();
-  await page.getByRole('button', { name: shown(ANATOMY_UI.showPanel) }).click();
+  await page.getByRole('button', { name: shown(ANATOMY_UI.showPanel), exact: true }).click();
   await tabs.click();
   await page.locator('.anatomy-panel').getByRole('button', { name: shown(ANATOMY_PARTS.gizzard.name), exact: true }).click();
   const card = page.getByRole('dialog');
@@ -79,4 +79,14 @@ test('on a phone: the menu is a folded sheet, a card fits the screen, and Home g
   // Home: back to the game (this page without ?anatomy).
   const home = page.getByRole('link', { name: shown(ANATOMY_UI.toGame) });
   await expect(home).toHaveAttribute('href', /index\.html$/);
+  // The game menu is here too: its tab opens the icons, Mission has Back to start, and the
+  // Virtual worm icon is left out (this is that page).
+  const nav = page.getByRole('navigation', { name: 'Game menu' });
+  await nav.getByRole('button', { name: shown(TEXT.menuOpen) }).click();
+  await nav.getByRole('button', { name: shown(TEXT.menuMission) }).click();
+  await expect(nav.getByRole('button', { name: shown(TEXT.menuToStart) })).toBeVisible();
+  await expect(nav.getByRole('link', { name: shown(TEXT.virtualWorm) })).toHaveCount(0);
+  await nav.getByRole('button', { name: shown(TEXT.menuSettings) }).click();
+  await expect(nav.getByRole('group', { name: 'Text size' })).toBeVisible();
+  await expect(nav.getByRole('group', { name: 'Graphics' })).toHaveCount(0);
 });

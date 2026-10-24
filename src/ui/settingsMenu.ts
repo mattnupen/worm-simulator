@@ -8,7 +8,8 @@ export interface SettingsActions {
   onTextSize(size: TextSize): void;
 }
 
-export interface SettingsNow { graphics: GraphicsChoice; sound: boolean; textSize: TextSize }
+/** `graphics` is left out where there are no presets to pick (the Virtual worm page). */
+export interface SettingsNow { graphics?: GraphicsChoice; sound: boolean; textSize: TextSize }
 
 /**
  * The Settings page of the game menu (gameMenu.ts; was its own screen until Matt, 2026-10-23):
@@ -20,6 +21,7 @@ export interface SettingsNow { graphics: GraphicsChoice; sound: boolean; textSiz
 export function settingsFields(current: SettingsNow, a: SettingsActions): HTMLElement[] {
   const sound = group('Sound', 'sound', [true, false], current.sound, (on) => (on ? 'On' : 'Off'), a.onSound);
   const text = group('Text size', 'textSize', TEXT_SIZES, current.textSize, (s) => TEXT_SIZE_LABELS[s], a.onTextSize);
+  if (current.graphics === undefined) return [sound, text];
   const desc = el('p', CHOICE_DESCRIPTIONS[current.graphics], 'choice-desc settings-desc');
   desc.id = 'settings-graphics-desc';
   const set = group('Graphics', 'graphics', CHOICES, current.graphics, (c) => CHOICE_LABELS[c], (c) => {

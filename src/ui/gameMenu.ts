@@ -56,7 +56,7 @@ export interface GameMenu {
  * plain DOM work: no 3D, nothing compiles. Every icon is a real button with a spoken name and a
  * hover tooltip; the open page's icon is marked with aria-expanded and a border, not colour alone.
  */
-export function createGameMenu(root: HTMLElement, a: MenuActions): GameMenu {
+export function createGameMenu(root: HTMLElement, a: MenuActions, opts: { virtualWorm?: boolean } = {}): GameMenu {
   const nav = el('nav', '', 'game-menu');
   nav.setAttribute('aria-label', 'Game menu');
 
@@ -88,8 +88,10 @@ export function createGameMenu(root: HTMLElement, a: MenuActions): GameMenu {
     else a.onPause();
     pointer(e);
   });
-  // Last, after Pause: the virtual worm (the 3D anatomy model), which opens in a new tab.
-  column.append(line, pause, virtualWormIcon('menu-icon'));
+  // Last, after Pause: the virtual worm (the 3D anatomy model), which opens in a new tab. Not on
+  // the Virtual worm page itself.
+  column.append(line, pause);
+  if (opts.virtualWorm !== false) column.append(virtualWormIcon('menu-icon'));
 
   const card = el('section', '', 'menu-card');
   card.id = 'menu-card';
