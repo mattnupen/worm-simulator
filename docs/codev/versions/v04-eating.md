@@ -20,6 +20,16 @@
   with Mission, Rounds, Settings, About and Pause replaces the Settings screen, the Versions
   pop-up and the Pause card.
   Students who opened V4 before the fix played without these.
+- **Hot fix 2 (2026-10-23).** Matt asked for `/v4/` to be re-cut again once all open game work
+  except Burrow Board was on `main` (`npm run release -- 4 --emergency-fix`, from `main` at 26a431c):
+  1. Start opens both Learn and Play, so students can start playing right away; Vote waits on
+     both (PR #58).
+  2. The eating film's inside view uses the shared 3D anatomy model. The film's worm is built when
+     a student opens the lesson (or the film first plays), not when the game loads.
+  3. A "Virtual worm" link, with its own icon, on Start, in the game menu (after Pause) and in the
+     film's tool row; the anatomy viewer's controls have icons.
+  Rendering changed in the film, so it still needs a check on a student Chromebook (release
+  checklist item 5).
 
 ## Game choices (recorded, never labelled on screen)
 
