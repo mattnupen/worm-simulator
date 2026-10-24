@@ -886,7 +886,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     }
   });
 
-  // Esc folds the game menu (its open page, then its icons) and leaves the lesson and Vote. Esc and
+  // Esc slides the game menu away and leaves the lesson and Vote. Esc and
   // P no longer pause (Matt, 2026-10-23): Pause is in the game menu.
   window.addEventListener('keydown', (e) => {
     if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -894,7 +894,7 @@ function start(renderer: THREE.WebGLRenderer): void {
     if (document.querySelector('dialog[open]')) return;
     if (e.code === 'Escape' && menu.escape()) {
       // Playing: the keys go back to the worm once the menu has folded away.
-      if (state.screen === 'crawl' && !menu.el.querySelector('#menu-icons:not([hidden])')) releaseFocus(shell);
+      if (state.screen === 'crawl' && !menu.open) releaseFocus(shell);
     } else if ((state.screen === 'lesson' || state.screen === 'vote') && e.code === 'Escape') dispatch({ type: 'toStart' });
     // The opening: Esc or Enter skips the scene, straight into play.
     else if (state.screen === 'opening' && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter')) endOpeningScene();

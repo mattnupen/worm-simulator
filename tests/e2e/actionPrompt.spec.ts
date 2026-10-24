@@ -22,12 +22,12 @@ const resume = (page: Page) => page.getByRole('region', { name: 'Paused' }).getB
 
 /**
  * Pause from the game menu with the keyboard (Esc no longer pauses: Matt, 2026-10-23), so no click
- * lands on the page. Tab reaches the menu's tab first; Pause is its column's last icon.
+ * lands on the page. Tab reaches the menu's tab first; Pause sits along the bottom of its panel.
  */
 async function pause(page: Page): Promise<void> {
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
-  for (let i = 0; i < 5; i++) await page.keyboard.press('Tab');
+  await page.getByRole('button', { name: 'Pause', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(resume(page)).toBeVisible();
 }

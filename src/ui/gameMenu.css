@@ -1,70 +1,94 @@
-/* The game menu (gameMenu.ts; Matt, 2026-10-23): one tab at the top left, a column of icons under
-   it, and a small card beside the column. Leaf light tokens (theme.css), the HUD's rules: 48px
-   targets, a 4px focus ring, rem text so Text size reaches it, no blur. */
+/* The game menu (gameMenu.ts; Matt, 2026-10-23, redesigned 2026-10-24): one tab at the top left.
+   Tapping it slides the whole panel out from the window's left edge as one box, with tabs across
+   its top, and the tab (now an X) juts out from the panel's right side. Leaf light tokens
+   (theme.css), the HUD's rules: 48px targets, a 4px focus ring, rem text so Text size reaches it,
+   no blur. */
 
 /* Full-screen moments keep the whole screen: the opening, the nest scene, the lesson, the speed test. */
 :is([data-ui="opening"], [data-ui="nest"], [data-ui="lesson"], [data-ui="speedTest"], [data-ui="running"],
   [data-ui="results"], [data-ui="lost"]) > .game-menu { display: none; }
 
 .game-menu {
-  position: fixed; z-index: 3; left: 0; top: 16px;
-  display: flex; align-items: flex-start; gap: 10px;
-  max-width: calc(100vw - 12px);
+  /* The panel's width: slim, and always leaving room for the X beside it. */
+  --menu-w: min(21rem, calc(100vw - 60px));
+  position: fixed; z-index: 3; left: 0; top: 8px;
+  display: flex; align-items: flex-start;
   color: var(--ink); font-family: var(--font-body);
+  /* Shut, the panel waits off the left edge and only the tab shows. */
+  transform: translateX(calc(-1 * var(--menu-w)));
+  transition: transform 0.2s ease-out;
+  pointer-events: none;
 }
-.menu-bar {
-  display: flex; flex-direction: column; gap: 4px; padding: 4px;
-  background: var(--card); border: 1px solid var(--line); border-left: 0;
-  border-radius: 0 16px 16px 0; box-shadow: var(--shadow-float);
-}
-.menu-icons { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
-.menu-icons[hidden] { display: none; }
-.menu-line { display: block; height: 1px; margin: 2px 6px; background: var(--line); }
-.menu-line[hidden] { display: none; }
+.game-menu[data-open="yes"] { transform: none; }
+@media (prefers-reduced-motion: reduce) { .game-menu, .menu-panel { transition: none !important; } }
 
-.menu-tab, .menu-icon {
-  display: flex; align-items: center; justify-content: center;
-  width: 48px; height: 48px; padding: 0; box-sizing: border-box;
-  color: var(--ink); background: transparent; border: 2px solid transparent; border-radius: 12px;
+.menu-panel {
+  box-sizing: border-box; width: var(--menu-w);
+  max-height: calc(100dvh - 16px);
+  display: flex; flex-direction: column;
+  background: var(--card-solid); border: 1px solid var(--line); border-left: 0;
+  border-radius: 0 0 var(--radius-card) 0; box-shadow: var(--shadow-card);
+  visibility: hidden; transition: visibility 0s 0.2s;
+}
+.game-menu[data-open="yes"] .menu-panel { visibility: visible; transition: none; pointer-events: auto; }
+
+/* The tab: a menu icon on the left edge; while open, an X jutting out from the panel's top right. */
+.menu-tab {
+  order: 2; position: relative; z-index: 1;
+  flex: none; display: flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px; padding: 0; box-sizing: border-box; pointer-events: auto;
+  color: var(--accent); background: var(--card-solid);
+  border: 1px solid var(--line); border-left: 0; border-radius: 0 14px 14px 0;
+  box-shadow: var(--shadow-float);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.menu-tab { color: var(--accent); }
-.menu-tab:hover, .menu-icon:hover { background: var(--tint); }
-.menu-icon[aria-expanded="true"] { background: var(--row-picked); border-color: var(--line-strong); }
-.menu-icon[hidden] { display: none; }
-.menu-glyph { display: inline-flex; width: 24px; height: 24px; }
+.menu-tab:hover { background: var(--tint); }
+/* Open, it joins the panel: no seam, and the panel's shadow stays under it. */
+.game-menu[data-open="yes"] .menu-tab { margin-left: -1px; box-shadow: 4px 2px 8px rgba(30, 14, 2, 0.12); }
+.menu-glyph { display: inline-flex; width: 26px; height: 26px; }
 .menu-glyph svg { width: 100%; height: 100%; }
-.menu-tab:focus-visible, .menu-icon:focus-visible, .menu-action:focus-visible,
-.menu-card a:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; }
+.menu-tab:focus-visible, .menu-tabs-tab:focus-visible, .menu-action:focus-visible,
+.menu-panel a:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; }
+.menu-tabs-tab:focus-visible { outline-offset: -4px; }
 
-/* ---------- The card ---------- */
-.menu-card {
-  box-sizing: border-box; width: min(21rem, calc(100vw - 80px));
-  max-height: calc(100dvh - 32px); overflow-y: auto;
-  padding: 14px 18px 18px;
-  font-size: 1.0625rem; line-height: 1.4;
-  background: var(--card-solid); border: 1px solid var(--line);
-  border-radius: var(--radius-card); box-shadow: var(--shadow-card);
-  animation: menu-in 0.15s ease-out both;
+/* ---------- Tabs across the top ---------- */
+.menu-tabs { flex: none; display: flex; border-bottom: 1px solid var(--line); }
+.menu-tabs-tab {
+  flex: 1 1 0; min-width: 0; min-height: 56px; padding: 6px 2px 4px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font: 600 0.8125rem/1.1 var(--font-body); color: var(--ink-soft);
+  background: transparent; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.menu-card[hidden] { display: none; }
-@keyframes menu-in { from { opacity: 0; transform: translateX(-8px); } }
-@media (prefers-reduced-motion: reduce) { .menu-card { animation: none; } }
-.menu-title { margin: 0 0 10px; font: 700 1.375rem/1.15 var(--font-display); }
-.menu-body { display: grid; gap: 12px; }
+.menu-tabs-tab:hover { background: var(--tint); color: var(--ink); }
+.menu-tabs-tab[aria-selected="true"] { color: var(--ink); font-weight: 800; border-bottom-color: var(--line-strong); }
+.menu-tab-icon { display: inline-flex; width: 22px; height: 22px; }
+.menu-tab-icon svg { width: 100%; height: 100%; }
+.menu-tab-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- The open page, then Pause and the Virtual worm along the bottom ---------- */
+.menu-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  display: grid; align-content: start; gap: 12px; padding: 14px 16px 16px;
+  font-size: 1.0625rem; line-height: 1.4;
+}
 .menu-body p { margin: 0; }
 .menu-soft { color: var(--ink-soft); }
-.menu-card a { color: var(--link); text-decoration: underline; text-underline-offset: 3px; }
+.menu-panel a { color: var(--link); text-decoration: underline; text-underline-offset: 3px; }
+.menu-foot { flex: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 10px; border-top: 1px solid var(--line); }
+.menu-foot[hidden], .menu-foot > [hidden] { display: none; }
+.menu-foot .menu-action { flex: 1 1 auto; justify-content: center; }
+.menu-panel a.menu-worm { color: var(--ink); text-decoration: none; }
 
-/* A text button inside the card (Back to start, Watch the opening again). */
+/* A text button in the panel (Back to start, Watch the opening again, Pause, Virtual worm). */
 .menu-action {
-  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 14px;
+  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 14px; box-sizing: border-box;
   font: 700 1.0625rem/1.2 var(--font-body); color: var(--ink); text-align: left;
   background: var(--tint); border: 0; border-radius: var(--radius-row); cursor: pointer;
 }
 .menu-action:hover { background: var(--tint-strong); }
-.menu-action-icon { display: inline-flex; flex: none; width: 20px; height: 20px; color: var(--accent); }
-.menu-action-icon svg { width: 100%; height: 100%; }
+.menu-action-icon, .menu-action .btn-icon { display: inline-flex; flex: none; width: 20px; height: 20px; color: var(--accent); }
+.menu-action-icon svg, .menu-action .btn-icon svg { width: 100%; height: 100%; }
 
 /* ---------- Mission ---------- */
 .menu-mission { font-weight: 700; }
@@ -99,21 +123,18 @@
 .round-soon .menu-round-name { color: var(--ink-soft); }
 .menu-changes { font-weight: 700; }
 
-/* ---------- Settings: compact rows in the small card ---------- */
-.menu-card .settings-choices { display: flex; flex-wrap: wrap; gap: 6px; }
-.menu-card .settings-legend { width: 100%; font-size: 1.0625rem; margin: 0 0 6px !important; }
-.menu-card .choice { min-height: 44px; padding: 4px 12px; gap: 8px; border-radius: var(--radius-pill); }
-.menu-card .choice:has(input:checked) { padding: 3px 11px; }
-.menu-card .choice input { width: 20px; height: 20px; }
-.menu-card .choice-name { font-size: 1rem; }
-.menu-card .settings-desc { width: 100%; margin-top: 2px; font-size: 0.9375rem; }
+/* ---------- Settings: compact rows in the slim panel ---------- */
+.menu-body .settings-choices { display: flex; flex-wrap: wrap; gap: 6px; }
+.menu-body .settings-legend { width: 100%; font-size: 1.0625rem; margin: 0 0 6px !important; }
+.menu-body .choice { min-height: 44px; padding: 4px 12px; gap: 8px; border-radius: var(--radius-pill); }
+.menu-body .choice:has(input:checked) { padding: 3px 11px; }
+.menu-body .choice input { width: 20px; height: 20px; }
+.menu-body .choice-name { font-size: 1rem; }
+.menu-body .settings-desc { width: 100%; margin-top: 2px; font-size: 0.9375rem; }
 
-/* ---------- Phones: the card under the tab ---------- */
+/* Phones: the same panel, a little shorter from the top, and its X still beside it. */
 @media (max-width: 560px) {
-  .game-menu { flex-direction: column; gap: 8px; }
-  .menu-card { margin-left: 8px; width: calc(100vw - 24px); max-height: calc(100dvh - 120px); }
-  /* With the card open, the column lies flat across the top so the card has the height. */
-  .game-menu:has(.menu-card:not([hidden])) .menu-bar { flex-direction: row; }
-  .game-menu:has(.menu-card:not([hidden])) .menu-icons { flex-direction: row; padding: 0 0 0 4px; border-top: 0; border-left: 1px solid var(--line); }
-  .game-menu:has(.menu-card:not([hidden])) .menu-line { width: 1px; height: auto; margin: 6px 2px; }
+  .game-menu { top: 4px; }
+  .menu-panel { max-height: calc(100dvh - 8px); }
+  .menu-body { padding: 12px 14px 14px; }
 }

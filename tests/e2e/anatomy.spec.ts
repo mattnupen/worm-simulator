@@ -79,14 +79,14 @@ test('on a phone: the menu is a folded sheet, a card fits the screen, and Home g
   // Home: back to the game (this page without ?anatomy).
   const home = page.getByRole('link', { name: shown(ANATOMY_UI.toGame) });
   await expect(home).toHaveAttribute('href', /index\.html$/);
-  // The game menu is here too: its tab opens the icons, Mission has Back to start, and the
+  // The game menu is here too: its tab slides out the panel, Mission has Back to start, and the
   // Virtual worm icon is left out (this is that page).
   const nav = page.getByRole('navigation', { name: 'Game menu' });
   await nav.getByRole('button', { name: shown(TEXT.menuOpen) }).click();
-  await nav.getByRole('button', { name: shown(TEXT.menuMission) }).click();
+  await nav.getByRole('tab', { name: shown(TEXT.menuMission) }).click();
   await expect(nav.getByRole('button', { name: shown(TEXT.menuToStart) })).toBeVisible();
   await expect(nav.getByRole('link', { name: shown(TEXT.virtualWorm) })).toHaveCount(0);
-  await nav.getByRole('button', { name: shown(TEXT.menuSettings) }).click();
+  await nav.getByRole('tab', { name: shown(TEXT.menuSettings) }).click();
   await expect(nav.getByRole('group', { name: 'Text size' })).toBeVisible();
   await expect(nav.getByRole('group', { name: 'Graphics' })).toHaveCount(0);
 });

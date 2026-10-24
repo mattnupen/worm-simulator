@@ -131,7 +131,7 @@ export const TEXT = {
   nestWiggleChoice: { kind: 'gameChoice', text: 'A worm a bird is carrying rarely gets away like this. The chance to wiggle free is just for the game.' },
   nestSource: { kind: 'ui', text: 'Source:' },
   nestTryAgain: { kind: 'ui', text: 'Try Again' },
-  // The game menu (src/ui/gameMenu.ts; Matt, 2026-10-23): one tab, an icon column, a small card.
+  // The game menu (src/ui/gameMenu.ts; Matt, 2026-10-23): one tab that slides out a panel with tabs across its top.
   menuOpen: { kind: 'ui', text: 'Open the menu' },
   menuClose: { kind: 'ui', text: 'Close the menu' },
   menuMission: { kind: 'ui', text: 'Mission' },

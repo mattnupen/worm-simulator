@@ -8,6 +8,17 @@ day. This spec turns those answers into the build.
 
 Matt's words for the goal: "not take up a lot of space and be clean and simple."
 
+> **Redesigned 2026-10-24 (Matt):** "the whole thing slides out and there are tabs across the
+> top", so the menu sits closer to the window's edge and takes less space. Now: the one tab sits
+> on the left edge. Tapping it slides one panel (about 21rem wide, never wider than the screen
+> minus the X) out from the left edge, flush with it. The pages are ARIA tabs across its top, each
+> an icon over a short word (Mission, Rounds, Settings, About; arrow keys move between them), the
+> open page fills the middle and scrolls, and Pause/Resume and Virtual worm are text buttons
+> along the bottom. The tab turns into an X that juts out from the panel's top right and slides
+> with it. Esc slides the whole panel away in one press, and it reopens on the page it was on
+> (Mission the first time). The same panel is on the Virtual worm page. The icon column and the
+> separate card below are replaced by this; the four pages' contents are unchanged.
+
 ## What it is
 
 One small tab sits at the top left of the screen on Start, while crawling (surface and
