@@ -36,6 +36,8 @@
      place, it opens on the whole worm sized to the screen, and a Home button goes back to the game.
   2. The Start card stops below the game menu's tab instead of sliding under it.
   3. Underground, the layer names keep clear of the hint card, so none is hidden behind it.
+  4. Re-cut again the same day (from `main` at 4fbfdb9) so the Virtual worm page has the game
+     menu too: Mission (quests and Back to start), Rounds, Settings (Sound, Text size) and About.
 
 ## Game choices (recorded, never labelled on screen)
 
