@@ -205,7 +205,7 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     if (selection.tick(dt)) dirty = true;
     last = now;
     if (bristles?.group.visible && bristleUi.playing) {
-      bristles.update(dt * (bristleUi.slow ? 0.3 : 1));
+      bristles.update(dt * bristleUi.speed);
       dirty = true;
     }
     controls.update();

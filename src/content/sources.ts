@@ -62,7 +62,7 @@ export type SourceId =
   | 'smith-1917'
   | 'kurth-kier-2015'
   | 'baruch-annelida'
-  | 'sciencelearn-underground';
+  | 'ruiz-2015';
 
 export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'mndnr-humus': {
@@ -304,11 +304,11 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     url: 'https://files.blogs.baruch.cuny.edu/wp-content/blogs.dir/10552/files/2025/04/Annelida-Lab-Exercise.pdf',
     checked: '2026-10-24',
   },
-  'sciencelearn-underground': {
-    title: 'Physical adaptations for life underground',
-    publisher: 'Science Learning Hub, University of Waikato',
-    short: 'Science Learning Hub',
-    url: 'https://www.sciencelearn.org.nz/videos/3-physical-adaptations-for-life-underground',
+  'ruiz-2015': {
+    title: 'Soil penetration by earthworms and plant roots: mechanical energetics of bioturbation of compacted soils',
+    publisher: 'Ruiz, Or and Schymanski, PLOS ONE (2015)',
+    short: 'PLOS ONE',
+    url: 'https://doi.org/10.1371/journal.pone.0128914',
     checked: '2026-10-24',
   },
   'esb-biology': {

@@ -164,29 +164,42 @@ export const ANATOMY_UI = {
   viewTail: ui('Tail'),
   viewSaddle: ui('Saddle'),
   viewBristles: ui('Bristles'),
-  viewCrawl: ui('Crawling'),
+  viewCrawl: ui('Digging'),
   bristle: ui('Bristle'),
-  front: ui('Head end'),
+  front: ui('Head'),
   play: ui('Play'),
   pause: ui('Pause'),
-  slow: ui('Slow motion'),
+  speed: ui('Speed'),
+  sources: ui('Sources'),
   oneMm: ui('1 mm'),
 } as const satisfies Record<string, Line>;
 
 /**
- * The bristle close-up's lines (src/anatomy/bristles/; Matt, 2026-10-24). `grip` shows while the
- * close-up's segment is short and fat, `slide` while it is long and thin, `turns` on the crawl view.
+ * The bristle views' lines (src/anatomy/bristles/; Matt, 2026-10-24). Each view shows its pair, and
+ * marks the one that matches what the worm is doing: the close-up's segment gripping or sliding,
+ * the head pushing in or widening the hole.
  */
 export const BRISTLE_FACTS = {
   grip: { kind: 'fact', text: 'When a segment squeezes short and fat, its bristles stick out and grip the soil.', source: 'kurth-kier-2015', verified: true },
   slide: { kind: 'fact', text: 'When a segment stretches long and thin, its bristles pull in, so it can slide forward.', source: 'baruch-annelida', verified: true },
-  turns: { kind: 'fact', text: 'The worm grips with the bristles at one end while the other end moves, then they swap.', source: 'sciencelearn-underground', verified: true },
+  wedge: { kind: 'fact', text: 'The head gets long and pointed and pushes into the soil like a wedge.', source: 'ruiz-2015', verified: true },
+  widen: { kind: 'fact', text: 'Then it swells up fat and pushes the soil aside to make the hole wider.', source: 'ruiz-2015', verified: true },
 } as const satisfies Record<string, Line>;
+
+/** The speed slider's stops, slowest first (Matt, 2026-10-24: slow on the left, fast on the right). */
+export const BRISTLE_SPEEDS = [
+  { rate: 1 / 8, name: ui('1/8') },
+  { rate: 1 / 4, name: ui('1/4') },
+  { rate: 1 / 2, name: ui('1/2') },
+  { rate: 1, name: ui('1x') },
+  { rate: 2, name: ui('2x') },
+] as const;
 
 /** Every line of the parts, keyed for lineProblems (tests/unit/content.test.ts). */
 export function anatomyLines(): Record<string, Line> {
   const out: Record<string, Line> = { ...ANATOMY_UI };
   for (const [id, l] of Object.entries(BRISTLE_FACTS)) out[`bristles.${id}`] = l;
+  BRISTLE_SPEEDS.forEach((sp, i) => { out[`bristles.speed${i}`] = sp.name; });
   for (const [id, p] of Object.entries(ANATOMY_PARTS)) {
     out[`${id}.name`] = p.name;
     out[`${id}.fact`] = p.fact;

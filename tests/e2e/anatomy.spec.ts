@@ -91,25 +91,38 @@ test('on a phone: the menu is a folded sheet, a card fits the screen, and Home g
   await expect(nav.getByRole('group', { name: 'Graphics' })).toHaveCount(0);
 });
 
-test('the bristle close-up animates, shows the fact for what the worm is doing, and pauses', async ({ page }) => {
+test('the bristle close-up animates, marks the fact for what the worm is doing, pauses and changes speed', async ({ page }) => {
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(`${PAGE}?anatomy=1&ao=0`);
   await page.waitForFunction(() => document.body.dataset.anatomyReady === '1', null, { timeout: 90_000 });
   await page.getByRole('button', { name: shown(ANATOMY_UI.viewBristles), exact: true }).click();
-  const fact = page.locator('.bristle-fact');
-  await expect(fact).toHaveText(new RegExp(`^(${shown(BRISTLE_FACTS.grip)}|${shown(BRISTLE_FACTS.slide)})$`));
-  await expect(page.locator('.bristle-source')).toHaveAttribute('target', '_blank');
+  const facts = page.locator('.bristle-facts li');
+  await expect(facts).toHaveText([new RegExp(shown(BRISTLE_FACTS.grip)), new RegExp(shown(BRISTLE_FACTS.slide))]);
+  // One of the two is marked as happening now.
+  await expect(page.locator('.bristle-fact-now')).toHaveCount(1);
+  // One Sources button: a pop-up listing every source, each opening in a new tab.
+  await page.getByRole('button', { name: shown(ANATOMY_UI.sources) }).click();
+  const sources = page.getByRole('dialog', { name: shown(ANATOMY_UI.sources) });
+  await expect(sources.getByRole('link')).toHaveCount(3);
+  for (const link of await sources.getByRole('link').all()) await expect(link).toHaveAttribute('target', '_blank');
+  await sources.getByRole('button', { name: shown(ANATOMY_UI.close) }).click();
+  await expect(sources).toBeHidden();
   await page.getByRole('button', { name: shown(ANATOMY_UI.pause) }).click();
   await expect(page.getByRole('button', { name: shown(ANATOMY_UI.play) })).toBeVisible();
-  const slow = page.getByRole('button', { name: shown(ANATOMY_UI.slow) });
-  await slow.click();
-  await expect(slow).toHaveAttribute('aria-pressed', 'true');
+  // Speed: five stops, 1x to start; the left end is 1/8.
+  const speed = page.getByRole('slider', { name: new RegExp(shown(ANATOMY_UI.speed)) });
+  await expect(speed).toHaveAttribute('aria-valuetext', '1x');
+  await speed.focus();
+  await page.keyboard.press('Home');
+  await expect(speed).toHaveAttribute('aria-valuetext', '1/8');
+  await page.keyboard.press('End');
+  await expect(speed).toHaveAttribute('aria-valuetext', '2x');
   await page.getByRole('button', { name: shown(ANATOMY_UI.viewCrawl), exact: true }).click();
-  await expect(fact).toHaveText(shown(BRISTLE_FACTS.turns));
+  await expect(facts).toHaveText([new RegExp(shown(BRISTLE_FACTS.wedge)), new RegExp(shown(BRISTLE_FACTS.widen))]);
   // Back to the model: the bristle words go away.
   await page.getByRole('button', { name: shown(ANATOMY_UI.viewOutside), exact: true }).first().click();
-  await expect(fact).toBeHidden();
+  await expect(facts.first()).toBeHidden();
   expect(errors).toEqual([]);
 });
