@@ -58,7 +58,7 @@ async function freed(page: Page, note: string): Promise<void> {
   // On the forest floor where it landed, with one short line after; never the fact card.
   await expect(page.locator('#app')).toHaveAttribute('data-place', 'surface');
   expect(note).toBe(shown(TEXT.nestWiggledFree));
-  await expect(page.getByRole('button', { name: shown(TEXT.nestContinue), exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: shown(TEXT.nestTryAgain), exact: true })).toHaveCount(0);
 }
 
 test('the preview with ?nestEscape=1: mashing Space wiggles free, and it plays on from the forest floor', async ({ page }) => {

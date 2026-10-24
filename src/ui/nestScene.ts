@@ -7,15 +7,15 @@ import { TEXT, shown, type TextKey } from '../content/text';
 export interface NestOverlay {
   /** This frame's caption (null: none) and darkness (0..1). Writes the page only when they change. */
   set(caption: TextKey | null, dark: number): void;
-  /** The scene is over: the fact card, over the dark, with focus on its button. */
+  /** The scene is over: the end card, over the dark, with focus on its button. */
   showCard(): void;
 }
 
 /**
  * Over the nest scene (V4, src/predators/nestScene.ts): captions at the top like the opening's
- * (white on see-through black bars), the fade to dark, and at the end one fact card. No Skip button
- * (like the opening): Esc, Enter (main.ts) or a tap anywhere skips to the card, and its button
- * goes on. The panel is the shell's aria-live region, so captions and the card are read out.
+ * (white on see-through black bars), the fade to dark, and at the end the card "You have been
+ * eaten." with one sourced line (Matt, revision 4). No Skip button (like the opening): Esc, Enter
+ * (main.ts) or a tap anywhere skips to the card, and its Try Again button goes on. The panel is the shell's aria-live region, so captions and the card are read out.
  * `onTap`: a tap the scene uses itself (true: the carried worm wiggles, nestWiggle.ts), else it skips.
  */
 export function showNestScene(shell: Shell, onSkip: () => void, onContinue: () => void, onTap: () => boolean = () => false): NestOverlay {
@@ -55,16 +55,16 @@ export function showNestScene(shell: Shell, onSkip: () => void, onContinue: () =
       panel.dataset.phase = 'card';
       dark.style.opacity = '1';
       words.textContent = '';
-      panel.append(factCard(onContinue));
+      panel.append(eatenCard(onContinue));
       panel.querySelector<HTMLButtonElement>('.nest-card .btn')?.focus();
     },
   };
 }
 
-/** The fact card: what the scene showed, and its source. */
-function factCard(onContinue: () => void): HTMLElement {
+/** The end card: "You have been eaten.", what the worm's body does next, and its source. */
+function eatenCard(onContinue: () => void): HTMLElement {
   const card = el('div', '', 'nest-card');
-  const fact = TEXT.nestFact;
+  const fact = TEXT.nestEatenLine;
   const factP = el('p', shown(fact), 'nest-fact');
   factP.dataset.source = fact.source;
   const source = SOURCES[fact.source];
@@ -76,10 +76,10 @@ function factCard(onContinue: () => void): HTMLElement {
   link.append(el('span', ' (opens in a new tab)', 'sr-only'));
   from.append(link);
   card.append(
-    el('h1', shown(TEXT.nestTitle), 'screen-title'),
+    el('h1', shown(TEXT.nestEatenTitle), 'screen-title'),
     factP,
     from,
-    button(shown(TEXT.nestContinue), 'play', 'primary', onContinue).el,
+    button(shown(TEXT.nestTryAgain), 'play', 'primary', onContinue).el,
   );
   return card;
 }

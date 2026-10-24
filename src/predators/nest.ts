@@ -32,6 +32,9 @@ export const NESTLINGS: readonly { x: number; y: number; z: number; yaw: number;
 
 interface Part { start: number; count: number; matrix: THREE.Matrix4 }
 
+/** Inside a nestling's head, behind its gape (head frame, cm): where a fed worm goes out of sight. */
+const MOUTH_INNER = [0, -0.9, -0.2] as const;
+
 export class Nest {
   readonly mesh: THREE.Mesh;
   readonly chicks: NestlingPose[] = NESTLINGS.map(() => ({ stretch: 0, open: 0, lean: 0, sway: 0 }));
@@ -107,8 +110,33 @@ export class Nest {
     return p.applyMatrix4(this.mesh.matrixWorld);
   }
 
-  /** Poses the nestlings and writes them and the worm. Call once per drawn frame while it shows. */
-  update(): void {
+  /** Poses the nestlings and writes them and the worm. Call once per drawn frame while it shows (`posed`: poseChicks already ran this frame). */
+  update(posed = false): void {
+    if (!posed) this.poseChicks();
+    for (const list of this.parts) for (const part of list) this.write(part);
+    this.worm.write(this.mesh.geometry);
+    (this.mesh.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
+    (this.mesh.geometry.getAttribute('normal') as THREE.BufferAttribute).needsUpdate = true;
+  }
+
+  /**
+   * Nestling `i`'s open mouth as posed now (nest frame, cm): the middle of its gape between the
+   * open halves of the bill into `mouth`, and a point inside its head behind it into `inner` (the
+   * way down its throat). After poseChicks.
+   */
+  mouth(i: number, mouth: THREE.Vector3, inner: THREE.Vector3): void {
+    const head = this.parts[i][2].matrix;
+    const [, gy, gz] = GAPE;
+    const a = 1.2 * this.chicks[i].open;
+    // A third of the way out along each half of the bill: the upper as built, the lower dropped open.
+    const ly = -0.03 * Math.cos(a) - 0.77 * Math.sin(a);
+    const lz = -0.03 * Math.sin(a) + 0.77 * Math.cos(a);
+    mouth.set(0, gy + (0.03 + ly) / 2, gz + (0.84 + lz) / 2).applyMatrix4(head);
+    inner.set(0, MOUTH_INNER[1], MOUTH_INNER[2]).applyMatrix4(head);
+  }
+
+  /** Works out every nestling part's matrix from its pose (no vertices written). */
+  poseChicks(): void {
     for (let i = 0; i < this.chicks.length; i++) {
       const p = this.chicks[i];
       const [body, neck, head, lower] = this.parts[i];
@@ -132,11 +160,7 @@ export class Nest {
       head.matrix.multiplyMatrices(this.neck, this.m);
       // The lower bill drops open at its hinge: a nestling's gape is very wide.
       this.about(lower.matrix, head.matrix, 1.2 * p.open);
-      for (const part of this.parts[i]) this.write(part);
     }
-    this.worm.write(this.mesh.geometry);
-    (this.mesh.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
-    (this.mesh.geometry.getAttribute('normal') as THREE.BufferAttribute).needsUpdate = true;
   }
 
   /** out = parent · (turn by `angle` round x at the gape). */

@@ -80,7 +80,7 @@ async function robinWon(page: Page, note: RegExp): Promise<void> {
   await expect(page.locator('.hunt-energy')).toBeHidden({ timeout: 90_000 });
   await expect(page.getByRole('region', { name: 'Nest scene' })).toBeVisible({ timeout: 30_000 });
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Keep going', exact: true }).click();
+  await page.getByRole('button', { name: 'Try Again', exact: true }).click();
   await expect(page.locator('.hunt-note')).toContainText(note, { timeout: 30_000 });
 }
 
