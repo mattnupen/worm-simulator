@@ -99,6 +99,20 @@ or a real disagreement.
 | Lettering | a, b, c, d from belly to side: a+b is the lower (ventral) pair, c+d the side (lateral) pair | Fox | "chaeta a, chaeta b, chaeta c, and chaeta d moving from ventral to dorsal" | high |
 | Spacing | the two setae of a pair sit close together; pairs open out at the head and tail | Smith 1917; Wikipedia (*Lumbricus*) | "Setae, closely paired" / "Setae are widely paired at both ends of the body." | high |
 | Look and size | small, short, slightly curved, amber or brown; can be pulled in. No measured size was found. | Fox; Earthworm Society | "Chaetae are amber or brown, slightly curved, and short." / "eight retractable bristles" | high (look), none (mm) |
+| Made of | chitin | Wikipedia (*Seta*) | "Setae in oligochaetes (the group including earthworms) are largely composed of chitin." | high |
+| Shape | S-shaped, with a swelling (nodulus) along it; each sits in a pocket (setal sac) in the body wall, with muscles that push it out and pull it in | StudyandScore (describes *Pheretima*, a related earthworm) | "Each seta is an 'S' shaped" / "a central swelling called nodulus" / "One pair of protractor muscles and a retractor muscle are associated with each setal sac." | medium (not *Lumbricus*-specific) |
+| Grip | they stick out when the longitudinal muscles contract (the segment gets short and fat) | Kurth and Kier 2015, *J. Exp. Biol.* | "The setae that project outward during longitudinal muscle contraction are necessary in both crawling and burrowing" | high |
+| Slide | segments that stretch forward pull their setae in | Baruch College annelida lab | "it contracts the longitudinal muscle layer in the posterior part and sticks the setae into the soil" / "the setae in this portion are retracted" | high |
+| Taking turns | front anchors, then back anchors | Science Learning Hub | "The earthworm uses its setae to anchor the front of its body in the soil." / "withdraws the front setae and uses its rear setae to anchor itself at the back" | high |
+| Robins | setae help hold a worm in its burrow against a pull | NatureNorth; bumblebee.org | "The setae are part of the reason that robins have such a hard time pulling worms out of the ground." | medium |
+| Size (2026-10-24 search) | still no measured length for *Lumbricus terrestris* setae (searched journals, keys, Wikipedia, teaching sites) | none | none | none |
+
+**Bristle close-up (Virtual worm, 2026-10-24): recorded choices.** Never shown on screen as facts:
+- The drawn bristle is 0.95 mm long and slides 0.5 mm out, because no measured size was found. The 1 mm bar on screen is true to the body (8 mm wide, from the width row above).
+- Only the belly pair (a, b) is drawn, at the cut. The side pair is left out so the close-up stays simple.
+- Squeeze and stretch amounts, wave length (7 segments) and speed are chosen for clarity, not measured.
+- The pocket and its three muscles are simplified strands.
+
 
 ### Blood vessels
 

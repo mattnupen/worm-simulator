@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ANATOMY_PARTS, ANATOMY_UI } from '../../src/content/anatomy';
+import { ANATOMY_PARTS, ANATOMY_UI, BRISTLE_FACTS } from '../../src/content/anatomy';
 import { TEXT, shown } from '../../src/content/text';
 
 const PAGE = pathToFileURL(path.resolve('dist/index.html')).href;
@@ -89,4 +89,27 @@ test('on a phone: the menu is a folded sheet, a card fits the screen, and Home g
   await nav.getByRole('button', { name: shown(TEXT.menuSettings) }).click();
   await expect(nav.getByRole('group', { name: 'Text size' })).toBeVisible();
   await expect(nav.getByRole('group', { name: 'Graphics' })).toHaveCount(0);
+});
+
+test('the bristle close-up animates, shows the fact for what the worm is doing, and pauses', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto(`${PAGE}?anatomy=1&ao=0`);
+  await page.waitForFunction(() => document.body.dataset.anatomyReady === '1', null, { timeout: 90_000 });
+  await page.getByRole('button', { name: shown(ANATOMY_UI.viewBristles), exact: true }).click();
+  const fact = page.locator('.bristle-fact');
+  await expect(fact).toHaveText(new RegExp(`^(${shown(BRISTLE_FACTS.grip)}|${shown(BRISTLE_FACTS.slide)})$`));
+  await expect(page.locator('.bristle-source')).toHaveAttribute('target', '_blank');
+  await page.getByRole('button', { name: shown(ANATOMY_UI.pause) }).click();
+  await expect(page.getByRole('button', { name: shown(ANATOMY_UI.play) })).toBeVisible();
+  const slow = page.getByRole('button', { name: shown(ANATOMY_UI.slow) });
+  await slow.click();
+  await expect(slow).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: shown(ANATOMY_UI.viewCrawl), exact: true }).click();
+  await expect(fact).toHaveText(shown(BRISTLE_FACTS.turns));
+  // Back to the model: the bristle words go away.
+  await page.getByRole('button', { name: shown(ANATOMY_UI.viewOutside), exact: true }).first().click();
+  await expect(fact).toBeHidden();
+  expect(errors).toEqual([]);
 });

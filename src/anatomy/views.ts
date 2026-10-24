@@ -21,6 +21,11 @@ export interface View {
   target: readonly [number, number, number];
   /** Frame the whole posed body, looking from `camera` minus `target` (the direction only). */
   fit?: boolean;
+  /**
+   * The animated bristle scene (src/anatomy/bristles/) instead of the model: its close-up of one
+   * segment, or the whole piece crawling. Camera and target are in that scene's millimetres.
+   */
+  bristles?: 'close' | 'crawl';
 }
 
 const ALL: readonly SystemId[] = ['skin', 'muscles', 'gut', 'blood', 'nerves', 'repro', 'nephridia'];
@@ -41,6 +46,8 @@ export const VIEWS: readonly View[] = [
   { id: 'repro', name: ANATOMY_UI.viewRepro, labels: ['seminalVesicles', 'receptacles', 'ovaries'], pose: STRAIGHT, wall: 'cut', systems: ['skin', 'repro'], camera: [16, 10, 26], target: [17, -0.8, 0] },
   { id: 'muscles', name: ANATOMY_UI.viewMuscles, labels: ['skin', 'circular', 'longitudinal'], pose: STRAIGHT, wall: 'solid', systems: ['skin', 'muscles'], camera: [PEEL_X - 6, 16, 22], target: [PEEL_X, 0, 0] },
   { id: 'nephridia', name: ANATOMY_UI.viewNephridia, labels: ['nephridia', 'septa'], pose: STRAIGHT, wall: 'cut', systems: ['skin', 'muscles', 'nephridia'], camera: INSIDE_CAM, target: INSIDE_TARGET },
+  { id: 'bristles', name: ANATOMY_UI.viewBristles, labels: [], pose: STRAIGHT, wall: 'solid', systems: [], camera: [0.6, -4.1, 7], target: [0, -4.6, 0], bristles: 'close' },
+  { id: 'crawl', name: ANATOMY_UI.viewCrawl, labels: [], pose: STRAIGHT, wall: 'solid', systems: [], camera: [4, 1, 27], target: [4, -1.2, 0], bristles: 'crawl' },
   { id: 'ghost', name: ANATOMY_UI.viewGhost, labels: ['pharynx', 'gizzard', 'hearts', 'nerveCord'], pose: STRAIGHT, wall: 'ghost', systems: ['skin', 'gut', 'blood', 'nerves', 'repro'], camera: [30, 30, 70], target: [30, 0, 0] },
 ];
 

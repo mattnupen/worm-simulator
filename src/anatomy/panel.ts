@@ -21,6 +21,7 @@ export const SYSTEM_ICONS: Record<SystemId, AnatomyIcon> = {
 const VIEW_ICONS: Record<string, AnatomyIcon> = {
   outside: 'worm', head: 'head', saddle: 'saddle', tail: 'tail', belly: 'belly', inside: 'inside',
   gut: 'gut', blood: 'blood', nerves: 'nerves', repro: 'repro', muscles: 'muscles', nephridia: 'nephridia',
+  bristles: 'bristles', crawl: 'crawl',
 };
 const WALLS: readonly WallMode[] = ['solid', 'cut', 'ghost'];
 /** The peel slider takes these off in turn, outside in. */

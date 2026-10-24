@@ -13,6 +13,8 @@ const ICONS = {
   tail: `<svg ${S}><path d="M3 16c4-3 7-3 10 1" stroke-width="3.4"/><circle cx="17" cy="9" r="4.5"/><path d="M20 12l2.5 2.5"/></svg>`,
   saddle: `<svg ${S}><path d="M2 13h20" stroke-width="3.4"/><rect x="8.5" y="8.5" width="7" height="9" rx="2.5" fill="currentColor" stroke="none"/></svg>`,
   belly: `<svg ${S}><path d="M3 8h18" stroke-width="3.4"/><path d="M12 21v-8M8.5 16.5L12 13l3.5 3.5"/></svg>`,
+  bristles: `<svg ${S}><path d="M3 9h18" stroke-width="3.4"/><path d="M6.5 12.5l-2 4M11 12.5l-2 4M15.5 12.5l-2 4M20 12.5l-2 4"/></svg>`,
+  crawl: `<svg ${S}><path d="M2 14c1.5-2 3-2 4 0s2.5 2 4 0 2.5-2 4 0" stroke-width="3"/><path d="M17 14h4M18.5 11l3 3-3 3"/></svg>`,
   inside: `<svg ${S}><rect x="2.5" y="7" width="19" height="10" rx="5"/><path d="M5 12h14" stroke-width="3"/></svg>`,
   gut: `<svg ${S}><path d="M2 12h3M19 12h3"/><path d="M5 12c0-2 1.5-3 3-3s3 1 4 1 2.5-2 4-2 3 2 3 4-1.5 4-3 4-3-2-4-2-2.5 1-4 1-3-1-3-3z"/></svg>`,
   blood: `<svg ${S}><path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10C19.5 15.4 12 20 12 20z" fill="currentColor"/></svg>`,

@@ -163,11 +163,30 @@ export const ANATOMY_UI = {
   viewGhost: ui('See-through'),
   viewTail: ui('Tail'),
   viewSaddle: ui('Saddle'),
+  viewBristles: ui('Bristles'),
+  viewCrawl: ui('Crawling'),
+  bristle: ui('Bristle'),
+  front: ui('Head end'),
+  play: ui('Play'),
+  pause: ui('Pause'),
+  slow: ui('Slow motion'),
+  oneMm: ui('1 mm'),
+} as const satisfies Record<string, Line>;
+
+/**
+ * The bristle close-up's lines (src/anatomy/bristles/; Matt, 2026-10-24). `grip` shows while the
+ * close-up's segment is short and fat, `slide` while it is long and thin, `turns` on the crawl view.
+ */
+export const BRISTLE_FACTS = {
+  grip: { kind: 'fact', text: 'When a segment squeezes short and fat, its bristles stick out and grip the soil.', source: 'kurth-kier-2015', verified: true },
+  slide: { kind: 'fact', text: 'When a segment stretches long and thin, its bristles pull in, so it can slide forward.', source: 'baruch-annelida', verified: true },
+  turns: { kind: 'fact', text: 'The worm grips with the bristles at one end while the other end moves, then they swap.', source: 'sciencelearn-underground', verified: true },
 } as const satisfies Record<string, Line>;
 
 /** Every line of the parts, keyed for lineProblems (tests/unit/content.test.ts). */
 export function anatomyLines(): Record<string, Line> {
   const out: Record<string, Line> = { ...ANATOMY_UI };
+  for (const [id, l] of Object.entries(BRISTLE_FACTS)) out[`bristles.${id}`] = l;
   for (const [id, p] of Object.entries(ANATOMY_PARTS)) {
     out[`${id}.name`] = p.name;
     out[`${id}.fact`] = p.fact;

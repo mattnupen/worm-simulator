@@ -11,6 +11,8 @@ import { LabelLayer } from './labels';
 import { buildPanel } from './panel';
 import { Selection } from './select';
 import { viewById, type View } from './views';
+import { BristleScene } from './bristles/scene';
+import { BristleOverlay } from './bristles/overlay';
 
 /**
  * The anatomy viewer (`?anatomy=1`): the full nightcrawler model in a clean studio, like a
@@ -70,7 +72,20 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
   selection = new Selection(worm, labels, camera, controls);
   let current: View = viewById(params.get('view'));
 
+  // The bristle close-up and crawl (src/anatomy/bristles/), built the first time one is opened.
+  let bristles: BristleScene | null = null;
+  const bristleUi = new BristleOverlay(() => { dirty = true; });
+  if (ui) root.appendChild(bristleUi.root);
   const show = (view: View): void => {
+    if (view.bristles && !bristles) {
+      bristles = new BristleScene();
+      scene.add(bristles.group);
+      renderer.compile(scene, camera);
+    }
+    worm.group.visible = shadow.visible = !view.bristles;
+    if (bristles) bristles.group.visible = !!view.bristles;
+    if (view.bristles) bristles?.setMode(view.bristles);
+    bristleUi.show(view.bristles ?? null);
     labels.set(view.labels);
     worm.pose(view.pose);
     worm.setWall(view.wall);
@@ -97,6 +112,10 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
       camera.position.copy(centre).addScaledVector(dir, dist);
     }
     // The soft shadow sits just under the posed body.
+    if (view.bristles) {
+      controls.update();
+      return;
+    }
     const box = new THREE.Box3().setFromObject(worm.group);
     const c = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
@@ -123,7 +142,7 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
   let down: { x: number; y: number } | null = null;
   renderer.domElement.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
   renderer.domElement.addEventListener('pointerup', (e) => {
-    if (ui && down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6) selection.tap(e.clientX, e.clientY, renderer.domElement);
+    if (ui && down && !bristles?.group.visible && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6) selection.tap(e.clientX, e.clientY, renderer.domElement);
     down = null;
   });
   // On a wide screen the buttons sit on the left: centre the worm in the space beside them.
@@ -136,6 +155,10 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
       const r = e.getBoundingClientRect();
       if (r.height > 0) top = Math.min(top, r.top);
     }
+    // The bristle views' box sits on top of the sheet, and the picture fits above both.
+    root.style.setProperty('--sheet', `${window.innerHeight - top}px`);
+    const box = bristleUi.root.hidden ? null : bristleUi.root.querySelector('.bristle-box');
+    if (box) top = Math.min(top, box.getBoundingClientRect().top);
     return top;
   };
   const frame = (): void => {
@@ -178,14 +201,20 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
   let last = performance.now();
   renderer.setAnimationLoop(() => {
     const now = performance.now();
-    if (selection.tick(Math.min(0.1, (now - last) / 1000))) dirty = true;
+    const dt = Math.min(0.1, (now - last) / 1000);
+    if (selection.tick(dt)) dirty = true;
     last = now;
+    if (bristles?.group.visible && bristleUi.playing) {
+      bristles.update(dt * (bristleUi.slow ? 0.3 : 1));
+      dirty = true;
+    }
     controls.update();
     if (!dirty) return;
     dirty = false;
     if (composer) composer.render();
     else renderer.render(scene, camera);
     if (ui) labels.update(window.innerWidth, window.innerHeight, panelSide(), sheetTop());
+    if (ui && bristles?.group.visible) bristleUi.update(bristles, camera, window.innerWidth, window.innerHeight);
     if (++frames === 1) {
       // Every see-through and glowing variant compiles now, so sliders never stall later.
       if (worm.detail === 'full') worm.precompile(renderer, scene, camera);

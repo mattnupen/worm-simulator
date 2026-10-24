@@ -59,7 +59,10 @@ export type SourceId =
   | 'sciencelearn-outside'
   | 'lander-lumbricus'
   | 'naturespot-terrestris'
-  | 'smith-1917';
+  | 'smith-1917'
+  | 'kurth-kier-2015'
+  | 'baruch-annelida'
+  | 'sciencelearn-underground';
 
 export const SOURCES: Readonly<Record<SourceId, Source>> = {
   'mndnr-humus': {
@@ -286,6 +289,27 @@ export const SOURCES: Readonly<Record<SourceId, Source>> = {
     short: 'U.S. Botanic Garden',
     url: 'https://www.usbg.gov/sites/default/files/images/earthworm_science_page.pdf',
     checked: '2026-10-21',
+  },
+  'kurth-kier-2015': {
+    title: 'Differences in scaling and morphology between lumbricid earthworm ecotypes',
+    publisher: 'Kurth and Kier, Journal of Experimental Biology (2015)',
+    short: 'Journal of Experimental Biology',
+    url: 'https://doi.org/10.1242/jeb.119305',
+    checked: '2026-10-24',
+  },
+  'baruch-annelida': {
+    title: 'Annelida lab exercise',
+    publisher: 'Baruch College, City University of New York',
+    short: 'Baruch College',
+    url: 'https://files.blogs.baruch.cuny.edu/wp-content/blogs.dir/10552/files/2025/04/Annelida-Lab-Exercise.pdf',
+    checked: '2026-10-24',
+  },
+  'sciencelearn-underground': {
+    title: 'Physical adaptations for life underground',
+    publisher: 'Science Learning Hub, University of Waikato',
+    short: 'Science Learning Hub',
+    url: 'https://www.sciencelearn.org.nz/videos/3-physical-adaptations-for-life-underground',
+    checked: '2026-10-24',
   },
   'esb-biology': {
     title: 'Earthworm Biology',
