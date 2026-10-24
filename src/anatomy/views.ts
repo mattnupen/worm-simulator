@@ -44,4 +44,5 @@ export const VIEWS: readonly View[] = [
   { id: 'ghost', name: ANATOMY_UI.viewGhost, labels: ['pharynx', 'gizzard', 'hearts', 'nerveCord'], pose: STRAIGHT, wall: 'ghost', systems: ['skin', 'gut', 'blood', 'nerves', 'repro'], camera: [30, 30, 70], target: [30, 0, 0] },
 ];
 
-export const viewById = (id: string | null): View => VIEWS.find((v) => v.id === id) ?? VIEWS[3];
+/** The view by id; the whole worm when none is asked for. */
+export const viewById = (id: string | null): View => VIEWS.find((v) => v.id === id) ?? VIEWS.find((v) => v.id === 'outside')!;

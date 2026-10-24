@@ -52,3 +52,31 @@ test('the anatomy viewer opens, labels its parts, and opens a sourced fact card'
   expect(errors).toEqual([]);
   expect(outside).toEqual([]);
 });
+
+test('on a phone: the menu is a folded sheet, a card fits the screen, and Home goes back to the game', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 390, height: 664 });
+  await page.goto(`${PAGE}?anatomy=1&ao=0`);
+  await page.waitForFunction(() => document.body.dataset.anatomyReady === '1', null, { timeout: 90_000 });
+  // Nothing spills off the sides.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  // The menu starts folded, so the worm shows; Menu opens it.
+  const tabs = page.getByRole('tab', { name: shown(ANATOMY_UI.tabParts) });
+  await expect(tabs).toBeHidden();
+  await page.getByRole('button', { name: shown(ANATOMY_UI.showPanel) }).click();
+  await tabs.click();
+  await page.locator('.anatomy-panel').getByRole('button', { name: shown(ANATOMY_PARTS.gizzard.name), exact: true }).click();
+  const card = page.getByRole('dialog');
+  await expect(card).toBeVisible();
+  const box = (await card.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  expect(box.y + box.height).toBeLessThanOrEqual(664);
+  // While the card is open it takes the menu's place; closing it brings the menu back.
+  await expect(page.locator('.anatomy-panel')).toBeHidden();
+  await card.getByRole('button', { name: shown(ANATOMY_UI.close) }).click();
+  await expect(page.locator('.anatomy-panel')).toBeVisible();
+  // Home: back to the game (this page without ?anatomy).
+  const home = page.getByRole('link', { name: shown(ANATOMY_UI.toGame) });
+  await expect(home).toHaveAttribute('href', /index\.html$/);
+});

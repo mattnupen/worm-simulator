@@ -81,6 +81,10 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     }
     camera.position.set(...view.camera);
     controls.target.set(...view.target);
+    // The views are framed for a wide screen; a tall, narrow one (a phone) steps back to fit.
+    if (!view.fit && camera.aspect < 1.3) {
+      camera.position.sub(controls.target).multiplyScalar(Math.min(2.6, 1.3 / camera.aspect)).add(controls.target);
+    }
     if (view.fit) {
       const box = new THREE.Box3().setFromObject(worm.group);
       const centre = box.getCenter(new THREE.Vector3());
@@ -111,7 +115,10 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     labels,
   }) : null;
   const panel = built ? root.appendChild(built.el) : null;
-  selection.changed = () => { built?.sync(); redraw(); };
+  const narrow = (): boolean => window.innerWidth <= 700;
+  // A phone starts with the menu folded to its title row, so the worm shows first.
+  if (narrow()) panel?.querySelector<HTMLButtonElement>('.anatomy-fold')?.click();
+  selection.changed = () => { built?.sync(); frame(); };
   // A tap (not a drag) on the worm selects the part under the finger.
   let down: { x: number; y: number } | null = null;
   renderer.domElement.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
@@ -120,20 +127,33 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     down = null;
   });
   // On a wide screen the buttons sit on the left: centre the worm in the space beside them.
-  const panelSide = (): number => (panel && window.innerWidth > 700 ? panel.getBoundingClientRect().right : 0);
+  const panelSide = (): number => (panel && !narrow() ? panel.getBoundingClientRect().right : 0);
+  /** On a phone: where the sheet along the bottom (the menu, or a part's card) starts. */
+  const sheetTop = (): number => {
+    if (!narrow()) return window.innerHeight;
+    let top = window.innerHeight;
+    for (const e of root.querySelectorAll<HTMLElement>('.anatomy-panel, .anatomy-card')) {
+      const r = e.getBoundingClientRect();
+      if (r.height > 0) top = Math.min(top, r.top);
+    }
+    return top;
+  };
   const frame = (): void => {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const side = panel && w > 700 && !panel.querySelector<HTMLElement>('.anatomy-panel-body')?.hidden ? panel.getBoundingClientRect().right + 32 : 0;
-    // Shift the picture right and shrink it to fit the space beside the buttons.
-    camera.zoom = side ? (w - side) / w : 1;
+    const side = panel && !narrow() && !panel.querySelector<HTMLElement>('.anatomy-panel-body')?.hidden ? panel.getBoundingClientRect().right + 32 : 0;
+    const below = h - sheetTop();
+    // Shift the picture and shrink it to fit the space beside the buttons (or above the sheet).
+    camera.zoom = side ? (w - side) / w : below > 0 ? (h - below) / h : 1;
     if (side) camera.setViewOffset(w, h, -side / 2, 0, w, h);
+    else if (below > 0) camera.setViewOffset(w, h, 0, below / 2, w, h);
     else camera.clearViewOffset();
     camera.updateProjectionMatrix();
     redraw();
   };
   frame();
   panel?.querySelector('.anatomy-fold')?.addEventListener('click', frame);
+  panel?.addEventListener('click', () => requestAnimationFrame(frame));
   // &cam=x,y,z&at=x,y,z: any camera (review screenshots).
   const vec = (k: string) => params.get(k)?.split(',').map(Number);
   const cam = vec('cam');
@@ -165,7 +185,7 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     dirty = false;
     if (composer) composer.render();
     else renderer.render(scene, camera);
-    if (ui) labels.update(window.innerWidth, window.innerHeight, panelSide());
+    if (ui) labels.update(window.innerWidth, window.innerHeight, panelSide(), sheetTop());
     if (++frames === 1) {
       // Every see-through and glowing variant compiles now, so sliders never stall later.
       if (worm.detail === 'full') worm.precompile(renderer, scene, camera);

@@ -62,7 +62,7 @@ export class LabelLayer {
   }
 
   /** Re-places every label for the current camera (call after each frame that moved). */
-  update(width: number, height: number, left = 0): void {
+  update(width: number, height: number, left = 0, bottom = height): void {
     this.svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     const visible: { id: AnatomyPartId; x: number; y: number }[] = [];
     for (const [id, it] of this.items) {
@@ -75,7 +75,8 @@ export class LabelLayer {
         if (sel && this.selectedAt) this.p.copy(this.selectedAt);
         else this.worm.poseMap.point(it.base, this.p);
         this.p.project(this.camera);
-        on = this.p.z < 1 && Math.abs(this.p.x) < 0.97 && Math.abs(this.p.y) < 0.95 && (this.p.x + 1) * 0.5 * width > left + 40;
+        on = this.p.z < 1 && Math.abs(this.p.x) < 0.97 && Math.abs(this.p.y) < 0.95 && (this.p.x + 1) * 0.5 * width > left + 40
+          && (1 - this.p.y) * 0.5 * height < bottom - 24;
       }
       it.button.hidden = !on;
       it.line.style.display = on ? '' : 'none';
@@ -98,8 +99,15 @@ export class LabelLayer {
       let row = 0;
       while (row < rows.length && rows[row] > lx - 12) row++;
       rows[row] = lx + w;
-      const reach = Math.min(150, height * 0.17) + row * (h + 10);
-      const ly = Math.max(8, Math.min(height - h - 8, up ? v.y - reach - h : v.y + reach));
+      const reach = Math.min(150, bottom * 0.17) + row * (h + 10);
+      const want = up ? v.y - reach - h : v.y + reach;
+      // No room for it on a small screen: left out (the selected part's label always shows).
+      if (this.selected !== v.id && (want < 8 || want > bottom - h - 8)) {
+        it.button.hidden = true;
+        it.line.style.display = it.dot.style.display = 'none';
+        return;
+      }
+      const ly = Math.max(8, Math.min(bottom - h - 8, want));
       it.button.style.transform = `translate(${lx}px, ${ly}px)`;
       it.line.setAttribute('x1', String(v.x));
       it.line.setAttribute('y1', String(v.y));

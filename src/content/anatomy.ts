@@ -129,6 +129,7 @@ export const ANATOMY_UI = {
   ghost: ui('See-through'),
   labels: ui('Labels'),
   close: ui('Close'),
+  toGame: ui('Back to the game'),
   hidePanel: ui('Hide'),
   showPanel: ui('Menu'),
   source: ui('Source:'),
