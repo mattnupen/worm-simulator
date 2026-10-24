@@ -13,13 +13,15 @@ import { Selection } from './select';
 import { viewById, type View } from './views';
 import { BristleScene } from './bristles/scene';
 import { BristleOverlay } from './bristles/overlay';
+import { ZoomBar } from './zoom';
 
 /**
  * The anatomy viewer (`?anatomy=1`): the full nightcrawler model in a clean studio, like a
  * medical atlas. `&view=<id>` opens a preset (views.ts). Sets data-anatomy-ready on <body> once
  * the first frame is drawn (screenshots, tests).
  */
-export function startAnatomyViewer(app: HTMLElement, search: string): void {
+/** Starts the viewer. Its controls (Views, Layers, Parts) come back to go in the page's slide-out menu. */
+export function startAnatomyViewer(app: HTMLElement, search: string): { controls: HTMLElement | null } {
   const params = new URLSearchParams(search);
   const root = document.createElement('div');
   root.className = 'anatomy';
@@ -76,6 +78,8 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
   let bristles: BristleScene | null = null;
   const bristleUi = new BristleOverlay(() => { dirty = true; });
   if (ui) root.appendChild(bristleUi.root);
+  // The zoom bar is made just after `show`, which resets it to each new view.
+  let zoom: ZoomBar | undefined;
   const show = (view: View): void => {
     if (view.bristles && !bristles) {
       bristles = new BristleScene();
@@ -114,6 +118,7 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     // The soft shadow sits just under the posed body.
     if (view.bristles) {
       controls.update();
+      zoom?.reset();
       return;
     }
     const box = new THREE.Box3().setFromObject(worm.group);
@@ -122,7 +127,10 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     shadow.position.set(c.x, box.min.y - 0.6, c.z);
     shadow.scale.set(size.x * 1.15 + 8, size.z * 1.6 + 10, 1);
     controls.update();
+    zoom?.reset();
   };
+  zoom = new ZoomBar(camera, controls, () => { dirty = true; });
+  if (ui) root.appendChild(zoom.el);
   show(current);
   const built = ui ? buildPanel(worm, {
     pick: show,
@@ -133,10 +141,14 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     changed: redraw,
     labels,
   }) : null;
-  const panel = built ? root.appendChild(built.el) : null;
+  // The controls live in the slide-out menu (Matt, 2026-10-24: so they can be hidden); pageMenu.ts places them.
+  const panel = built?.el ?? null;
   const narrow = (): boolean => window.innerWidth <= 700;
-  // A phone starts with the menu folded to its title row, so the worm shows first.
-  if (narrow()) panel?.querySelector<HTMLButtonElement>('.anatomy-fold')?.click();
+  /** How far right the open menu reaches (0 when it is shut, or on a phone, where it covers the worm). */
+  const menuRight = (): number => {
+    const r = panel?.getBoundingClientRect();
+    return r && r.width > 0 && !narrow() ? r.right : 0;
+  };
   selection.changed = () => { built?.sync(); frame(); };
   // A tap (not a drag) on the worm selects the part under the finger.
   let down: { x: number; y: number } | null = null;
@@ -146,17 +158,16 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     down = null;
   });
   // On a wide screen the buttons sit on the left: centre the worm in the space beside them.
-  const panelSide = (): number => (panel && !narrow() ? panel.getBoundingClientRect().right : 0);
-  /** On a phone: where the sheet along the bottom (the menu, or a part's card) starts. */
+  const panelSide = menuRight;
+  /** On a phone: where the sheet along the bottom (a part's card) starts. */
   const sheetTop = (): number => {
     if (!narrow()) return window.innerHeight;
     let top = window.innerHeight;
-    for (const e of root.querySelectorAll<HTMLElement>('.anatomy-panel, .anatomy-card')) {
+    for (const e of root.querySelectorAll<HTMLElement>('.anatomy-card')) {
       const r = e.getBoundingClientRect();
       if (r.height > 0) top = Math.min(top, r.top);
     }
-    // The bristle views' box sits on top of the sheet, and the picture fits above both.
-    root.style.setProperty('--sheet', `${window.innerHeight - top}px`);
+    // The bristle views' box sits along the bottom too, and the picture fits above it.
     const box = bristleUi.root.hidden ? null : bristleUi.root.querySelector('.bristle-box');
     if (box) top = Math.min(top, box.getBoundingClientRect().top);
     return top;
@@ -164,7 +175,8 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
   const frame = (): void => {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const side = panel && !narrow() && !panel.querySelector<HTMLElement>('.anatomy-panel-body')?.hidden ? panel.getBoundingClientRect().right + 32 : 0;
+    const right = menuRight();
+    const side = right ? right + 32 : 0;
     const below = h - sheetTop();
     // Shift the picture and shrink it to fit the space beside the buttons (or above the sheet).
     camera.zoom = side ? (w - side) / w : below > 0 ? (h - below) / h : 1;
@@ -175,7 +187,8 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
     redraw();
   };
   frame();
-  panel?.querySelector('.anatomy-fold')?.addEventListener('click', frame);
+  // The menu opening, closing or changing page moves the picture.
+  if (panel) new ResizeObserver(() => frame()).observe(panel);
   panel?.addEventListener('click', () => requestAnimationFrame(frame));
   // &cam=x,y,z&at=x,y,z: any camera (review screenshots).
   const vec = (k: string) => params.get(k)?.split(',').map(Number);
@@ -222,6 +235,7 @@ export function startAnatomyViewer(app: HTMLElement, search: string): void {
       (window as unknown as { anatomyStats: unknown }).anatomyStats = worm.stats();
     }
   });
+  return { controls: panel };
 }
 
 /** A soft, blurred shadow under the worm (a texture on a flat card: no shadow maps, no extra pass). */

@@ -53,35 +53,41 @@ test('the anatomy viewer opens, labels its parts, and opens a sourced fact card'
   expect(outside).toEqual([]);
 });
 
-test('on a phone: the menu is a folded sheet, a card fits the screen, and Home goes back to the game', async ({ page }) => {
+test('on a phone: the controls are in the slide-out menu, a card fits the screen, and a zoom bar sits top right', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 390, height: 664 });
   await page.goto(`${PAGE}?anatomy=1&ao=0`);
   await page.waitForFunction(() => document.body.dataset.anatomyReady === '1', null, { timeout: 90_000 });
   // Nothing spills off the sides.
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  // The menu starts folded, so the worm shows; Menu opens it.
+  // The menu starts shut, so the worm shows; its Virtual worm page holds Views, Layers and Parts.
   const tabs = page.getByRole('tab', { name: shown(ANATOMY_UI.tabParts) });
   await expect(tabs).toBeHidden();
-  await page.getByRole('button', { name: shown(ANATOMY_UI.showPanel), exact: true }).click();
+  const nav = page.getByRole('navigation', { name: 'Game menu' });
+  await nav.getByRole('button', { name: shown(TEXT.menuOpen) }).click();
+  await nav.getByRole('button', { name: shown(ANATOMY_UI.title) }).click();
   await tabs.click();
   await page.locator('.anatomy-panel').getByRole('button', { name: shown(ANATOMY_PARTS.gizzard.name), exact: true }).click();
+  // Shut the menu to see the worm and the part's card.
+  await nav.getByRole('button', { name: shown(TEXT.menuClose) }).click();
+  await expect(tabs).toBeHidden();
   const card = page.getByRole('dialog');
   await expect(card).toBeVisible();
   const box = (await card.boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(390);
   expect(box.y + box.height).toBeLessThanOrEqual(664);
-  // While the card is open it takes the menu's place; closing it brings the menu back.
-  await expect(page.locator('.anatomy-panel')).toBeHidden();
   await card.getByRole('button', { name: shown(ANATOMY_UI.close) }).click();
-  await expect(page.locator('.anatomy-panel')).toBeVisible();
-  // Home: back to the game (this page without ?anatomy).
-  const home = page.getByRole('link', { name: shown(ANATOMY_UI.toGame) });
-  await expect(home).toHaveAttribute('href', /index\.html$/);
-  // The game menu is here too: its tab opens the icons, Mission has Back to start, and the
-  // Virtual worm icon is left out (this is that page).
-  const nav = page.getByRole('navigation', { name: 'Game menu' });
+  // The zoom bar: top right; it followed the flight in to the part, and - steps back out.
+  const zoom = page.getByRole('slider', { name: shown(ANATOMY_UI.zoom) });
+  const z = (await zoom.boundingBox())!;
+  expect(z.x).toBeGreaterThan(390 / 2);
+  expect(z.y).toBeLessThan(664 / 3);
+  await expect(zoom).toHaveValue('100');
+  await page.getByRole('button', { name: shown(ANATOMY_UI.zoomOut) }).click();
+  await expect(zoom).toHaveValue('90');
+  // The game menu is here too: Mission has Back to start, and the game's Virtual worm link is
+  // left out (this is that page).
   await nav.getByRole('button', { name: shown(TEXT.menuOpen) }).click();
   await nav.getByRole('button', { name: shown(TEXT.menuMission) }).click();
   await expect(nav.getByRole('button', { name: shown(TEXT.menuToStart) })).toBeVisible();
@@ -91,7 +97,7 @@ test('on a phone: the menu is a folded sheet, a card fits the screen, and Home g
   await expect(nav.getByRole('group', { name: 'Graphics' })).toHaveCount(0);
 });
 
-test('the bristle close-up animates, marks the fact for what the worm is doing, pauses and changes speed', async ({ page }) => {
+test('the bristle close-up animates, marks the fact for what the worm is doing, and changes speed, with Pause at the slider\'s left end', async ({ page }) => {
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -109,14 +115,18 @@ test('the bristle close-up animates, marks the fact for what the worm is doing, 
   for (const link of await sources.getByRole('link').all()) await expect(link).toHaveAttribute('target', '_blank');
   await sources.getByRole('button', { name: shown(ANATOMY_UI.close) }).click();
   await expect(sources).toBeHidden();
-  await page.getByRole('button', { name: shown(ANATOMY_UI.pause) }).click();
-  await expect(page.getByRole('button', { name: shown(ANATOMY_UI.play) })).toBeVisible();
-  // Speed: five stops, 1x to start; the left end is 1/8.
+  // Speed: 1x to start; Pause is the slider's left end, then 1/8.
   const speed = page.getByRole('slider', { name: new RegExp(shown(ANATOMY_UI.speed)) });
   await expect(speed).toHaveAttribute('aria-valuetext', '1x');
+  await expect(page.getByRole('button', { name: shown(ANATOMY_UI.pause) })).toHaveCount(0);
   await speed.focus();
   await page.keyboard.press('Home');
+  await expect(speed).toHaveAttribute('aria-valuetext', shown(ANATOMY_UI.pause));
+  await page.keyboard.press('ArrowRight');
   await expect(speed).toHaveAttribute('aria-valuetext', '1/8');
+  // The 1 mm ruler sits on the picture, not in the box.
+  await expect(page.locator('.bristle-ruler')).toBeVisible();
+  await expect(page.locator('.bristle-box .bristle-ruler')).toHaveCount(0);
   await page.keyboard.press('End');
   await expect(speed).toHaveAttribute('aria-valuetext', '2x');
   await page.getByRole('button', { name: shown(ANATOMY_UI.viewCrawl), exact: true }).click();

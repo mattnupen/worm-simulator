@@ -7,27 +7,29 @@ import type { BristleScene } from './scene';
 
 type Fact = keyof typeof BRISTLE_FACTS;
 const PAIRS: Record<'close' | 'crawl', readonly [Fact, Fact]> = { close: ['grip', 'slide'], crawl: ['wedge', 'widen'] };
-/** The slider starts at 1x. */
-const NORMAL = BRISTLE_SPEEDS.findIndex((s) => s.rate === 1);
+/** The slider's stops: Pause all the way left, then slowest to fastest (Matt, 2026-10-24). */
+const STOPS = [{ rate: 0, name: ANATOMY_UI.pause }, ...BRISTLE_SPEEDS] as const;
+const NORMAL = STOPS.findIndex((s) => s.rate === 1);
 
 /**
  * The bristle views' words and controls: a label on a bristle (close-up) or on the head (digging),
  * the view's two facts with the one happening now marked (an arrow and bold, not colour alone),
- * Pause, one Sources button (a pop-up with every source), a speed slider that snaps to 1/8 to 2x (Matt, 2026-10-24), and a 1 mm bar so students see
- * the real size. Plain DOM over the 3D, like the viewer's labels.
+ * one Sources button (a pop-up with every source), a speed slider that snaps from Pause through
+ * 1/8 to 2x (Matt, 2026-10-24), and a 1 mm ruler on the picture so students see the real size.
+ * Plain DOM over the 3D, like the viewer's labels.
  */
 export class BristleOverlay {
   readonly root = document.createElement('div');
-  /** True while the animation runs. Starts paused when the computer asks for less motion. */
-  playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-  /** How fast the animation runs (1 is normal). */
+  /** How fast the animation runs (1 is normal, 0 paused). Paused at first when the computer asks for less motion. */
   speed = 1;
+  get playing(): boolean {
+    return this.speed > 0;
+  }
   private readonly svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   private readonly line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
   private readonly dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
   private readonly label = document.createElement('div');
   private readonly facts = document.createElement('ul');
-  private readonly play = document.createElement('button');
   private readonly bar = document.createElement('div');
   private view: 'close' | 'crawl' = 'close';
   private now: Fact | null = null;
@@ -47,23 +49,20 @@ export class BristleOverlay {
     this.facts.className = 'bristle-facts';
     const row = document.createElement('div');
     row.className = 'bristle-row';
-    this.play.type = 'button';
-    this.play.className = 'anatomy-btn';
-    this.play.addEventListener('click', () => { this.playing = !this.playing; this.sync(); this.onChange(); });
-    const scale = document.createElement('div');
-    scale.className = 'bristle-scale';
+    // The ruler sits on the picture itself, not in the box.
+    const ruler = document.createElement('div');
+    ruler.className = 'bristle-ruler';
     this.bar.className = 'bristle-bar';
-    scale.append(this.bar, document.createTextNode(shown(ANATOMY_UI.oneMm)));
+    ruler.append(this.bar, document.createTextNode(shown(ANATOMY_UI.oneMm)));
     const sources = document.createElement('button');
     sources.type = 'button';
     sources.className = 'anatomy-btn';
     sources.append(icon('book', 'anatomy-icon'), document.createTextNode(shown(ANATOMY_UI.sources)));
     const dialog = this.sourcesDialog();
     sources.addEventListener('click', () => dialog.showModal());
-    row.append(this.play, sources, scale);
-    box.append(this.facts, row, this.speedSlider());
-    this.root.append(this.svg, this.label, box, dialog);
-    this.sync();
+    row.append(this.speedSlider(), sources);
+    box.append(this.facts, row);
+    this.root.append(this.svg, this.label, ruler, box, dialog);
   }
 
   /** Shows the close-up or the digging view, or hides both. */
@@ -157,7 +156,7 @@ export class BristleOverlay {
     return dialog;
   }
 
-  /** Speed: a slider with five stops, slowest on the left. */
+  /** Speed: a slider with six stops, Pause on the left, then slowest to fastest. */
   private speedSlider(): HTMLElement {
     const wrap = document.createElement('div');
     wrap.className = 'bristle-speed';
@@ -172,25 +171,26 @@ export class BristleOverlay {
     input.type = 'range';
     input.id = id;
     input.min = '0';
-    input.max = String(BRISTLE_SPEEDS.length - 1);
+    input.max = String(STOPS.length - 1);
     input.step = '1';
-    input.value = String(NORMAL);
+    input.value = String(matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : NORMAL);
     input.setAttribute('list', `${id}-stops`);
     const stops = document.createElement('datalist');
     stops.id = `${id}-stops`;
     const ticks = document.createElement('div');
     ticks.className = 'bristle-ticks';
     ticks.setAttribute('aria-hidden', 'true');
-    BRISTLE_SPEEDS.forEach((sp, i) => {
+    STOPS.forEach((sp, i) => {
       const o = document.createElement('option');
       o.value = String(i);
       stops.append(o);
       const t = document.createElement('span');
-      t.textContent = shown(sp.name);
+      if (sp.rate === 0) t.append(icon('pause', 'bristle-tick-icon'));
+      else t.textContent = shown(sp.name);
       ticks.append(t);
     });
     const set = (): void => {
-      const sp = BRISTLE_SPEEDS[Number(input.value)];
+      const sp = STOPS[Number(input.value)];
       this.speed = sp.rate;
       value.textContent = shown(sp.name);
       input.setAttribute('aria-valuetext', shown(sp.name));
@@ -200,10 +200,5 @@ export class BristleOverlay {
     set();
     wrap.append(name, input, stops, ticks);
     return wrap;
-  }
-
-  private sync(): void {
-    const word = shown(this.playing ? ANATOMY_UI.pause : ANATOMY_UI.play);
-    this.play.replaceChildren(icon(this.playing ? 'pause' : 'play', 'anatomy-icon'), document.createTextNode(word));
   }
 }

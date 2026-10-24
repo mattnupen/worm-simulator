@@ -99,6 +99,11 @@ const ICONS = {
   /** Close a panel: a cross. */
   close: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"
       stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`,
+  /** Zoom in and out (the Virtual worm's zoom bar): a plus and a minus. */
+  zoomIn: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"
+      stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`,
+  zoomOut: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"
+      stroke-linecap="round"><path d="M5 12h14"/></svg>`,
   /** A padlock: a quest that is not open yet. */
   lock: `<svg ${SVG} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
       stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="currentColor"/>

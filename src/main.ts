@@ -86,8 +86,7 @@ let renderer: THREE.WebGLRenderer | null = null;
 const anatomy = new URLSearchParams(location.search).has('anatomy');
 if (anatomy) {
   app.replaceChildren();
-  startAnatomyViewer(app, location.search);
-  addPageMenu(app);
+  addPageMenu(app, startAnatomyViewer(app, location.search).controls);
 } else try {
   renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 } catch (e) {

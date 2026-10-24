@@ -171,6 +171,9 @@ export const ANATOMY_UI = {
   pause: ui('Pause'),
   speed: ui('Speed'),
   sources: ui('Sources'),
+  zoom: ui('Zoom'),
+  zoomIn: ui('Zoom in'),
+  zoomOut: ui('Zoom out'),
   oneMm: ui('1 mm'),
 } as const satisfies Record<string, Line>;
 

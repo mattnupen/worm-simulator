@@ -9,7 +9,8 @@ import { CHANGELOG_URL, PLANNED_ROUNDS, ROUNDS, VERSION } from '../version';
 import { PLAY_GOAL_SECONDS, type Quest, type QuestId } from '../game/quests';
 
 /** The menu's pages, in the icon column's order. */
-export type MenuPage = 'mission' | 'rounds' | 'settings' | 'about';
+/** `extra` is a page a host adds (the Virtual worm page's own controls). */
+export type MenuPage = 'extra' | 'mission' | 'rounds' | 'settings' | 'about';
 
 const PAGES: readonly { id: MenuPage; icon: IconName; name: Line }[] = [
   { id: 'mission', icon: 'flag', name: TEXT.menuMission },
@@ -44,7 +45,12 @@ export interface GameMenu {
   escape(): boolean;
   /** Folds everything back to the tab. */
   close(): void;
+  /** Opens the column and one page's card. */
+  open(page: MenuPage): void;
 }
+
+/** A page a host adds at the top of the column, its body built once and kept (with its state). */
+export interface ExtraPage { icon: IconName; name: Line; body: HTMLElement }
 
 /**
  * The game menu (Matt, 2026-10-23; spec docs/superpowers/specs/2026-10-23-game-menu-panel.md):
@@ -56,7 +62,7 @@ export interface GameMenu {
  * plain DOM work: no 3D, nothing compiles. Every icon is a real button with a spoken name and a
  * hover tooltip; the open page's icon is marked with aria-expanded and a border, not colour alone.
  */
-export function createGameMenu(root: HTMLElement, a: MenuActions, opts: { virtualWorm?: boolean } = {}): GameMenu {
+export function createGameMenu(root: HTMLElement, a: MenuActions, opts: { virtualWorm?: boolean; extra?: ExtraPage } = {}): GameMenu {
   const nav = el('nav', '', 'game-menu');
   nav.setAttribute('aria-label', 'Game menu');
 
@@ -68,7 +74,8 @@ export function createGameMenu(root: HTMLElement, a: MenuActions, opts: { virtua
   column.id = 'menu-icons';
   column.hidden = true;
   const pageButtons = new Map<MenuPage, HTMLButtonElement>();
-  for (const p of PAGES) {
+  const pages = opts.extra ? [{ id: 'extra' as const, icon: opts.extra.icon, name: opts.extra.name }, ...PAGES] : PAGES;
+  for (const p of pages) {
     const b = iconButton(p.icon, shown(p.name), 'menu-icon');
     b.dataset.page = p.id;
     b.setAttribute('aria-expanded', 'false');
@@ -142,8 +149,12 @@ export function createGameMenu(root: HTMLElement, a: MenuActions, opts: { virtua
   }
 
   function draw(p: MenuPage): void {
-    title.textContent = shown(PAGES.find((x) => x.id === p)!.name);
+    title.textContent = shown(pages.find((x) => x.id === p)!.name);
     card.dataset.page = p;
+    if (p === 'extra') {
+      body.replaceChildren(opts.extra!.body);
+      return;
+    }
     body.replaceChildren(...(p === 'mission' ? missionPage() : p === 'rounds' ? roundsPage() : p === 'settings'
       ? settingsFields(a.settings(), a) : aboutPage()));
   }
@@ -246,6 +257,10 @@ export function createGameMenu(root: HTMLElement, a: MenuActions, opts: { virtua
       return false;
     },
     close: () => setOpen(false),
+    open(p) {
+      setOpen(true);
+      show(p);
+    },
   };
 }
 
