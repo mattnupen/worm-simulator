@@ -1,27 +1,32 @@
 import * as THREE from 'three';
 
 /**
- * Pure numbers and shapes for the bristle close-up (scene.ts), in millimetres. A short piece of a
- * nightcrawler, cut open along its middle, crawls through soil by peristalsis: a squeeze passes
- * from head to tail, and each segment that squeezes short and fat pushes its bristles out to grip.
+ * Pure numbers and shapes for the bristle close-up (scene.ts), in millimetres. The front of a
+ * nightcrawler, cut open along its middle, digs through soil by peristalsis: a squeeze passes from
+ * head to tail, and wherever the body is squeezed short and fat its bristles push out to grip. The
+ * squeeze is a smooth wave along the body (not one segment at a time), so neighbours move together.
+ *
+ * Positions along the body are in segments, q: 0 at the front of the first segment (the
+ * peristomium, round the mouth), growing toward the tail; the mouth lobe (prostomium) is q < 0.
  */
 
-/** Segments in the piece. */
+/** Segments in the piece, and the mouth lobe's length in segments. */
 export const PIECE = 20;
+export const LOBE = 0.75;
 /** A resting segment's length and the body's radius (an adult is about 7 to 10 mm wide). */
 export const SEG = 1.4;
 export const RADIUS = 4;
 /** The body wall's thickness: cuticle and skin, circular muscle, longitudinal muscle. */
 export const WALL = 0.75;
 export const LAYERS = [0.1, 0.18, 0.47] as const;
-/** Segments per squeeze wave, and seconds for one wave to pass a segment. */
+/** Segments per squeeze wave, and seconds for one wave to pass a point. */
 export const WAVE = 7;
 export const PERIOD = 2.6;
 /** A bristle's drawn length and how far it slides out (no measured size: a recorded choice). */
 export const BRISTLE = 0.95;
 export const REACH = 0.5;
-/** Where the soil floor sits under the belly: a fat segment's belly nearly touches it. */
-export const FLOOR = -RADIUS * 1.14 - 0.08;
+/** The widest the body gets: the tunnel it pushes open. */
+export const WIDEST = RADIUS * 1.14;
 
 const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
 export const smooth = (a: number, b: number, v: number): number => {
@@ -29,27 +34,36 @@ export const smooth = (a: number, b: number, v: number): number => {
   return t * t * (3 - 2 * t);
 };
 
-/** How squeezed segment i (0 at the head) is at `phase` waves: 0 long and thin, 1 short and fat. */
-export function squeeze(i: number, phase: number): number {
-  const c = 0.5 - 0.5 * Math.cos(2 * Math.PI * (phase - i / WAVE));
-  return smooth(0.15, 0.85, c);
+/** How squeezed the body is at q, `phase` waves in: 0 long and thin, 1 short and fat. Smooth in q and time. */
+export function squeezeAt(q: number, phase: number): number {
+  return 0.5 - 0.5 * Math.cos(2 * Math.PI * (phase - q / WAVE));
 }
 
-/** A segment's length and radius at squeeze s: shorter and fatter, keeping about the same volume. */
+/** Length per segment and radius at squeeze s: shorter and fatter, keeping about the same volume. */
 export const segLength = (s: number): number => SEG * (1.15 - 0.4 * s);
 export const segRadius = (s: number): number => RADIUS * (0.92 + 0.22 * s);
 
-/** How far a segment's bristles are out (0 in, 1 out): they follow the squeeze, a little late. */
+/** How far the bristles are out at squeeze s (0 in, 1 out): they follow the squeeze, a little late. */
 export const bristleOut = (s: number): number => smooth(0.45, 0.9, s);
 
-/** Radius scale along the piece (u 0 at a segment's front): the head rounds off; behind, the body goes on out of view. */
-export function capScale(i: number, u: number): number {
-  if (i === 0) return Math.sqrt(1 - (1 - u) * (1 - u));
-  return 1;
+/**
+ * The head's taper: from a blunt point at the lobe's tip, widening over the first five segments,
+ * so the front works as a wedge.
+ */
+export function headScale(q: number): number {
+  const t = clamp01((q + LOBE) / (LOBE + 5));
+  return 1 - (1 - t) ** 2.2;
 }
 
-/** The ring groove at a segment's ends (u 0..1 along it). */
-export const groove = (u: number): number => 1 - 0.05 * (Math.exp(-((u / 0.08) ** 2)) + Math.exp(-(((1 - u) / 0.08) ** 2)));
+/** The lobe rides high, over the mouth: how far its middle sits above the body's (mm). */
+export const headLift = (q: number): number => RADIUS * 0.24 * (1 - smooth(-LOBE, 1.6, q));
+
+/** The furrow between segments (and behind the lobe): the radius dips a little at each boundary. */
+export function grooveAt(q: number): number {
+  if (q < 0) return 1 - 0.07 * Math.exp(-((q / 0.09) ** 2));
+  const u = q - Math.floor(q);
+  return 1 - 0.05 * (Math.exp(-((u / 0.08) ** 2)) + Math.exp(-(((1 - u) / 0.08) ** 2)));
+}
 
 /**
  * A bristle: a slim, slightly S-curved rod with a swelling (the nodulus) a little below its middle

@@ -105,6 +105,7 @@ or a real disagreement.
 | Slide | segments that stretch forward pull their setae in | Baruch College annelida lab | "it contracts the longitudinal muscle layer in the posterior part and sticks the setae into the soil" / "the setae in this portion are retracted" | high |
 | Taking turns | front anchors, then back anchors | Science Learning Hub | "The earthworm uses its setae to anchor the front of its body in the soil." / "withdraws the front setae and uses its rear setae to anchor itself at the back" | high |
 | Robins | setae help hold a worm in its burrow against a pull | NatureNorth; bumblebee.org | "The setae are part of the reason that robins have such a hard time pulling worms out of the ground." | medium |
+| Digging | the front works like a cone pushed into the soil, then the body swells to push the soil aside and widen the hole; burrows are made mostly by pushing soil aside, not eating it | Ruiz, Or and Schymanski 2015, *PLOS ONE* | "wedging by root tips or earthworms via cone-like penetration" / "cavity expansion due to pressurized earthworm hydroskeleton" / "earthworm burrows are generally created by displacement of soil rather than ingestion" | high |
 | Size (2026-10-24 search) | still no measured length for *Lumbricus terrestris* setae (searched journals, keys, Wikipedia, teaching sites) | none | none | none |
 
 **Bristle close-up (Virtual worm, 2026-10-24): recorded choices.** Never shown on screen as facts:
@@ -112,6 +113,7 @@ or a real disagreement.
 - Only the belly pair (a, b) is drawn, at the cut. The side pair is left out so the close-up stays simple.
 - Squeeze and stretch amounts, wave length (7 segments) and speed are chosen for clarity, not measured.
 - The pocket and its three muscles are simplified strands.
+- Round 2 (Matt, 2026-10-24): the squeeze is one smooth wave along the body, and grip is shared by every place whose bristles are out. Soil grains (sizes chosen, not measured) are pushed straight outward out of the body's way and stay there; the head's taper over five segments and the lobe's lift are drawn, not measured.
 
 
 ### Blood vessels

@@ -46,8 +46,8 @@ export const VIEWS: readonly View[] = [
   { id: 'repro', name: ANATOMY_UI.viewRepro, labels: ['seminalVesicles', 'receptacles', 'ovaries'], pose: STRAIGHT, wall: 'cut', systems: ['skin', 'repro'], camera: [16, 10, 26], target: [17, -0.8, 0] },
   { id: 'muscles', name: ANATOMY_UI.viewMuscles, labels: ['skin', 'circular', 'longitudinal'], pose: STRAIGHT, wall: 'solid', systems: ['skin', 'muscles'], camera: [PEEL_X - 6, 16, 22], target: [PEEL_X, 0, 0] },
   { id: 'nephridia', name: ANATOMY_UI.viewNephridia, labels: ['nephridia', 'septa'], pose: STRAIGHT, wall: 'cut', systems: ['skin', 'muscles', 'nephridia'], camera: INSIDE_CAM, target: INSIDE_TARGET },
-  { id: 'bristles', name: ANATOMY_UI.viewBristles, labels: [], pose: STRAIGHT, wall: 'solid', systems: [], camera: [0.6, -4.1, 7], target: [0, -4.6, 0], bristles: 'close' },
-  { id: 'crawl', name: ANATOMY_UI.viewCrawl, labels: [], pose: STRAIGHT, wall: 'solid', systems: [], camera: [4, 1, 27], target: [4, -1.2, 0], bristles: 'crawl' },
+  { id: 'bristles', name: ANATOMY_UI.viewBristles, labels: [], pose: STRAIGHT, wall: 'solid', systems: [], camera: [-0.8, -4.1, 7], target: [-1.4, -4.6, 0], bristles: 'close' },
+  { id: 'crawl', name: ANATOMY_UI.viewCrawl, labels: [], pose: STRAIGHT, wall: 'solid', systems: [], camera: [8, 1, 27], target: [8, -0.5, 0], bristles: 'crawl' },
   { id: 'ghost', name: ANATOMY_UI.viewGhost, labels: ['pharynx', 'gizzard', 'hearts', 'nerveCord'], pose: STRAIGHT, wall: 'ghost', systems: ['skin', 'gut', 'blood', 'nerves', 'repro'], camera: [30, 30, 70], target: [30, 0, 0] },
 ];
 
