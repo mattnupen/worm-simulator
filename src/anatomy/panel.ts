@@ -50,7 +50,15 @@ export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElem
   const title = el('h1', 'anatomy-title');
   title.append(icon('virtualWorm', 'anatomy-icon'), shown(ANATOMY_UI.title));
   const fold = button(shown(ANATOMY_UI.hidePanel), 'anatomy-btn anatomy-fold', 'fold');
-  head.append(title, fold);
+  // Back to the game: the same page without ?anatomy (it may have opened in this tab on a phone).
+  const home = el('a', 'anatomy-home');
+  home.href = location.pathname;
+  home.setAttribute('aria-label', shown(ANATOMY_UI.toGame));
+  home.title = shown(ANATOMY_UI.toGame);
+  home.append(icon('home', 'anatomy-icon'));
+  const right = el('div', 'anatomy-head-btns');
+  right.append(home, fold);
+  head.append(title, right);
   const body = el('div', 'anatomy-panel-body');
   panel.append(head, body);
   fold.setAttribute('aria-expanded', 'true');
@@ -205,7 +213,8 @@ export function buildPanel(worm: AnatomyWorm, hooks: PanelHooks): { el: HTMLElem
   });
 
   show(0);
-  for (const t of toggles) t.b.setAttribute('aria-pressed', String(t.on()));
+  // Every switch and slider starts from the model as it is.
+  sync();
   return { el: panel, sync };
 }
 
