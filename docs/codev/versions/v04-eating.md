@@ -30,6 +30,12 @@
      film's tool row; the anatomy viewer's controls have icons.
   Rendering changed in the film, so it still needs a check on a student Chromebook (release
   checklist item 5).
+- **Hot fix 3 (2026-10-24).** Matt found the game hard to use on a phone, including the Virtual
+  worm page with no way back. Re-cut with `npm run release -- 4 --emergency-fix`:
+  1. Virtual worm on phones: the menu is a folded sheet at the bottom, a part's card takes its
+     place, it opens on the whole worm sized to the screen, and a Home button goes back to the game.
+  2. The Start card stops below the game menu's tab instead of sliding under it.
+  3. Underground, the layer names keep clear of the hint card, so none is hidden behind it.
 
 ## Game choices (recorded, never labelled on screen)
 
