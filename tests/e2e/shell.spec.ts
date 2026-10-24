@@ -33,12 +33,15 @@ async function startCrawling(page: Page): Promise<void> {
   await expect(crawling(page)).toBeVisible();
 }
 
-/** Opens the game menu's column, if it is shut, then the named page (or just the column). */
+/** Slides the game menu out, if it is shut, then picks the named page's tab. */
 async function openMenu(page: Page, pageName?: string): Promise<void> {
   const tab = menu(page).getByRole('button', { name: 'Open the menu' });
   if (await tab.count()) await tab.click();
-  if (pageName) await menu(page).getByRole('button', { name: pageName, exact: true }).click();
+  if (pageName) await menu(page).getByRole('tab', { name: pageName, exact: true }).click();
 }
+const pageTab = (page: Page, name: string) => menu(page).getByRole('tab', { name, exact: true });
+/** The open page of the menu (an ARIA tab panel, named by its tab). */
+const menuPage = (page: Page, name: string) => menu(page).getByRole('tabpanel', { name });
 
 /** Pause with the game menu's Pause icon (Esc and P no longer pause: Matt, 2026-10-23). */
 async function pauseGame(page: Page): Promise<void> {
@@ -82,11 +85,21 @@ test('keyboard only: crawl, open the menu, pause, resume, reach Settings and bac
   await expect(button(page, 'Open the menu')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(button(page, 'Close the menu')).toBeFocused();
-  for (const name of ['Mission', 'Rounds', 'Settings', 'About', 'Pause']) {
-    await page.keyboard.press('Tab');
-    await expect(button(page, name)).toBeFocused();
+  // The panel opens on Mission; its tab is next, and the arrow keys move along the tabs.
+  await page.keyboard.press('Tab');
+  await expect(pageTab(page, 'Mission')).toBeFocused();
+  await expect(pageTab(page, 'Mission')).toHaveAttribute('aria-selected', 'true');
+  for (const name of ['Rounds', 'Settings', 'About']) {
+    await page.keyboard.press('ArrowRight');
+    await expect(pageTab(page, name)).toBeFocused();
+    await expect(menuPage(page, name)).toBeVisible();
   }
-  // Last: the virtual worm (the 3D anatomy model), a link that opens in a new tab.
+  await page.keyboard.press('ArrowRight');
+  await expect(pageTab(page, 'Mission')).toBeFocused();
+  // Along the bottom: Pause, then the virtual worm (the 3D anatomy model) in a new tab.
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(button(page, 'Pause')).toBeFocused();
   const worm = page.locator('.game-menu').getByRole('link', { name: 'Virtual worm' });
   await expect(worm).toHaveAttribute('href', '?anatomy=1');
   await expect(worm).toHaveAttribute('target', '_blank');
@@ -97,19 +110,21 @@ test('keyboard only: crawl, open the menu, pause, resume, reach Settings and bac
   await expect(crawling(page)).toBeVisible();
 
   await openMenu(page, 'Settings');
-  await expect(page.getByRole('region', { name: 'Settings' })).toBeVisible();
+  await expect(menuPage(page, 'Settings')).toBeVisible();
   await expect(radio(page, 'Auto')).toBeChecked();
-  // Esc hides the page and puts focus on its icon; Esc again folds the column.
+  // Esc slides the whole panel away in one press; while crawling, the keys go back to the worm.
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('region', { name: 'Settings' })).toHaveCount(0);
-  await expect(button(page, 'Settings')).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(button(page, 'Settings')).toHaveCount(0);
+  await expect(pageTab(page, 'Settings')).toHaveCount(0);
+  await expect(button(page, 'Open the menu')).toBeVisible();
+  await expect(button(page, 'Open the menu')).not.toBeFocused();
+  // It opens again where it was.
+  await openMenu(page);
+  await expect(menuPage(page, 'Settings')).toBeVisible();
 
   await openMenu(page, 'Mission');
   await button(page, 'Back to start').click();
   await expect(button(page, 'Crawl')).toBeFocused();
-  await expect(button(page, 'Mission')).toHaveCount(0);
+  await expect(pageTab(page, 'Mission')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -123,9 +138,9 @@ test('keyboard only: from Start, Tab reaches Crawl, then the menu; there is no S
   await expect(button(page, 'Open the menu')).toBeFocused();
   await page.keyboard.press('Enter');
   // On Start there is nothing to pause.
-  await expect(button(page, 'Mission')).toBeVisible();
+  await expect(pageTab(page, 'Mission')).toBeVisible();
   await expect(button(page, 'Pause')).toBeHidden();
-  await button(page, 'Settings').click();
+  await pageTab(page, 'Settings').click();
   await radio(page, 'Auto').focus();
   await page.keyboard.press('ArrowDown');
   await expect(radio(page, 'Low')).toBeChecked();
@@ -156,7 +171,7 @@ test('the Mission page shows the round\'s mission and quests; the game keeps goi
   await page.goto(PAGE);
   await startCrawling(page);
   await openMenu(page, 'Mission');
-  const card = page.getByRole('region', { name: 'Mission' });
+  const card = menuPage(page, 'Mission');
   const mission = CURRENT_LESSON?.steps.find((st) => st.kind === 'mission');
   if (mission?.kind === 'mission') {
     await expect(card.locator('.menu-mission')).toHaveText(shown(mission.short ?? mission.notice).replace(/^Mission:\s*/, ''));
@@ -176,7 +191,7 @@ test('the Mission page shows the round\'s mission and quests; the game keeps goi
 test('the Rounds page lists every round, links the older ones, and links the changelog', async ({ page }) => {
   await page.goto(PAGE);
   await openMenu(page, 'Rounds');
-  const card = page.getByRole('region', { name: 'Rounds' });
+  const card = menuPage(page, 'Rounds');
   for (const r of ROUNDS) {
     const title = `Round ${r.number}: ${r.name}`;
     if (r.number === VERSION.number) {
@@ -200,21 +215,41 @@ test('the Rounds page lists every round, links the older ones, and links the cha
 test('the About page says who makes the game, with its fact\'s source', async ({ page }) => {
   await page.goto(PAGE);
   await openMenu(page, 'About');
-  const card = page.getByRole('region', { name: 'About' });
+  const card = menuPage(page, 'About');
   await expect(card.getByText(shown(TEXT.openingInvasive))).toBeVisible();
   await expect(card.getByRole('link', { name: /Minnesota DNR/ })).toHaveAttribute('target', '_blank');
   await expect(card.getByText(/Game choice/)).toHaveCount(0);
 });
 
-test('a phone: the menu fits, and its card sits under the icons', async ({ page }) => {
+test('the panel slides out from the left edge, tabs across its top, the X jutting out on its right', async ({ page }) => {
+  await page.goto(PAGE);
+  await startCrawling(page);
+  const shut = (await button(page, 'Open the menu').boundingBox())!;
+  expect(shut.x).toBeLessThanOrEqual(1);
+  await openMenu(page, 'Settings');
+  const panel = (await page.locator('#menu-panel').boundingBox())!;
+  const tabs = (await menu(page).getByRole('tablist').boundingBox())!;
+  const x = (await button(page, 'Close the menu').boundingBox())!;
+  expect(panel.x).toBeLessThanOrEqual(1);
+  expect(tabs.y).toBeLessThan(panel.y + 4);
+  expect(x.x).toBeGreaterThanOrEqual(panel.x + panel.width - 2);
+  expect(x.y).toBeLessThan(panel.y + 8);
+});
+
+test('a phone: the panel and its X fit the screen', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(PAGE);
   await startCrawling(page);
   await openMenu(page, 'Settings');
-  const card = await page.getByRole('region', { name: 'Settings' }).boundingBox();
-  const icons = await button(page, 'Settings').boundingBox();
-  expect(card!.y).toBeGreaterThan(icons!.y + icons!.height - 1);
-  expect(card!.x + card!.width).toBeLessThanOrEqual(390);
+  const panel = (await page.locator('#menu-panel').boundingBox())!;
+  const x = (await button(page, 'Close the menu').boundingBox())!;
+  expect(panel.x).toBeLessThanOrEqual(1);
+  expect(x.x + x.width).toBeLessThanOrEqual(390);
+  for (const name of ['Mission', 'Rounds', 'Settings', 'About']) {
+    const t = (await pageTab(page, name).boundingBox())!;
+    expect(t.height).toBeGreaterThanOrEqual(48);
+    expect(t.x + t.width).toBeLessThanOrEqual(panel.x + panel.width + 1);
+  }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
@@ -396,7 +431,7 @@ test('changing presets, once each has been shown, compiles no shader, offline, w
 test('Settings has Sound on or off, saved only once switched', async ({ page }) => {
   await page.goto(PAGE);
   await openMenu(page, 'Settings');
-  await expect(page.getByRole('region', { name: 'Settings' })).toBeVisible();
+  await expect(menuPage(page, 'Settings')).toBeVisible();
   await expect(radio(page, 'On')).toBeChecked();
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
   expect((await saved())?.sound).toBeUndefined();
@@ -416,11 +451,11 @@ test('Settings has Text size (Normal, Big, Bigger): it applies at once and is sa
   await expect(radio(page, 'Normal')).toBeChecked();
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('wormsim.settings') ?? 'null'));
   expect((await saved())?.textSize).toBeUndefined();
-  const before = await page.getByRole('heading', { name: 'Settings' }).evaluate((h) => h.getBoundingClientRect().height);
+  const before = await menuPage(page, 'Settings').locator('legend').first().evaluate((h) => h.getBoundingClientRect().height);
   await radio(page, 'Bigger').check();
   await expect.poll(async () => (await saved())?.textSize).toBe('bigger');
   expect(await rootPx()).toBeCloseTo(21, 0);
-  const after = await page.getByRole('heading', { name: 'Settings' }).evaluate((h) => h.getBoundingClientRect().height);
+  const after = await menuPage(page, 'Settings').locator('legend').first().evaluate((h) => h.getBoundingClientRect().height);
   expect(after).toBeGreaterThan(before);
   await page.reload();
   expect(await rootPx()).toBeCloseTo(21, 0);
