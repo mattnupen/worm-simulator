@@ -21,7 +21,7 @@ import { ZoomBar } from './zoom';
  * the first frame is drawn (screenshots, tests).
  */
 /** Starts the viewer. Its controls (Views, Layers, Parts) come back to go in the page's slide-out menu. */
-export function startAnatomyViewer(app: HTMLElement, search: string): { controls: HTMLElement | null } {
+export function startAnatomyViewer(app: HTMLElement, search: string): { controls: HTMLElement | null; setMenuSpace(px: number): void } {
   const params = new URLSearchParams(search);
   const root = document.createElement('div');
   root.className = 'anatomy';
@@ -144,11 +144,9 @@ export function startAnatomyViewer(app: HTMLElement, search: string): { controls
   // The controls live in the slide-out menu (Matt, 2026-10-24: so they can be hidden); pageMenu.ts places them.
   const panel = built?.el ?? null;
   const narrow = (): boolean => window.innerWidth <= 700;
-  /** How far right the open menu reaches (0 when it is shut, or on a phone, where it covers the worm). */
-  const menuRight = (): number => {
-    const r = panel?.getBoundingClientRect();
-    return r && r.width > 0 && !narrow() ? r.right : 0;
-  };
+  /** How far right the open menu reaches (0 when it is shut, or on a phone, where it covers the worm): pageMenu.ts says. */
+  let menuSpace = 0;
+  const menuRight = (): number => menuSpace;
   selection.changed = () => { built?.sync(); frame(); };
   // A tap (not a drag) on the worm selects the part under the finger.
   let down: { x: number; y: number } | null = null;
@@ -187,9 +185,6 @@ export function startAnatomyViewer(app: HTMLElement, search: string): { controls
     redraw();
   };
   frame();
-  // The menu opening, closing or changing page moves the picture.
-  if (panel) new ResizeObserver(() => frame()).observe(panel);
-  panel?.addEventListener('click', () => requestAnimationFrame(frame));
   // &cam=x,y,z&at=x,y,z: any camera (review screenshots).
   const vec = (k: string) => params.get(k)?.split(',').map(Number);
   const cam = vec('cam');
@@ -235,7 +230,14 @@ export function startAnatomyViewer(app: HTMLElement, search: string): { controls
       (window as unknown as { anatomyStats: unknown }).anatomyStats = worm.stats();
     }
   });
-  return { controls: panel };
+  return {
+    controls: panel,
+    setMenuSpace(px) {
+      if (px === menuSpace) return;
+      menuSpace = px;
+      frame();
+    },
+  };
 }
 
 /** A soft, blurred shadow under the worm (a texture on a flat card: no shadow maps, no extra pass). */

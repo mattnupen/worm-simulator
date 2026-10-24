@@ -15,7 +15,8 @@ import { ANATOMY_UI } from '../content/anatomy';
  * graphics presets) and About, with the viewer's own controls as the first page. Mission's "Back
  * to start" goes to the game. Nothing here pauses.
  */
-export function addPageMenu(app: HTMLElement, controls: HTMLElement | null): void {
+export function addPageMenu(app: HTMLElement, viewer: { controls: HTMLElement | null; setMenuSpace(px: number): void }): void {
+  const { controls } = viewer;
   const store = browserStore();
   const saved = loadSettings(store);
   let { sound, textSize } = saved;
@@ -51,10 +52,15 @@ export function addPageMenu(app: HTMLElement, controls: HTMLElement | null): voi
   }, {
     virtualWorm: false,
     // The viewer's controls are the menu's first page, so they hide with it (Matt, 2026-10-24).
-    extra: controls ? { icon: 'virtualWorm', name: ANATOMY_UI.title, body: controls } : undefined,
+    pages: controls ? [{ id: 'worm', icon: 'virtualWorm', name: ANATOMY_UI.menuTab, draw: () => [controls] }] : [],
   });
+  // On a wide screen the worm moves over beside the open menu; on a phone the menu covers it.
+  const panel = menu.el.querySelector<HTMLElement>('.menu-panel');
+  const space = (): void => viewer.setMenuSpace(menu.open && innerWidth > 700 ? panel?.offsetWidth ?? 0 : 0);
+  new MutationObserver(space).observe(menu.el, { attributes: true, attributeFilter: ['data-open'] });
+  addEventListener('resize', space);
   // A wide screen opens on them; a phone starts with the menu shut, so the worm shows first.
-  if (controls && innerWidth > 700) menu.open('extra');
+  if (controls && innerWidth > 700) menu.slideOut();
   addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && menu.escape()) e.preventDefault();
   });

@@ -1,16 +1,26 @@
 import './gameMenu.css';
 import { el } from './dom';
 import { icon, type IconName } from './icons';
-import { virtualWormIcon } from './virtualWorm';
+import { virtualWormLink } from './virtualWorm';
 import { settingsFields, type SettingsActions, type SettingsNow } from './settingsMenu';
 import { TEXT, shown, type Line } from '../content/text';
 import { SOURCES } from '../content/sources';
 import { CHANGELOG_URL, PLANNED_ROUNDS, ROUNDS, VERSION } from '../version';
 import { PLAY_GOAL_SECONDS, type Quest, type QuestId } from '../game/quests';
 
-/** The menu's pages, in the icon column's order. */
-/** `extra` is a page a host adds (the Virtual worm page's own controls). */
-export type MenuPage = 'extra' | 'mission' | 'rounds' | 'settings' | 'about';
+/** The menu's pages, in the order of its tabs. */
+export type MenuPage = 'mission' | 'rounds' | 'settings' | 'about';
+
+/**
+ * A page a host page adds to the menu, first among the tabs (such as the Virtual worm page's own
+ * options). It draws itself, like the built-in pages, each time it opens.
+ */
+export interface ExtraPage {
+  id: string;
+  icon: IconName;
+  name: Line;
+  draw(): HTMLElement[];
+}
 
 const PAGES: readonly { id: MenuPage; icon: IconName; name: Line }[] = [
   { id: 'mission', icon: 'flag', name: TEXT.menuMission },
@@ -39,84 +49,99 @@ export interface MenuActions extends SettingsActions {
 
 export interface GameMenu {
   readonly el: HTMLElement;
-  /** Redraw what depends on the game (the Pause icon, an open page): after every screen change. */
+  /** True while the panel is out. */
+  readonly open: boolean;
+  /** Redraw what depends on the game (the Pause button, the open page): after every screen change. */
   refresh(): void;
-  /** Esc: hides the open page, else folds the column. False when the menu was already shut. */
+  /** Esc: slides the panel away. False when it was already shut. */
   escape(): boolean;
-  /** Folds everything back to the tab. */
+  /** Slides the panel away, back to the tab. */
   close(): void;
-  /** Opens the column and one page's card. */
-  open(page: MenuPage): void;
+  /** Slides the panel out, on the page it last showed. */
+  slideOut(): void;
 }
 
-/** A page a host adds at the top of the column, its body built once and kept (with its state). */
-export interface ExtraPage { icon: IconName; name: Line; body: HTMLElement }
-
 /**
- * The game menu (Matt, 2026-10-23; spec docs/superpowers/specs/2026-10-23-game-menu-panel.md):
- * one tab at the top left; tapping it shows a column of icons (Mission, Rounds, Settings, About,
- * then Pause); tapping an icon opens its small card beside the column, and tapping it again hides
- * the card. The game keeps running while it is open: only Pause stops it.
+ * The game menu (Matt, 2026-10-23; redesigned 2026-10-24): one tab at the top left. Tapping it
+ * slides the whole panel out from the left edge of the window as one box, with its pages as tabs
+ * across the top (Mission, Rounds, Settings, About) and Pause and the Virtual worm along the
+ * bottom. The tab turns into an X that juts out from the panel's right side, and slides with it.
+ * The game keeps running while it is open: only Pause stops it.
  *
  * Built once and kept in the DOM, beside the shell's card. Pages are drawn when opened, which is
- * plain DOM work: no 3D, nothing compiles. Every icon is a real button with a spoken name and a
- * hover tooltip; the open page's icon is marked with aria-expanded and a border, not colour alone.
+ * plain DOM work: no 3D, nothing compiles. The tabs are real ARIA tabs (arrow keys move between
+ * them); the open one is marked with aria-selected, bold words and an underline, not colour alone.
  */
-export function createGameMenu(root: HTMLElement, a: MenuActions, opts: { virtualWorm?: boolean; extra?: ExtraPage } = {}): GameMenu {
+export function createGameMenu(root: HTMLElement, a: MenuActions, opts: { virtualWorm?: boolean; pages?: readonly ExtraPage[] } = {}): GameMenu {
+  const extra = opts.pages ?? [];
+  const all: readonly { id: string; icon: IconName; name: Line }[] = [...extra, ...PAGES];
   const nav = el('nav', '', 'game-menu');
   nav.setAttribute('aria-label', 'Game menu');
+  nav.dataset.open = 'no';
 
   const tab = iconButton('menu', shown(TEXT.menuOpen), 'menu-tab');
   tab.setAttribute('aria-expanded', 'false');
-  tab.setAttribute('aria-controls', 'menu-icons');
+  tab.setAttribute('aria-controls', 'menu-panel');
 
-  const column = el('div', '', 'menu-icons');
-  column.id = 'menu-icons';
-  column.hidden = true;
-  const pageButtons = new Map<MenuPage, HTMLButtonElement>();
-  const pages = opts.extra ? [{ id: 'extra' as const, icon: opts.extra.icon, name: opts.extra.name }, ...PAGES] : PAGES;
-  for (const p of pages) {
-    const b = iconButton(p.icon, shown(p.name), 'menu-icon');
+  const panel = el('div', '', 'menu-panel');
+  panel.id = 'menu-panel';
+  panel.inert = true;
+
+  const tabs = el('div', '', 'menu-tabs');
+  tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', 'Menu pages');
+  const pageTabs = new Map<string, HTMLButtonElement>();
+  for (const p of all) {
+    const b = el('button', '', 'menu-tabs-tab');
+    b.type = 'button';
+    b.id = `menu-tab-${p.id}`;
     b.dataset.page = p.id;
-    b.setAttribute('aria-expanded', 'false');
-    b.setAttribute('aria-controls', 'menu-card');
-    pageButtons.set(p.id, b);
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-controls', 'menu-page');
+    b.append(icon(p.icon, 'menu-tab-icon'), el('span', shown(p.name), 'menu-tab-name'));
+    pageTabs.set(p.id, b);
     b.addEventListener('click', (e) => {
-      show(page === p.id ? null : p.id);
+      show(p.id);
       pointer(e);
     });
-    column.append(b);
+    tabs.append(b);
   }
-  const line = el('span', '', 'menu-line');
-  line.setAttribute('aria-hidden', 'true');
-  const pause = iconButton('pause', shown(TEXT.menuPause), 'menu-icon menu-pause');
+  // Arrow keys move along the tabs (the ARIA tabs pattern); each tab is in the Tab order too.
+  tabs.addEventListener('keydown', (e) => {
+    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    const to = e.key === 'Home' ? 0 : e.key === 'End' ? all.length - 1
+      : step ? (all.findIndex((p) => p.id === page) + step + all.length) % all.length : -1;
+    if (to < 0) return;
+    e.preventDefault();
+    show(all[to].id);
+    pageTabs.get(all[to].id)!.focus({ preventScroll: true });
+  });
+
+  const body = el('section', '', 'menu-body');
+  body.id = 'menu-page';
+  body.setAttribute('role', 'tabpanel');
+
+  const foot = el('div', '', 'menu-foot');
+  const pause = el('button', '', 'menu-action menu-pause');
+  pause.type = 'button';
   pause.addEventListener('click', (e) => {
     if (a.pause() === 'resume') a.onResume();
     else a.onPause();
     pointer(e);
   });
-  // Last, after Pause: the virtual worm (the 3D anatomy model), which opens in a new tab. Not on
-  // the Virtual worm page itself.
-  column.append(line, pause);
-  if (opts.virtualWorm !== false) column.append(virtualWormIcon('menu-icon'));
+  foot.append(pause);
+  // After Pause: the virtual worm (the 3D anatomy model), which opens in a new tab. Not on the
+  // Virtual worm page itself.
+  if (opts.virtualWorm !== false) foot.append(virtualWormLink('menu-action menu-worm'));
 
-  const card = el('section', '', 'menu-card');
-  card.id = 'menu-card';
-  card.hidden = true;
-  const title = el('h2', '', 'menu-title');
-  title.id = 'menu-title';
-  card.setAttribute('aria-labelledby', title.id);
-  const body = el('div', '', 'menu-body');
-  card.append(title, body);
-
-  const bar = el('div', '', 'menu-bar');
-  bar.append(tab, column);
-  nav.append(bar, card);
-  // First in the page, so Tab reaches the tab before the card, as it sits top left.
+  panel.append(tabs, body, foot);
+  // The tab comes first for Tab and screen readers (then the panel it opens), though it sits on
+  // the panel's right side (gameMenu.css). The menu is first in the page, as it sits top left.
+  nav.append(tab, panel);
   root.prepend(nav);
 
   let open = false;
-  let page: MenuPage | null = null;
+  let page: string = all[0].id;
 
   tab.addEventListener('click', (e) => {
     setOpen(!open);
@@ -131,31 +156,32 @@ export function createGameMenu(root: HTMLElement, a: MenuActions, opts: { virtua
   function setOpen(on: boolean): void {
     open = on;
     nav.dataset.open = on ? 'yes' : 'no';
-    column.hidden = !on;
+    panel.inert = !on;
     tab.setAttribute('aria-expanded', String(on));
     const label = shown(on ? TEXT.menuClose : TEXT.menuOpen);
     tab.setAttribute('aria-label', label);
     tab.title = label;
     tab.replaceChildren(icon(on ? 'close' : 'menu', 'menu-glyph'));
-    if (!on) show(null);
-    else refresh();
-  }
-
-  function show(next: MenuPage | null): void {
-    page = next;
-    for (const [id, b] of pageButtons) b.setAttribute('aria-expanded', String(id === next));
-    card.hidden = next === null;
-    if (next) draw(next);
-  }
-
-  function draw(p: MenuPage): void {
-    title.textContent = shown(pages.find((x) => x.id === p)!.name);
-    card.dataset.page = p;
-    if (p === 'extra') {
-      body.replaceChildren(opts.extra!.body);
-      return;
+    if (on) {
+      refresh();
+      draw(page);
     }
-    body.replaceChildren(...(p === 'mission' ? missionPage() : p === 'rounds' ? roundsPage() : p === 'settings'
+  }
+
+  function show(next: string): void {
+    page = next;
+    draw(next);
+  }
+
+  function draw(p: string): void {
+    for (const [id, b] of pageTabs) {
+      b.setAttribute('aria-selected', String(id === p));
+      b.tabIndex = id === p ? 0 : -1;
+    }
+    body.setAttribute('aria-labelledby', `menu-tab-${p}`);
+    body.dataset.page = p;
+    const own = extra.find((x) => x.id === p);
+    body.replaceChildren(...(own ? own.draw() : p === 'mission' ? missionPage() : p === 'rounds' ? roundsPage() : p === 'settings'
       ? settingsFields(a.settings(), a) : aboutPage()));
   }
 
@@ -229,38 +255,27 @@ export function createGameMenu(root: HTMLElement, a: MenuActions, opts: { virtua
 
   function refresh(): void {
     const p = a.pause();
-    pause.hidden = line.hidden = p === null;
-    const label = shown(p === 'resume' ? TEXT.menuResume : TEXT.menuPause);
-    pause.setAttribute('aria-label', label);
-    pause.title = label;
-    pause.replaceChildren(icon(p === 'resume' ? 'play' : 'pause', 'menu-glyph'));
+    pause.hidden = p === null;
+    foot.hidden = pause.hidden && opts.virtualWorm === false;
+    pause.replaceChildren(icon(p === 'resume' ? 'play' : 'pause', 'menu-action-icon'),
+      el('span', shown(p === 'resume' ? TEXT.menuResume : TEXT.menuPause)));
     // Mission and Rounds follow the game (play minutes, Back to start, the replay). A page the
     // player is working in keeps its focus: it is not redrawn under them.
-    if ((page === 'mission' || page === 'rounds') && !card.contains(document.activeElement)) draw(page);
+    if (open && (page === 'mission' || page === 'rounds') && !body.contains(document.activeElement)) draw(page);
   }
 
   return {
     el: nav,
+    get open() { return open; },
     refresh,
     escape() {
-      if (page) {
-        const b = pageButtons.get(page)!;
-        show(null);
-        b.focus({ preventScroll: true });
-        return true;
-      }
-      if (open) {
-        setOpen(false);
-        tab.focus({ preventScroll: true });
-        return true;
-      }
-      return false;
+      if (!open) return false;
+      setOpen(false);
+      tab.focus({ preventScroll: true });
+      return true;
     },
     close: () => setOpen(false),
-    open(p) {
-      setOpen(true);
-      show(p);
-    },
+    slideOut: () => setOpen(true),
   };
 }
 

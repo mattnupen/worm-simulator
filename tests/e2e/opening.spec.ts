@@ -23,7 +23,7 @@ const menu = (page: Page) => page.getByRole('navigation', { name: 'Game menu' })
 /** The game menu's Rounds page (Matt, 2026-10-23): the opening's replay is its first line. */
 async function openRounds(page: Page): Promise<void> {
   await menu(page).getByRole('button', { name: 'Open the menu' }).click();
-  await menu(page).getByRole('button', { name: 'Rounds', exact: true }).click();
+  await menu(page).getByRole('tab', { name: 'Rounds', exact: true }).click();
 }
 const replay = (page: Page) => button(page, shown(TEXT.roundsOpening));
 
@@ -123,6 +123,6 @@ test('students never see the opening\'s replay before they have seen it', async 
   await button(page, 'Crawl').click();
   await expect(crawling(page)).toBeVisible();
   await openRounds(page);
-  await expect(page.getByRole('region', { name: 'Rounds' })).toBeVisible();
+  await expect(page.getByRole('tabpanel', { name: 'Rounds' })).toBeVisible();
   await expect(replay(page)).toHaveCount(0);
 });

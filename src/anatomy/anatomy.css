@@ -147,14 +147,14 @@
 .anatomy-label[hidden], .anatomy-card[hidden] { display: none; }
 
 /* The Views, Layers and Parts controls live in the game menu's Virtual worm page (Matt, 2026-10-24),
-   so the menu's tab hides them. The card's title already names the page. */
-.menu-card .anatomy-panel {
+   so the menu's tab hides them. The menu's tab already names the page. */
+.menu-body .anatomy-panel {
   position: static; width: auto; max-height: none; overflow: visible;
   padding: 0; background: none; box-shadow: none; border-radius: 0;
 }
-.menu-card .anatomy-panel-head { display: none; }
-.menu-card .anatomy-panel-body { height: auto; overflow: visible; }
-.menu-card .anatomy-tabs { margin-top: 0; }
+.menu-body .anatomy-panel-head { display: none; }
+.menu-body .anatomy-panel-body { height: auto; overflow: visible; }
+.menu-body .anatomy-tabs { margin-top: 0; }
 
 /* The zoom bar, top right (zoom.ts): + over a vertical slider over -. */
 .anatomy-zoom {

@@ -21,15 +21,3 @@ export function virtualWormLink(className: string, view?: string): HTMLAnchorEle
   return a;
 }
 
-/** The game menu's icon for it: the icon alone, with its name spoken and as a tooltip. */
-export function virtualWormIcon(className: string): HTMLAnchorElement {
-  const a = el('a', '', className);
-  a.href = virtualWormHref();
-  a.target = '_blank';
-  a.rel = 'noopener';
-  const label = shown(TEXT.virtualWorm);
-  a.setAttribute('aria-label', label);
-  a.title = label;
-  a.append(icon('virtualWorm', 'menu-glyph'));
-  return a;
-}

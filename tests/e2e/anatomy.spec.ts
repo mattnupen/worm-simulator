@@ -65,7 +65,7 @@ test('on a phone: the controls are in the slide-out menu, a card fits the screen
   await expect(tabs).toBeHidden();
   const nav = page.getByRole('navigation', { name: 'Game menu' });
   await nav.getByRole('button', { name: shown(TEXT.menuOpen) }).click();
-  await nav.getByRole('button', { name: shown(ANATOMY_UI.title) }).click();
+  await expect(nav.getByRole('tab', { name: shown(ANATOMY_UI.menuTab) })).toHaveAttribute('aria-selected', 'true');
   await tabs.click();
   await page.locator('.anatomy-panel').getByRole('button', { name: shown(ANATOMY_PARTS.gizzard.name), exact: true }).click();
   // Shut the menu to see the worm and the part's card.
@@ -89,10 +89,10 @@ test('on a phone: the controls are in the slide-out menu, a card fits the screen
   // The game menu is here too: Mission has Back to start, and the game's Virtual worm link is
   // left out (this is that page).
   await nav.getByRole('button', { name: shown(TEXT.menuOpen) }).click();
-  await nav.getByRole('button', { name: shown(TEXT.menuMission) }).click();
+  await nav.getByRole('tab', { name: shown(TEXT.menuMission) }).click();
   await expect(nav.getByRole('button', { name: shown(TEXT.menuToStart) })).toBeVisible();
   await expect(nav.getByRole('link', { name: shown(TEXT.virtualWorm) })).toHaveCount(0);
-  await nav.getByRole('button', { name: shown(TEXT.menuSettings) }).click();
+  await nav.getByRole('tab', { name: shown(TEXT.menuSettings) }).click();
   await expect(nav.getByRole('group', { name: 'Text size' })).toBeVisible();
   await expect(nav.getByRole('group', { name: 'Graphics' })).toHaveCount(0);
 });

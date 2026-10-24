@@ -137,13 +137,14 @@ test('keyboard only: dig down, dig around, switch the camera, pause, come up', a
   await page.keyboard.press('Tab');
   await expect(button(page, 'Open the menu')).toBeFocused();
   await page.keyboard.press('Enter');
-  for (let i = 0; i < 5; i++) await page.keyboard.press('Tab');
+  // The panel opens on Mission: its tab, Back to start, then Pause along the bottom.
+  for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
   await expect(button(page, 'Pause')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('region', { name: 'Paused' })).toBeVisible();
   await expect(page.locator('.action-prompt')).toBeHidden();
   await page.getByRole('region', { name: 'Paused' }).getByRole('button', { name: 'Resume' }).press('Enter');
-  // Esc folds the menu and hands the keys back to the worm.
+  // Esc slides the menu away and hands the keys back to the worm.
   await page.keyboard.press('Escape');
   await expect(button(page, 'Open the menu')).toBeVisible();
   await place(page, 'underground');
