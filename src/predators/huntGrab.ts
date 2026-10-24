@@ -17,6 +17,13 @@ const LEAN_S = 0.15;
 /** ...with a jerk this many times a second on top (under 3: a yank, never a flicker). */
 const YANK_HZ = 2.5;
 
+/**
+ * A worm grabbed underground (revision 4) is first pulled up out of its hole over this long (s):
+ * the robin straightens from bent right down to its grip's start, drawing the worm up after its
+ * bill. The grip game starts after it.
+ */
+export const PULL_UP_S = 1.1;
+
 const ease = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 const bump = (k: number): number => (k <= 0 || k >= 1 ? 0 : Math.sin(Math.PI * k));
 
@@ -24,13 +31,19 @@ export class HuntGrab {
   readonly grip = createGrip();
   // Starting as fractions (V8 boxes every fraction written to a field that first held a whole number).
   readonly look: GripLook = { level: 0.5, loosen: 0.5, tug: 0.5 };
+  /** How far the robin has pulled a worm grabbed underground up out of its hole (0..1; 1 from the surface). */
+  pulledUp = 1;
   private readonly edge = createPressEdge();
   private tapped = false;
+  /** Seconds into the pull up (PULL_UP_S or more: done). */
+  private upT = PULL_UP_S;
 
-  /** A new grab. */
-  start(): void {
+  /** A new grab; `below`: of a worm underground, pulled up out of its hole first. */
+  start(below = false): void {
     startGrip(this.grip);
-    this.look.level = this.grip.pos;
+    this.upT = below ? 0 : PULL_UP_S;
+    this.pulledUp = below ? 0 : 1;
+    this.look.level = below ? 0 : this.grip.pos;
     this.look.loosen = 0;
     this.look.tug = 0;
     this.tapped = false;
@@ -50,6 +63,13 @@ export class HuntGrab {
     this.tapped = false;
     if (!grabbing) return 'none';
     const g = this.grip;
+    if (this.upT < PULL_UP_S) {
+      // Pulling it up out of its hole: steadily, then the grip game (a press now does nothing).
+      this.upT += dt;
+      this.pulledUp = ease(this.upT / PULL_UP_S);
+      this.look.level = g.pos * this.pulledUp;
+      return 'none';
+    }
     const ev = stepGrip(g, dt, pressed, rand);
     const l = this.look;
     l.level += (g.pos - l.level) * (1 - Math.exp(-LEVEL_RATE * dt));

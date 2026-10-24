@@ -18,6 +18,33 @@ rows of the V3 form export, as in that plan. **Builds on:** the robin model and 
 5. V4's lesson is **eating and getting energy** (worm anatomy, how and what worms eat), not
    natural dangers. It's researched in a separate thread. This spec covers only the game code.
 
+## Revision 4 (Matt, 2026-10-24)
+
+Wins over the older sections where they differ. All numbers are in `src/predators/huntTune.ts`.
+
+1. **No outrunning it on the surface.** A worm crawling away cuts the robin's stare short (after
+   `react`, 0.4 s) and it runs after it, further each run (`runCm`, at `runSpeed`, 64 cm/s: the
+   same speed as its old short runs). A worm at the crawl's top speed is caught in about 10 s. A
+   worm that stays still still gets the full stares (time to dig). Escape is still digging down,
+   then deeper (2).
+2. **Burrowing near the robin isn't an escape by itself.** The robin stays where it is in the
+   world while the worm digs down (or is up on a rock: before, both made it give up), then walks
+   over to the spot above the head on the cut's line and can still get the worm in the top two
+   layers. The worm is away only below `escapeLayer` (the humus top: the one escape depth).
+3. **Digging for a worm underground.** After its strike the robin scratches the leaf litter with
+   its feet (`scratch`), then stabs down with its bill (`probe`), bits of leaf flying up with each
+   kick and stab (a few flakes in the robin's own mesh: no new draw or material), and the hole
+   opens in the soil as it does (`burrowPeck.ts`). Then it pulls the worm up out of its hole over 1.1 s
+   (`PULL_UP_S`, huntGrab.ts), the head travelling up the hole to the bill, and the grip game
+   starts. The worm can still dig deeper during the scratch and probe. Recorded game choice
+   (`huntDigChoice`): real robins mostly flick leaves with their bills and pull worms near the
+   surface; this robin also scratches with its feet and digs down a little.
+4. **The pulled worm stays in its burrow.** The surface grab's burrow goes almost straight down
+   (it leant away in line with the bill, so the worm looked like one stiff rod through the
+   ground). Now the body bends at the hole toward the bill, and the part in the ground stays put.
+   The span between the bill and the hole sags a little when the robin isn't pulling hard
+   (`holdSag.ts`) and goes taut through each pull, never dipping into the ground.
+
 ## Revision 3 (Matt, 2026-10-23)
 
 Every catch takes the worm to the nest: `WHOLE_WORM_CHANCE` is 1, so the worm no longer breaks

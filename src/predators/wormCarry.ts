@@ -1,6 +1,7 @@
 import type * as THREE from 'three';
 import type { MeshWriter } from '../surface/meshWriter';
 import { lin, loft, mix, smooth } from './robinGeom';
+import { WormFeed } from './wormFeed';
 
 /**
  * The worm in the robin's bill on the way to the nest (V4 nest scene): a soft rope of points held
@@ -49,6 +50,8 @@ export class WormCarry {
   free = false;
   /** The ground's height (nest frame) under a nest-frame point: the rope lies on it, never under it. */
   floor: (x: number, z: number) => number = () => -1e9;
+  /** Fed to a nestling at the end (wormFeed.ts; the scene sets how far along). */
+  readonly feed = new WormFeed();
   private readonly p = new Float32Array(WORM_POINTS * 3);
   private readonly q = new Float32Array(WORM_POINTS * 3);
   /** The three held points, now and at the last step (they move smoothly across substeps). */
@@ -91,6 +94,7 @@ export class WormCarry {
     this.age = 0;
     this.thrash = 0;
     this.free = false;
+    this.feed.reset();
     this.ground();
   }
 
@@ -151,13 +155,16 @@ export class WormCarry {
       const k = s / n;
       for (let it = 0; it < 10; it++) {
         this.holdPins(k);
+        this.feed.apply(p, q, WORM_POINTS, SEG, HOLD);
         for (let i = 0; i < WORM_POINTS - 1; i++) this.link(i, i + 1, SEG, 0.5);
         // A little stiffness: a worm bends, but not like a string.
         // (Not across the bill: the ends hang straight down from its edges.)
         // Let go, it is one body again, held a little straighter (no kinks where the bill was).
-        for (let i = 0; i < WORM_POINTS - 2; i++) if (this.free || i + 2 < HOLD - 1 || i > HOLD + 1) this.link(i, i + 2, SEG * 1.85, this.free ? 0.2 : 0.06);
+        const loose = this.free || !this.feed.held;
+        for (let i = 0; i < WORM_POINTS - 2; i++) if (loose || i + 2 < HOLD - 1 || i > HOLD + 1) this.link(i, i + 2, SEG * 1.85, this.free ? 0.2 : 0.06);
       }
       this.holdPins(k);
+      this.feed.apply(p, q, WORM_POINTS, SEG, HOLD);
       this.ground();
     }
   }
@@ -225,7 +232,7 @@ export class WormCarry {
 
   /** The held points, `k` (0..1) of the way from where the bill was to where it is. */
   private holdPins(k: number): void {
-    if (this.free) return;
+    if (this.free || !this.feed.held) return;
     for (let j = 0; j < 3; j++) {
       const i = (HOLD - 1 + j) * 3;
       for (let d = 0; d < 3; d++) {

@@ -9,7 +9,7 @@ import { Robin } from './robin';
 import { Nest } from './nest';
 import { TRUNK_GAP } from './nestShape';
 import { NEST_FOV, cameraAt, planCamera } from './nestCamera';
-import { NEST_TIMES, darkAt, makeSetup, nestCaptionAt, nestlingAt, robinAt, type NestSetup } from './nestScript';
+import { NEST_TIMES, darkAt, feedAt, makeSetup, nestCaptionAt, nestlingAt, robinAt, type NestSetup } from './nestScript';
 import { NestWiggle, WIGGLE } from './nestWiggle';
 import { DROP_CLEAR, clearOfTrunks, fallCamera, fallShot, ropeToBody } from './nestFall';
 import { WORM_POINTS } from './wormCarry';
@@ -72,6 +72,8 @@ export class NestScene {
   private readonly b = new THREE.Vector3();
   private readonly c = new THREE.Vector3();
   private readonly w = new THREE.Vector3();
+  private readonly inner = new THREE.Vector3();
+  private readonly eye = new THREE.Vector3();
   private readonly up = new THREE.Vector3(0, 1, 0);
   private readonly scene: THREE.Scene;
   /**
@@ -218,14 +220,22 @@ export class NestScene {
     if (free) this.robin.pose.bill = Math.max(this.robin.pose.bill, 0.35);
     this.robin.update();
     for (let i = 0; i < this.nest.chicks.length; i++) nestlingAt(T, i, this.nest.chicks[i]);
+    this.nest.poseChicks();
     this.pins();
+    // Fed to the first nestling: into its gape as posed now, the end nearer the camera first.
+    const feed = this.nest.worm.feed;
+    if (!free) feedAt(T, feed);
+    if (feed.active) {
+      this.nest.mouth(0, this.w, this.inner);
+      feed.aim(this.w, this.inner, this.nest.toNest(this.eye.set(this.pos[0], this.pos[1], this.pos[2])));
+    }
     // The rope moves on by the frame's time (never back: a held frame stands still).
     const dt = Math.min(0.1, Math.max(0, T - this.wormT));
     this.wormT = Math.max(this.wormT, T);
     this.nest.worm.thrash = shake;
     this.nest.worm.step(dt, this.a, this.b, this.c);
     this.nest.worm.shown = free || T < NEST_TIMES.fed;
-    this.nest.update();
+    this.nest.update(true);
     if (free) {
       this.nest.toWorld(this.nest.worm.point(WORM_POINTS >> 1, this.w));
       this.fallWorm[0] = this.w.x; this.fallWorm[1] = this.w.y; this.fallWorm[2] = this.w.z;

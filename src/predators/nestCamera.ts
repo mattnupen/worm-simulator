@@ -17,6 +17,9 @@ const NEST_FROM = [34, 30, 21];
 const NEST_TO = [27, 25, 16];
 const NEST_LOOK = [0, 8, 1];
 const NEST_LOOK_TO = [0, 8.5, 0.5];
+/** Closer in for the feeding, on the first nestling's open mouth (nestScript.ts NEST_TIMES.feed). */
+const FEED_FROM = [17, 18, 14];
+const FEED_LOOK = [0, 9.8, 0.5];
 /** The flight shot: how far above the robin the camera flies with it (how far to the side: planCamera). */
 const TRACK_UP = 1.5;
 /** How close the camera may come to a trunk's bark (world units). */
@@ -24,7 +27,7 @@ const BARK_CLEAR = 0.8;
 /** Vertical field of view (degrees), widened on tall screens (nestScene.ts). */
 export const NEST_FOV = 50;
 /** Reduced motion: when each still shot cuts in. */
-export const STILL_CUTS = [0, 1.6, NEST_TIMES.land - 0.15] as const;
+export const STILL_CUTS = [0, 1.6, NEST_TIMES.land - 0.15, NEST_TIMES.leanIn[0]] as const;
 
 const a3 = [0, 0, 0];
 const b3 = [0, 0, 0];
@@ -102,10 +105,10 @@ export function cameraAt(t: number, s: NestSetup, robin: RobinPose, reduced: boo
       pos[0] = look[0] + pos[0] * 22;
       pos[1] = look[1] + 2;
       pos[2] = look[2] + pos[2] * 22;
-    } else {
+    } else if (t < STILL_CUTS[3]) {
       nestShot(s, 0.6, pos);
       nestToWorld(s, NEST_LOOK_TO[0], NEST_LOOK_TO[1], NEST_LOOK_TO[2], look);
-    }
+    } else feedShot(s, 1, pos, look);
     return;
   }
   // The flight: from the floor shot the camera flies up beside the robin, a little above it, then
@@ -127,6 +130,21 @@ export function cameraAt(t: number, s: NestSetup, robin: RobinPose, reduced: boo
   const settle = span(t, NEST_TIMES.land, NEST_TIMES.end);
   nestToWorld(s, lerp(NEST_LOOK[0], NEST_LOOK_TO[0], settle), lerp(NEST_LOOK[1], NEST_LOOK_TO[1], settle), lerp(NEST_LOOK[2], NEST_LOOK_TO[2], settle), b3);
   for (let i = 0; i < 3; i++) look[i] = lerp(c3[i], b3[i], k);
+  // In close for the feeding.
+  const feed = span(t, NEST_TIMES.leanIn[0] - 0.3, NEST_TIMES.feed[1]);
+  if (feed > 0) {
+    feedShot(s, feed, pos, look);
+  }
+}
+
+/** Eases the camera (`pos`, `look`) by k toward the feeding shot. */
+function feedShot(s: NestSetup, k: number, pos: number[], look: number[]): void {
+  nestToWorld(s, FEED_FROM[0], FEED_FROM[1], FEED_FROM[2], a3);
+  nestToWorld(s, FEED_LOOK[0], FEED_LOOK[1], FEED_LOOK[2], b3);
+  for (let i = 0; i < 3; i++) {
+    pos[i] = lerp(pos[i], a3[i], k);
+    look[i] = lerp(look[i], b3[i], k);
+  }
 }
 
 /**

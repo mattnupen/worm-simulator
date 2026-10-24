@@ -40,6 +40,7 @@ export function lessonRobinPose(
   out.lift = 0; out.crouch = 0; out.pitch = 0; out.stride = 0;
   out.headYaw = 0; out.headPitch = 0; out.headRoll = 0;
   out.bill = 0; out.tail = 0; out.flying = false; out.flap = 0; out.stroke = 0;
+  out.flick = 0; out.flickBill = false;
 
   // Ahead of the worm (cm), and to the side.
   let ahead = LAND_CM;

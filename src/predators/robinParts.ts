@@ -4,6 +4,7 @@ import { writeFlightTail, writeOpenArm, writeOpenHand, writeUndertail } from './
 import {
   LEG, PIVOTS, PRIMARY, TAIL, THIGH, WHITE, WING, WING_EDGE, bodyPoint, writeBill, writeBody, writeHead,
 } from './robinShape';
+import { writeBits } from './robinBits';
 
 /**
  * The robin's folded wings, tail and legs (robinShape.ts has the body, head and bill, the colours and
@@ -73,6 +74,8 @@ export const ROBIN_PARTS = {
   flightTail: writeFlightTail,
   legR: (w: MeshWriter) => writeLeg(w, -1),
   legL: (w: MeshWriter) => writeLeg(w, 1),
+  // Bits of leaf it flicks up digging for a worm (hidden otherwise).
+  bits: writeBits,
 } as const;
 
 export type RobinPartName = keyof typeof ROBIN_PARTS;

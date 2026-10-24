@@ -15,32 +15,46 @@ import type { Robin } from './robin';
 /**
  * Fills `w` from the game: on the surface the head; underground the spot on the ground above the
  * head, just behind the cut (the robin hunts along it, seen side on), catchable only with the head
- * in the top two layers; mid-move, out of reach. A robin hunting one way (surface or underground)
- * can't carry on the other: it misses and goes.
+ * in the top two layers. Revision 4: a worm digging down or coming up, or up on a rock or the log,
+ * is out of reach only for now (`wait`): the robin keeps after it from where it stands, and walks
+ * over to the spot above a worm that dug down.
  */
-export function readWorm(g: BurrowGame, h: HuntState, w: HuntInput): void {
+export function readWorm(g: BurrowGame, w: HuntInput): void {
   const m = g.mode.mode;
   const s = g.slab;
+  w.wait = false;
+  w.ax = 0;
+  w.az = 0;
   if (m === 'surface') {
     const c = g.crawl.motion;
     w.under = false;
     // Not while up on a rock or the log (V4 hot fix, 2026-10-23): the grab's side view cuts the
     // ground under the worm, so a raised worm would hang over it. The robin waits for it to come down.
-    w.catchable = g.approach.burrow < 0 && !onProp(c.head.x, c.head.z);
+    const up = onProp(c.head.x, c.head.z);
+    w.catchable = g.approach.burrow < 0 && !up;
+    w.wait = up;
     w.hx = c.head.x;
     w.hz = c.head.z;
     w.heading = c.heading;
-  } else if (m === 'underground' && s) {
-    const hu = g.worm.u[0];
+  } else if ((m === 'underground' || m === 'diggingDown') && s) {
+    // Digging down, the head goes in at the hole (the slab's origin, u = 0).
+    const dig = m === 'diggingDown';
+    const hu = dig ? 0 : g.worm.u[0];
     w.under = true;
-    w.catchable = headCatchable(s, hu, g.worm.v[0]);
+    w.catchable = !dig && headCatchable(s, hu, g.worm.v[0]);
+    w.wait = dig;
     w.hx = slabX(s, hu) - s.nx * ROBIN_BEHIND;
     w.hz = slabZ(s, hu) - s.nz * ROBIN_BEHIND;
+    w.ax = s.tx;
+    w.az = s.tz;
     // It lands toward the slab's middle, where there's room on screen.
     const side = hu > (s.playLo + s.playHi) / 2 ? -1 : 1;
     w.heading = Math.atan2(side * s.tx, side * s.tz);
-  } else w.catchable = false;
-  if (h.phase !== 'away' && h.under !== w.under) w.catchable = false;
+  } else {
+    // Coming up: where it was last (the robin waits for it to come out).
+    w.catchable = false;
+    w.wait = true;
+  }
 }
 
 const floor: WormSurface = { y: 0 };

@@ -19,7 +19,8 @@ const finite = (o: Record<string, unknown>): boolean => Object.values(o).every((
 describe('nest scene script', () => {
   it('runs in order and ends after about 10 seconds', () => {
     const T = NEST_TIMES;
-    const order = [0, T.takeoff, T.beg, T.land, T.leanIn[0], T.leanIn[1], T.fade[0], T.fed, T.fade[1], T.end];
+    const order = [0, T.takeoff, T.beg, T.land, T.feed[0], T.leanIn[1], T.feed[1], T.feed[2], T.fade[0], T.feed[3], T.fade[1], T.end];
+    expect(T.fed).toBe(T.feed[3]);
     for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
     expect(T.leanOut[0]).toBeGreaterThan(T.fed);
     expect(T.leanOut[1]).toBeGreaterThan(T.leanOut[0]);
@@ -30,9 +31,10 @@ describe('nest scene script', () => {
     for (let i = 1; i < STILL_CUTS.length; i++) expect(STILL_CUTS[i]).toBeGreaterThan(STILL_CUTS[i - 1]);
   });
 
-  it('is nearly dark when the worm is given, so nothing is shown being swallowed', () => {
+  it('is clear while the worm goes into the mouth, then dark by the end', () => {
     expect(darkAt(0)).toBe(0);
-    expect(darkAt(NEST_TIMES.fed)).toBeGreaterThan(0.85);
+    expect(darkAt(NEST_TIMES.feed[2])).toBe(0);
+    expect(darkAt(NEST_TIMES.fed)).toBeLessThan(0.2);
     expect(darkAt(NEST_TIMES.end)).toBe(1);
   });
 
@@ -98,7 +100,7 @@ describe('nest scene script', () => {
     const s = makeSetup(0, 0, 0, 0, nestSite());
     const r = restPose();
     const a = [0, 0, 0], b = [0, 0, 0], la = [0, 0, 0], lb = [0, 0, 0];
-    for (const [from, to] of [[0.05, STILL_CUTS[1] - 0.05], [STILL_CUTS[1] + 0.05, STILL_CUTS[2] - 0.05], [STILL_CUTS[2] + 0.05, NEST_TIMES.end]]) {
+    for (const [from, to] of [[0.05, STILL_CUTS[1] - 0.05], [STILL_CUTS[1] + 0.05, STILL_CUTS[2] - 0.05], [STILL_CUTS[2] + 0.05, STILL_CUTS[3] - 0.05], [STILL_CUTS[3] + 0.05, NEST_TIMES.end]]) {
       robinAt(from, s, r);
       cameraAt(from, s, r, true, a, la);
       robinAt(to, s, r);
@@ -112,7 +114,7 @@ describe('nest scene script', () => {
     expect(nestCaptionAt(0)).toBeNull();
     expect(nestCaptionAt(NEST_TIMES.takeoff + 0.1)).toBe('nestWings');
     expect(nestCaptionAt(NEST_TIMES.beg + 0.5)).toBe('nestCheep');
-    expect(TEXT.nestFact.kind).toBe('fact');
+    expect(TEXT.nestEatenLine.kind).toBe('fact');
     expect(TEXT.nestSeason.kind).toBe('gameChoice');
   });
 });
@@ -159,7 +161,8 @@ describe('nest scene player', () => {
     const p = new THREE.Vector3();
     const q = new THREE.Vector3();
     const bill = new THREE.Vector3();
-    for (let f = 0; f < 8 * 60; f++) {
+    // Until it starts for the nestling's mouth (then wormFeed.ts has it; the next test).
+    for (let f = 0; f < NEST_TIMES.feed[0] * 60 - 1; f++) {
       nest.step(1 / 60);
       nest.pose(1, camera);
       if (f % 20) continue;
@@ -178,6 +181,51 @@ describe('nest scene player', () => {
       nest.nest.toWorld(p);
       expect(p.distanceTo(nest.robin.billHold(bill))).toBeLessThan(0.05);
     }
+    nest.stop();
+  });
+
+  it('feeds the worm straight into the first nestling\'s open mouth, from the camera\'s side', () => {
+    const nest = new NestScene(new THREE.Scene());
+    const camera = new THREE.PerspectiveCamera(60, 1.6, 0.2, 120);
+    nest.start(-3, 4, 2, false);
+    const mouth = new THREE.Vector3();
+    const inner = new THREE.Vector3();
+    const bill = new THREE.Vector3();
+    const p = new THREE.Vector3();
+    const T = NEST_TIMES;
+    let first = -1;
+    let near = -1;
+    for (let f = 0; f < T.end * 60; f++) {
+      nest.step(1 / 60);
+      nest.pose(1, camera);
+      const t = nest.t;
+      nest.nest.mouth(0, mouth, inner);
+      if (near < 0 && t >= T.feed[0] - 0.05) {
+        // The end nearer the camera as it starts for the mouth.
+        const eye = nest.nest.toNest(camera.position.clone());
+        const d0 = nest.nest.worm.point(0, p).distanceTo(eye);
+        near = d0 < nest.nest.worm.point(WORM_POINTS - 1, p).distanceTo(eye) ? 0 : WORM_POINTS - 1;
+      }
+      if (t >= T.feed[1] && t < T.feed[2]) {
+        // The robin's bill is just over the gape, and one end of the worm is in it.
+        nest.nest.toNest(nest.robin.billHold(bill));
+        expect(bill.distanceTo(mouth)).toBeLessThan(2.5);
+        expect(bill.y).toBeGreaterThan(mouth.y);
+        if (first < 0) {
+          const d0 = nest.nest.worm.point(0, p).distanceTo(mouth);
+          first = d0 < nest.nest.worm.point(WORM_POINTS - 1, p).distanceTo(mouth) ? 0 : WORM_POINTS - 1;
+          // The end nearer the camera went in: it never goes in behind the nestlings.
+          expect(first).toBe(near);
+        }
+        // In the mouth, or down the throat behind it.
+        expect(nest.nest.worm.point(first, p).distanceTo(mouth)).toBeLessThan(mouth.distanceTo(inner) + 0.3);
+      }
+      if (t >= T.fed - 0.02 && t < T.fed) {
+        // All of it is in, inside the head behind the gape.
+        for (let i = 0; i < WORM_POINTS; i++) expect(nest.nest.worm.point(i, p).distanceTo(inner)).toBeLessThan(1.6);
+      }
+    }
+    expect(first).toBeGreaterThanOrEqual(0);
     nest.stop();
   });
 

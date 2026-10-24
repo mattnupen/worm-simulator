@@ -9,9 +9,9 @@ import { RIM_R, RIM_Y } from './nestShape';
  * The nest scene's script (V4 spec section 5; about 10 seconds), as plain data and pure poses: the
  * robin, with the whole worm in its bill, flies from the forest floor up to its nest in the sugar
  * maple, lands on the rim, the three nestlings stretch up with their mouths wide, the robin leans
- * in to feed one, and the screen fades to dark. Then the fact card (nestScene.ts). Gentle on
- * purpose: nothing is shown being swallowed (the picture is nearly dark when the worm is given).
- * Times in seconds from the catch.
+ * in and puts one end of the worm into the nearest one's open mouth, lets go, the nestling takes
+ * it all in (Matt, revision 4: "make sure the worm goes directly into a mouth"), and the screen
+ * fades to dark. Then the end card (ui/nestScene.ts). Times in seconds from the catch.
  */
 export const NEST_TIMES = {
   /** The robin springs off the ground with the worm. */
@@ -20,13 +20,18 @@ export const NEST_TIMES = {
   land: 4.45,
   /** The nestlings feel it coming and reach up, mouths open. */
   beg: 4.15,
-  /** It leans in to the nearest nestling, holds there, and straightens up again (in the dark). */
+  /** It leans in to the nearest nestling, holds there, and straightens up again (into the dark). */
   leanIn: [6.4, 7.2],
-  leanOut: [8.9, 9.6],
-  /** The worm is given (the picture is nearly dark by now): it is no longer drawn. */
-  fed: 8.75,
-  /** The screen goes dark, and the fact card comes up at the end. */
-  fade: [7.5, 9.0],
+  leanOut: [8.7, 9.4],
+  /**
+   * Feeding (wormFeed.ts): one end of the worm starts for the open mouth, is at it (the nestling
+   * takes it in up to the bill), the robin lets go, and the whole worm is in.
+   */
+  feed: [6.9, 7.45, 8.1, 8.5],
+  /** The worm is all in: it is no longer drawn. */
+  fed: 8.5,
+  /** The screen goes dark as it is fed, and the end card comes up at the end. */
+  fade: [8.4, 9.3],
   end: 10,
 } as const;
 
@@ -154,14 +159,28 @@ export function robinAt(t: number, s: NestSetup, out: RobinPose): void {
   const look = span(t, T.land + 0.2, T.land + 0.7);
   out.headPitch = -0.3 + 0.55 * look;
   out.headYaw = 0.3 * Math.sin((t - T.land) * 2.2) * look * (1 - span(t, T.leanIn[0] - 0.4, T.leanIn[0]));
-  // Leans in to the nearest one, and back.
+  // Leans in to the nearest one, its bill pointing down into the open mouth, and back. (Worked
+  // out to put the bill's hold just over the first nestling's gape as it stretches up: a test
+  // in tests/unit/nestScene.test.ts checks it.)
   const lean = span(t, T.leanIn[0], T.leanIn[1]) * (1 - span(t, T.leanOut[0], T.leanOut[1]));
-  out.pitch = 0.95 * lean;
-  out.headPitch += 0.3 * lean;
+  out.pitch = 0.35 * lean;
+  out.headPitch += 1.1 * lean;
   out.tail -= 0.5 * lean;
   out.crouch += 0.35 * lean;
   // The bill opens to let go of the worm.
-  out.bill = t < T.fed ? 0.12 : 0.12 + 0.3 * bump(t, T.fed, T.fed + 0.4);
+  out.bill = 0.12 + 0.3 * bump(t, T.feed[2], T.feed[2] + 0.45);
+}
+
+/** How far the feeding has gone at t (into `out`: wormFeed.ts's reach, take, rest and held). */
+export function feedAt(t: number, out: { reach: number; take: number; rest: number; held: boolean }): void {
+  const [a, b, c, d] = NEST_TIMES.feed;
+  out.reach = span(t, a, b);
+  // It takes the worm in up to the bill while the robin holds it; then it gulps the rest down.
+  out.take = span(t, b, c);
+  // (Fastest at first: what the robin let go of goes in before it can fall far.)
+  const k = Math.min(1, Math.max(0, (t - c) / (d - c)));
+  out.rest = 1 - (1 - k) * (1 - k);
+  out.held = t < c;
 }
 
 /** Phases so the three nestlings never move together. */
@@ -176,11 +195,12 @@ export function nestlingAt(t: number, i: number, out: NestlingPose): void {
   const settle = i === 0 ? span(t, T.fed + 0.1, T.fed + 0.9) : span(t, T.leanOut[0], T.leanOut[1] + 0.2);
   const begging = reach * (1 - settle);
   const ph = PHASE[i];
-  // Wobbling on their weak necks, mouths opening and shutting a little as they cheep.
+  // Wobbling on their weak necks, mouths opening and shutting a little as they cheep. The fed one
+  // holds still for the robin, stretched up as far as it goes, its open mouth under the bill.
   const still = i === 0 ? span(t, T.leanIn[0], T.leanIn[1]) : 0;
-  out.sway = begging * (1 - 0.8 * still) * 0.24 * Math.sin(t * BEG_RATE[i] + ph) + (1 - reach) * 0.02 * Math.sin(t * 1.3 + ph);
-  out.stretch = begging * (0.88 + 0.12 * Math.sin(t * 3.1 + ph)) + 0.12 * settle;
-  out.lean = begging * (0.18 + 0.1 * Math.sin(t * 2.3 + ph) + 0.15 * still);
+  out.sway = begging * (1 - 0.9 * still) * 0.24 * Math.sin(t * BEG_RATE[i] + ph) + (1 - reach) * 0.02 * Math.sin(t * 1.3 + ph);
+  out.stretch = begging * ((0.88 + 0.12 * Math.sin(t * 3.1 + ph)) * (1 - still) + 1.0 * still) + 0.12 * settle;
+  out.lean = begging * (0.18 + 0.1 * Math.sin(t * 2.3 + ph)) * (1 - still);
   const shut = i === 0 ? span(t, T.fed, T.fed + 0.25) : settle;
   out.open = reach * (1 - shut) * (0.82 + 0.18 * Math.sin(t * 13 + ph * 3) * (1 - still));
 }

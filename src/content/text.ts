@@ -41,6 +41,11 @@ export const TEXT = {
   },
   // Game choices: the record of what the game bends, never shown (Matt, 2026-10-23).
   huntEnergyChoice: { kind: 'gameChoice', text: 'Real worms don\'t have an energy bar. It\'s just for the game.' },
+  // V4 revision 4 (Matt, 2026-10-24): the robin digs for a worm in the top two layers (src/predators/huntPose.ts digPose).
+  huntDigChoice: {
+    kind: 'gameChoice',
+    text: 'Real robins mostly flick leaves aside with their bills and pull worms that are near the surface. The game\'s robin also scratches with its feet and digs down a little to reach a worm.',
+  },
   // What happens when the robin wins (V4 spec 3; src/predators/huntGame.ts).
   huntBroke: {
     kind: 'fact',
@@ -109,10 +114,12 @@ export const TEXT = {
   nestLabel: { kind: 'ui', text: 'Nest scene' },
   nestWings: { kind: 'ui', text: '[Wings flap]' },
   nestCheep: { kind: 'ui', text: '[The baby robins cheep]' },
-  nestTitle: { kind: 'ui', text: 'Food for the nest' },
-  nestFact: {
+  // The end card after the nest scene (Matt, revision 4: his words, first word capitalised).
+  nestEatenTitle: { kind: 'ui', text: 'You have been eaten.' },
+  // The Cornell nest cam: robins bring earthworms to their nestlings to feed them.
+  nestEatenLine: {
     kind: 'fact',
-    text: 'Robins feed earthworms to their babies.',
+    text: "Your nutrients will help the Robin's nestling chicks grow into strong predators.",
     source: 'cornell-robin-nestcam',
     verified: true,
   },
@@ -123,7 +130,7 @@ export const TEXT = {
   nestWiggledFree: { kind: 'ui', text: 'You wiggled free!' },
   nestWiggleChoice: { kind: 'gameChoice', text: 'A worm a bird is carrying rarely gets away like this. The chance to wiggle free is just for the game.' },
   nestSource: { kind: 'ui', text: 'Source:' },
-  nestContinue: { kind: 'ui', text: 'Keep going' },
+  nestTryAgain: { kind: 'ui', text: 'Try Again' },
   // The game menu (src/ui/gameMenu.ts; Matt, 2026-10-23): one tab, an icon column, a small card.
   menuOpen: { kind: 'ui', text: 'Open the menu' },
   menuClose: { kind: 'ui', text: 'Close the menu' },
