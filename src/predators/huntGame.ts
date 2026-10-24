@@ -54,7 +54,7 @@ export class HuntGame {
   private readonly hud: HuntHud;
   private readonly shadow: HuntShadow;
   // Number fields start as fractions: a field that first held a whole number had V8 box every fraction written later.
-  private readonly input: HuntInput = { catchable: false, under: false, hx: 0.5, hz: 0.5, heading: 0.5 };
+  private readonly input: HuntInput = { catchable: false, wait: false, under: false, hx: 0.5, hz: 0.5, heading: 0.5, ax: 0.5, az: 0.5 };
   private readonly worm: HeldWorm;
   private last: HuntPhase = 'away';
   private lastT = 0;
@@ -125,7 +125,7 @@ export class HuntGame {
     const g = this.game;
     const w = this.input;
     this.wobble.step(dt);
-    readWorm(g, h, w);
+    readWorm(g, w);
     const ev = stepHunt(h, dt, w, this.rand);
     if (ev === 'warn') this.warned();
     else if (ev === 'grab') this.grabbed();
@@ -150,12 +150,13 @@ export class HuntGame {
     g.robinU = g.mode.mode !== 'surface' && g.slab && robinShown(h) && (h.under || this.held) ? slabU(g.slab, h.x, h.z) : NaN;
     if (end) this.finish(end, action);
     // The worm's head in the bill, the rest down its hole; after, sliding back down it.
-    else if (h.phase === 'grab') this.worm.follow(dt);
+    else if (h.phase === 'grab') this.worm.follow(dt, this.grab.pulledUp, this.grab.look);
+    else if (h.phase === 'dig') this.worm.dig(h);
     if (this.worm.sliding) this.worm.slide(dt);
     // The surface strike dims toward the cut; the cut clears.
     g.cutDip = h.phase === 'strike' && !w.under ? STRIKE_DIM * ease(h.t / HUNT.strike) : Math.max(0, g.cutDip - dt / CUT_CLEAR_S);
     this.hud.grip(h.phase === 'grab' ? r : null);
-    this.hud.warn(h.phase === 'arrive' || h.phase === 'stare' || h.phase === 'dash' || h.phase === 'strike', w.under);
+    this.hud.warn(h.phase === 'arrive' || h.phase === 'stare' || h.phase === 'dash' || h.phase === 'strike' || h.phase === 'dig', w.under);
     lookUp(this.crawl, h, this.robin.pose, dt, g.mode.mode === 'surface');
     if (this.shiverT < SHIVER_S) {
       // The wingbeats' puffs: the loose leaves by the worm hop and turn.
@@ -218,7 +219,7 @@ export class HuntGame {
 
   /** The robin has the worm: into the side view (from the surface, a cut that clears), the grip from its lead-in. No note over it. */
   private grabbed(): void {
-    this.grab.start();
+    this.grab.start(this.game.mode.mode !== 'surface');
     if (this.worm.grab(this.hunt, this.grab.look)) this.game.cutDip = 1;
     this.hud.note(null);
     this.noteLeft = 0;

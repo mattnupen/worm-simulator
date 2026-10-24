@@ -45,3 +45,4 @@
 - The grip's energy bar and the robin's pull-and-regrip turns (src/predators/grip.ts).
 - Wiggling free from a robin in flight (`nestWiggleChoice`, src/content/text.ts).
 - Coming up only where the whole body can lie on open ground (`comeUpChoice`, src/content/text.ts).
+- The robin scratches the leaf litter with its feet and digs down a little to reach a worm in the top two layers (`huntDigChoice`, src/content/text.ts; spec revision 4).

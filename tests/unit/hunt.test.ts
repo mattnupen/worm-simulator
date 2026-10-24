@@ -16,7 +16,7 @@ function run(s: HuntState, w: HuntInput, seconds: number, until?: HuntEvent): Hu
   return seen;
 }
 
-const worm = (over: Partial<HuntInput> = {}): HuntInput => ({ catchable: true, under: false, hx: 0, hz: 0, heading: 0, ...over });
+const worm = (over: Partial<HuntInput> = {}): HuntInput => ({ catchable: true, wait: false, under: false, hx: 0, hz: 0, heading: 0, ax: 0, az: 0, ...over });
 
 describe('robin hunt', () => {
   it('waits only while the worm is on the surface, then warns and lands about a metre off, in front', () => {
@@ -46,7 +46,7 @@ describe('robin hunt', () => {
     expect(t).toBeGreaterThan(6);
   });
 
-  it('misses a worm that digs down before the strike lands, then leaves and comes back later', () => {
+  it('misses a worm that gets out of reach for good (below the escape layer), then leaves and comes back later', () => {
     const s = createHunt(half);
     robinIn(s, 0);
     run(s, worm(), 3);
@@ -153,3 +153,81 @@ describe('the robin hunts a worm underground along the cut (revision 1)', () => 
     expect(s.wait).toBeLessThan(wait - 4.9);
   });
 });
+
+describe('revision 4: the robin keeps after the worm (Matt, 2026-10-24)', () => {
+  /** The crawl's top speed (world units a second: drive.ts LOCOMOTION). */
+  const CRAWL = 1.6;
+
+  it('catches a worm crawling straight away from it at full speed', () => {
+    const s = createHunt(half);
+    robinIn(s, 0);
+    const w = worm();
+    let t = 0;
+    for (; t < 30 && s.phase !== 'grab'; t += DT) {
+      // Away from where the robin lands (it lands in front: +z), at the crawl's top speed.
+      if (s.phase !== 'away' && s.phase !== 'arrive') w.hz -= CRAWL * DT;
+      stepHunt(s, DT, w, half);
+    }
+    expect(s.phase).toBe('grab');
+    expect(t).toBeLessThan(12);
+    // It got there by running, never faster than its run.
+    expect(HUNT.runSpeed).toBeLessThan(100);
+  });
+
+  it('a still worm still gets the full stares (time to dig)', () => {
+    const s = createHunt(half);
+    robinIn(s, 0);
+    let t = 0;
+    for (; t < 30 && s.phase !== 'strike'; t += DT) stepHunt(s, DT, worm(), half);
+    expect(t).toBeGreaterThan(6);
+  });
+
+  it('waits where it stands while the worm digs down, then walks over (never jumps) and digs for it', () => {
+    const s = createHunt(half);
+    robinIn(s, 0);
+    run(s, worm(), 4);
+    expect(['stare', 'dash']).toContain(s.phase);
+    // Digging down at the head: out of reach for now.
+    let px = s.x, pz = s.z;
+    const step = (w: HuntInput, seconds: number): HuntEvent[] => {
+      const seen: HuntEvent[] = [];
+      for (let t = 0; t < seconds; t += DT) {
+        const e = stepHunt(s, DT, w, half);
+        if (e !== 'none') seen.push(e);
+        // Never more than a run's step at a time.
+        expect(Math.hypot(s.x - px, s.z - pz) / UNITS_PER_CM).toBeLessThan(HUNT.runSpeed * DT * 1.05);
+        px = s.x; pz = s.z;
+        if (e === 'grab') break;
+      }
+      return seen;
+    };
+    expect(step(worm({ catchable: false, wait: true }), 2.5)).toEqual([]);
+    expect(s.phase).not.toBe('miss');
+    // Underground in the old leaves: the cut runs along x, its line 0.75 behind the head (z = -0.75).
+    const under = worm({ under: true, hz: -0.75, ax: 1, az: 0 });
+    const seen = step(under, 20);
+    expect(seen).toEqual(['grab']);
+    expect(s.under).toBe(true);
+    // It ends on the cut's line, its reach off the spot.
+    expect(s.z).toBeCloseTo(-0.75, 5);
+    expect(Math.abs(s.x) / UNITS_PER_CM).toBeCloseTo(HUNT.reachCm, 1);
+  });
+
+  it('scratches and probes before the grab underground; a worm that digs deeper then gets away', () => {
+    const s = createHunt(half);
+    robinIn(s, 0);
+    const w = worm({ under: true, heading: Math.PI / 2, ax: 1, az: 0 });
+    for (let t = 0; t < 30 && s.phase !== 'dig'; t += DT) stepHunt(s, DT, w, half);
+    expect(s.phase).toBe('dig');
+    expect(run(s, w, HUNT.scratch)).toEqual([]);
+    // Below the escape layer: away for good.
+    expect(run(s, worm({ under: true, catchable: false }), 0.1)).toEqual(['miss']);
+    expect(s.struck).toBe(true);
+  });
+
+  it('the escape depth is the one entry in the table: below the top two layers', async () => {
+    const { B_H } = await import('../../src/underground/slab');
+    expect(HUNT.escapeLayer).toBe(B_H);
+  });
+});
+
