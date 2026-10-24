@@ -25,10 +25,12 @@ export interface LayerLabels {
   update(camera: Camera, s: Slab | null, show: boolean, width: number, height: number, headU?: number): void;
 }
 
-/** The controls the names keep clear of (hud.css), read from the page. */
-const CONTROLS = ['.joystick', '.action-prompt'] as const;
+/** The controls the names keep clear of (hud.css), and the hint card (hintCard.css), read from the page. */
+const CONTROLS = ['.joystick', '.action-prompt', '.panel[data-card="hint"]'] as const;
 /** The controls are read again this often (frames): the Action prompt's word changes its width. */
 const RECHECK = 60;
+/** The first this many (the joystick, the Action prompt) keep their place while hidden; the hint card goes for good. */
+const STICKY = 2;
 /** The list's name for screen readers (TEXT.layerListLabel, once content/text.ts has it). */
 const LIST_LABEL: Line | undefined = (TEXT as Readonly<Record<string, Line | undefined>>)['layerListLabel'];
 
@@ -130,8 +132,10 @@ export function createLayerLabels(root: HTMLElement): LayerLabels {
     for (let i = 0; i < CONTROLS.length; i++) {
       const el = root.querySelector(CONTROLS[i]);
       const r = el?.getBoundingClientRect();
-      if (r && r.width > 0 && r.height > 0) {
+      if (r && r.width > 0 && r.height > 0 && el!.checkVisibility?.({ visibilityProperty: true }) !== false) {
         seen[i * 4] = r.left; seen[i * 4 + 1] = r.top; seen[i * 4 + 2] = r.right; seen[i * 4 + 3] = r.bottom;
+      } else if (i >= STICKY) {
+        seen.fill(0, i * 4, i * 4 + 4);
       }
       if (seen[i * 4 + 2] > seen[i * 4]) {
         for (let j = 0; j < 4; j++) frame.rects[n * 4 + j] = seen[i * 4 + j];
