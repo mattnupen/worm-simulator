@@ -39,6 +39,8 @@
 .menu-row .btn:hover { background: var(--tint); }
 .vote-note { margin-top: 10px !important; }
 .panel[data-state="start"] { width: min(34rem, calc(100vw - 32px)); }
+/* A tall Start card on a phone stops below the game menu's tab (top-left, 16 + 48 px). */
+.panel[data-state="start"] { max-height: calc(100dvh - var(--edge-y) - 76px); }
 .panel[data-state="vote"] {
   left: var(--edge); bottom: var(--edge-y); width: min(32rem, calc(100vw - 32px));
   max-height: calc(100dvh - var(--edge-y) - 16px);
